@@ -1,0 +1,115 @@
+{
+  "schemaVersion": "1.0",
+  "pageId": "page_noor_001",
+  "slug": "noor",
+  "languages": [
+    "fr"
+  ],
+  "defaultLanguage": "fr",
+  "templateFamily": "blessed-arrival",
+  "templateVersion": "1.0.0",
+  "rendererVersion": "1.0.0",
+  "pageRevision": "r1",
+  "featureFlags": [],
+  "sectionOrder": [
+    "intro",
+    "dua",
+    "meaning",
+    "reveal",
+    "verses",
+    "closing"
+  ],
+  "identity": {
+    "nameLatin": "Noor",
+    "nameArabic": "نور",
+    "gender": "girl",
+    "childLabel": {
+      "fr": "notre fille"
+    }
+  },
+  "seo": {
+    "title": "Naissance Lumineuse | Noor",
+    "description": "Une annonce de naissance française et lumineuse pour Noor.",
+    "ogImageMode": "static"
+  },
+  "sections": {
+    "intro": {
+      "fr": {
+        "displayLines": [
+          "Une présence douce est entrée dans nos vies.",
+          "Avec elle, une lumière simple et paisible."
+        ],
+        "narrationText": "Une présence douce est entrée dans nos vies. Avec elle, une lumière simple et paisible."
+      }
+    },
+    "dua": {
+      "fr": {
+        "displayLines": [
+          "Nous lui souhaitons une route lumineuse,",
+          "faite de paix, de bonté et d’émerveillement."
+        ],
+        "narrationText": "Nous lui souhaitons une route lumineuse, faite de paix, de bonté et d’émerveillement."
+      }
+    },
+    "meaning": {
+      "fr": {
+        "displayLines": [
+          "Noor évoque la lumière,",
+          "celle qui rassure, qui éclaire et qui apaise."
+        ],
+        "narrationText": "Noor évoque la lumière, celle qui rassure, qui éclaire et qui apaise."
+      }
+    },
+    "reveal": {
+      "fr": {
+        "introLines": [
+          "Avec gratitude,",
+          "nous vous présentons…"
+        ],
+        "name": "NOOR",
+        "narrationText": "Avec gratitude, nous vous présentons Noor."
+      }
+    },
+    "verses": {
+      "fr": {
+        "introLine": "Échos proposés :",
+        "items": [
+          {
+            "quote": "Lumière, douceur et sérénité.",
+            "reference": "Référence générale",
+            "sourceKey": "general-noor-fr"
+          }
+        ],
+        "narrationText": "Lumière, douceur et sérénité."
+      }
+    },
+    "closing": {
+      "fr": {
+        "displayLines": [
+          "Que ses jours soient paisibles,",
+          "et que sa lumière rejoigne tous ceux qu’elle aime."
+        ],
+        "narrationText": "Que ses jours soient paisibles, et que sa lumière rejoigne tous ceux qu’elle aime."
+      }
+    }
+  },
+  "audioPlan": {
+    "provider": "openai",
+    "model": "gpt-4o-mini-tts",
+    "voiceByLanguage": {
+      "fr": "alloy"
+    },
+    "instructionsByLanguage": {
+      "fr": "Soft, luminous, gentle, and warm."
+    }
+  },
+  "review": {
+    "status": "approved",
+    "reviewedBy": "operator@example.com",
+    "reviewedAt": "2026-03-08T13:15:00Z"
+  },
+  "provenance": {
+    "sourceRequestId": "req_noor_001",
+    "customerEmail": "family.noor@example.com"
+  }
+}

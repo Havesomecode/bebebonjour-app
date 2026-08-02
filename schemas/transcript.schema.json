@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://bebebonjour.local/schemas/transcript.schema.json",
+  "type": "object",
+  "required": [
+    "version",
+    "tracks"
+  ],
+  "properties": {
+    "version": {
+      "const": 1
+    },
+    "tracks": {
+      "type": "object"
+    }
+  }
+}

@@ -1,0 +1,104 @@
+{
+  "eventId": "evt_tally_001",
+  "eventType": "FORM_RESPONSE",
+  "createdAt": "2026-08-02T12:30:00.000Z",
+  "data": {
+    "responseId": "submission_001",
+    "submissionId": "submission_001",
+    "respondentId": "respondent_001",
+    "formId": "form_test_001",
+    "formName": "🐣 Dites nous tout",
+    "createdAt": "2026-08-02T12:29:59.000Z",
+    "fields": [
+      {
+        "key": "question_email",
+        "label": "Adresse mail",
+        "type": "INPUT_EMAIL",
+        "value": "parent@example.com"
+      },
+      {
+        "key": "question_languages",
+        "label": "Langue",
+        "type": "CHECKBOXES",
+        "value": ["option_fr", "option_ar"],
+        "options": [
+          {"id": "option_fr", "text": "Français"},
+          {"id": "option_ar", "text": "Arabe"}
+        ]
+      },
+      {
+        "key": "question_voice",
+        "label": "Voix",
+        "type": "MULTIPLE_CHOICE",
+        "value": ["option_voice_female"],
+        "options": [
+          {"id": "option_voice_male", "text": "Homme"},
+          {"id": "option_voice_female", "text": "Femme"}
+        ]
+      },
+      {
+        "key": "question_first_name",
+        "label": "Prénom",
+        "type": "INPUT_TEXT",
+        "value": "Amal"
+      },
+      {
+        "key": "question_arabic_name",
+        "label": "Prénom en arabe",
+        "type": "INPUT_TEXT",
+        "value": "أمل"
+      },
+      {
+        "key": "question_baby_gender",
+        "label": "Genre du bébé",
+        "type": "MULTIPLE_CHOICE",
+        "value": ["option_baby_girl"],
+        "options": [
+          {"id": "option_baby_girl", "text": "Fille"},
+          {"id": "option_baby_boy", "text": "Garçon"},
+          {"id": "option_baby_neutral", "text": "Neutre"}
+        ]
+      },
+      {
+        "key": "question_context",
+        "label": "Contexte",
+        "type": "MULTIPLE_CHOICE",
+        "value": ["option_context_islam"],
+        "options": [
+          {"id": "option_context_general", "text": "Général"},
+          {"id": "option_context_islam", "text": "Islam"}
+        ]
+      },
+      {
+        "key": "question_extra_request",
+        "label": "Demande particulière",
+        "type": "TEXTAREA",
+        "value": "Une annonce douce et spirituelle."
+      },
+      {
+        "key": "question_payment_price",
+        "label": "Payment (price)",
+        "type": "PAYMENT",
+        "value": 39
+      },
+      {
+        "key": "question_payment_currency",
+        "label": "Payment (currency)",
+        "type": "PAYMENT",
+        "value": "EUR"
+      },
+      {
+        "key": "question_payment_email",
+        "label": "Payment (email)",
+        "type": "PAYMENT",
+        "value": "parent@example.com"
+      },
+      {
+        "key": "question_payment_link",
+        "label": "Payment (link)",
+        "type": "PAYMENT",
+        "value": "https://dashboard.stripe.com/payments/pi_test_001"
+      }
+    ]
+  }
+}

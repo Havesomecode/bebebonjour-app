@@ -1,0 +1,144 @@
+{
+  "names": {
+    "bayane": {
+      "religious": {
+        "islam": [
+          {
+            "id": "religious-bayane",
+            "label": "Bayane with Quranic references",
+            "basis": "religious:islam",
+            "confidence": "high",
+            "description": "Annonce de naissance - une narration poétique en arabe et en français.",
+            "meaning": {
+              "ar": "الوضوح والبيان والتعبير الجلي",
+              "fr": "la clarté, l'expression limpide et la mise en lumière du sens"
+            },
+            "verses": {
+              "ar": [
+                {
+                  "quote": "عَلَّمَهُ الْبَيَانَ",
+                  "reference": "الرحمن: ٤",
+                  "sourceKey": "quran-55-4"
+                },
+                {
+                  "quote": "هَٰذَا بَيَانٌ لِلنَّاسِ وَهُدًى وَمَوْعِظَةٌ لِّلْمُتَّقِينَ",
+                  "reference": "آل عمران: ١٣٨",
+                  "sourceKey": "quran-3-138"
+                },
+                {
+                  "quote": "ثُمَّ إِنَّ عَلَيْنَا بَيَانَهُ",
+                  "reference": "القيامة: ١٩",
+                  "sourceKey": "quran-75-19"
+                }
+              ],
+              "fr": [
+                {
+                  "quote": "Il lui a enseigné l’expression claire.",
+                  "reference": "Sourate Ar-Rahman, 55:4",
+                  "sourceArabic": "عَلَّمَهُ الْبَيَانَ",
+                  "sourceKey": "quran-55-4"
+                },
+                {
+                  "quote": "Ceci est un exposé clair pour les gens, une guidée et une exhortation pour les pieux.",
+                  "reference": "Sourate Al-Imran, 3:138",
+                  "sourceArabic": "هَٰذَا بَيَانٌ لِلنَّاسِ",
+                  "sourceKey": "quran-3-138"
+                },
+                {
+                  "quote": "Ensuite, c’est à Nous qu’il appartient d’en exposer le sens.",
+                  "reference": "Sourate Al-Qiyamah, 75:19",
+                  "sourceArabic": "بَيَانَهُ",
+                  "sourceKey": "quran-75-19"
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "general": [
+        {
+          "id": "general-bayane",
+          "label": "Bayane with clarity-focused wishes",
+          "basis": "general",
+          "confidence": "medium",
+          "meaning": {
+            "ar": "الوضوح والبيان",
+            "fr": "la clarté et la justesse de l’expression"
+          },
+          "verses": {
+            "ar": [],
+            "fr": []
+          }
+        }
+      ]
+    },
+    "amal": {
+      "general": [
+        {
+          "id": "general-amal",
+          "label": "Amal with hope and tenderness",
+          "basis": "general",
+          "confidence": "high",
+          "meaning": {
+            "ar": "الأمل والرجاء",
+            "fr": "l'espérance et l'élan du cœur"
+          },
+          "verses": {
+            "ar": [],
+            "fr": []
+          }
+        }
+      ]
+    },
+    "noor": {
+      "general": [
+        {
+          "id": "general-noor",
+          "label": "Noor with light-centered wishes",
+          "basis": "general",
+          "confidence": "high",
+          "meaning": {
+            "ar": "النور والإشراق",
+            "fr": "la lumière et l'éclat"
+          },
+          "verses": {
+            "ar": [],
+            "fr": []
+          }
+        }
+      ]
+    }
+  },
+  "fallbacks": {
+    "religious": {
+      "islam": {
+        "id": "religious-generic-islam",
+        "label": "Generic Islamic birth announcement",
+        "basis": "religious:islam",
+        "confidence": "medium",
+        "meaning": {
+          "ar": "البركة والرحمة",
+          "fr": "la bénédiction et la miséricorde"
+        },
+        "verses": {
+          "ar": [],
+          "fr": []
+        }
+      }
+    },
+    "general": {
+      "id": "general-fallback",
+      "label": "Generic non-religious birth announcement",
+      "basis": "general",
+      "confidence": "low",
+      "meaning": {
+        "ar": "معنى جميل",
+        "fr": "une belle signification"
+      },
+      "verses": {
+        "ar": [],
+        "fr": []
+      }
+    }
+  }
+}

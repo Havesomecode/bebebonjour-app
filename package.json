@@ -1,0 +1,24 @@
+{
+  "name": "bebebonjour-app",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": "22.x"
+  },
+  "bin": {
+    "announce": "./bin/announce.mjs"
+  },
+  "scripts": {
+    "test": "node --test",
+    "test:integration": "RUN_DB_TESTS=1 node --test",
+    "verify": "npm test && npm run test:integration && npm audit --omit=dev",
+    "render:bayane": "node ./bin/announce.mjs render --input data/examples/bayane/page.json --output out/bayane",
+    "render:amal": "node ./bin/announce.mjs render --input data/examples/amal/page.json --output out/amal",
+    "compose:bayane": "node ./bin/announce.mjs compose --input data/examples/bayane/intake.json --output out/compose-bayane/page.json --select religious-bayane"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "2.111.0",
+    "stripe": "22.4.0"
+  }
+}

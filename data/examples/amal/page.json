@@ -1,0 +1,115 @@
+{
+  "schemaVersion": "1.0",
+  "pageId": "page_amal_001",
+  "slug": "amal",
+  "languages": [
+    "ar"
+  ],
+  "defaultLanguage": "ar",
+  "templateFamily": "blessed-arrival",
+  "templateVersion": "1.0.0",
+  "rendererVersion": "1.0.0",
+  "pageRevision": "r1",
+  "featureFlags": [],
+  "sectionOrder": [
+    "intro",
+    "meaning",
+    "dua",
+    "reveal",
+    "verses",
+    "closing"
+  ],
+  "identity": {
+    "nameLatin": "Amal",
+    "nameArabic": "أمل",
+    "gender": "girl",
+    "childLabel": {
+      "ar": "بابنتنا"
+    }
+  },
+  "seo": {
+    "title": "بشارة ميلاد | أمل",
+    "description": "صفحة تهنئة بسيطة وناعمة لاسم أمل.",
+    "ogImageMode": "static"
+  },
+  "sections": {
+    "intro": {
+      "ar": {
+        "displayLines": [
+          "استقبلنا ابنتنا الصغيرة بقلب ممتن.",
+          "وجاء اسمها يحمل معه لطف الرجاء."
+        ],
+        "narrationText": "استقبلنا ابنتنا الصغيرة بقلب ممتن. وجاء اسمها يحمل معه لطف الرجاء."
+      }
+    },
+    "dua": {
+      "ar": {
+        "displayLines": [
+          "نتمنى لها حياة هادئة ومضيئة،",
+          "وأيامًا مملوءة بالطمأنينة والفرح."
+        ],
+        "narrationText": "نتمنى لها حياة هادئة ومضيئة، وأيامًا مملوءة بالطمأنينة والفرح."
+      }
+    },
+    "meaning": {
+      "ar": {
+        "displayLines": [
+          "اخترنا اسم أمل لما يحمله من معنى الرجاء،",
+          "ولما يتركه في القلب من نور وسعة."
+        ],
+        "narrationText": "اخترنا اسم أمل لما يحمله من معنى الرجاء، ولما يتركه في القلب من نور وسعة."
+      }
+    },
+    "reveal": {
+      "ar": {
+        "introLines": [
+          "بكل حب",
+          "نعلن اسم ابنتنا…"
+        ],
+        "name": "أمل",
+        "narrationText": "بكل حب نعلن اسم ابنتنا أمل."
+      }
+    },
+    "verses": {
+      "ar": {
+        "introLine": "معانٍ نتفاءل بها:",
+        "items": [
+          {
+            "quote": "رجاء، سكينة، نور",
+            "reference": "دلالة عامة",
+            "sourceKey": "general-amal-ar"
+          }
+        ],
+        "narrationText": "رجاء، سكينة، نور."
+      }
+    },
+    "closing": {
+      "ar": {
+        "displayLines": [
+          "كبرت في قلوبنا قبل أن تكبر في الأيام،",
+          "ونسأل لها مستقبلًا منيرًا."
+        ],
+        "narrationText": "كبرت في قلوبنا قبل أن تكبر في الأيام، ونسأل لها مستقبلًا منيرًا."
+      }
+    }
+  },
+  "audioPlan": {
+    "provider": "openai",
+    "model": "gpt-4o-mini-tts",
+    "voiceByLanguage": {
+      "ar": "alloy"
+    },
+    "instructionsByLanguage": {
+      "ar": "Soft, gentle, contemplative, and warm."
+    }
+  },
+  "review": {
+    "status": "approved",
+    "reviewedBy": "operator@example.com",
+    "reviewedAt": "2026-03-08T12:15:00Z"
+  },
+  "provenance": {
+    "sourceRequestId": "req_amal_001",
+    "customerEmail": "family.amal@example.com"
+  }
+}

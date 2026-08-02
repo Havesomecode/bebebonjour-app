@@ -1,0 +1,42 @@
+{
+  "schemaVersion": "1.0",
+  "jobId": "job_amal",
+  "pageId": "page_amal_001",
+  "slug": "amal",
+  "status": "created",
+  "templateFamily": "blessed-arrival",
+  "templateVersion": "1.0.0",
+  "rendererVersion": "1.0.0",
+  "currentPreparedRevision": "r1",
+  "currentLiveRevision": null,
+  "paths": {
+    "sourcePage": "data/examples/amal/page.json",
+    "currentPage": "out/amal/artifacts/current/page.json",
+    "currentTranscript": "out/amal/artifacts/current/transcript.json",
+    "deployRoot": "out/amal/deploy"
+  },
+  "customer": {
+    "email": "family.amal@example.com",
+    "nameLatin": "Amal",
+    "nameArabic": "أمل",
+    "languages": [
+      "ar"
+    ]
+  },
+  "review": {
+    "status": "approved",
+    "reviewedBy": "operator@example.com",
+    "reviewedAt": "2026-03-08T12:15:00Z"
+  },
+  "deploy": null,
+  "email": {
+    "status": "pending"
+  },
+  "revisionHistory": [
+    {
+      "revision": "r1",
+      "renderedAt": "2026-03-08T12:20:00Z",
+      "buildId": "blessed-arrival-1-0-0-r1"
+    }
+  ]
+}

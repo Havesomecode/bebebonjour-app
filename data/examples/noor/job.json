@@ -1,0 +1,42 @@
+{
+  "schemaVersion": "1.0",
+  "jobId": "job_noor",
+  "pageId": "page_noor_001",
+  "slug": "noor",
+  "status": "created",
+  "templateFamily": "blessed-arrival",
+  "templateVersion": "1.0.0",
+  "rendererVersion": "1.0.0",
+  "currentPreparedRevision": "r1",
+  "currentLiveRevision": null,
+  "paths": {
+    "sourcePage": "data/examples/noor/page.json",
+    "currentPage": "out/noor/artifacts/current/page.json",
+    "currentTranscript": "out/noor/artifacts/current/transcript.json",
+    "deployRoot": "out/noor/deploy"
+  },
+  "customer": {
+    "email": "family.noor@example.com",
+    "nameLatin": "Noor",
+    "nameArabic": "نور",
+    "languages": [
+      "fr"
+    ]
+  },
+  "review": {
+    "status": "approved",
+    "reviewedBy": "operator@example.com",
+    "reviewedAt": "2026-03-08T13:15:00Z"
+  },
+  "deploy": null,
+  "email": {
+    "status": "pending"
+  },
+  "revisionHistory": [
+    {
+      "revision": "r1",
+      "renderedAt": "2026-03-08T13:20:00Z",
+      "buildId": "blessed-arrival-1-0-0-r1"
+    }
+  ]
+}

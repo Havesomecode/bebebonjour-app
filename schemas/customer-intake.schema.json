@@ -1,0 +1,90 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://bebebonjour.local/schemas/customer-intake.schema.json",
+  "type": "object",
+  "required": [
+    "schemaVersion",
+    "requestId",
+    "submittedAt",
+    "customer",
+    "baby",
+    "languages",
+    "voicePreference"
+  ],
+  "additionalProperties": true,
+  "properties": {
+    "schemaVersion": {
+      "const": "1.0"
+    },
+    "requestId": {
+      "type": "string",
+      "minLength": 1
+    },
+    "submittedAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "customer": {
+      "type": "object",
+      "required": [
+        "email"
+      ],
+      "properties": {
+        "email": {
+          "type": "string",
+          "minLength": 3
+        }
+      }
+    },
+    "baby": {
+      "type": "object",
+      "required": [
+        "firstName",
+        "gender"
+      ],
+      "properties": {
+        "firstName": {
+          "type": "string",
+          "minLength": 1
+        },
+        "nameArabic": {
+          "type": "string"
+        },
+        "gender": {
+          "enum": [
+            "girl",
+            "boy",
+            "neutral"
+          ]
+        }
+      }
+    },
+    "languages": {
+      "type": "array",
+      "items": {
+        "enum": [
+          "ar",
+          "fr"
+        ]
+      },
+      "uniqueItems": true,
+      "minItems": 1,
+      "maxItems": 2
+    },
+    "voicePreference": {
+      "type": "object",
+      "required": [
+        "gender"
+      ],
+      "properties": {
+        "gender": {
+          "enum": [
+            "male",
+            "female",
+            "neutral"
+          ]
+        }
+      }
+    }
+  }
+}

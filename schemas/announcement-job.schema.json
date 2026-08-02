@@ -1,0 +1,58 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://bebebonjour.local/schemas/announcement-job.schema.json",
+  "type": "object",
+  "required": [
+    "schemaVersion",
+    "jobId",
+    "pageId",
+    "slug",
+    "status",
+    "templateFamily",
+    "templateVersion",
+    "rendererVersion",
+    "currentLiveRevision"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "const": "1.0"
+    },
+    "jobId": {
+      "type": "string"
+    },
+    "pageId": {
+      "type": "string"
+    },
+    "slug": {
+      "type": "string",
+      "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+    },
+    "status": {
+      "type": "string"
+    },
+    "templateFamily": {
+      "type": "string"
+    },
+    "templateVersion": {
+      "type": "string"
+    },
+    "rendererVersion": {
+      "type": "string"
+    },
+    "currentLiveRevision": {
+      "oneOf": [
+        {
+          "type": "string",
+          "pattern": "^r[0-9]+$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "currentPreparedRevision": {
+      "type": "string",
+      "pattern": "^r[0-9]+$"
+    }
+  }
+}

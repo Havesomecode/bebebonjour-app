@@ -1,0 +1,9 @@
+.env.local
+.vercel/
+out/
+node_modules/
+.DS_Store
+.vercel
+.env*
+!.env.example
+supabase/.temp/

@@ -1,0 +1,211 @@
+{
+  "schemaVersion": "1.0",
+  "pageId": "page_bayane_001",
+  "slug": "bayane",
+  "languages": [
+    "ar",
+    "fr"
+  ],
+  "defaultLanguage": "ar",
+  "templateFamily": "blessed-arrival",
+  "templateVersion": "1.0.0",
+  "rendererVersion": "1.0.0",
+  "pageRevision": "r1",
+  "featureFlags": [],
+  "sectionOrder": [
+    "intro",
+    "dua",
+    "meaning",
+    "reveal",
+    "verses",
+    "closing"
+  ],
+  "identity": {
+    "nameLatin": "Bayane",
+    "nameArabic": "بَيَان",
+    "gender": "girl",
+    "childLabel": {
+      "ar": "بابنتنا",
+      "fr": "notre fille"
+    }
+  },
+  "seo": {
+    "title": "Une Naissance Bénie | Bayane",
+    "description": "Par la grâce de Dieu, nous avons accueilli notre fille.",
+    "ogImageMode": "static"
+  },
+  "sections": {
+    "intro": {
+      "ar": {
+        "displayLines": [
+          "بِسْمِ اللهِ الرَّحْمٰنِ الرَّحِيمِ.",
+          "الحمد لله الذي بنعمته تتمّ الصالحات،",
+          "وبفضله تمتلئ القلوب رحمةً ونورًا.",
+          "رزقنا الله هديةً صغيرة،",
+          "جاءت تحمل معها السكينة والبِشرى."
+        ],
+        "narrationText": "بِسْمِ اللهِ الرَّحْمٰنِ الرَّحِيمِ. الحمد لله الذي بنعمته تتمّ الصالحات، وبفضله تمتلئ القلوب رحمةً ونورًا. رزقنا الله هديةً صغيرة، جاءت تحمل معها السكينة والبِشرى."
+      },
+      "fr": {
+        "displayLines": [
+          "Au nom d’Allah, le Tout Miséricordieux, le Très Miséricordieux.",
+          "Louange à Dieu par qui les bienfaits s’accomplissent,",
+          "Par Sa grâce les cœurs se remplissent de lumière et de miséricorde.",
+          "Il nous a accordé un précieux cadeau,",
+          "Une petite âme venue avec paix et douceur."
+        ],
+        "narrationText": "Au nom d’Allah, le Tout Miséricordieux, le Très Miséricordieux. Louange à Dieu par qui les bienfaits s’accomplissent, par Sa grâce les cœurs se remplissent de lumière et de miséricorde. Il nous a accordé un précieux cadeau, une petite âme venue avec paix et douceur."
+      }
+    },
+    "dua": {
+      "ar": {
+        "displayLines": [
+          "نسأل الله أن يجعلها قُرّة عينٍ لنا،",
+          "وأن يُنبتها نباتًا حسنًا،",
+          "وأن يرزقها الحكمة والوضوح في القول والعمل،",
+          "وأن يجعل حياتها نورًا لمن حولها."
+        ],
+        "narrationText": "نسأل الله أن يجعلها قُرّة عينٍ لنا، وأن يُنبتها نباتًا حسنًا، وأن يرزقها الحكمة والوضوح في القول والعمل، وأن يجعل حياتها نورًا لمن حولها."
+      },
+      "fr": {
+        "displayLines": [
+          "Nous demandons à Dieu d’en faire une source de joie pour nos yeux,",
+          "Qu’Il la fasse grandir d’une belle croissance,",
+          "Qu’Il lui accorde sagesse et clarté dans ses paroles et ses actes,",
+          "Et que sa vie soit une lumière pour ceux qui l’entourent."
+        ],
+        "narrationText": "Nous demandons à Dieu d’en faire une source de joie pour nos yeux, qu’Il la fasse grandir d’une belle croissance, qu’Il lui accorde sagesse et clarté dans ses paroles et ses actes, et que sa vie soit une lumière pour ceux qui l’entourent."
+      }
+    },
+    "meaning": {
+      "ar": {
+        "displayLines": [
+          "اخترنا لها اسمًا يحمل معنى الصفاء والوضوح.",
+          "اسمٌ يدلّ على الحقيقة حين تظهر،",
+          "وعلى الفصاحة في التعبير،",
+          "وعلى النور الذي يُبدّد الغموض.",
+          "",
+          "يحمل في طيّاته معنى النور والوضوح،",
+          "حين تتجلّى الحقيقة بلا غموض."
+        ],
+        "narrationText": "اخترنا لها اسمًا يحمل معنى الصفاء والوضوح. اسمٌ يدلّ على الحقيقة حين تظهر، وعلى الفصاحة في التعبير، وعلى النور الذي يُبدّد الغموض. يحمل في طيّاته معنى النور والوضوح، حين تتجلّى الحقيقة بلا غموض."
+      },
+      "fr": {
+        "displayLines": [
+          "Nous avons choisi pour elle un prénom porteur de clarté et de lumière.",
+          "Un nom qui évoque la vérité lorsqu’elle se manifeste,",
+          "L’éloquence dans l’expression,",
+          "Et la lumière qui dissipe l’obscurité.",
+          "",
+          "Il porte en lui la lumière de la compréhension",
+          "lorsque la vérité se manifeste sans voile."
+        ],
+        "narrationText": "Nous avons choisi pour elle un prénom porteur de clarté et de lumière. Un nom qui évoque la vérité lorsqu’elle se manifeste, l’éloquence dans l’expression, et la lumière qui dissipe l’obscurité. Il porte en lui la lumière de la compréhension lorsque la vérité se manifeste sans voile."
+      }
+    },
+    "reveal": {
+      "ar": {
+        "introLines": [
+          "بفضل الله ومنّته",
+          "رُزقنا بابنتنا…"
+        ],
+        "name": "بَيَان",
+        "narrationText": "بفضل الله ومنّته، رُزقنا بابنتنا بَيَان."
+      },
+      "fr": {
+        "introLines": [
+          "Par la grâce de Dieu,",
+          "Nous avons accueilli notre fille…"
+        ],
+        "name": "BAYANE",
+        "narrationText": "Par la grâce de Dieu, nous avons accueilli notre fille Bayane."
+      }
+    },
+    "verses": {
+      "ar": {
+        "introLine": "قال تعالى:",
+        "items": [
+          {
+            "quote": "عَلَّمَهُ الْبَيَانَ",
+            "reference": "الرحمن: ٤",
+            "sourceKey": "quran-55-4"
+          },
+          {
+            "quote": "هَٰذَا بَيَانٌ لِلنَّاسِ وَهُدًى وَمَوْعِظَةٌ لِّلْمُتَّقِينَ",
+            "reference": "آل عمران: ١٣٨",
+            "sourceKey": "quran-3-138"
+          },
+          {
+            "quote": "ثُمَّ إِنَّ عَلَيْنَا بَيَانَهُ",
+            "reference": "القيامة: ١٩",
+            "sourceKey": "quran-75-19"
+          }
+        ],
+        "narrationText": "قال تعالى: عَلَّمَهُ الْبَيَانَ. هَٰذَا بَيَانٌ لِلنَّاسِ وَهُدًى وَمَوْعِظَةٌ لِّلْمُتَّقِينَ. ثُمَّ إِنَّ عَلَيْنَا بَيَانَهُ."
+      },
+      "fr": {
+        "introLine": "Le mot « Bayān » apparaît dans ces versets :",
+        "items": [
+          {
+            "quote": "Il lui a enseigné l’expression claire.",
+            "reference": "Sourate Ar-Rahman, 55:4",
+            "sourceArabic": "عَلَّمَهُ الْبَيَانَ",
+            "sourceKey": "quran-55-4"
+          },
+          {
+            "quote": "Ceci est un exposé clair pour les gens, une guidée et une exhortation pour les pieux.",
+            "reference": "Sourate Al-Imran, 3:138",
+            "sourceArabic": "هَٰذَا بَيَانٌ لِلنَّاسِ",
+            "sourceKey": "quran-3-138"
+          },
+          {
+            "quote": "Ensuite, c’est à Nous qu’il appartient d’en exposer le sens.",
+            "reference": "Sourate Al-Qiyamah, 75:19",
+            "sourceArabic": "بَيَانَهُ",
+            "sourceKey": "quran-75-19"
+          }
+        ],
+        "narrationText": "Le mot Bayān apparaît dans ces versets : Il lui a enseigné l’expression claire. Ceci est un exposé clair pour les gens, une guidée et une exhortation pour les pieux. Ensuite, c’est à Nous qu’il appartient d’en exposer le sens."
+      }
+    },
+    "closing": {
+      "ar": {
+        "displayLines": [
+          "اللهم بارك فيها، واجعلها من الصالحات،",
+          "وأنبتها نباتًا حسنًا،",
+          "واجعل أيامها نورًا ورحمةً وسكينةً."
+        ],
+        "narrationText": "اللهم بارك فيها، واجعلها من الصالحات، وأنبتها نباتًا حسنًا، واجعل أيامها نورًا ورحمةً وسكينةً."
+      },
+      "fr": {
+        "displayLines": [
+          "Ô Dieu, bénis-la et fais d’elle une enfant vertueuse,",
+          "accorde-lui une belle croissance,",
+          "et fais de ses jours une lumière, une miséricorde et une paix intérieure."
+        ],
+        "narrationText": "Ô Dieu, bénis-la et fais d’elle une enfant vertueuse, accorde-lui une belle croissance, et fais de ses jours une lumière, une miséricorde et une paix intérieure."
+      }
+    }
+  },
+  "audioPlan": {
+    "provider": "openai",
+    "model": "gpt-4o-mini-tts",
+    "voiceByLanguage": {
+      "ar": "onyx",
+      "fr": "onyx"
+    },
+    "instructionsByLanguage": {
+      "ar": "Soft, spiritual, contemplative, and warm.",
+      "fr": "Soft, spiritual, contemplative, and warm."
+    }
+  },
+  "review": {
+    "status": "approved",
+    "reviewedBy": "operator@example.com",
+    "reviewedAt": "2026-03-08T11:00:00Z"
+  },
+  "provenance": {
+    "sourceRequestId": "req_bayane_001",
+    "customerEmail": "family.bayane@example.com"
+  }
+}

@@ -1,0 +1,18 @@
+{
+  "id": "evt_stripe_001",
+  "object": "event",
+  "type": "payment_intent.succeeded",
+  "created": 1785673800,
+  "data": {
+    "object": {
+      "id": "pi_test_001",
+      "object": "payment_intent",
+      "amount": 3900,
+      "amount_received": 3900,
+      "currency": "eur",
+      "status": "succeeded",
+      "receipt_email": "parent@example.com",
+      "metadata": {}
+    }
+  }
+}
