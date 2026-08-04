@@ -139,9 +139,10 @@ export function buildIdFromPage(page) {
   return slugify(`${family}-${templateVersion}-${pageRevision}`) || "build";
 }
 
-export function getRenderPaths(page, outputRoot) {
+export function getRenderPaths(page, outputRoot, options = {}) {
   const buildId = buildIdFromPage(page);
-  const deployRoot = path.join(outputRoot, "deploy");
+  const bundleDirectory = options.bundleDirectory || "deploy";
+  const deployRoot = path.join(outputRoot, bundleDirectory);
   const slugRoot = path.join(deployRoot, page.slug);
   const assetRoot = path.join(slugRoot, "_assets", buildId);
 

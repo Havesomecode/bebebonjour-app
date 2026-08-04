@@ -76,13 +76,30 @@ function sectionMarkup(sectionId, pageSection) {
   return renderTextSection(sectionId, pageSection);
 }
 
-export function renderHtml({ page, language, assetBasePath, transcriptUrl, ambientAudioUrl }) {
+export function renderHtml({
+  page,
+  language,
+  assetBasePath,
+  transcriptUrl,
+  ambientAudioUrl,
+  reviewMode = null,
+}) {
   const title = escapeHtml(page.seo.title);
   const description = escapeHtml(page.seo.description);
   const direction = language === "ar" ? "rtl" : "ltr";
   const sections = page.sectionOrder
     .map((sectionId) => sectionMarkup(sectionId, page.sections[sectionId]))
     .join("\n\n      ");
+  const externalFontMarkup = reviewMode === "private"
+    ? ""
+    : `    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Amiri:wght@400;700&family=Cormorant+Garamond:wght@400;500;600;700&family=Scheherazade+New:wght@400;700&display=swap"
+      rel="stylesheet"
+    />`;
+  const runtimeTranscriptUrl = reviewMode === "private" ? "" : transcriptUrl;
+  const runtimeAmbientAudioUrl = reviewMode === "private" ? "" : ambientAudioUrl || "";
 
   return `<!doctype html>
 <html lang="${language}" dir="${direction}" data-language="${language}">
@@ -96,12 +113,7 @@ export function renderHtml({ page, language, assetBasePath, transcriptUrl, ambie
     <meta property="og:type" content="website" />
     <meta property="og:image" content="${assetBasePath}/og-image.svg" />
     <meta name="theme-color" content="#f8efe8" />
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Amiri:wght@400;700&family=Cormorant+Garamond:wght@400;500;600;700&family=Scheherazade+New:wght@400;700&display=swap"
-      rel="stylesheet"
-    />
+${externalFontMarkup}
     <link rel="stylesheet" href="${assetBasePath}/styles.css" />
   </head>
   <body>
@@ -136,12 +148,13 @@ export function renderHtml({ page, language, assetBasePath, transcriptUrl, ambie
     <script>
       window.__ANNOUNCEMENT_CONFIG__ = {
         supportedLanguages: ${JSON.stringify(page.languages)},
-        transcriptUrl: ${JSON.stringify(transcriptUrl)},
+        transcriptUrl: ${JSON.stringify(runtimeTranscriptUrl)},
         assetBasePath: ${JSON.stringify(assetBasePath)},
-        ambientAudioUrl: ${JSON.stringify(ambientAudioUrl || "")}
+        reviewMode: ${JSON.stringify(reviewMode)},
+        ambientAudioUrl: ${JSON.stringify(runtimeAmbientAudioUrl)}
       };
     </script>
-    <script src="${assetBasePath}/app.js"></script>
+    <script type="module" src="${assetBasePath}/app.js"></script>
   </body>
 </html>
 `;

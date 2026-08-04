@@ -1,0 +1,130 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://bebebonjour.local/schemas/name-resolution-evidence.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "status",
+    "normalized",
+    "match",
+    "confidence",
+    "claimPolicy",
+    "reviewReasons",
+    "sourceKeys"
+  ],
+  "properties": {
+    "status": {
+      "enum": [
+        "resolved",
+        "fallback",
+        "review_required"
+      ]
+    },
+    "normalized": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "latin",
+        "arabic"
+      ],
+      "properties": {
+        "latin": {
+          "type": "string"
+        },
+        "arabic": {
+          "oneOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      }
+    },
+    "match": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "canonicalKey",
+        "candidates"
+      ],
+      "properties": {
+        "kind": {
+          "enum": [
+            "exact",
+            "alias",
+            "unknown",
+            "ambiguous",
+            "cross_script_conflict",
+            "invalid_orthography"
+          ]
+        },
+        "canonicalKey": {
+          "oneOf": [
+            {
+              "type": "string",
+              "minLength": 1
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "candidates": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "uniqueItems": true
+        }
+      }
+    },
+    "confidence": {
+      "enum": [
+        "high",
+        "medium",
+        "low"
+      ]
+    },
+    "claimPolicy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "meaningAllowed",
+        "scripturalNameAssociationAllowed",
+        "genericBlessingsAllowed"
+      ],
+      "properties": {
+        "meaningAllowed": {
+          "type": "boolean"
+        },
+        "scripturalNameAssociationAllowed": {
+          "type": "boolean"
+        },
+        "genericBlessingsAllowed": {
+          "type": "boolean"
+        }
+      }
+    },
+    "reviewReasons": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "uniqueItems": true
+    },
+    "sourceKeys": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "uniqueItems": true
+    }
+  }
+}

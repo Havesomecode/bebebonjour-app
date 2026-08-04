@@ -2,8 +2,10 @@
 
 import process from "node:process";
 import {
+  commandApproveReview,
   commandCompose,
   commandDeploy,
+  commandPrepareReview,
   commandRender,
   commandSend,
   commandStatus,
@@ -19,6 +21,12 @@ async function main() {
   switch (command) {
     case "compose":
       await commandCompose(args);
+      break;
+    case "prepare-review":
+      await commandPrepareReview(args);
+      break;
+    case "approve-review":
+      await commandApproveReview(args);
       break;
     case "render":
       await commandRender(args);
@@ -48,10 +56,13 @@ async function main() {
 function printHelp() {
   console.log(`Usage:
   announce compose --input <intake.json> --output <page.json> [--select <candidate-id>]
-  announce render --input <page.json> --output <dir> [--allow-draft]
+  announce prepare-review --input <intake.json> --output <dir> [--select <candidate-id>]
+  announce approve-review --review <review.json> --output <dir> --reviewer <id> [--acknowledge <reason,...>] [--demands <applied|not_applied>]
+  announce render --input <page.json> --approval <approval.json> --output <dir>
+  announce render --input <draft-page.json> --output <dir> --allow-draft
   announce tts --input <page.json> --output <dir> [--lang <ar|fr|all>] [--force]
   announce deploy --input <dir> [--job <job.json>] [--dry-run]
-  announce send --job <job.json> [--provider console]  # redacted preview only
+  announce send --job <job.json> [--provider console] [--dry-run]  # redacted preview only
   announce status --job <job.json> [--json]
 
 Credentials:

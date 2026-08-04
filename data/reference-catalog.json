@@ -1,6 +1,18 @@
 {
   "names": {
     "bayane": {
+      "canonical": {
+        "latin": "Bayane",
+        "arabic": "بيان"
+      },
+      "aliases": {
+        "latin": [
+          "Bayan",
+          "Bayān",
+          "Bayâne"
+        ],
+        "arabic": []
+      },
       "religious": {
         "islam": [
           {
@@ -73,6 +85,16 @@
       ]
     },
     "amal": {
+      "canonical": {
+        "latin": "Amal",
+        "arabic": "أمل"
+      },
+      "aliases": {
+        "latin": [
+          "Amel"
+        ],
+        "arabic": []
+      },
       "general": [
         {
           "id": "general-amal",
@@ -91,6 +113,16 @@
       ]
     },
     "noor": {
+      "canonical": {
+        "latin": "Noor",
+        "arabic": "نور"
+      },
+      "aliases": {
+        "latin": [
+          "Nour"
+        ],
+        "arabic": []
+      },
       "general": [
         {
           "id": "general-noor",

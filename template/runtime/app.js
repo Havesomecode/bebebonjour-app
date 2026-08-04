@@ -1,4 +1,10 @@
+import {
+  shouldLoadNarrationResources,
+  visiblePhraseTargetCount,
+} from "./phrase-progress.mjs";
+
 const runtimeConfig = window.__ANNOUNCEMENT_CONFIG__ || {};
+const privateReview = runtimeConfig.reviewMode === "private";
 
 const sections = Array.from(document.querySelectorAll(".story-section"));
 const revealItems = Array.from(document.querySelectorAll(".reveal"));
@@ -67,10 +73,12 @@ function readUrlState() {
   const url = new URL(window.location.href);
   return {
     language: parseLanguageFromPath(url.pathname) || "ar",
-    narration: parseToggleParam(
-      url.searchParams.get("narration") ?? url.searchParams.get("music"),
-      false,
-    ),
+    narration: privateReview
+      ? false
+      : parseToggleParam(
+        url.searchParams.get("narration") ?? url.searchParams.get("music"),
+        false,
+      ),
   };
 }
 
@@ -267,6 +275,7 @@ function autoScrollNarrationSection(sectionId, { force = false } = {}) {
 }
 
 function ensureAmbientSource() {
+  if (privateReview) return;
   const ambientSrc = runtimeConfig.ambientAudioUrl || "";
   if (!ambientSrc) return;
   if (!audio.src.endsWith(ambientSrc)) {
@@ -494,9 +503,14 @@ function preparePhraseTracks() {
     }
   }
 
+  const privateReview = runtimeConfig.reviewMode === "private";
   for (const track of state.phraseTracks.values()) {
-    for (const item of track.items) {
-      item.classList.remove("is-visible");
+    if (privateReview) {
+      revealTrackUpTo(track, track.items.length);
+    } else {
+      for (const item of track.items) {
+        item.classList.remove("is-visible");
+      }
     }
   }
 
@@ -548,17 +562,15 @@ function syncPhrasesToScrollSticky() {
     if (!track || !track.items.length) continue;
 
     const rect = section.getBoundingClientRect();
-    let targetCount = 0;
-
-    if (rect.bottom <= 0) {
-      targetCount = track.items.length;
-    } else if (rect.top < vh && rect.bottom > 0) {
-      const sectionStart = section.offsetTop;
-      const scrollSpan = Math.max(section.offsetHeight - vh, 1);
-      const progress = (scrollY - sectionStart) / scrollSpan;
-      const normalized = Math.max(0, Math.min(progress, 1));
-      targetCount = Math.ceil(normalized * track.items.length);
-    }
+    const targetCount = visiblePhraseTargetCount({
+      rectTop: rect.top,
+      rectBottom: rect.bottom,
+      scrollY,
+      viewportHeight: vh,
+      sectionStart: section.offsetTop,
+      sectionHeight: section.offsetHeight,
+      itemCount: track.items.length,
+    });
 
     revealTrackUpTo(track, targetCount);
   }
@@ -735,6 +747,14 @@ function updateCueFromTime(seconds) {
 }
 
 function updateNarrationButton() {
+  if (privateReview) {
+    state.narrationRequested = false;
+    state.narrationEnabled = false;
+    narrationToggle.hidden = true;
+    narrationToggle.disabled = true;
+    updateStartNarrationCta();
+    return;
+  }
   narrationToggle.classList.toggle("is-active", state.narrationRequested);
   if (!state.narrationRequested) {
     narrationToggle.textContent = "Narration Off";
@@ -748,7 +768,10 @@ function updateNarrationButton() {
 function updateStartNarrationCta() {
   if (!startNarrationCta) return;
   const shouldShow =
-    state.narrationRequested && !state.narrationEnabled && !narrationToggle.disabled;
+    !privateReview &&
+    state.narrationRequested &&
+    !state.narrationEnabled &&
+    !narrationToggle.disabled;
 
   startNarrationCta.classList.toggle("is-visible", shouldShow);
   startNarrationCta.setAttribute("aria-hidden", shouldShow ? "false" : "true");
@@ -757,7 +780,27 @@ function updateStartNarrationCta() {
 }
 
 async function setNarration(enabled, { syncHistory = true, mode = "replace" } = {}) {
+  if (privateReview) {
+    state.narrationRequested = false;
+    state.narrationEnabled = false;
+    state.currentNarrationTrack = null;
+    audio.pause();
+    audio.removeAttribute("src");
+    updateNarrationButton();
+    if (syncHistory) syncUrl(mode);
+    return;
+  }
   state.narrationRequested = Boolean(enabled);
+
+  if (
+    shouldLoadNarrationResources({
+      privateReview,
+      narrationRequested: state.narrationRequested,
+    }) &&
+    !state.narrationTimingsLoaded
+  ) {
+    await loadNarrationTimings();
+  }
 
   if (enabled) {
     try {
@@ -861,6 +904,8 @@ function setupControls() {
     setLanguage(alternateLanguage, { mode: "push" });
   });
 
+  if (privateReview) return;
+
   narrationToggle.addEventListener("click", async () => {
     await setNarration(!state.narrationRequested);
   });
@@ -932,27 +977,39 @@ function setupControls() {
 }
 
 async function init() {
+  if (privateReview) {
+    narrationToggle.hidden = true;
+    narrationToggle.disabled = true;
+  }
   if (state.supportedLanguages.length < 2) {
     langToggle.hidden = true;
   }
   buildParticles();
   preparePhraseTracks();
-  await loadNarrationTimings();
+  if (privateReview) {
+    state.narrationTimingsLoaded = true;
+  }
   setupParallax();
   setupRevealObserver();
   setupSectionObserver();
   setupControls();
   updateNarrationButton();
 
-  try {
-    await loadTranscript();
-  } catch (error) {
-    // Narration can still play without transcript-driven cue updates.
+  if (!privateReview) {
+    try {
+      await loadTranscript();
+    } catch (error) {
+      // Narration can still play without transcript-driven cue updates.
+    }
+  } else {
+    state.transcriptLoaded = true;
   }
 
   const urlState = readUrlState();
   setLanguage(urlState.language, { syncHistory: false });
-  await setNarration(urlState.narration, { syncHistory: false });
+  if (!privateReview) {
+    await setNarration(urlState.narration, { syncHistory: false });
+  }
 
   setActiveSection("intro");
   syncUrl("replace");

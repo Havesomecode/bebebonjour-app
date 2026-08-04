@@ -1,14 +1,17 @@
 import assert from "node:assert/strict";
-import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { createHash, createHmac } from "node:crypto";
+import { appendFile, mkdir, mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 
 import {
   commandCompose,
+  computePreparedProjectionDigest,
   commandDeploy,
   commandRender,
   commandSend,
+  commandTts,
 } from "../scripts/lib/commands.mjs";
 import { buildIdFromPage } from "../scripts/lib/common.mjs";
 import { assertValidPage } from "../scripts/lib/validators.mjs";
@@ -24,9 +27,86 @@ const fixtureJobs = await Promise.all(
     await readFile(new URL(`../data/examples/${name}/job.json`, import.meta.url), "utf8"),
   )),
 );
+const TEST_APPROVAL_KEY = "synthetic-fixture-approval-key-material-not-for-production";
+process.env.BEBEBONJOUR_APPROVAL_HMAC_KEY = TEST_APPROVAL_KEY;
 
 function cloneFixturePage() {
   return structuredClone(fixturePage);
+}
+
+function sha256(value) {
+  return createHash("sha256").update(value).digest("hex");
+}
+
+function signApproval(approval) {
+  const { signature: _signature, ...unsignedApproval } = approval;
+  return createHmac("sha256", TEST_APPROVAL_KEY)
+    .update(JSON.stringify(unsignedApproval))
+    .digest("hex");
+}
+
+async function digestArtifactDirectory(directory) {
+  const files = [];
+  async function collect(currentDirectory) {
+    const entries = await readdir(currentDirectory, { withFileTypes: true });
+    for (const entry of entries.sort((left, right) => left.name.localeCompare(right.name))) {
+      const entryPath = path.join(currentDirectory, entry.name);
+      if (entry.isDirectory()) await collect(entryPath);
+      else if (entry.isFile()) files.push(entryPath);
+    }
+  }
+  await collect(directory);
+  const digest = createHash("sha256");
+  for (const filePath of files) {
+    digest.update(path.relative(directory, filePath).split(path.sep).join("/"));
+    digest.update("\0");
+    digest.update(sha256(await readFile(filePath)));
+    digest.update("\0");
+  }
+  return digest.digest("hex");
+}
+
+function jobApprovalBinding(page, pageRaw) {
+  return {
+    approvalDigest: "a".repeat(64),
+    approvedPageDigest: sha256(pageRaw),
+    preparedBundleDigest: "d".repeat(64),
+    dossierDigest: "b".repeat(64),
+    materialDigest: "c".repeat(64),
+    reviewer: page.review.reviewedBy,
+    reviewedAt: page.review.reviewedAt,
+  };
+}
+
+async function writeApprovedFixture(pagePath, page) {
+  const approvedPage = structuredClone(page);
+  approvedPage.buildId ||= buildIdFromPage(approvedPage);
+  const pageRaw = `${JSON.stringify(approvedPage, null, 2)}\n`;
+  const approvalPath = path.join(path.dirname(pagePath), "approval.json");
+  const approval = {
+    schemaVersion: "1.0",
+    state: "approved",
+    reviewer: approvedPage.review.reviewedBy,
+    reviewedAt: approvedPage.review.reviewedAt,
+    pageId: approvedPage.pageId,
+    revision: approvedPage.pageRevision,
+    buildId: approvedPage.buildId,
+    materialDigest: "c".repeat(64),
+    dossierDigest: "b".repeat(64),
+    approvedPageDigest: sha256(pageRaw),
+    preparedBundleDigest: await computePreparedProjectionDigest(approvedPage),
+    signatureAlgorithm: "hmac-sha256",
+    acknowledgedReasons: [],
+    demandsDisposition: null,
+    artifacts: {
+      approvedPage: path.basename(pagePath),
+      approval: path.basename(approvalPath),
+    },
+  };
+  approval.signature = signApproval(approval);
+  await writeFile(pagePath, pageRaw, "utf8");
+  await writeFile(approvalPath, `${JSON.stringify(approval, null, 2)}\n`, "utf8");
+  return approvalPath;
 }
 
 async function captureConsole(action) {
@@ -91,9 +171,13 @@ test("render separates private canonical artifacts from the public page", async 
   const page = cloneFixturePage();
   page.featureFlags = ["private-preview-flag"];
   page.provenance.customerEmail = "family@example.com";
-  await writeFile(pagePath, `${JSON.stringify(page, null, 2)}\n`, "utf8");
+  const approvalPath = await writeApprovedFixture(pagePath, page);
 
-  await captureConsole(() => commandRender({ input: pagePath, output: outputRoot }));
+  await captureConsole(() => commandRender({
+    input: pagePath,
+    output: outputRoot,
+    approval: approvalPath,
+  }));
 
   const publicPage = JSON.parse(await readFile(path.join(outputRoot, "deploy", "bayane", "page.json"), "utf8"));
   const canonicalPage = JSON.parse(await readFile(path.join(outputRoot, "artifacts", "current", "page.json"), "utf8"));
@@ -102,11 +186,55 @@ test("render separates private canonical artifacts from the public page", async 
   assert.equal(publicPage.provenance, undefined);
   assert.equal(publicPage.review, undefined);
   assert.equal(publicPage.featureFlags, undefined);
+  assert.equal(publicPage.audioPlan, undefined);
   assert.equal(canonicalPage.provenance.customerEmail, "family@example.com");
   assert.equal(canonicalPage.review.status, "approved");
   assert.equal(job.customer.email, "family@example.com");
   assert.equal(job.currentPreparedRevision, "r1");
   assert.equal(job.currentLiveRevision, null);
+});
+
+test("deployable narration manifests omit provider metadata", async (t) => {
+  const directory = await createTempDirectory(t, "bebebonjour-public-audio-metadata-test-");
+  const pagePath = path.join(directory, "page.json");
+  const outputRoot = path.join(directory, "out");
+  const approvalPath = await writeApprovedFixture(pagePath, cloneFixturePage());
+  await captureConsole(() => commandRender({
+    input: pagePath,
+    output: outputRoot,
+    approval: approvalPath,
+  }));
+
+  const originalFetch = globalThis.fetch;
+  const originalApiKey = process.env.OPENAI_API_KEY;
+  globalThis.fetch = async () => ({
+    ok: true,
+    arrayBuffer: async () => new Uint8Array([0]).buffer,
+  });
+  process.env.OPENAI_API_KEY = "synthetic-test-key";
+  t.after(() => {
+    globalThis.fetch = originalFetch;
+    if (originalApiKey === undefined) delete process.env.OPENAI_API_KEY;
+    else process.env.OPENAI_API_KEY = originalApiKey;
+  });
+
+  await captureConsole(() => commandTts({ input: pagePath, output: outputRoot, lang: "fr" }));
+  const manifest = JSON.parse(await readFile(path.join(
+    outputRoot,
+    "deploy",
+    "bayane",
+    "_assets",
+    buildIdFromPage(cloneFixturePage()),
+    "audio",
+    "narration",
+    "fr",
+    "manifest.json",
+  ), "utf8"));
+
+  assert.equal(manifest.provider, undefined);
+  assert.equal(manifest.model, undefined);
+  assert.equal(manifest.voice, undefined);
+  assert.ok(Array.isArray(manifest.files));
 });
 
 test("deploy refuses a rendered draft even in dry-run mode", async (t) => {
@@ -191,13 +319,14 @@ test("deploy refuses a public bundle that differs from the prepared page", async
 
   const canonicalPage = cloneFixturePage();
   canonicalPage.buildId = buildIdFromPage(canonicalPage);
+  const canonicalPageRaw = `${JSON.stringify(canonicalPage, null, 2)}\n`;
   const publicPage = structuredClone(canonicalPage);
   delete publicPage.provenance;
   delete publicPage.review;
   delete publicPage.featureFlags;
   publicPage.pageRevision = "r2";
   await Promise.all([
-    writeFile(canonicalPagePath, `${JSON.stringify(canonicalPage, null, 2)}\n`, "utf8"),
+    writeFile(canonicalPagePath, canonicalPageRaw, "utf8"),
     writeFile(publicPagePath, `${JSON.stringify(publicPage, null, 2)}\n`, "utf8"),
   ]);
 
@@ -207,6 +336,7 @@ test("deploy refuses a public bundle that differs from the prepared page", async
     currentPreparedRevision: "r1",
     currentLiveRevision: null,
     review: canonicalPage.review,
+    approval: jobApprovalBinding(canonicalPage, canonicalPageRaw),
     paths: {
       ...fixtureJobs[1].paths,
       currentPage: canonicalPagePath,
@@ -221,12 +351,176 @@ test("deploy refuses a public bundle that differs from the prepared page", async
   );
 });
 
+test("deploy and send dry-runs reject a prepared runtime asset changed after render", async (t) => {
+  const directory = await createTempDirectory(t, "bebebonjour-prepared-asset-tamper-test-");
+  const pagePath = path.join(directory, "page.json");
+  const outputRoot = path.join(directory, "out");
+  const approvalPath = await writeApprovedFixture(pagePath, cloneFixturePage());
+  await captureConsole(() => commandRender({
+    input: pagePath,
+    output: outputRoot,
+    approval: approvalPath,
+  }));
+
+  const runtimePath = path.join(
+    outputRoot,
+    "deploy",
+    "bayane",
+    "_assets",
+    buildIdFromPage(cloneFixturePage()),
+    "app.js",
+  );
+  await appendFile(runtimePath, "\n// adversarial post-render mutation\n", "utf8");
+
+  await assert.rejects(
+    commandDeploy({ input: outputRoot, "dry-run": true }),
+    /prepared deploy bundle does not match its approval binding/,
+  );
+  await assert.rejects(
+    commandSend({
+      job: path.join(outputRoot, "job.json"),
+      provider: "console",
+      "dry-run": true,
+    }),
+    /prepared deploy bundle does not match its approval binding/,
+  );
+
+  const jobPath = path.join(outputRoot, "job.json");
+  const job = JSON.parse(await readFile(jobPath, "utf8"));
+  job.approval.preparedBundleDigest = await digestArtifactDirectory(path.join(outputRoot, "deploy"));
+  await writeFile(jobPath, `${JSON.stringify(job, null, 2)}\n`, "utf8");
+  await assert.rejects(
+    commandDeploy({ input: outputRoot, "dry-run": true }),
+    /prepared deploy bundle does not match its approval binding/,
+  );
+  await assert.rejects(
+    commandSend({ job: jobPath, provider: "console", "dry-run": true }),
+    /prepared deploy bundle does not match its approval binding/,
+  );
+
+  const approvalPathAfterRender = path.join(path.dirname(pagePath), "approval.json");
+  const approval = JSON.parse(await readFile(approvalPathAfterRender, "utf8"));
+  approval.preparedBundleDigest = job.approval.preparedBundleDigest;
+  approval.signature = signApproval(approval);
+  const approvalRaw = `${JSON.stringify(approval, null, 2)}\n`;
+  await writeFile(approvalPathAfterRender, approvalRaw, "utf8");
+  job.approval.approvalDigest = sha256(approvalRaw);
+  await writeFile(jobPath, `${JSON.stringify(job, null, 2)}\n`, "utf8");
+  await assert.rejects(
+    commandDeploy({ input: outputRoot, "dry-run": true }),
+    /prepared deploy bundle does not match its approval binding/,
+  );
+  await assert.rejects(
+    commandSend({ job: jobPath, provider: "console", "dry-run": true }),
+    /prepared deploy bundle does not match its approval binding/,
+  );
+});
+
+test("deploy rejects post-render approval artifact and job binding mutations", async (t) => {
+  const directory = await createTempDirectory(t, "bebebonjour-prepared-approval-tamper-test-");
+  const pagePath = path.join(directory, "page.json");
+  const outputRoot = path.join(directory, "out");
+  const approvalPath = await writeApprovedFixture(pagePath, cloneFixturePage());
+  await captureConsole(() => commandRender({
+    input: pagePath,
+    output: outputRoot,
+    approval: approvalPath,
+  }));
+
+  const approvalRaw = await readFile(approvalPath, "utf8");
+  await writeFile(approvalPath, `${approvalRaw}\n`, "utf8");
+  await assert.rejects(
+    commandDeploy({ input: outputRoot, "dry-run": true }),
+    /approval artifact or job approval binding changed after render/,
+  );
+  await assert.rejects(
+    commandSend({ job: path.join(outputRoot, "job.json"), provider: "console", "dry-run": true }),
+    /approval artifact or job approval binding changed after render/,
+  );
+
+  await writeFile(approvalPath, approvalRaw, "utf8");
+  const jobPath = path.join(outputRoot, "job.json");
+  const job = JSON.parse(await readFile(jobPath, "utf8"));
+  job.approval.approvalDigest = "e".repeat(64);
+  await writeFile(jobPath, `${JSON.stringify(job, null, 2)}\n`, "utf8");
+  await assert.rejects(
+    commandDeploy({ input: outputRoot, "dry-run": true }),
+    /approval artifact or job approval binding changed after render/,
+  );
+  await assert.rejects(
+    commandSend({ job: jobPath, provider: "console", "dry-run": true }),
+    /approval artifact or job approval binding changed after render/,
+  );
+});
+
+test("deploy and send reject a coordinated forged reviewer rewrite", async (t) => {
+  const directory = await createTempDirectory(t, "bebebonjour-forged-reviewer-test-");
+  const pagePath = path.join(directory, "page.json");
+  const outputRoot = path.join(directory, "out");
+  const approvalPath = await writeApprovedFixture(pagePath, cloneFixturePage());
+  await captureConsole(() => commandRender({
+    input: pagePath,
+    output: outputRoot,
+    approval: approvalPath,
+  }));
+
+  const page = JSON.parse(await readFile(pagePath, "utf8"));
+  page.review.reviewedBy = "forged-reviewer";
+  const pageRaw = `${JSON.stringify(page, null, 2)}\n`;
+  await Promise.all([
+    writeFile(pagePath, pageRaw, "utf8"),
+    writeFile(path.join(outputRoot, "artifacts", "current", "page.json"), pageRaw, "utf8"),
+  ]);
+
+  const approval = JSON.parse(await readFile(approvalPath, "utf8"));
+  approval.reviewer = "forged-reviewer";
+  approval.approvedPageDigest = sha256(pageRaw);
+  const approvalRaw = `${JSON.stringify(approval, null, 2)}\n`;
+  await writeFile(approvalPath, approvalRaw, "utf8");
+
+  const jobPath = path.join(outputRoot, "job.json");
+  const job = JSON.parse(await readFile(jobPath, "utf8"));
+  job.review.reviewedBy = "forged-reviewer";
+  job.approval.reviewer = "forged-reviewer";
+  job.approval.approvedPageDigest = sha256(pageRaw);
+  job.approval.approvalDigest = sha256(approvalRaw);
+  await writeFile(jobPath, `${JSON.stringify(job, null, 2)}\n`, "utf8");
+
+  await assert.rejects(commandDeploy({ input: outputRoot, "dry-run": true }), /approval signature/);
+  await assert.rejects(
+    commandSend({ job: jobPath, provider: "console", "dry-run": true }),
+    /approval signature/,
+  );
+});
+
+test("render fails closed when operator approval key configuration is missing", async (t) => {
+  const directory = await createTempDirectory(t, "bebebonjour-missing-approval-key-test-");
+  const pagePath = path.join(directory, "page.json");
+  const outputRoot = path.join(directory, "out");
+  const approvalPath = await writeApprovedFixture(pagePath, cloneFixturePage());
+  const configuredKey = process.env.BEBEBONJOUR_APPROVAL_HMAC_KEY;
+  delete process.env.BEBEBONJOUR_APPROVAL_HMAC_KEY;
+  try {
+    await assert.rejects(
+      commandRender({ input: pagePath, output: outputRoot, approval: approvalPath }),
+      /BEBEBONJOUR_APPROVAL_HMAC_KEY with at least 32 bytes/,
+    );
+    await assert.rejects(readFile(path.join(outputRoot, "job.json"), "utf8"), { code: "ENOENT" });
+  } finally {
+    process.env.BEBEBONJOUR_APPROVAL_HMAC_KEY = configuredKey;
+  }
+});
+
 test("deploy dry-run does not mutate an approved job", async (t) => {
   const directory = await createTempDirectory(t, "bebebonjour-deploy-dry-run-test-");
   const pagePath = path.join(directory, "page.json");
   const outputRoot = path.join(directory, "out");
-  await writeFile(pagePath, `${JSON.stringify(cloneFixturePage(), null, 2)}\n`, "utf8");
-  await captureConsole(() => commandRender({ input: pagePath, output: outputRoot }));
+  const approvalPath = await writeApprovedFixture(pagePath, cloneFixturePage());
+  await captureConsole(() => commandRender({
+    input: pagePath,
+    output: outputRoot,
+    approval: approvalPath,
+  }));
   const jobPath = path.join(outputRoot, "job.json");
   const before = await readFile(jobPath, "utf8");
 
@@ -261,6 +555,34 @@ test("console delivery is a redacted non-mutating preview", async (t) => {
   assert.match(lines.join("\n"), /delivery_preview/);
   assert.doesNotMatch(lines.join("\n"), /family@example\.com/);
   assert.doesNotMatch(lines.join("\n"), /https:\/\/example\.com\/test-page/);
+});
+
+test("console delivery dry-run verifies an approved prepared bundle without a public URL", async (t) => {
+  const directory = await createTempDirectory(t, "bebebonjour-send-dry-run-test-");
+  const pagePath = path.join(directory, "page.json");
+  const outputRoot = path.join(directory, "out");
+  const approvalPath = await writeApprovedFixture(pagePath, cloneFixturePage());
+  await captureConsole(() => commandRender({
+    input: pagePath,
+    output: outputRoot,
+    approval: approvalPath,
+  }));
+  const jobPath = path.join(outputRoot, "job.json");
+  const before = await readFile(jobPath, "utf8");
+
+  const lines = await captureConsole(() => commandSend({
+    job: jobPath,
+    provider: "console",
+    "dry-run": true,
+  }));
+  const payload = JSON.parse(lines.join("\n"));
+
+  assert.equal(await readFile(jobPath, "utf8"), before);
+  assert.equal(payload.state, "delivery_preview");
+  assert.equal(payload.deploymentReady, true);
+  assert.equal(payload.publicUrlConfigured, false);
+  assert.equal(payload.recipientConfigured, true);
+  assert.doesNotMatch(lines.join("\n"), /family@example\.com/);
 });
 
 test("unsupported send providers do not mutate the persisted job", async (t) => {

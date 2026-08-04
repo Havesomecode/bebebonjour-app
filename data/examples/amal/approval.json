@@ -1,0 +1,21 @@
+{
+  "schemaVersion": "1.0",
+  "state": "approved",
+  "reviewer": "operator@example.com",
+  "reviewedAt": "2026-03-08T12:15:00Z",
+  "pageId": "page_amal_001",
+  "revision": "r1",
+  "buildId": "blessed-arrival-1-0-0-r1",
+  "materialDigest": "558f4da6df94fa75fafb25f823e2fdbf460234d9f183cbf6bd139cb070da9436",
+  "dossierDigest": "007314ee8874d8371f5113c363a1718f4774c04ee44b027c8d7e75959cc07f5d",
+  "approvedPageDigest": "b34980679da993df8f686990f07989c6652808af40f22615ddb76e09898162e8",
+  "preparedBundleDigest": "557ce4abacacbfa56c5cf4f2625ea09337b7fdb14e6f0d8c6665d8e19e8292c9",
+  "signatureAlgorithm": "hmac-sha256",
+  "acknowledgedReasons": [],
+  "demandsDisposition": null,
+  "artifacts": {
+    "approvedPage": "page.json",
+    "approval": "approval.json"
+  },
+  "signature": "88622cfa21a71c7f1c6c72bf8a0ca21f361335d7d6c09384307320008a10b7bf"
+}

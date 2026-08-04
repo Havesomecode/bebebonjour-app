@@ -1,5 +1,7 @@
 import { spawnSync } from "node:child_process";
-import { copyFile, readFile, writeFile } from "node:fs/promises";
+import { createHash, createHmac, timingSafeEqual } from "node:crypto";
+import { copyFile, lstat, mkdtemp, readFile, readdir, realpath, rm, writeFile } from "node:fs/promises";
+import os from "node:os";
 import path from "node:path";
 import process from "node:process";
 import { isDeepStrictEqual } from "node:util";
@@ -16,7 +18,6 @@ import {
   exists,
   formatSecondsMmss,
   getRenderPaths,
-  languageDisplayName,
   nowIso,
   pageBaseFromSlug,
   readJson,
@@ -27,23 +28,75 @@ import {
   writeText,
 } from "./common.mjs";
 import { renderHtml } from "./render-html.mjs";
+import { resolveName } from "./name-resolution.mjs";
+import {
+  assertValidNameResolutionEvidence,
+  assertValidReviewDossier,
+} from "./schema-validation.mjs";
 import { assertValidIntake, assertValidJob, assertValidPage } from "./validators.mjs";
 
 const TEMPLATE_APP_PATH = path.join(PROJECT_ROOT, "template", "runtime", "app.js");
+const TEMPLATE_PHRASE_PROGRESS_PATH = path.join(
+  PROJECT_ROOT,
+  "template",
+  "runtime",
+  "phrase-progress.mjs",
+);
 const TEMPLATE_STYLES_PATH = path.join(PROJECT_ROOT, "template", "runtime", "styles.css");
 const TEMPLATE_OG_PATH = path.join(PROJECT_ROOT, "template", "assets", "og-image.svg");
 const REFERENCE_CATALOG_PATH = path.join(PROJECT_ROOT, "data", "reference-catalog.json");
 const VERCEL_PROJECT_LINK_PATH = path.join(PROJECT_ROOT, ".vercel", "project.json");
+const RENDERER_MATERIAL_PATHS = [
+  path.join(PROJECT_ROOT, "scripts", "lib", "commands.mjs"),
+  path.join(PROJECT_ROOT, "scripts", "lib", "common.mjs"),
+  path.join(PROJECT_ROOT, "scripts", "lib", "name-resolution.mjs"),
+  path.join(PROJECT_ROOT, "scripts", "lib", "render-html.mjs"),
+  path.join(PROJECT_ROOT, "scripts", "lib", "schema-validation.mjs"),
+  path.join(PROJECT_ROOT, "scripts", "lib", "validators.mjs"),
+  path.join(PROJECT_ROOT, "schemas", "name-resolution-evidence.schema.json"),
+  path.join(PROJECT_ROOT, "schemas", "review-dossier.schema.json"),
+];
+const TEMPLATE_MATERIAL_PATHS = [
+  TEMPLATE_APP_PATH,
+  TEMPLATE_PHRASE_PROGRESS_PATH,
+  TEMPLATE_STYLES_PATH,
+  TEMPLATE_OG_PATH,
+];
 
-export async function commandCompose(args) {
+export async function commandCompose(args, options = {}) {
   const input = path.resolve(process.cwd(), requireArg(args, "input"));
   const output = path.resolve(process.cwd(), requireArg(args, "output"));
-  const intake = await readJson(input);
+  const intake = options.intakeSnapshot
+    ? cloneJson(options.intakeSnapshot)
+    : await readJson(input);
   assertValidIntake(intake);
+  if (args["private-review"] && intake.baby.gender !== "girl") {
+    const result = {
+      state: "needs_editorial_input",
+      reasons: ["unsupported_gender_copy"],
+    };
+    console.log(JSON.stringify(result, null, 2));
+    process.exitCode = 3;
+    return result;
+  }
 
-  const catalog = await readJson(REFERENCE_CATALOG_PATH);
-  const suggestions = buildSuggestions(intake, catalog);
+  const catalog = options.catalogSnapshot
+    ? cloneJson(options.catalogSnapshot)
+    : await readJson(REFERENCE_CATALOG_PATH);
+  const nameResolution = resolveName(intake, catalog);
+  const suggestions = nameResolution.suggestions;
   const selectionId = typeof args.select === "string" ? args.select : null;
+
+  if (nameResolution.status === "review_required") {
+    const result = {
+      state: "name_review_required",
+      match: nameResolution.match,
+      reasons: nameResolution.reviewReasons,
+    };
+    console.log(JSON.stringify(result, null, 2));
+    process.exitCode = 3;
+    return result;
+  }
 
   if (!suggestions.length) {
     const blocked = {
@@ -53,27 +106,22 @@ export async function commandCompose(args) {
     };
     console.log(JSON.stringify(blocked, null, 2));
     process.exitCode = 3;
-    return;
+    return blocked;
   }
 
   if (!selectionId && suggestions.length > 1) {
-    console.log(
-      JSON.stringify(
-        {
-          state: "selection_required",
-          suggestions: suggestions.map(({ id, label, basis, confidence }) => ({
-            id,
-            label,
-            basis,
-            confidence,
-          })),
-        },
-        null,
-        2,
-      ),
-    );
+    const result = {
+      state: "selection_required",
+      suggestions: suggestions.map(({ id, label, basis, confidence }) => ({
+        id,
+        label,
+        basis,
+        confidence,
+      })),
+    };
+    console.log(JSON.stringify(result, null, 2));
     process.exitCode = 3;
-    return;
+    return result;
   }
 
   const selected = selectionId
@@ -84,43 +132,462 @@ export async function commandCompose(args) {
     throw new Error(`Unknown compose selection: ${selectionId}`);
   }
 
-  const page = buildDraftPage(intake, selected);
+  const page = buildDraftPage(intake, selected, nameResolution);
   assertValidPage(page);
   await writeJson(output, page);
 
-  console.log(
-    JSON.stringify(
-      {
-        state: "draft_created",
-        output,
-        suggestion: {
-          id: selected.id,
-          label: selected.label,
-        },
-        reviewStatus: page.review.status,
-      },
-      null,
-      2,
-    ),
-  );
+  const result = {
+    state: "draft_created",
+    output,
+    suggestion: {
+      id: selected.id,
+      label: selected.label,
+    },
+    reviewStatus: page.review.status,
+  };
+  console.log(JSON.stringify(result, null, 2));
+  return result;
 }
 
-export async function commandRender(args) {
+export async function commandPrepareReview(args) {
   const input = path.resolve(process.cwd(), requireArg(args, "input"));
   const outputRoot = path.resolve(process.cwd(), requireArg(args, "output"));
-  const page = await readJson(input);
-  assertValidPage(page);
-
-  if (page.review.status !== "approved" && !args["allow-draft"]) {
-    throw new Error("Render requires an approved page. Pass --allow-draft to override.");
+  const inputRaw = await readFile(input, "utf8");
+  const intakeSnapshot = JSON.parse(inputRaw);
+  assertValidIntake(intakeSnapshot);
+  const composeArgs = {
+    input,
+    output: path.join(outputRoot, "artifacts", "source", "page.json"),
+    "private-review": true,
+    ...(typeof args.select === "string" ? { select: args.select } : {}),
+  };
+  if (intakeSnapshot.baby.gender !== "girl") {
+    return commandCompose(composeArgs, { intakeSnapshot });
   }
 
-  const renderPaths = getRenderPaths(page, outputRoot);
+  const inputDigest = createHash("sha256").update(inputRaw).digest("hex");
+  const materialBinding = await buildPrivateReviewMaterialBinding(
+    typeof args.select === "string" ? args.select : null,
+  );
+  const expectedPreviewRoot = path.posix.join(
+    "private-preview",
+    slugify(intakeSnapshot.slug || intakeSnapshot.baby.firstName),
+  );
+  await assertNoExistingSymbolicLinkComponents(outputRoot);
+  await assertPrivateOutputCompatible(
+    outputRoot,
+    inputDigest,
+    materialBinding.materialDigest,
+    expectedPreviewRoot,
+  );
+  const composeResult = await commandCompose(composeArgs, {
+    intakeSnapshot,
+    catalogSnapshot: materialBinding.catalogSnapshot,
+  });
+
+  if (composeResult.state !== "draft_created") return composeResult;
+
+  return renderPrivateReview({
+    input: composeArgs.output,
+    output: outputRoot,
+    "allow-draft": true,
+  }, {
+    inputDigest,
+    materialDigest: materialBinding.materialDigest,
+    generationMaterials: materialBinding.generationMaterials,
+  });
+}
+
+export async function commandApproveReview(args) {
+  const dossierPath = path.resolve(process.cwd(), requireArg(args, "review"));
+  const outputRoot = path.resolve(process.cwd(), requireArg(args, "output"));
+  const reviewer = requireArg(args, "reviewer").trim();
+  if (!reviewer) throw new Error("approve-review requires a non-empty reviewer.");
+
+  const reviewRoot = path.dirname(dossierPath);
+  const [physicalReviewRoot, physicalOutputRoot] = await Promise.all([
+    resolvePhysicalPath(reviewRoot),
+    resolvePhysicalPath(outputRoot),
+  ]);
+  if (
+    isPathInside(reviewRoot, outputRoot) ||
+    isPathInside(physicalReviewRoot, physicalOutputRoot)
+  ) {
+    throw new Error("Approval output must be outside the immutable private review root.");
+  }
+  await assertNoExistingSymbolicLinkComponents(outputRoot);
+  await assertFreshDirectory(outputRoot, "Approval output");
+  await assertNoSymbolicLinks(reviewRoot);
+
+  const dossierRaw = await readFile(dossierPath, "utf8");
+  const dossier = JSON.parse(dossierRaw);
+  assertValidNameResolutionEvidence(dossier?.evidence?.nameResolution);
+  assertValidReviewDossier(dossier);
+
+  const currentBinding = await buildPrivateReviewMaterialBinding(
+    dossier.generationMaterials.selectionId,
+  );
+  if (
+    dossier.materialDigest !== sha256(JSON.stringify(dossier.generationMaterials)) ||
+    dossier.materialDigest !== currentBinding.materialDigest
+  ) {
+    throw new Error("Review dossier material binding does not match the current generator.");
+  }
+
+  const canonicalPagePath = resolveReviewArtifact(
+    reviewRoot,
+    dossier.artifacts.canonicalPage,
+    "canonical page",
+  );
+  const privatePagePath = resolveReviewArtifact(
+    reviewRoot,
+    path.posix.join(dossier.artifacts.privatePreviewRoot, "page.json"),
+    "private preview page",
+  );
+  const privatePreviewBundle = resolveReviewArtifact(
+    reviewRoot,
+    dossier.artifacts.privatePreviewBundle,
+    "private preview bundle",
+  );
+  if (!isPathInside(privatePreviewBundle, privatePagePath)) {
+    throw new Error("Review dossier private page must be inside its private preview bundle.");
+  }
+  const [canonicalPage, privatePage] = await Promise.all([
+    readJson(canonicalPagePath),
+    readJson(privatePagePath),
+  ]);
+  assertValidPage(canonicalPage);
+  if (
+    canonicalPage.pageId !== dossier.pageId ||
+    canonicalPage.pageRevision !== dossier.revision ||
+    canonicalPage.buildId !== dossier.buildId ||
+    !isDeepStrictEqual(canonicalPage.review, dossier.review)
+  ) {
+    throw new Error("Review dossier does not match its canonical draft.");
+  }
+  if (!isDeepStrictEqual(privatePage, buildPublicPage(canonicalPage))) {
+    throw new Error("Canonical draft does not match the reviewed private preview.");
+  }
+  if (await digestArtifactDirectory(privatePreviewBundle) !== dossier.artifacts.privatePreviewDigest) {
+    throw new Error("Private preview bundle does not match the review dossier.");
+  }
+
+  const expectedReasons = [...dossier.review.requiredReasons].sort();
+  const acknowledgedReasons = parseCommaSeparated(args.acknowledge).sort();
+  if (!isDeepStrictEqual(acknowledgedReasons, expectedReasons)) {
+    throw new Error(
+      `Approval must acknowledge exactly these review reasons: ${expectedReasons.join(", ") || "none"}.`,
+    );
+  }
+
+  const specificDemands = dossier.operatorContext.specificDemands;
+  const demandsDisposition = typeof args.demands === "string" ? args.demands : null;
+  if (specificDemands && !["applied", "not_applied"].includes(demandsDisposition)) {
+    throw new Error("Approval must disposition specific demands as applied or not_applied.");
+  }
+  if (!specificDemands && demandsDisposition !== null) {
+    throw new Error("Approval cannot disposition specific demands when none were submitted.");
+  }
+  if (!isDeepStrictEqual(canonicalPage.provenance?.specificDemands || null, specificDemands)) {
+    throw new Error("Canonical draft specific demands do not match the review dossier.");
+  }
+
+  const reviewedAt = nowIso();
+  const approvedPage = cloneJson(canonicalPage);
+  approvedPage.review = {
+    ...cloneJson(canonicalPage.review),
+    status: "approved",
+    reviewedBy: reviewer,
+    reviewedAt,
+  };
+  if (specificDemands) {
+    approvedPage.provenance.specificDemands.applicationStatus = demandsDisposition;
+  }
+  assertValidPage(approvedPage);
+
+  const approvedPageRaw = `${JSON.stringify(approvedPage, null, 2)}\n`;
+  const preparedBundleDigest = await computePreparedProjectionDigest(approvedPage);
+  const approval = {
+    schemaVersion: "1.0",
+    state: "approved",
+    reviewer,
+    reviewedAt,
+    pageId: approvedPage.pageId,
+    revision: approvedPage.pageRevision,
+    buildId: approvedPage.buildId,
+    materialDigest: dossier.materialDigest,
+    dossierDigest: sha256(dossierRaw),
+    approvedPageDigest: sha256(approvedPageRaw),
+    preparedBundleDigest,
+    signatureAlgorithm: "hmac-sha256",
+    acknowledgedReasons,
+    demandsDisposition,
+    artifacts: {
+      approvedPage: "page.json",
+      approval: "approval.json",
+    },
+  };
+  approval.signature = signApprovalRecord(approval);
+
+  await ensureDir(outputRoot);
+  await writeFile(path.join(outputRoot, "page.json"), approvedPageRaw, "utf8");
+  await writeJson(path.join(outputRoot, "approval.json"), approval);
+  console.log(JSON.stringify({
+    state: "review_approved",
+    outputRoot,
+    approvedPage: path.join(outputRoot, "page.json"),
+    revision: approvedPage.pageRevision,
+  }, null, 2));
+  return approval;
+}
+
+function resolveReviewArtifact(reviewRoot, relativePath, label) {
+  if (typeof relativePath !== "string" || path.isAbsolute(relativePath)) {
+    throw new Error(`Review dossier ${label} path must be relative.`);
+  }
+  const resolved = path.resolve(reviewRoot, relativePath);
+  if (!isPathInside(reviewRoot, resolved)) {
+    throw new Error(`Review dossier ${label} path escapes the review root.`);
+  }
+  return resolved;
+}
+
+function isPathInside(parent, candidate) {
+  const relative = path.relative(parent, candidate);
+  return relative === "" || (!relative.startsWith(`..${path.sep}`) && relative !== "..");
+}
+
+async function resolvePhysicalPath(targetPath) {
+  let existingAncestor = path.resolve(targetPath);
+  const missingComponents = [];
+  while (!(await exists(existingAncestor))) {
+    const parent = path.dirname(existingAncestor);
+    if (parent === existingAncestor) break;
+    missingComponents.unshift(path.basename(existingAncestor));
+    existingAncestor = parent;
+  }
+  return path.join(await realpath(existingAncestor), ...missingComponents);
+}
+
+async function assertFreshDirectory(directory, label) {
+  if (!(await exists(directory))) return;
+  const metadata = await lstat(directory);
+  if (!metadata.isDirectory() || (await readdir(directory)).length > 0) {
+    throw new Error(`${label} must be a fresh empty directory.`);
+  }
+}
+
+function parseCommaSeparated(value) {
+  if (typeof value !== "string" || value.trim() === "") return [];
+  return [...new Set(value.split(",").map((entry) => entry.trim()).filter(Boolean))];
+}
+
+async function buildPrivateReviewMaterialBinding(selectionId) {
+  const catalogRaw = await readFile(REFERENCE_CATALOG_PATH);
+  const generationMaterials = {
+    selectionId,
+    catalogDigest: sha256(catalogRaw),
+    templateDigest: await digestMaterialFiles(TEMPLATE_MATERIAL_PATHS),
+    rendererDigest: await digestMaterialFiles(RENDERER_MATERIAL_PATHS),
+  };
+
+  return {
+    catalogSnapshot: JSON.parse(catalogRaw.toString("utf8")),
+    generationMaterials,
+    materialDigest: sha256(JSON.stringify(generationMaterials)),
+  };
+}
+
+async function digestMaterialFiles(paths) {
+  const digest = createHash("sha256");
+  for (const materialPath of paths) {
+    digest.update(path.relative(PROJECT_ROOT, materialPath));
+    digest.update("\0");
+    digest.update(await readFile(materialPath));
+    digest.update("\0");
+  }
+  return digest.digest("hex");
+}
+
+async function digestArtifactDirectory(directory) {
+  const files = [];
+
+  async function collect(currentDirectory) {
+    const entries = await readdir(currentDirectory, { withFileTypes: true });
+    for (const entry of entries.sort((left, right) => left.name.localeCompare(right.name))) {
+      const entryPath = path.join(currentDirectory, entry.name);
+      if (entry.isSymbolicLink()) {
+        throw new Error(`Artifact bundle contains a symbolic link: ${entryPath}`);
+      }
+      if (entry.isDirectory()) {
+        await collect(entryPath);
+      } else if (entry.isFile()) {
+        files.push(entryPath);
+      } else {
+        throw new Error(`Artifact bundle contains an unsupported entry: ${entryPath}`);
+      }
+    }
+  }
+
+  await collect(directory);
+  const digest = createHash("sha256");
+  for (const filePath of files) {
+    digest.update(relativeArtifactPath(directory, filePath));
+    digest.update("\0");
+    digest.update(sha256(await readFile(filePath)));
+    digest.update("\0");
+  }
+  return digest.digest("hex");
+}
+
+function sha256(value) {
+  return createHash("sha256").update(value).digest("hex");
+}
+
+function approvalHmacKey() {
+  const key = process.env.BEBEBONJOUR_APPROVAL_HMAC_KEY;
+  if (typeof key !== "string" || Buffer.byteLength(key, "utf8") < 32) {
+    throw new Error("Approval requires BEBEBONJOUR_APPROVAL_HMAC_KEY with at least 32 bytes.");
+  }
+  return key;
+}
+
+function signApprovalRecord(approval) {
+  const { signature: _signature, ...unsignedApproval } = approval;
+  return createHmac("sha256", approvalHmacKey())
+    .update(JSON.stringify(unsignedApproval))
+    .digest("hex");
+}
+
+function assertValidApprovalSignature(approval) {
+  if (
+    approval?.signatureAlgorithm !== "hmac-sha256" ||
+    !/^[a-f0-9]{64}$/.test(approval?.signature || "")
+  ) {
+    throw new Error("Approved page has no valid operator approval signature.");
+  }
+  const expected = Buffer.from(signApprovalRecord(approval), "hex");
+  const actual = Buffer.from(approval.signature, "hex");
+  if (!timingSafeEqual(actual, expected)) {
+    throw new Error("Approved page operator approval signature is invalid.");
+  }
+}
+
+async function assertNoExistingSymbolicLinkComponents(targetPath) {
+  const absolutePath = path.resolve(targetPath);
+  const trustedTempRoot = path.resolve(os.tmpdir());
+  const parsed = path.parse(absolutePath);
+  let currentPath = parsed.root;
+
+  for (const component of absolutePath.slice(parsed.root.length).split(path.sep).filter(Boolean)) {
+    currentPath = path.join(currentPath, component);
+    try {
+      const metadata = await lstat(currentPath);
+      if (metadata.isSymbolicLink()) {
+        const isTrustedTempAlias =
+          trustedTempRoot === currentPath || trustedTempRoot.startsWith(`${currentPath}${path.sep}`);
+        if (!isTrustedTempAlias) {
+          throw new Error(`Private review output path contains a symbolic link: ${currentPath}`);
+        }
+      }
+    } catch (error) {
+      if (error.code === "ENOENT") return;
+      throw error;
+    }
+  }
+}
+
+async function assertPrivateOutputCompatible(
+  outputRoot,
+  inputDigest,
+  materialDigest,
+  expectedPreviewRoot,
+) {
+  if (!(await exists(outputRoot))) return;
+  await assertNoSymbolicLinks(outputRoot);
+  const entries = await readdir(outputRoot);
+  if (entries.length === 0) return;
+
+  const expectedTopLevelEntries = new Set(["artifacts", "private-preview", "review.json"]);
+  if (
+    entries.length !== expectedTopLevelEntries.size ||
+    entries.some((entry) => !expectedTopLevelEntries.has(entry))
+  ) {
+    throw new Error("Private review output contains unexpected entries; use a fresh output root.");
+  }
+
+  const expectedSlug = expectedPreviewRoot.split("/").at(-1);
+  const previewEntries = await readdir(path.join(outputRoot, "private-preview"));
+  if (previewEntries.length !== 1 || previewEntries[0] !== expectedSlug) {
+    throw new Error("Private review output contains an unexpected preview family; use a fresh output root.");
+  }
+
+  const dossierPath = path.join(outputRoot, "review.json");
+  if (!(await exists(dossierPath))) {
+    throw new Error("Private review output is not empty; use a fresh output root.");
+  }
+  const dossier = await readJson(dossierPath);
+  if (
+    dossier.inputDigest !== inputDigest ||
+    dossier?.artifacts?.privatePreviewRoot !== expectedPreviewRoot
+  ) {
+    throw new Error("Private review output belongs to a different intake; use a fresh output root.");
+  }
+  if (dossier.materialDigest !== materialDigest) {
+    throw new Error("Private review output belongs to different material inputs; use a fresh output root.");
+  }
+  assertValidReviewDossier(dossier);
+  const privatePreviewBundle = resolveReviewArtifact(
+    outputRoot,
+    dossier.artifacts.privatePreviewBundle,
+    "private preview bundle",
+  );
+  if (await digestArtifactDirectory(privatePreviewBundle) !== dossier.artifacts.privatePreviewDigest) {
+    throw new Error("The existing private preview bundle has changed; use a fresh output root.");
+  }
+}
+
+async function assertNoSymbolicLinks(targetPath) {
+  const metadata = await lstat(targetPath);
+  if (metadata.isSymbolicLink()) {
+    throw new Error(`Private review output contains a symbolic link: ${targetPath}`);
+  }
+  if (!metadata.isDirectory()) return;
+
+  const entries = await readdir(targetPath, { withFileTypes: true });
+  for (const entry of entries) {
+    await assertNoSymbolicLinks(path.join(targetPath, entry.name));
+  }
+}
+
+export async function commandRender(args, unsupportedOptions) {
+  if (args["private-review"] || args["input-digest"] || unsupportedOptions !== undefined) {
+    throw new Error("Private rendering is only available through prepare-review.");
+  }
+  return renderPage(args);
+}
+
+async function renderPrivateReview(args, materialBinding) {
+  return renderPage(args, { privateReview: true, ...materialBinding });
+}
+
+async function writeProjectionArtifacts(
+  page,
+  outputRoot,
+  { privateReview = false, includeCanonicalArtifacts = true } = {},
+) {
+  const renderPaths = getRenderPaths(page, outputRoot, {
+    bundleDirectory: privateReview ? "private-preview" : "deploy",
+  });
   await ensureDir(renderPaths.assetRoot);
-  await ensureDir(renderPaths.revisionsRoot);
+  if (includeCanonicalArtifacts) await ensureDir(renderPaths.revisionsRoot);
   await ensureDir(path.join(renderPaths.slugRoot, "ar"));
   await ensureDir(path.join(renderPaths.slugRoot, "fr"));
   await copyTemplateAsset(TEMPLATE_APP_PATH, renderPaths.appJsPath);
+  await copyTemplateAsset(
+    TEMPLATE_PHRASE_PROGRESS_PATH,
+    path.join(renderPaths.assetRoot, "phrase-progress.mjs"),
+  );
   await copyTemplateAsset(TEMPLATE_STYLES_PATH, renderPaths.stylesPath);
   await copyTemplateAsset(TEMPLATE_OG_PATH, renderPaths.ogImagePath);
 
@@ -128,13 +595,14 @@ export async function commandRender(args) {
   const canonicalPage = cloneJson(page);
   canonicalPage.buildId = renderPaths.buildId;
   const publicPage = buildPublicPage(canonicalPage);
-
   await writeJson(renderPaths.deployedPagePath, publicPage);
-  await writeJson(renderPaths.currentPagePath, canonicalPage);
-  await writeJson(renderPaths.pageRevisionPath, canonicalPage);
   await writeJson(renderPaths.transcriptPath, transcript);
-  await writeJson(renderPaths.currentTranscriptPath, transcript);
-  await writeJson(renderPaths.transcriptRevisionPath, transcript);
+  if (includeCanonicalArtifacts) {
+    await writeJson(renderPaths.currentPagePath, canonicalPage);
+    await writeJson(renderPaths.pageRevisionPath, canonicalPage);
+    await writeJson(renderPaths.currentTranscriptPath, transcript);
+    await writeJson(renderPaths.transcriptRevisionPath, transcript);
+  }
 
   for (const language of page.languages) {
     const languageDir = path.join(renderPaths.slugRoot, language);
@@ -147,13 +615,89 @@ export async function commandRender(args) {
       assetBasePath,
       transcriptUrl,
       ambientAudioUrl,
+      reviewMode: privateReview ? "private" : null,
     });
     await writeText(path.join(languageDir, "index.html"), html);
   }
 
+  return { renderPaths, transcript, canonicalPage };
+}
+
+export async function computePreparedProjectionDigest(page) {
+  assertValidPage(page);
+  const projectionRoot = await mkdtemp(path.join(os.tmpdir(), "bebebonjour-approved-projection-"));
+  try {
+    const { renderPaths } = await writeProjectionArtifacts(page, projectionRoot, {
+      privateReview: false,
+      includeCanonicalArtifacts: false,
+    });
+    return await digestArtifactDirectory(renderPaths.deployRoot);
+  } finally {
+    await rm(projectionRoot, { recursive: true, force: true });
+  }
+}
+
+async function renderPage(args, options = {}) {
+  const input = path.resolve(process.cwd(), requireArg(args, "input"));
+  const outputRoot = path.resolve(process.cwd(), requireArg(args, "output"));
+  const pageRaw = await readFile(input, "utf8");
+  const page = JSON.parse(pageRaw);
+  assertValidPage(page);
+
+  const privateReview = options.privateReview === true;
+  let approvalBinding = null;
+  if (!privateReview && page.review.status === "approved") {
+    approvalBinding = await verifyApprovalForRender(args, input, pageRaw, page);
+  } else if (page.review.status !== "approved" && !args["allow-draft"]) {
+    throw new Error("Render requires an approved page. Pass --allow-draft to override.");
+  }
+
+  if (privateReview && !/^[a-f0-9]{64}$/.test(options.inputDigest || "")) {
+    throw new Error("Private rendering requires the prepared intake digest.");
+  }
+  const { renderPaths } = await writeProjectionArtifacts(page, outputRoot, { privateReview });
+
+  if (privateReview) {
+    const privatePreviewDigest = await digestArtifactDirectory(renderPaths.deployRoot);
+    const dossier = buildReviewDossier(page, renderPaths, {
+      inputDigest: options.inputDigest,
+      materialDigest: options.materialDigest,
+      generationMaterials: options.generationMaterials,
+      privatePreviewDigest,
+    });
+    assertValidNameResolutionEvidence(dossier.evidence.nameResolution);
+    assertValidReviewDossier(dossier);
+    await writeJson(path.join(outputRoot, "review.json"), dossier);
+    console.log(
+      JSON.stringify(
+        {
+          state: "private_review_ready",
+          outputRoot,
+          privatePreviewRoot: renderPaths.deployRoot,
+          revision: page.pageRevision,
+          buildId: renderPaths.buildId,
+        },
+        null,
+        2,
+      ),
+    );
+    return dossier;
+  }
+
+  const preparedBundleDigest = await digestArtifactDirectory(renderPaths.deployRoot);
+  if (approvalBinding && approvalBinding.preparedBundleDigest !== preparedBundleDigest) {
+    throw new Error("Rendered deploy bundle does not match the approved prepared projection.");
+  }
+  const preparedApprovalBinding = approvalBinding ? { ...approvalBinding } : null;
   const job = (await exists(renderPaths.jobPath))
-    ? updateJobForRenderedRevision(await readJson(renderPaths.jobPath), page, input, renderPaths)
-    : buildJobFromPage(page, input, renderPaths);
+    ? updateJobForRenderedRevision(
+        await readJson(renderPaths.jobPath),
+        page,
+        input,
+        renderPaths,
+        preparedApprovalBinding,
+      )
+    : buildJobFromPage(page, input, renderPaths, preparedApprovalBinding);
   job.status = "rendered";
   await writeJson(renderPaths.jobPath, job);
 
@@ -170,6 +714,105 @@ export async function commandRender(args) {
       2,
     ),
   );
+}
+
+async function verifyApprovalForRender(args, inputPath, pageRaw, page) {
+  const approvalPath = path.resolve(process.cwd(), requireArg(args, "approval"));
+  return verifyApprovalArtifact(approvalPath, inputPath, pageRaw, page);
+}
+
+async function verifyApprovalArtifact(approvalPath, inputPath, pageRaw, page) {
+  await assertNoExistingSymbolicLinkComponents(approvalPath);
+  await assertNoSymbolicLinks(inputPath);
+  await assertNoSymbolicLinks(approvalPath);
+
+  const approvalRaw = await readFile(approvalPath, "utf8");
+  const approval = JSON.parse(approvalRaw);
+  assertValidApprovalSignature(approval);
+  const approvalRoot = path.dirname(approvalPath);
+  const approvedPagePath = resolveReviewArtifact(
+    approvalRoot,
+    approval?.artifacts?.approvedPage,
+    "approved page",
+  );
+  const recordedApprovalPath = resolveReviewArtifact(
+    approvalRoot,
+    approval?.artifacts?.approval,
+    "approval artifact",
+  );
+  if (approvedPagePath !== inputPath || recordedApprovalPath !== approvalPath) {
+    throw new Error("Render approval artifact is not bound to the supplied approved page.");
+  }
+
+  const digestFields = [
+    approval.materialDigest,
+    approval.dossierDigest,
+    approval.approvedPageDigest,
+    approval.preparedBundleDigest,
+  ];
+  if (
+    approval.schemaVersion !== "1.0" ||
+    approval.state !== "approved" ||
+    digestFields.some((value) => !/^[a-f0-9]{64}$/.test(value || "")) ||
+    approval.pageId !== page.pageId ||
+    approval.revision !== page.pageRevision ||
+    approval.buildId !== page.buildId ||
+    approval.reviewer !== page.review.reviewedBy ||
+    approval.reviewedAt !== page.review.reviewedAt ||
+    approval.approvedPageDigest !== sha256(pageRaw)
+  ) {
+    throw new Error("Approved page does not match its approval artifact.");
+  }
+
+  return {
+    approvalDigest: sha256(approvalRaw),
+    approvedPageDigest: approval.approvedPageDigest,
+    preparedBundleDigest: approval.preparedBundleDigest,
+    dossierDigest: approval.dossierDigest,
+    materialDigest: approval.materialDigest,
+    reviewer: approval.reviewer,
+    reviewedAt: approval.reviewedAt,
+  };
+}
+
+function buildReviewDossier(
+  page,
+  renderPaths,
+  { inputDigest, materialDigest, generationMaterials, privatePreviewDigest },
+) {
+  return {
+    schemaVersion: "1.0",
+    state: "review_required",
+    inputDigest,
+    materialDigest,
+    generationMaterials: cloneJson(generationMaterials),
+    requestId: page.provenance.sourceRequestId,
+    pageId: page.pageId,
+    revision: page.pageRevision,
+    buildId: renderPaths.buildId,
+    review: cloneJson(page.review),
+    operatorContext: {
+      specificDemands: cloneJson(page.provenance.specificDemands),
+    },
+    evidence: {
+      nameResolution: cloneJson(page.provenance.nameResolution),
+      templateFamily: page.templateFamily,
+      templateVersion: page.templateVersion,
+      rendererVersion: page.rendererVersion,
+    },
+    artifacts: {
+      canonicalPage: relativeArtifactPath(renderPaths.outputRoot, renderPaths.currentPagePath),
+      canonicalTranscript: relativeArtifactPath(renderPaths.outputRoot, renderPaths.currentTranscriptPath),
+      privatePreviewBundle: relativeArtifactPath(renderPaths.outputRoot, renderPaths.deployRoot),
+      privatePreviewRoot: relativeArtifactPath(renderPaths.outputRoot, renderPaths.slugRoot),
+      privatePreviewDigest,
+    },
+    warnings: ["narration_pending"],
+  };
+}
+
+function relativeArtifactPath(outputRoot, artifactPath) {
+  return path.relative(outputRoot, artifactPath).split(path.sep).join("/");
 }
 
 export async function commandTts(args) {
@@ -300,12 +943,28 @@ export async function commandSend(args) {
   const job = await readJson(jobPath);
   assertValidJob(job);
 
-  if (!job.deploy?.publicUrl) {
-    throw new Error("Cannot send delivery without a publicUrl in job.deploy.");
-  }
-
   if (provider !== "console") {
     throw new Error(`Unsupported send provider: ${provider}`);
+  }
+
+  if (args["dry-run"]) {
+    const expectedDeployRoot = path.join(path.dirname(jobPath), "deploy");
+    if (path.resolve(job.paths?.deployRoot || "") !== expectedDeployRoot) {
+      throw new Error("Delivery dry-run requires the job-local prepared deploy root.");
+    }
+    await assertApprovedPreparedRevision(job, expectedDeployRoot);
+    console.log(JSON.stringify({
+      state: "delivery_preview",
+      provider,
+      deploymentReady: true,
+      recipientConfigured: Boolean(job.customer?.email),
+      publicUrlConfigured: false,
+    }, null, 2));
+    return;
+  }
+
+  if (!job.deploy?.publicUrl) {
+    throw new Error("Cannot send delivery without a publicUrl in job.deploy.");
   }
 
   console.log(
@@ -359,46 +1018,16 @@ export async function commandStatus(args) {
   console.log(`Email: ${payload.email}`);
 }
 
-function buildSuggestions(intake, catalog) {
-  const slug = slugify(intake.baby.firstName);
-  const religion = intake?.context?.religion || null;
-  const nameEntry = catalog.names?.[slug] || null;
-  const suggestions = [];
-
-  if (religion && nameEntry?.religious?.[religion]) {
-    suggestions.push(...nameEntry.religious[religion]);
-  }
-
-  if (!religion && Array.isArray(nameEntry?.general)) {
-    suggestions.push(...nameEntry.general);
-  }
-
-  if (!suggestions.length && religion && catalog.fallbacks?.religious?.[religion]) {
-    suggestions.push(catalog.fallbacks.religious[religion]);
-  }
-
-  if (!suggestions.length && catalog.fallbacks?.general) {
-    suggestions.push(catalog.fallbacks.general);
-  }
-
-  return suggestions.map((suggestion) => ({
-    ...suggestion,
-    label: suggestion.label || `${languageDisplayName("ar")} / ${languageDisplayName("fr")} draft`,
-    confidence: suggestion.confidence || "medium",
-    basis: suggestion.basis || (religion ? `religious:${religion}` : "general"),
-  }));
-}
-
-function buildDraftPage(intake, suggestion) {
+function buildDraftPage(intake, suggestion, nameResolution) {
   const slug = slugify(intake.slug || intake.baby.firstName);
-  const pageId = `page_${slug}_${intake.requestId}`;
+  const pageId = `page_${slug}_${sha256(intake.requestId).slice(0, 16)}`;
   const pageRevision = "r1";
   const sectionOrder = Array.isArray(intake?.preferences?.sectionOrder)
     ? intake.preferences.sectionOrder
     : ["intro", "dua", "meaning", "reveal", "verses", "closing"];
   const languages = intake.languages;
-  const nameLatin = intake.baby.firstName;
-  const nameArabic = intake.baby.nameArabic || nameLatin;
+  const nameLatin = nameResolution.display.latin;
+  const nameArabic = nameResolution.display.arabic || nameLatin;
   const childLabel = intake.baby.gender === "boy"
     ? { ar: "بابننا", fr: "notre fils" }
     : { ar: "بابنتنا", fr: "notre fille" };
@@ -452,21 +1081,44 @@ function buildDraftPage(intake, suggestion) {
       status: "draft",
       reviewedBy: null,
       reviewedAt: null,
+      requiredReasons: nameResolution.reviewReasons,
     },
     provenance: {
       sourceRequestId: intake.requestId,
       composeSuggestionId: suggestion.id,
       composeBasis: suggestion.basis,
       customerEmail: intake.customer.email,
+      specificDemands: normalizeSpecificDemands(intake?.notes?.specificDemands),
+      nameResolution: buildNameResolutionEvidence(nameResolution),
     },
   };
+}
+
+function normalizeSpecificDemands(value) {
+  const normalized = typeof value === "string" ? value.trim() : "";
+  return normalized
+    ? { value: normalized, applicationStatus: "not_evaluated" }
+    : null;
+}
+
+function buildNameResolutionEvidence(nameResolution) {
+  return cloneJson({
+    status: nameResolution.status,
+    normalized: nameResolution.normalized,
+    match: nameResolution.match,
+    confidence: nameResolution.confidence,
+    claimPolicy: nameResolution.claimPolicy,
+    reviewReasons: nameResolution.reviewReasons,
+    sourceKeys: nameResolution.sourceKeys,
+  });
 }
 
 function buildSections({ intake, suggestion, childLabel, nameLatin, nameArabic, languages }) {
   const religion = intake?.context?.religion || null;
   const sections = {};
   const meaning = suggestion.meaning || {};
-  const verses = suggestion.verses || { ar: [], fr: [] };
+  const verses = enforceScripturalClaimPolicy(suggestion);
+  const meaningAllowed = suggestion.claimPolicy?.meaningAllowed !== false;
 
   sections.intro = {};
   sections.dua = {};
@@ -503,15 +1155,23 @@ function buildSections({ intake, suggestion, childLabel, nameLatin, nameArabic, 
           : suggestion.arWishNarration ||
             `نتمنى لـ ${nameArabic} حياة مليئة بالنور والسكينة، وأيامًا لطيفة وبركة لمن حولها.`,
     };
-    sections.meaning.ar = {
-      displayLines: suggestion.arMeaningLines || [
-        `اخترنا اسم ${nameArabic} لما يحمله من معنى ${meaning.ar || "جميل"}.`,
-        "اسم يترك أثرًا من الوضوح والطمأنينة.",
-      ],
-      narrationText:
-        suggestion.arMeaningNarration ||
-        `اخترنا اسم ${nameArabic} لما يحمله من معنى ${meaning.ar || "جميل"}. اسم يترك أثرًا من الوضوح والطمأنينة.`,
-    };
+    sections.meaning.ar = meaningAllowed && meaning.ar
+      ? {
+          displayLines: suggestion.arMeaningLines || [
+            `اخترنا اسم ${nameArabic} لما يحمله من معنى ${meaning.ar}.`,
+            "اسم يترك أثرًا من الوضوح والطمأنينة.",
+          ],
+          narrationText:
+            suggestion.arMeaningNarration ||
+            `اخترنا اسم ${nameArabic} لما يحمله من معنى ${meaning.ar}. اسم يترك أثرًا من الوضوح والطمأنينة.`,
+        }
+      : {
+          displayLines: [
+            `اخترنا اسم ${nameArabic} بمحبة.`,
+            "اسم فريد يحمل القصة التي تمنحها له عائلته.",
+          ],
+          narrationText: `اخترنا اسم ${nameArabic} بمحبة. اسم فريد يحمل القصة التي تمنحها له عائلته.`,
+        };
     sections.reveal.ar = {
       introLines: suggestion.arRevealIntroLines || ["بفضل الله ومنته", `رزقنا ${childLabel.ar}...`],
       name: suggestion.arRevealName || nameArabic,
@@ -519,12 +1179,13 @@ function buildSections({ intake, suggestion, childLabel, nameLatin, nameArabic, 
         suggestion.arRevealNarration || `بفضل الله ومنته رزقنا ${childLabel.ar} ${nameArabic}.`,
     };
     sections.verses.ar = {
-      introLine: religion === "islam" ? "قال تعالى:" : "معانٍ وإشارات:",
+      introLine: verses.ar.length
+        ? (religion === "islam" ? "قال تعالى:" : "مراجع مقترحة:")
+        : (religion === "islam" ? "دعاء وأمنيات:" : "أمنيات جميلة:"),
       items: verses.ar.length
         ? verses.ar
-        : [{ quote: "نور وأمل ورحمة", reference: "إشارة عامة", sourceKey: "general-ar" }],
+        : [{ quote: "نور وأمل ورحمة", reference: "أمنية عامة", sourceKey: "generic-wish-ar" }],
       narrationText:
-        suggestion.arVersesNarration ||
         (verses.ar.length
           ? verses.ar.map((item) => `${item.quote} ${item.reference}`).join(" ")
           : "نور وأمل ورحمة."),
@@ -568,28 +1229,38 @@ function buildSections({ intake, suggestion, childLabel, nameLatin, nameArabic, 
           : suggestion.frWishNarration ||
             `Nous souhaitons à ${nameLatin} une vie douce et lumineuse, faite de paix, de tendresse et de joie.`,
     };
-    sections.meaning.fr = {
-      displayLines: suggestion.frMeaningLines || [
-        `Nous avons choisi ${nameLatin} pour la beauté de son sens : ${meaning.fr || "une belle signification"}.`,
-        "Un nom porté par la clarté et l'espérance.",
-      ],
-      narrationText:
-        suggestion.frMeaningNarration ||
-        `Nous avons choisi ${nameLatin} pour la beauté de son sens : ${meaning.fr || "une belle signification"}. Un nom porté par la clarté et l'espérance.`,
-    };
+    sections.meaning.fr = meaningAllowed && meaning.fr
+      ? {
+          displayLines: suggestion.frMeaningLines || [
+            `Nous avons choisi ${nameLatin} pour la beauté de son sens : ${meaning.fr}.`,
+            "Un nom porté par la clarté et l'espérance.",
+          ],
+          narrationText:
+            suggestion.frMeaningNarration ||
+            `Nous avons choisi ${nameLatin} pour la beauté de son sens : ${meaning.fr}. Un nom porté par la clarté et l'espérance.`,
+        }
+      : {
+          displayLines: [
+            `Nous avons choisi ${nameLatin} avec amour.`,
+            "Un prénom unique, porté par l'histoire que sa famille lui donnera.",
+          ],
+          narrationText:
+            `Nous avons choisi ${nameLatin} avec amour. Un prénom unique, porté par l'histoire que sa famille lui donnera.`,
+        };
     sections.reveal.fr = {
       introLines: suggestion.frRevealIntroLines || ["Par la grâce de Dieu,", `nous avons accueilli ${childLabel.fr}...`],
-      name: suggestion.frRevealName || nameLatin.toUpperCase(),
+      name: suggestion.frRevealName || nameLatin,
       narrationText:
         suggestion.frRevealNarration || `Par la grâce de Dieu, nous avons accueilli ${childLabel.fr} ${nameLatin}.`,
     };
     sections.verses.fr = {
-      introLine: religion === "islam" ? "Références proposées :" : "Sens et échos proposés :",
+      introLine: verses.fr.length
+        ? (religion === "islam" ? "Références proposées :" : "Sources proposées :")
+        : (religion === "islam" ? "Vœux et bénédictions :" : "Vœux proposés :"),
       items: verses.fr.length
         ? verses.fr
-        : [{ quote: "Lumière, paix et espérance.", reference: "Référence générale", sourceKey: "general-fr" }],
+        : [{ quote: "Lumière, paix et espérance.", reference: "Vœu général", sourceKey: "generic-wish-fr" }],
       narrationText:
-        suggestion.frVersesNarration ||
         (verses.fr.length
           ? verses.fr.map((item) => `${item.quote} ${item.reference}`).join(" ")
           : "Lumière, paix et espérance."),
@@ -606,6 +1277,20 @@ function buildSections({ intake, suggestion, childLabel, nameLatin, nameArabic, 
   }
 
   return sections;
+}
+
+function enforceScripturalClaimPolicy(suggestion) {
+  if (suggestion.claimPolicy?.scripturalNameAssociationAllowed !== true) {
+    return { ar: [], fr: [] };
+  }
+  return Object.fromEntries(
+    ["ar", "fr"].map((language) => [
+      language,
+      (suggestion?.verses?.[language] || []).filter(
+        (item) => typeof item?.sourceKey === "string" && item.sourceKey.trim(),
+      ),
+    ]),
+  );
 }
 
 function buildTranscript(page) {
@@ -629,7 +1314,7 @@ function buildTranscript(page) {
   return transcript;
 }
 
-function buildJobFromPage(page, inputPath, renderPaths) {
+function buildJobFromPage(page, inputPath, renderPaths, approvalBinding = null) {
   return {
     schemaVersion: "1.0",
     jobId: `job_${page.slug}`,
@@ -654,6 +1339,7 @@ function buildJobFromPage(page, inputPath, renderPaths) {
       languages: page.languages,
     },
     review: cloneJson(page.review),
+    approval: cloneJson(approvalBinding),
     deploy: null,
     email: {
       status: "pending",
@@ -668,7 +1354,7 @@ function buildJobFromPage(page, inputPath, renderPaths) {
   };
 }
 
-function updateJobForRenderedRevision(job, page, inputPath, renderPaths) {
+function updateJobForRenderedRevision(job, page, inputPath, renderPaths, approvalBinding) {
   const next = cloneJson(job);
   const alreadyTracked = (next.revisionHistory || []).some((entry) => entry.revision === page.pageRevision);
 
@@ -691,6 +1377,7 @@ function updateJobForRenderedRevision(job, page, inputPath, renderPaths) {
     languages: page.languages,
   };
   next.review = cloneJson(page.review);
+  next.approval = cloneJson(approvalBinding);
   next.revisionHistory = next.revisionHistory || [];
 
   if (!alreadyTracked) {
@@ -720,7 +1407,6 @@ function buildPublicPage(page) {
     identity,
     seo,
     sections,
-    audioPlan,
   } = page;
 
   return cloneJson({
@@ -738,7 +1424,6 @@ function buildPublicPage(page) {
     identity,
     seo,
     sections,
-    audioPlan,
   });
 }
 
@@ -752,7 +1437,17 @@ async function assertApprovedPreparedRevision(job, deployRoot) {
     throw new Error("Deploy requires the canonical prepared page artifact.");
   }
 
-  const page = await readJson(currentPagePath);
+  if (
+    !job.approval ||
+    !/^[a-f0-9]{64}$/.test(job.approval.approvalDigest || "") ||
+    !/^[a-f0-9]{64}$/.test(job.approval.approvedPageDigest || "") ||
+    !/^[a-f0-9]{64}$/.test(job.approval.preparedBundleDigest || "")
+  ) {
+    throw new Error("Deploy requires the prepared revision's approval binding.");
+  }
+
+  const currentPageRaw = await readFile(currentPagePath, "utf8");
+  const page = JSON.parse(currentPageRaw);
   assertValidPage(page);
   if (page.review?.status !== "approved" || page.pageRevision !== job.currentPreparedRevision) {
     throw new Error("Deploy requires an approved page revision matching the prepared job revision.");
@@ -760,6 +1455,13 @@ async function assertApprovedPreparedRevision(job, deployRoot) {
 
   if (typeof page.buildId !== "string" || page.buildId.length === 0) {
     throw new Error("Deploy requires a prepared page build identifier.");
+  }
+  if (
+    sha256(currentPageRaw) !== job.approval.approvedPageDigest ||
+    page.review.reviewedBy !== job.approval.reviewer ||
+    page.review.reviewedAt !== job.approval.reviewedAt
+  ) {
+    throw new Error("Prepared page does not match its approval binding.");
   }
 
   const publicPagePath = path.join(deployRoot, page.slug, "page.json");
@@ -769,6 +1471,41 @@ async function assertApprovedPreparedRevision(job, deployRoot) {
   const publicPage = await readJson(publicPagePath);
   if (!isDeepStrictEqual(publicPage, buildPublicPage(page))) {
     throw new Error("The public deploy bundle does not match the approved prepared page.");
+  }
+  const sourcePagePath = job.paths?.sourcePage;
+  if (!sourcePagePath || !(await exists(sourcePagePath))) {
+    throw new Error("Deploy requires the original approved page artifact.");
+  }
+  const sourcePageRaw = await readFile(sourcePagePath, "utf8");
+  const sourcePage = JSON.parse(sourcePageRaw);
+  assertValidPage(sourcePage);
+  const recordedApproval = await verifyApprovalArtifact(
+    path.join(path.dirname(sourcePagePath), "approval.json"),
+    sourcePagePath,
+    sourcePageRaw,
+    sourcePage,
+  );
+  const approvalBindingFields = [
+    "approvalDigest",
+    "approvedPageDigest",
+    "dossierDigest",
+    "materialDigest",
+    "reviewer",
+    "reviewedAt",
+  ];
+  if (
+    sourcePageRaw !== currentPageRaw ||
+    approvalBindingFields.some((field) => recordedApproval[field] !== job.approval[field])
+  ) {
+    throw new Error("The approval artifact or job approval binding changed after render.");
+  }
+  const expectedPreparedBundleDigest = await computePreparedProjectionDigest(sourcePage);
+  if (
+    recordedApproval.preparedBundleDigest !== expectedPreparedBundleDigest ||
+    job.approval.preparedBundleDigest !== expectedPreparedBundleDigest ||
+    await digestArtifactDirectory(deployRoot) !== expectedPreparedBundleDigest
+  ) {
+    throw new Error("The prepared deploy bundle does not match its approval binding.");
   }
 }
 
@@ -790,9 +1527,6 @@ async function generateNarrationForLanguage({ apiKey, language, page, renderPath
 
   const manifest = {
     language,
-    provider: page.audioPlan.provider,
-    model: page.audioPlan.model,
-    voice: page.audioPlan.voiceByLanguage[language],
     generatedAt: nowIso(),
     files: [],
   };

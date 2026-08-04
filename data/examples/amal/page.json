@@ -10,6 +10,7 @@
   "templateVersion": "1.0.0",
   "rendererVersion": "1.0.0",
   "pageRevision": "r1",
+  "buildId": "blessed-arrival-1-0-0-r1",
   "featureFlags": [],
   "sectionOrder": [
     "intro",

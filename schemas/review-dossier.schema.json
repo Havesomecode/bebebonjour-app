@@ -1,0 +1,218 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://bebebonjour.local/schemas/review-dossier.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "state",
+    "inputDigest",
+    "materialDigest",
+    "generationMaterials",
+    "requestId",
+    "pageId",
+    "revision",
+    "buildId",
+    "review",
+    "operatorContext",
+    "evidence",
+    "artifacts",
+    "warnings"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "const": "1.0"
+    },
+    "state": {
+      "const": "review_required"
+    },
+    "inputDigest": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "materialDigest": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "generationMaterials": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "selectionId",
+        "catalogDigest",
+        "templateDigest",
+        "rendererDigest"
+      ],
+      "properties": {
+        "selectionId": {
+          "oneOf": [
+            {
+              "type": "string",
+              "minLength": 1
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "catalogDigest": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "templateDigest": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "rendererDigest": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        }
+      }
+    },
+    "requestId": {
+      "type": "string",
+      "minLength": 1
+    },
+    "pageId": {
+      "type": "string",
+      "minLength": 1
+    },
+    "revision": {
+      "type": "string",
+      "pattern": "^r[0-9]+$"
+    },
+    "buildId": {
+      "type": "string",
+      "minLength": 1
+    },
+    "review": {
+      "type": "object",
+      "required": [
+        "status",
+        "reviewedBy",
+        "reviewedAt",
+        "requiredReasons"
+      ],
+      "properties": {
+        "status": {
+          "const": "draft"
+        },
+        "reviewedBy": {
+          "type": "null"
+        },
+        "reviewedAt": {
+          "type": "null"
+        },
+        "requiredReasons": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "uniqueItems": true
+        }
+      }
+    },
+    "operatorContext": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "specificDemands"
+      ],
+      "properties": {
+        "specificDemands": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "value",
+                "applicationStatus"
+              ],
+              "properties": {
+                "value": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "applicationStatus": {
+                  "const": "not_evaluated"
+                }
+              }
+            }
+          ]
+        }
+      }
+    },
+    "evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "nameResolution",
+        "templateFamily",
+        "templateVersion",
+        "rendererVersion"
+      ],
+      "properties": {
+        "nameResolution": {
+          "$ref": "name-resolution-evidence.schema.json"
+        },
+        "templateFamily": {
+          "type": "string",
+          "minLength": 1
+        },
+        "templateVersion": {
+          "type": "string",
+          "minLength": 1
+        },
+        "rendererVersion": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "artifacts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "canonicalPage",
+        "canonicalTranscript",
+        "privatePreviewBundle",
+        "privatePreviewDigest",
+        "privatePreviewRoot"
+      ],
+      "properties": {
+        "canonicalPage": {
+          "type": "string",
+          "minLength": 1
+        },
+        "canonicalTranscript": {
+          "type": "string",
+          "minLength": 1
+        },
+        "privatePreviewBundle": {
+          "type": "string",
+          "minLength": 1
+        },
+        "privatePreviewDigest": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "privatePreviewRoot": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "warnings": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "uniqueItems": true
+    }
+  }
+}
