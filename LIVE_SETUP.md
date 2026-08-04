@@ -1,5 +1,11 @@
 # Live TTS And Deploy
 
+> **Authorization status:** This file documents operator preparation only. No
+> live TTS generation, deployment, hosted database migration, database-role
+> credential provisioning, provider change, or compensating migration has been
+> approved. Each live operation requires separate, explicit human authorization
+> before an operator executes it.
+
 ## Credentials
 
 Copy `.env.example` to `.env.local` and set:
@@ -32,8 +38,15 @@ If `.vercel/project.json` is missing and both `VERCEL_ORG_ID` and `VERCEL_PROJEC
 
 ## Notion-Free Fulfillment Ingress
 
-The first fulfillment slice stops at one durable `review_required` job. It does
-not compose, narrate, publish, or email a customer.
+The fulfillment ingress stops at one durable `review_required` job and one
+queued generation run for the exact intake digest. It does not compose,
+narrate, publish, upload a preview, or email a customer until a separate worker
+is implemented and explicitly deployed.
+
+An open review job is one continuous eligibility cycle. Idempotent provider
+replays reuse it. An eligibility regression or canonical-intake change closes
+the cycle; a later eligible state creates a fresh review-job/run identity while
+terminal runs remain immutable historical evidence.
 
 ### Isolation
 
@@ -44,20 +57,44 @@ published baby routes.
 
 ### Database
 
-Apply every file in `supabase/migrations/` to the approved Supabase project in
-timestamp order, preferably with `supabase db push`. Together they create the
-private, RLS-enabled tables for redacted webhook audit events, Stripe payments,
-orders, and review jobs; lock the transactional RPC functions to the Supabase
-service role; and support Supabase's hosted `pgcrypto` schema layout. Provider
-audit payloads retain only identifiers, payment facts, and an exact-raw-byte
-SHA-256 fingerprint. Stripe email matching uses a normalized SHA-256 digest;
-provider tables do not duplicate plaintext names or email. Signed events that
-fail normalization are acknowledged only after an idempotent redacted audit row
-is stored. The application sends exact-byte SHA-256 evidence to v2 RPCs instead
-instead of sending raw provider payloads across the persistence boundary.
+All database work below is **unapproved operator preparation**. Before requesting
+live authorization, review the exact candidate forward migration and prepare,
+review, and test a separate compensating forward migration against a disposable
+local database. Neither the forward migration nor any compensating migration may
+be applied to a hosted project without explicit human authorization for that
+specific operation and project.
 
-Apply the database migrations before deploying application code that calls the
-v2 RPCs. The new code intentionally fails closed if those RPCs are unavailable.
+After that authorization, apply every file in `supabase/migrations/` to the
+approved Supabase project in timestamp order, preferably with `supabase db push`.
+Together they create the private, RLS-enabled tables for redacted webhook audit
+events, Stripe payments, orders, review jobs, and leased generation runs; lock
+the transactional RPC functions to explicit server roles; and support Supabase's
+hosted `pgcrypto` schema layout. Webhook ingestion remains service-role only.
+Generation claim, complete, and fail RPCs are available only to the dedicated
+`fulfillment_generation_worker` database role, not the service role. The adapter
+only requires an injected client with an `rpc` method and cannot inspect its
+credentials or role; PostgreSQL grants enforce this boundary, so a service-role
+call fails at the database.
+
+Provisioning a worker-role credential is a separate, unapproved live operation.
+Only after explicit human authorization, provision a separately issued credential
+that assumes only `fulfillment_generation_worker`; never put a service-role key
+or a JWT signing key in the generation worker. These operations use bounded
+lease-token compare-and-set transitions; completion rechecks the paid order and
+open review job before accepting an order/run/digest-bound private artifact
+record. Claim responses expose an explicit generation-only intake projection and
+omit the customer email and submission timestamp. Provider audit payloads retain
+only identifiers, payment facts, and an exact-raw-byte SHA-256 fingerprint.
+Stripe email matching uses a normalized SHA-256 digest; provider tables do not
+duplicate plaintext names or email. Signed events that fail normalization are
+acknowledged only after an idempotent redacted audit row is stored. The
+application sends exact-byte SHA-256 evidence to v2 RPCs instead of sending raw
+provider payloads across the persistence boundary.
+
+If both operations are separately authorized, apply the database migrations before
+deploying application code that calls the v2 RPCs. The new code intentionally
+fails closed if those RPCs are unavailable. No such hosted migration or
+deployment is authorized by this document.
 
 The canonical `fulfillment_orders.intake` still contains the customer data
 needed to generate an announcement. Before accepting live customer data, define
@@ -86,8 +123,9 @@ recorded idempotently and moves its order to `blocked` for investigation.
    `/api/webhooks/stripe` and copy its signing secret to
    `STRIPE_WEBHOOK_SECRET`.
 6. Submit one synthetic paid order and verify exactly two webhook events, one
-   payment, one order, and one review job with status `review_required`.
-7. Replay both provider events and verify all four counts remain unchanged.
+   payment, one order, one review job with status `review_required`, and one
+   queued generation run.
+7. Replay both provider events and verify every count remains unchanged.
 8. Only after that verification, disable the Zapier workflow and retire the
    Notion board from the fulfillment path.
 

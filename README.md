@@ -9,7 +9,28 @@ The repository currently contains two connected but deliberately separated parts
 
 ## Safety boundary
 
-The fulfillment ingress stops at a durable `review_required` job. It does **not** automatically compose content, generate narration, publish a page, email a customer, issue a refund, or deliver an order.
+The fulfillment ingress stops after persisting a durable `review_required` job
+and queuing one inert generation run for the exact canonical intake digest. It
+does **not** automatically compose content, generate narration, upload a preview,
+publish a page, email a customer, issue a refund, or deliver an order.
+
+Each open review job represents one continuous eligibility cycle. Provider
+replays reuse that cycle; an eligibility regression or canonical-intake change
+closes it, and a later eligible state receives a fresh review-job/run identity.
+Terminal generation runs remain immutable history and are never restarted by
+reconciliation.
+
+Internal claim, complete, and fail RPCs define bounded leases, immutable
+generator-material identities, eligibility rechecks, and digest-bound private
+artifact metadata. The RPC adapter exists, but no worker or private artifact
+upload path is deployed; the queued run is therefore inert. The adapter requires
+an injected client with an `rpc` method. It neither creates that client nor can
+it introspect the client's credentials or database role. PostgreSQL function
+grants are the authorization boundary: the dedicated
+`fulfillment_generation_worker` role may call the generation RPCs, while calls
+made as `service_role` fail at the database boundary. The claim RPC also
+allowlists generation fields instead of returning the customer email or any
+future intake fields by default.
 
 The local review tracer can validate a synthetic intake, apply the catalog-backed
 name policy, produce a deterministic private preview, and record an explicit
@@ -145,7 +166,7 @@ without requiring a public URL. Neither mode sends email or marks a job delivere
 - `api/webhooks/` — Vercel Node webhook entrypoints
 - `src/webhooks/` — signature verification and provider normalization
 - `src/persistence/` — Supabase RPC boundary
-- `supabase/migrations/` — durable reconciliation, RLS, and RPC permissions
+- `supabase/migrations/` — durable reconciliation and generation leases, RLS, and RPC permissions
 - `schemas/` — intake, page, job, transcript, and narration contracts
 - `bin/` and `scripts/` — operator CLI
 - `template/` — deterministic announcement-page runtime

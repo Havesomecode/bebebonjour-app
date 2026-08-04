@@ -45,7 +45,7 @@
 - [ ] Add two-generation, same-name, and multi-revision coexistence tests.
 - [ ] Add provider-neutral artifact byte accounting.
 - [ ] Add a private-preview TTS mode with bounded retries and partial-failure evidence.
-- [ ] Define a separate durable generation-run lifecycle and least-privilege claim/complete/fail RPCs in forward-only database migrations.
+- [x] Locally implement the generation-run lifecycle and least-privilege claim/complete/fail RPCs in a candidate forward-only database migration; no hosted migration or deployment has been performed.
 - [ ] Connect one paid `review_required` order to the generation worker using synthetic integration tests.
 - [ ] Make the worker pull-based, one-order-per-invocation, lease-bound, and independent of webhook response ordering.
 - [ ] Upload only a sanitized private subtree under immutable order/run/digest keys with a full-file manifest digest.
