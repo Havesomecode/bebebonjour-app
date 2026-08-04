@@ -1,6 +1,6 @@
 import { spawnSync } from "node:child_process";
 import { createHash, createHmac, timingSafeEqual } from "node:crypto";
-import { copyFile, lstat, mkdtemp, readFile, readdir, realpath, rm, writeFile } from "node:fs/promises";
+import { copyFile, cp, lstat, mkdtemp, readFile, readdir, realpath, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import process from "node:process";
@@ -31,7 +31,11 @@ import { renderHtml } from "./render-html.mjs";
 import { resolveName } from "./name-resolution.mjs";
 import {
   assertValidNameResolutionEvidence,
+  assertValidNarrationApproval,
+  assertValidNarrationManifest,
+  assertValidNarrationReview,
   assertValidReviewDossier,
+  assertValidTranscript,
 } from "./schema-validation.mjs";
 import { assertValidIntake, assertValidJob, assertValidPage } from "./validators.mjs";
 
@@ -54,7 +58,11 @@ const RENDERER_MATERIAL_PATHS = [
   path.join(PROJECT_ROOT, "scripts", "lib", "schema-validation.mjs"),
   path.join(PROJECT_ROOT, "scripts", "lib", "validators.mjs"),
   path.join(PROJECT_ROOT, "schemas", "name-resolution-evidence.schema.json"),
+  path.join(PROJECT_ROOT, "schemas", "narration-approval.schema.json"),
+  path.join(PROJECT_ROOT, "schemas", "narration-manifest.schema.json"),
+  path.join(PROJECT_ROOT, "schemas", "narration-review.schema.json"),
   path.join(PROJECT_ROOT, "schemas", "review-dossier.schema.json"),
+  path.join(PROJECT_ROOT, "schemas", "transcript.schema.json"),
 ];
 const TEMPLATE_MATERIAL_PATHS = [
   TEMPLATE_APP_PATH,
@@ -367,6 +375,19 @@ async function resolvePhysicalPath(targetPath) {
     existingAncestor = parent;
   }
   return path.join(await realpath(existingAncestor), ...missingComponents);
+}
+
+async function assertOutputOutsideImmutableRoots(outputRoot, immutableRoots) {
+  const physicalOutput = await resolvePhysicalPath(outputRoot);
+  for (const immutableRoot of immutableRoots) {
+    const physicalImmutableRoot = await resolvePhysicalPath(immutableRoot);
+    if (
+      isPathInside(physicalImmutableRoot, physicalOutput) ||
+      isPathInside(physicalOutput, physicalImmutableRoot)
+    ) {
+      throw new Error("Output must be outside immutable narration inputs.");
+    }
+  }
 }
 
 async function assertFreshDirectory(directory, label) {
@@ -817,13 +838,27 @@ function relativeArtifactPath(outputRoot, artifactPath) {
 
 export async function commandTts(args) {
   const input = path.resolve(process.cwd(), requireArg(args, "input"));
+  const approvalPath = path.resolve(process.cwd(), requireArg(args, "approval"));
+  const preparedRoot = path.resolve(process.cwd(), requireArg(args, "prepared"));
   const outputRoot = path.resolve(process.cwd(), requireArg(args, "output"));
   const languageArg = typeof args.lang === "string" ? args.lang : "all";
   const selectedLanguages = languageArg === "all" ? null : languageArg.split(",");
-  const page = await readJson(input);
+  const pageRaw = await readFile(input, "utf8");
+  const page = JSON.parse(pageRaw);
   assertValidPage(page);
-  const renderPaths = getRenderPaths(page, outputRoot);
-  const transcript = await readJson(renderPaths.transcriptPath);
+  const approvalBinding = await verifyApprovalArtifact(approvalPath, input, pageRaw, page);
+  const preparedJob = await readJson(path.join(preparedRoot, "job.json"));
+  assertValidJob(preparedJob);
+  await assertApprovedPreparedRevision(preparedJob, path.join(preparedRoot, "deploy"));
+  if (preparedJob.approval?.approvalDigest !== approvalBinding.approvalDigest) {
+    throw new Error("Narration staging requires the prepared bundle's exact content approval.");
+  }
+  await assertNoExistingSymbolicLinkComponents(outputRoot);
+  await assertOutputOutsideImmutableRoots(outputRoot, [preparedRoot, input, approvalPath]);
+  await assertFreshDirectory(outputRoot, "Narration review output");
+
+  const preparedPaths = getRenderPaths(page, preparedRoot);
+  const transcript = await readJson(preparedPaths.transcriptPath);
   const apiKey = process.env.OPENAI_API_KEY;
 
   if (!apiKey) {
@@ -831,6 +866,21 @@ export async function commandTts(args) {
   }
 
   const activeLanguages = selectedLanguages || page.languages;
+  if (
+    activeLanguages.length === 0 ||
+    activeLanguages.some((language) => !page.languages.includes(language))
+  ) {
+    throw new Error("TTS languages must be enabled on the approved page.");
+  }
+  if (new Set(activeLanguages).size !== activeLanguages.length) {
+    throw new Error("Duplicate narration language selections are not allowed.");
+  }
+  assertFfprobeAvailable();
+  const artifactsRoot = path.join(outputRoot, "artifacts");
+  const stagedPaths = {
+    ...preparedPaths,
+    audioRoot: path.join(artifactsRoot, "audio"),
+  };
   const results = [];
   let partialFailure = false;
 
@@ -840,41 +890,212 @@ export async function commandTts(args) {
         apiKey,
         language,
         page,
-        renderPaths,
+        renderPaths: stagedPaths,
         force: Boolean(args.force),
       });
       results.push({ language, status: "ok", files: manifest.files.length });
     } catch (error) {
       partialFailure = true;
-      results.push({ language, status: "failed", error: error.message });
+      results.push({ language, status: "failed", error: narrationFailureCode(error) });
     }
   }
 
-  const updatedTranscript = await rebuildTranscriptTimes(page, renderPaths, transcript);
-  await writeJson(renderPaths.transcriptPath, updatedTranscript);
-  await writeJson(renderPaths.currentTranscriptPath, updatedTranscript);
-  await writeJson(renderPaths.transcriptRevisionPath, updatedTranscript);
-
-  const job = await loadOrCreateJob(page, input, renderPaths);
-  job.status = partialFailure ? "tts_partial" : "tts_complete";
-  job.lastNarrationGeneratedAt = nowIso();
-  job.narration = {
-    generatedForLanguages: activeLanguages,
-    partialFailure,
+  const updatedTranscript = await rebuildTranscriptTimes(page, stagedPaths, transcript);
+  await writeJson(path.join(artifactsRoot, "transcript.json"), updatedTranscript);
+  const mediaDigest = await digestArtifactDirectory(artifactsRoot);
+  const review = {
+    schemaVersion: "1.0",
+    state: partialFailure ? "narration_generation_failed" : "narration_review_required",
+    pageId: page.pageId,
+    revision: page.pageRevision,
+    buildId: page.buildId,
+    contentApprovalDigest: preparedJob.approval.approvalDigest,
+    preparedBundleDigest: preparedJob.approval.preparedBundleDigest,
+    generatedAt: nowIso(),
+    languages: activeLanguages,
+    results,
+    mediaDigest,
+    generation: {
+      provider: "openai",
+      model: page.audioPlan.model,
+      voiceByLanguage: Object.fromEntries(
+        activeLanguages.map((language) => [language, page.audioPlan.voiceByLanguage[language]]),
+      ),
+    },
+    artifacts: {
+      root: "artifacts",
+      transcript: "artifacts/transcript.json",
+    },
   };
-  await writeJson(renderPaths.jobPath, job);
+  assertValidNarrationReview(review);
+  await writeJson(path.join(outputRoot, "review.json"), review);
 
-  console.log(JSON.stringify({ state: job.status, results }, null, 2));
+  console.log(JSON.stringify({ state: review.state, outputRoot, results }, null, 2));
   if (partialFailure) process.exitCode = 9;
+}
+
+export async function commandApproveNarration(args) {
+  const reviewPath = path.resolve(process.cwd(), requireArg(args, "review"));
+  const preparedRoot = path.resolve(process.cwd(), requireArg(args, "prepared"));
+  const outputRoot = path.resolve(process.cwd(), requireArg(args, "output"));
+  const reviewer = requireArg(args, "reviewer").trim();
+  if (!reviewer) throw new Error("Narration approval requires a reviewer identity.");
+
+  approvalHmacKey();
+  await Promise.all([
+    assertNoExistingSymbolicLinkComponents(reviewPath),
+    assertNoExistingSymbolicLinkComponents(preparedRoot),
+    assertNoExistingSymbolicLinkComponents(outputRoot),
+  ]);
+  await assertOutputOutsideImmutableRoots(outputRoot, [preparedRoot, path.dirname(reviewPath)]);
+  await assertNoSymbolicLinks(path.dirname(reviewPath));
+  await assertFreshDirectory(outputRoot, "Narration approval output");
+
+  const reviewRaw = await readFile(reviewPath, "utf8");
+  const review = JSON.parse(reviewRaw);
+  const reviewRoot = path.dirname(reviewPath);
+  assertValidNarrationReview(review);
+  if (reviewPath !== path.join(reviewRoot, "review.json")) {
+    throw new Error("Narration approval requires the review root's review.json artifact.");
+  }
+  const entries = await readdir(reviewRoot);
+  if (
+    entries.length !== 2 ||
+    !entries.includes("artifacts") ||
+    !entries.includes("review.json")
+  ) {
+    throw new Error("Narration review root contains unexpected entries.");
+  }
+  const artifactsRoot = resolveReviewArtifact(reviewRoot, review?.artifacts?.root, "narration artifacts");
+  const transcriptPath = resolveReviewArtifact(
+    reviewRoot,
+    review?.artifacts?.transcript,
+    "narration transcript",
+  );
+  if (!isPathInside(artifactsRoot, transcriptPath)) {
+    throw new Error("Narration transcript must be inside the reviewed artifact root.");
+  }
+  if (
+    review.schemaVersion !== "1.0" ||
+    review.state !== "narration_review_required" ||
+    !/^[a-f0-9]{64}$/.test(review.contentApprovalDigest || "") ||
+    !/^[a-f0-9]{64}$/.test(review.preparedBundleDigest || "") ||
+    !/^[a-f0-9]{64}$/.test(review.mediaDigest || "") ||
+    !Array.isArray(review.languages) ||
+    review.languages.length === 0 ||
+    review.results.length !== review.languages.length ||
+    review.results.some((result, index) =>
+      result.language !== review.languages[index] || result.status !== "ok"
+    ) ||
+    await digestArtifactDirectory(artifactsRoot) !== review.mediaDigest
+  ) {
+    throw new Error("Narration review material is invalid or has changed.");
+  }
+  const acknowledgedLanguages = parseCommaSeparated(args.acknowledge).sort();
+  const reviewedLanguages = [...new Set(review.languages)].sort();
+  if (!isDeepStrictEqual(acknowledgedLanguages, reviewedLanguages)) {
+    throw new Error(`Narration approval must acknowledge exactly: ${reviewedLanguages.join(", ")}.`);
+  }
+
+  const preparedJob = await readJson(path.join(preparedRoot, "job.json"));
+  assertValidJob(preparedJob);
+  await assertApprovedPreparedRevision(preparedJob, path.join(preparedRoot, "deploy"));
+  const sourcePagePath = preparedJob.paths.sourcePage;
+  const page = await readJson(sourcePagePath);
+  assertValidPage(page);
+  if (
+    preparedJob.pageId !== review.pageId ||
+    preparedJob.currentPreparedRevision !== review.revision ||
+    page.buildId !== review.buildId ||
+    review.languages.some((language) => !page.languages.includes(language)) ||
+    review.results.some((result) => result.files !== page.sectionOrder.length) ||
+    preparedJob.approval?.approvalDigest !== review.contentApprovalDigest ||
+    preparedJob.approval?.preparedBundleDigest !== review.preparedBundleDigest
+  ) {
+    throw new Error("Narration review does not match the prepared content approval.");
+  }
+  await assertNarrationArtifactInventory(page, artifactsRoot, reviewedLanguages);
+
+  const sourceApprovalPath = path.join(path.dirname(sourcePagePath), "approval.json");
+  await renderPage({
+    input: sourcePagePath,
+    approval: sourceApprovalPath,
+    output: outputRoot,
+  });
+  const finalPaths = getRenderPaths(page, outputRoot);
+  await cp(path.join(artifactsRoot, "audio"), finalPaths.audioRoot, {
+    recursive: true,
+    force: false,
+    errorOnExist: true,
+  });
+  const transcriptRaw = await readFile(transcriptPath, "utf8");
+  await Promise.all([
+    writeFile(finalPaths.transcriptPath, transcriptRaw, "utf8"),
+    writeFile(finalPaths.currentTranscriptPath, transcriptRaw, "utf8"),
+    writeFile(finalPaths.transcriptRevisionPath, transcriptRaw, "utf8"),
+  ]);
+
+  await cp(reviewRoot, path.join(outputRoot, "narration-review"), {
+    recursive: true,
+    force: false,
+    errorOnExist: true,
+  });
+  const reviewedAt = nowIso();
+  const narrationApproval = {
+    schemaVersion: "1.0",
+    state: "approved",
+    reviewer,
+    reviewedAt,
+    pageId: review.pageId,
+    revision: review.revision,
+    buildId: review.buildId,
+    contentApprovalDigest: review.contentApprovalDigest,
+    basePreparedBundleDigest: review.preparedBundleDigest,
+    narrationReviewDigest: sha256(reviewRaw),
+    mediaDigest: review.mediaDigest,
+    preparedBundleDigest: await digestArtifactDirectory(finalPaths.deployRoot),
+    acknowledgedLanguages,
+    signatureAlgorithm: "hmac-sha256",
+    artifacts: {
+      narrationReview: "narration-review/review.json",
+      narrationApproval: "narration-approval.json",
+    },
+  };
+  narrationApproval.signature = signApprovalRecord(narrationApproval);
+  assertValidNarrationApproval(narrationApproval);
+  const narrationApprovalRaw = `${JSON.stringify(narrationApproval, null, 2)}\n`;
+  await writeFile(path.join(outputRoot, "narration-approval.json"), narrationApprovalRaw, "utf8");
+
+  const finalJob = await readJson(finalPaths.jobPath);
+  finalJob.narrationApproval = {
+    approvalDigest: sha256(narrationApprovalRaw),
+    contentApprovalDigest: narrationApproval.contentApprovalDigest,
+    narrationReviewDigest: narrationApproval.narrationReviewDigest,
+    mediaDigest: narrationApproval.mediaDigest,
+    preparedBundleDigest: narrationApproval.preparedBundleDigest,
+    reviewer,
+    reviewedAt,
+  };
+  await writeJson(finalPaths.jobPath, finalJob);
+  console.log(JSON.stringify({
+    state: "narration_approved",
+    outputRoot,
+    revision: narrationApproval.revision,
+    languages: acknowledgedLanguages,
+  }, null, 2));
+  return narrationApproval;
 }
 
 export async function commandDeploy(args) {
   const input = path.resolve(process.cwd(), requireArg(args, "input"));
   const jobPath = args.job ? path.resolve(process.cwd(), args.job) : path.join(input, "job.json");
+  await assertNoExistingSymbolicLinkComponents(input);
+  await assertNoExistingSymbolicLinkComponents(jobPath);
   const job = await readJson(jobPath);
   assertValidJob(job);
 
   const deployRoot = path.join(input, "deploy");
+  await assertNoExistingSymbolicLinkComponents(deployRoot);
   if (!job.paths?.deployRoot || path.resolve(process.cwd(), job.paths.deployRoot) !== deployRoot) {
     throw new Error("Deploy input must match the deploy root recorded in the job.");
   }
@@ -940,6 +1161,7 @@ export async function commandDeploy(args) {
 export async function commandSend(args) {
   const jobPath = path.resolve(process.cwd(), requireArg(args, "job"));
   const provider = typeof args.provider === "string" ? args.provider : "console";
+  await assertNoExistingSymbolicLinkComponents(jobPath);
   const job = await readJson(jobPath);
   assertValidJob(job);
 
@@ -947,12 +1169,14 @@ export async function commandSend(args) {
     throw new Error(`Unsupported send provider: ${provider}`);
   }
 
+  const expectedDeployRoot = path.join(path.dirname(jobPath), "deploy");
+  await assertNoExistingSymbolicLinkComponents(expectedDeployRoot);
+  if (path.resolve(job.paths?.deployRoot || "") !== expectedDeployRoot) {
+    throw new Error("Delivery requires the job-local prepared deploy root.");
+  }
+  await assertApprovedPreparedRevision(job, expectedDeployRoot);
+
   if (args["dry-run"]) {
-    const expectedDeployRoot = path.join(path.dirname(jobPath), "deploy");
-    if (path.resolve(job.paths?.deployRoot || "") !== expectedDeployRoot) {
-      throw new Error("Delivery dry-run requires the job-local prepared deploy root.");
-    }
-    await assertApprovedPreparedRevision(job, expectedDeployRoot);
     console.log(JSON.stringify({
       state: "delivery_preview",
       provider,
@@ -1427,6 +1651,236 @@ function buildPublicPage(page) {
   });
 }
 
+async function assertNarrationArtifactInventory(page, artifactsRoot, languages) {
+  assertFfprobeAvailable();
+  const artifactEntries = (await readdir(artifactsRoot)).sort();
+  if (!isDeepStrictEqual(artifactEntries, ["audio", "transcript.json"])) {
+    throw new Error("Reviewed narration artifacts contain unexpected inventory.");
+  }
+  const audioRoot = path.join(artifactsRoot, "audio");
+  if (!isDeepStrictEqual(await readdir(audioRoot), ["narration"])) {
+    throw new Error("Reviewed narration audio contains unexpected inventory.");
+  }
+  const narrationRoot = path.join(audioRoot, "narration");
+  if (!isDeepStrictEqual((await readdir(narrationRoot)).sort(), [...languages].sort())) {
+    throw new Error("Reviewed narration languages do not match their audio inventory.");
+  }
+
+  const transcript = await readJson(path.join(artifactsRoot, "transcript.json"));
+  if (transcript.version !== 1 || !transcript.tracks || typeof transcript.tracks !== "object") {
+    throw new Error("Reviewed narration transcript is invalid.");
+  }
+  assertValidTranscript(transcript);
+  const expectedTranscript = buildTranscript(page);
+  if (!isDeepStrictEqual(Object.keys(transcript.tracks).sort(), [...page.languages].sort())) {
+    throw new Error("Narration transcript languages do not match the approved page.");
+  }
+  for (const language of page.languages) {
+    const track = transcript.tracks[language];
+    const expectedTrack = expectedTranscript.tracks[language];
+    if (!Array.isArray(track) || track.length !== page.sectionOrder.length) {
+      throw new Error(`Narration transcript is incomplete for ${language}.`);
+    }
+    for (const [index, section] of page.sectionOrder.entries()) {
+      const entry = track[index];
+      const expectedEntry = expectedTrack[index];
+      if (
+        entry.section !== section ||
+        entry.text !== expectedEntry.text ||
+        (!languages.includes(language) &&
+          (entry.time !== expectedEntry.time || entry.seconds !== expectedEntry.seconds))
+      ) {
+        throw new Error(`Narration transcript does not match the approved page for ${language}.`);
+      }
+    }
+  }
+  const manifests = {};
+  for (const language of languages) {
+    const languageRoot = path.join(narrationRoot, language);
+    const manifest = await readJson(path.join(languageRoot, "manifest.json"));
+    assertValidNarrationManifest(manifest);
+    manifests[language] = manifest;
+    if (
+      manifest.language !== language ||
+      !Array.isArray(manifest.files) ||
+      manifest.files.length !== page.sectionOrder.length ||
+      "provider" in manifest ||
+      "model" in manifest ||
+      "voice" in manifest ||
+      "instructions" in manifest
+    ) {
+      throw new Error(`Reviewed ${language} narration manifest is invalid.`);
+    }
+    const expectedFiles = ["manifest.json"];
+    let rollingSeconds = 0;
+    for (const [index, section] of page.sectionOrder.entries()) {
+      const filename = `${String(index + 1).padStart(2, "0")}-${section}.mp3`;
+      const entry = manifest.files[index];
+      const expectedUrl = `../_assets/${page.buildId}/audio/narration/${language}/${filename}`;
+      if (
+        entry?.index !== index + 1 ||
+        entry?.section !== section ||
+        entry?.file !== expectedUrl ||
+        typeof entry?.time !== "string" ||
+        !Number.isFinite(entry?.seconds)
+      ) {
+        throw new Error(`Reviewed ${language} narration manifest segment is invalid.`);
+      }
+      if (
+        entry.seconds !== rollingSeconds ||
+        entry.time !== formatSecondsMmss(rollingSeconds)
+      ) {
+        throw new Error(
+          `Narration manifest timing does not match decoded audio duration for ${language} segment ${index + 1}.`,
+        );
+      }
+      const duration = await probeDurationSeconds(path.join(languageRoot, filename));
+      if (!duration) {
+        throw new Error(`Narration audio is not decodable: ${language}/${filename}`);
+      }
+      rollingSeconds += duration;
+      expectedFiles.push(filename);
+    }
+    if (!isDeepStrictEqual((await readdir(languageRoot)).sort(), expectedFiles.sort())) {
+      throw new Error(`Reviewed ${language} narration files contain unexpected inventory.`);
+    }
+    if (!Array.isArray(transcript.tracks[language]) || transcript.tracks[language].length !== page.sectionOrder.length) {
+      throw new Error(`Reviewed ${language} narration transcript is incomplete.`);
+    }
+  }
+  for (const language of languages) {
+    const track = transcript.tracks[language];
+    const manifest = manifests[language];
+    for (const [index, section] of page.sectionOrder.entries()) {
+      const transcriptEntry = track[index];
+      const manifestEntry = manifest.files[index];
+      if (
+        transcriptEntry.section !== section ||
+        transcriptEntry.text !== sectionNarrationText(page.sections[section], language) ||
+        transcriptEntry.time !== manifestEntry.time ||
+        transcriptEntry.seconds !== manifestEntry.seconds
+      ) {
+        throw new Error(`Narration transcript does not match its media manifest for ${language}.`);
+      }
+    }
+  }
+}
+
+async function computeNarratedProjectionDigest(page, reviewedArtifactsRoot) {
+  await assertNoSymbolicLinks(reviewedArtifactsRoot);
+  const entries = await readdir(reviewedArtifactsRoot);
+  if (
+    entries.length !== 2 ||
+    !entries.includes("audio") ||
+    !entries.includes("transcript.json")
+  ) {
+    throw new Error("Reviewed narration artifacts contain unexpected inventory.");
+  }
+
+  const projectionRoot = await mkdtemp(path.join(os.tmpdir(), "bebebonjour-narrated-projection-"));
+  try {
+    const { renderPaths } = await writeProjectionArtifacts(page, projectionRoot, {
+      privateReview: false,
+      includeCanonicalArtifacts: false,
+    });
+    await cp(path.join(reviewedArtifactsRoot, "audio"), renderPaths.audioRoot, {
+      recursive: true,
+      force: false,
+      errorOnExist: true,
+    });
+    await copyFile(path.join(reviewedArtifactsRoot, "transcript.json"), renderPaths.transcriptPath);
+    return await digestArtifactDirectory(renderPaths.deployRoot);
+  } finally {
+    await rm(projectionRoot, { recursive: true, force: true });
+  }
+}
+
+async function assertAuthenticatedNarrationApproval(job, deployRoot, sourcePage) {
+  const outputRoot = path.dirname(deployRoot);
+  const approvalPath = path.join(outputRoot, "narration-approval.json");
+  await assertNoExistingSymbolicLinkComponents(approvalPath);
+  await assertNoSymbolicLinks(approvalPath);
+  const approvalRaw = await readFile(approvalPath, "utf8");
+  const approval = JSON.parse(approvalRaw);
+  assertValidNarrationApproval(approval);
+  assertValidApprovalSignature(approval);
+
+  const recordedApprovalPath = resolveReviewArtifact(
+    outputRoot,
+    approval?.artifacts?.narrationApproval,
+    "narration approval",
+  );
+  const reviewPath = resolveReviewArtifact(
+    outputRoot,
+    approval?.artifacts?.narrationReview,
+    "narration review",
+  );
+  if (recordedApprovalPath !== approvalPath) {
+    throw new Error("Narration approval is not bound to its recorded artifact.");
+  }
+  await assertNoSymbolicLinks(path.dirname(reviewPath));
+  const reviewRaw = await readFile(reviewPath, "utf8");
+  const review = JSON.parse(reviewRaw);
+  assertValidNarrationReview(review);
+  const reviewRoot = path.dirname(reviewPath);
+  const reviewedArtifactsRoot = resolveReviewArtifact(
+    reviewRoot,
+    review?.artifacts?.root,
+    "reviewed narration artifacts",
+  );
+  await assertNarrationArtifactInventory(sourcePage, reviewedArtifactsRoot, review.languages);
+
+  const digestFields = [
+    approval.contentApprovalDigest,
+    approval.basePreparedBundleDigest,
+    approval.narrationReviewDigest,
+    approval.mediaDigest,
+    approval.preparedBundleDigest,
+  ];
+  if (
+    approval.schemaVersion !== "1.0" ||
+    approval.state !== "approved" ||
+    digestFields.some((value) => !/^[a-f0-9]{64}$/.test(value || "")) ||
+    approval.pageId !== sourcePage.pageId ||
+    approval.revision !== sourcePage.pageRevision ||
+    approval.buildId !== sourcePage.buildId ||
+    approval.contentApprovalDigest !== job.approval.approvalDigest ||
+    approval.basePreparedBundleDigest !== job.approval.preparedBundleDigest ||
+    approval.narrationReviewDigest !== sha256(reviewRaw) ||
+    review.contentApprovalDigest !== approval.contentApprovalDigest ||
+    review.preparedBundleDigest !== approval.basePreparedBundleDigest ||
+    review.mediaDigest !== approval.mediaDigest ||
+    await digestArtifactDirectory(reviewedArtifactsRoot) !== approval.mediaDigest ||
+    !isDeepStrictEqual(
+      [...approval.acknowledgedLanguages].sort(),
+      [...new Set(review.languages)].sort(),
+    )
+  ) {
+    throw new Error("Narration approval does not match its reviewed media or content approval.");
+  }
+
+  const jobBinding = job.narrationApproval;
+  if (
+    jobBinding.approvalDigest !== sha256(approvalRaw) ||
+    jobBinding.contentApprovalDigest !== approval.contentApprovalDigest ||
+    jobBinding.narrationReviewDigest !== approval.narrationReviewDigest ||
+    jobBinding.mediaDigest !== approval.mediaDigest ||
+    jobBinding.preparedBundleDigest !== approval.preparedBundleDigest ||
+    jobBinding.reviewer !== approval.reviewer ||
+    jobBinding.reviewedAt !== approval.reviewedAt
+  ) {
+    throw new Error("Prepared job narration binding does not match its approval artifact.");
+  }
+
+  const expectedDigest = await computeNarratedProjectionDigest(sourcePage, reviewedArtifactsRoot);
+  if (
+    approval.preparedBundleDigest !== expectedDigest ||
+    await digestArtifactDirectory(deployRoot) !== expectedDigest
+  ) {
+    throw new Error("The narrated deploy bundle does not match its authenticated media approval.");
+  }
+}
+
 async function assertApprovedPreparedRevision(job, deployRoot) {
   if (job.review?.status !== "approved") {
     throw new Error("Deploy requires an approved page revision.");
@@ -1502,9 +1956,13 @@ async function assertApprovedPreparedRevision(job, deployRoot) {
   const expectedPreparedBundleDigest = await computePreparedProjectionDigest(sourcePage);
   if (
     recordedApproval.preparedBundleDigest !== expectedPreparedBundleDigest ||
-    job.approval.preparedBundleDigest !== expectedPreparedBundleDigest ||
-    await digestArtifactDirectory(deployRoot) !== expectedPreparedBundleDigest
+    job.approval.preparedBundleDigest !== expectedPreparedBundleDigest
   ) {
+    throw new Error("The prepared deploy bundle does not match its approval binding.");
+  }
+  if (job.narrationApproval) {
+    await assertAuthenticatedNarrationApproval(job, deployRoot, sourcePage);
+  } else if (await digestArtifactDirectory(deployRoot) !== expectedPreparedBundleDigest) {
     throw new Error("The prepared deploy bundle does not match its approval binding.");
   }
 }
@@ -1537,6 +1995,7 @@ async function generateNarrationForLanguage({ apiKey, language, page, renderPath
     const outPath = path.join(audioDir, filename);
     if (!force && (await exists(outPath))) {
       const seconds = await probeDurationSeconds(outPath);
+      if (!seconds) throw new Error(`Existing narration audio is not decodable: ${filename}`);
       manifest.files.push({
         index: segment.index,
         section: segment.section,
@@ -1544,7 +2003,7 @@ async function generateNarrationForLanguage({ apiKey, language, page, renderPath
         seconds: rolling,
         file: `../_assets/${renderPaths.buildId}/audio/narration/${language}/${filename}`,
       });
-      rolling += seconds || estimateSecondsForText(segment.text);
+      rolling += seconds;
       continue;
     }
 
@@ -1557,6 +2016,10 @@ async function generateNarrationForLanguage({ apiKey, language, page, renderPath
     });
     await writeFile(outPath, audioBytes);
     const seconds = await probeDurationSeconds(outPath);
+    if (!seconds) {
+      await rm(outPath, { force: true });
+      throw new Error(`Generated narration audio is not decodable: ${filename}`);
+    }
     manifest.files.push({
       index: segment.index,
       section: segment.section,
@@ -1564,10 +2027,11 @@ async function generateNarrationForLanguage({ apiKey, language, page, renderPath
       seconds: rolling,
       file: `../_assets/${renderPaths.buildId}/audio/narration/${language}/${filename}`,
     });
-    rolling += seconds || estimateSecondsForText(segment.text);
+    rolling += seconds;
   }
 
   const manifestPath = path.join(audioDir, "manifest.json");
+  assertValidNarrationManifest(manifest);
   await writeJson(manifestPath, manifest);
   return manifest;
 }
@@ -1633,6 +2097,22 @@ async function probeDurationSeconds(filePath) {
     if (Number.isFinite(value) && value > 0) return value;
   }
   return null;
+}
+
+function assertFfprobeAvailable() {
+  const result = spawnSync("ffprobe", ["-version"], { stdio: "ignore" });
+  if (result.error || result.status !== 0) {
+    throw new Error(
+      "ffprobe is required for narration media validation; install FFmpeg and confirm `ffprobe -version` succeeds.",
+    );
+  }
+}
+
+function narrationFailureCode(error) {
+  const message = error instanceof Error ? error.message : String(error || "");
+  if (/not decodable/i.test(message)) return "media_not_decodable";
+  if (/^TTS request failed/i.test(message)) return "provider_request_failed";
+  return "generation_failed";
 }
 
 function stripAnsi(value) {

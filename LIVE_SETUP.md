@@ -11,28 +11,82 @@
 Copy `.env.example` to `.env.local` and set:
 
 - `OPENAI_API_KEY` for live narration generation
+- `BEBEBONJOUR_APPROVAL_HMAC_KEY` with at least 32 bytes of high-entropy secret material for content and narration approval evidence
 - `VERCEL_TOKEN` for live deployment
 - `VERCEL_ORG_ID` and `VERCEL_PROJECT_ID` if this repo is not already linked to a Vercel project
 
 Shell environment variables still win over `.env.local`.
 
-## Render First
+## Media Validation Prerequisite
+
+Narration generation, approval, deploy, and send require the `ffprobe`
+executable supplied by FFmpeg. Install it before authorizing any paid TTS call
+(on macOS: `brew install ffmpeg`) and verify:
 
 ```bash
-node ./bin/announce.mjs render --input data/examples/bayane/page.json --output out/bayane
+ffprobe -version
 ```
 
-## Generate Live Narration
+The TTS command checks this prerequisite before contacting the provider. Every
+later gate probes each segment again and reconstructs cumulative timing from the
+decoded media durations.
+
+## Render The Content-Approved Base
 
 ```bash
-node ./bin/announce.mjs tts --input data/examples/bayane/page.json --output out/bayane --lang all
+node ./bin/announce.mjs render \
+  --input out/approved-bayane/page.json \
+  --approval out/approved-bayane/approval.json \
+  --output out/bayane-base
 ```
+
+## Generate Narration Into A Fresh Review Root
+
+```bash
+node ./bin/announce.mjs tts \
+  --input out/approved-bayane/page.json \
+  --approval out/approved-bayane/approval.json \
+  --prepared out/bayane-base \
+  --output out/bayane-narration-review \
+  --lang all
+```
+
+This is a paid external-provider operation and requires separate explicit
+authorization. It leaves `out/bayane-base` unchanged. Listen to every generated
+language from the private narration-review root before approving it.
+
+If any language fails generation or media decoding, the command records
+`narration_generation_failed` and exits with code `9`. Treat the entire review
+root as failed evidence: inspect the recorded per-language error, discard that
+root, correct the provider/media problem, and generate again into a fresh root.
+Never run `approve-narration` against a failed or partial generation.
+The private `review.json` stores each requested language's status and either its
+segment count or a redacted error category; raw provider responses are not
+persisted.
+
+## Approve Exact Narration Bytes
+
+```bash
+node ./bin/announce.mjs approve-narration \
+  --review out/bayane-narration-review/review.json \
+  --prepared out/bayane-base \
+  --output out/bayane \
+  --reviewer <operator-id> \
+  --acknowledge ar,fr
+```
+
+The same `BEBEBONJOUR_APPROVAL_HMAC_KEY` used for content approval is required.
+This creates a fresh final prepared root and signs a separate narration approval;
+it does not deploy, publish, email, or deliver.
 
 ## Deploy Live
 
 ```bash
 node ./bin/announce.mjs deploy --input out/bayane
 ```
+
+Deploy and send revalidate both the original content approval and the exact
+narration review/approval chain before any remote or delivery action.
 
 If `.vercel/project.json` is missing and both `VERCEL_ORG_ID` and `VERCEL_PROJECT_ID` are present, the deploy command will create the local Vercel link automatically before deploying.
 

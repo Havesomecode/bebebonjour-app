@@ -37,6 +37,10 @@
 - [x] Remove operator-only TTS provider metadata from public pages and deployable narration manifests.
 - [x] Bind and independently regenerate the approval-time prepared projection so coordinated asset and digest rewrites fail closed.
 - [x] Authenticate complete operator approval evidence with non-serialized runtime key material so coordinated reviewer/evidence rewrites fail closed.
+- [x] Stage TTS in a fresh private review root without mutating content-approved prepared bytes.
+- [x] Add explicit HMAC-authenticated narration approval bound to exact reviewed media and content approval.
+- [x] Make deploy and send independently reconstruct and verify the complete narrated projection.
+- [x] Runtime-validate public narration manifests, private media review evidence, and narration approvals against strict JSON Schemas.
 
 ## Next implementation slices
 
@@ -44,7 +48,7 @@
 - [ ] Build an aggregate/shared-app artifact manifest that retains multiple generations and immutable revisions.
 - [ ] Add two-generation, same-name, and multi-revision coexistence tests.
 - [ ] Add provider-neutral artifact byte accounting.
-- [ ] Add a private-preview TTS mode with bounded retries and partial-failure evidence.
+- [ ] Add a dedicated narration-review player/rubric with bounded retry controls and segment-level disposition evidence.
 - [x] Locally implement the generation-run lifecycle and least-privilege claim/complete/fail RPCs in a candidate forward-only database migration; no hosted migration or deployment has been performed.
 - [ ] Connect one paid `review_required` order to the generation worker using synthetic integration tests.
 - [ ] Make the worker pull-based, one-order-per-invocation, lease-bound, and independent of webhook response ordering.

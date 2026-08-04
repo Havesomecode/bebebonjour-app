@@ -106,6 +106,45 @@ The CLI SHALL expose `approve-review` as a separate local command that writes an
 #### Scenario: Local delivery readiness dry-run
 - **WHEN** an approved page has been ordinarily rendered into a prepared public bundle
 - **THEN** deploy and console-delivery dry runs verify the approved page and every prepared deployable file without publishing, requiring a public URL, sending, or mutating the job
+- **AND** a normal console-delivery preview performs the same verification before accepting a deployed public URL
+
+### Requirement: Nondeterministic narration has a separate authenticated approval gate
+The CLI SHALL stage generated narration outside the content-approved prepared root
+and SHALL require explicit operator approval of exact media bytes before narrated
+content is eligible for deploy or delivery readiness.
+
+#### Scenario: Narration is generated from an approved prepared base
+- **WHEN** `tts` receives the exact approved page, approval artifact, and unchanged prepared base
+- **THEN** it verifies `ffprobe` is available before any paid provider request
+- **AND** it writes audio, browser-only manifests, updated transcript timing, and private generation evidence to a fresh narration-review root
+- **AND** every byte in the prepared base remains unchanged
+
+#### Scenario: Narration generation partially fails
+- **WHEN** any requested language fails provider generation or media decoding
+- **THEN** the fresh review root records `narration_generation_failed` plus redacted per-language results
+- **AND** the partial root cannot pass narration approval
+
+#### Scenario: Operator approves unchanged narration
+- **WHEN** the private media schema and complete inventory are valid, every cumulative timeline offset matches decoded media duration, its content-approval identity matches, and the operator acknowledges exactly the generated languages
+- **THEN** `approve-narration` creates a fresh complete prepared root and an HMAC-authenticated narration approval bound to the exact review record, media bytes, reviewer, timestamp, and complete narrated projection
+- **AND** neither the prepared base nor narration-review root changes
+
+#### Scenario: Narration output aliases an immutable input
+- **WHEN** TTS or narration-approval output physically resolves inside or around an immutable page, approval, prepared, or narration-review input
+- **THEN** the command fails before writing any output or changing an input byte
+
+#### Scenario: Unmanaged media is added and the unsigned review digest is rebound
+- **WHEN** an extra media artifact is added and mutable review digest fields are recomputed consistently
+- **THEN** narration approval fails managed-inventory validation before creating or signing a final bundle
+
+#### Scenario: Narrated media changes after approval
+- **WHEN** approved audio, transcript, manifest, review evidence, narration approval, or mutable job bindings change
+- **THEN** deploy and delivery-readiness dry runs fail against the authenticated media approval and independently reconstructed narrated projection
+
+#### Scenario: Public narration metadata is projected
+- **WHEN** a narration manifest is generated for browser playback
+- **THEN** it validates against a strict allowlist containing only language, generation time, segment timing, section identity, and relative media paths
+- **AND** provider, model, voice, instructions, credentials, request IDs, and raw provider responses are absent
 
 ### Requirement: Managed output paths cannot be symbolic links
 The command MUST reject an existing output-root ancestor, output root, or descendant containing an untrusted symbolic link before writing any private artifact.

@@ -2,6 +2,7 @@
 
 import process from "node:process";
 import {
+  commandApproveNarration,
   commandApproveReview,
   commandCompose,
   commandDeploy,
@@ -27,6 +28,9 @@ async function main() {
       break;
     case "approve-review":
       await commandApproveReview(args);
+      break;
+    case "approve-narration":
+      await commandApproveNarration(args);
       break;
     case "render":
       await commandRender(args);
@@ -60,7 +64,8 @@ function printHelp() {
   announce approve-review --review <review.json> --output <dir> --reviewer <id> [--acknowledge <reason,...>] [--demands <applied|not_applied>]
   announce render --input <page.json> --approval <approval.json> --output <dir>
   announce render --input <draft-page.json> --output <dir> --allow-draft
-  announce tts --input <page.json> --output <dir> [--lang <ar|fr|all>] [--force]
+  announce tts --input <page.json> --approval <approval.json> --prepared <dir> --output <review-dir> [--lang <ar|fr|all>] [--force]
+  announce approve-narration --review <review.json> --prepared <dir> --output <dir> --reviewer <id> --acknowledge <ar,fr>
   announce deploy --input <dir> [--job <job.json>] [--dry-run]
   announce send --job <job.json> [--provider console] [--dry-run]  # redacted preview only
   announce status --job <job.json> [--json]
@@ -68,6 +73,9 @@ function printHelp() {
 Credentials:
   The CLI loads .env.local and .env from the project root automatically.
   See LIVE_SETUP.md for OPENAI_API_KEY and VERCEL_* setup.
+
+Narration prerequisite:
+  ffprobe (from FFmpeg) must be installed before tts, approve-narration, deploy, or send.
 `);
 }
 

@@ -2,6 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://bebebonjour.local/schemas/transcript.schema.json",
   "type": "object",
+  "additionalProperties": false,
   "required": [
     "version",
     "tracks"
@@ -11,7 +12,33 @@
       "const": 1
     },
     "tracks": {
-      "type": "object"
+      "type": "object",
+      "minProperties": 1,
+      "additionalProperties": false,
+      "properties": {
+        "ar": { "$ref": "#/$defs/track" },
+        "fr": { "$ref": "#/$defs/track" }
+      }
+    }
+  },
+  "$defs": {
+    "track": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/entry" }
+    },
+    "entry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["section", "text", "time", "seconds"],
+      "properties": {
+        "section": {
+          "enum": ["intro", "dua", "meaning", "reveal", "verses", "closing"]
+        },
+        "text": { "type": "string", "minLength": 1 },
+        "time": { "type": "string", "pattern": "^[0-9]{2,}:[0-5][0-9]$" },
+        "seconds": { "type": "number", "minimum": 0 }
+      }
     }
   }
 }

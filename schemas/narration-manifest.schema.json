@@ -2,11 +2,9 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://bebebonjour.local/schemas/narration-manifest.schema.json",
   "type": "object",
+  "additionalProperties": false,
   "required": [
     "language",
-    "provider",
-    "model",
-    "voice",
     "generatedAt",
     "files"
   ],
@@ -17,21 +15,52 @@
         "fr"
       ]
     },
-    "provider": {
-      "type": "string"
-    },
-    "model": {
-      "type": "string"
-    },
-    "voice": {
-      "type": "string"
-    },
     "generatedAt": {
       "type": "string",
       "format": "date-time"
     },
     "files": {
-      "type": "array"
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "index",
+          "section",
+          "time",
+          "seconds",
+          "file"
+        ],
+        "properties": {
+          "index": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "section": {
+            "enum": [
+              "intro",
+              "dua",
+              "meaning",
+              "verses",
+              "reveal",
+              "closing"
+            ]
+          },
+          "time": {
+            "type": "string",
+            "pattern": "^[0-9]{2,}:[0-5][0-9]$"
+          },
+          "seconds": {
+            "type": "number",
+            "minimum": 0
+          },
+          "file": {
+            "type": "string",
+            "pattern": "^\\.\\./_assets/[a-z0-9-]+/audio/narration/(ar|fr)/[0-9]{2}-(intro|dua|meaning|verses|reveal|closing)\\.mp3$"
+          }
+        }
+      }
     }
   }
 }

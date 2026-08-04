@@ -101,6 +101,10 @@ preview into a fresh directory:
 # operator-controlled secret manager for approval and later verification.
 export BEBEBONJOUR_APPROVAL_HMAC_KEY="$(openssl rand -hex 32)"
 
+# Narration requires ffprobe before any paid provider request. Install FFmpeg
+# (for example, `brew install ffmpeg`) and verify it locally:
+ffprobe -version
+
 node ./bin/announce.mjs approve-review \
   --review out/review-bayane/review.json \
   --output out/approved-bayane \
@@ -110,7 +114,24 @@ node ./bin/announce.mjs approve-review \
 node ./bin/announce.mjs render \
   --input out/approved-bayane/page.json \
   --approval out/approved-bayane/approval.json \
-  --output out/prepared-bayane
+  --output out/prepared-bayane-base
+
+# This is the only paid/provider step. It writes a fresh private review root and
+# leaves the content-approved prepared base byte-identical.
+node ./bin/announce.mjs tts \
+  --input out/approved-bayane/page.json \
+  --approval out/approved-bayane/approval.json \
+  --prepared out/prepared-bayane-base \
+  --output out/narration-review-bayane \
+  --lang all
+
+# Run only after listening to every generated language.
+node ./bin/announce.mjs approve-narration \
+  --review out/narration-review-bayane/review.json \
+  --prepared out/prepared-bayane-base \
+  --output out/prepared-bayane \
+  --reviewer operator-demo \
+  --acknowledge ar,fr
 
 node ./bin/announce.mjs deploy \
   --input out/prepared-bayane \
@@ -146,6 +167,15 @@ The dry runs also revalidate the original approved page and sibling
 `approval.json` against the regenerated projection, so changed approval evidence fails closed.
 Public page data and deployable narration manifests omit operator-only TTS
 provider, model, voice, and instruction metadata.
+TTS never mutates the content-approved prepared base. It writes audio,
+browser-only manifests, updated timing data, and private provider evidence to a
+fresh narration-review root. `approve-narration` requires exact language
+acknowledgement, validates the complete managed media inventory and cumulative
+timeline against durations decoded by `ffprobe`, and creates a
+fresh final prepared root with an HMAC-authenticated narration approval bound to
+the original content approval and exact media bytes. Deploy and send independently
+reconstruct that narrated projection and reject missing, added, or changed media,
+rewritten mutable digests, malformed manifests, or unauthenticated approval data.
 
 Name matching preserves the submitted display spelling. Alternate
 orthographies resolve only through explicit aliases. Ambiguous or conflicting

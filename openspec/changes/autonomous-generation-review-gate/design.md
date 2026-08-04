@@ -7,7 +7,8 @@
 | Paid ingress | `src/webhooks/*`, Supabase RPCs | order + open review job | fail closed; bounded audit evidence |
 | Compose | `commandCompose` in `scripts/lib/commands.mjs` | private canonical page draft | selection/block via process exit 3 |
 | Render | `commandRender` | canonical artifacts, public projection, static files, job | refuses drafts unless explicitly overridden |
-| Narration | `commandTts` | audio, manifest, transcript timings | partial failure recorded in filesystem job |
+| Narration staging | `commandTts` | fresh private media review root | verifies content approval; never mutates the prepared base |
+| Narration approval | `commandApproveNarration` | fresh complete prepared bundle + signed media attestation | exact language acknowledgement and complete media inventory required |
 | Deploy | `commandDeploy` | Vercel deployment + live revision | requires approved canonical revision and exact public projection |
 | Send | `commandSend` | redacted console preview only | unsupported providers fail without mutation |
 
@@ -35,6 +36,20 @@ Each non-empty local review root is bound to one exact input SHA-256 digest plus
 
 Private runtime mode is capability-inert for narration: it carries no transcript or ambient-audio URL, skips narration timing and transcript fetches, disables narration controls, and overrides narration/music URL parameters to `narration=off`. The browser should request only the local static HTML, CSS, JavaScript, and image assets needed to review visible copy.
 Public projection also removes canonical operator-only TTS configuration; narration manifests expose only runtime-required language, generation time, and file timing rather than provider, model, voice, or instructions.
+
+Nondeterministic narration uses a second authority gate. `tts` authenticates the
+content approval and deterministic prepared base and preflights `ffprobe` before
+any provider call, then writes only to a fresh private narration-review root. A
+partial failure persists redacted per-language status in that root and cannot be
+approved. `approve-narration` validates that root's schema, exact managed inventory,
+transcript, manifests, media digest, decoder-derived cumulative timing,
+content-approval identity, and operator language acknowledgement before creating a
+fresh final prepared root. Its HMAC-authenticated attestation binds the immutable
+content approval, exact review record, exact media bytes, reviewer, timestamp, and
+complete narrated projection digest. Deploy and send retain the deterministic
+content check and independently reconstruct the expected narrated projection from
+the original approved page plus reviewed media; post-approval audio, transcript,
+manifest, review, attestation, or mutable-job changes fail closed.
 
 ## Name-resolution policy
 
@@ -84,7 +99,7 @@ Every attempt should persist stage, reason code, retry count, input revision dig
 3. **Independent deploy roots:** deploying one isolated per-order root can remove routes from earlier deployments. A shared aggregate bundle or stable storage-backed router is required.
 4. **Gendered copy:** the general composer still contains unsafe boy/neutral grammar; the autonomous tracer now stops those inputs at `needs_editorial_input` before writing artifacts.
 5. **Meaning provenance:** catalog meanings are curated but lack external source keys. The tracer now keeps `meaningAllowed` false and composes neutral wording until dedicated `meaningSourceKeys` are added; source curation remains outstanding.
-6. **Private narration:** TTS currently assumes the ordinary render/deploy-root layout; private-preview narration needs a separate safe mode.
+6. **Narration review UX:** the filesystem authority chain is implemented, but a dedicated operator player/rubric for reviewing every segment remains outstanding.
 7. **Production approval:** the local approval command now binds actor, timestamp, dossier, material, page, and reviewed projection, but production still needs authenticated durable actors, revision persistence, and optimistic concurrency.
 8. **Cost accounting:** no provider usage or artifact-byte manifest is persisted yet.
 9. **Queue multiplicity:** there is no generation claim lease, priority/SLA policy, capacity view, dead-letter state, or stale-job recovery.
