@@ -212,3 +212,20 @@ test("compose cannot render scripture items after their source evidence is remov
     /نص بلا مصدر|Texte sans source|UNSOURCED_NARRATION_(?:AR|FR)|قال تعالى|Références proposées/,
   );
 });
+
+test("composed section headings speak to the reader instead of exposing editorial proposals", async (t) => {
+  const directory = await mkdtemp(path.join(os.tmpdir(), "bebebonjour-reader-facing-headings-"));
+  t.after(() => rm(directory, { recursive: true, force: true }));
+  const intakePath = path.join(directory, "intake.json");
+  const pagePath = path.join(directory, "page.json");
+  await writeFile(intakePath, `${JSON.stringify(baseIntake, null, 2)}\n`, "utf8");
+
+  await captureConsole(() => commandCompose(
+    { input: intakePath, output: pagePath, select: "religious-bayane" },
+  ));
+  const page = JSON.parse(await readFile(pagePath, "utf8"));
+
+  assert.equal(page.sections.verses.fr.introLine, "Versets choisis :");
+  assert.equal(page.sections.verses.ar.introLine, "قال تعالى:");
+  assert.doesNotMatch(JSON.stringify(page.sections), /propos(?:é|ée|és|ées)|مقترح/u);
+});

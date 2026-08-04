@@ -19,3 +19,9 @@ export function visiblePhraseTargetCount({
 export function shouldLoadNarrationResources({ privateReview, narrationRequested }) {
   return !privateReview && narrationRequested;
 }
+
+export function canonicalAnnouncementPath(pathname, language) {
+  const segments = String(pathname || "").split("/").filter(Boolean);
+  if (["ar", "fr"].includes(segments[segments.length - 1])) segments.pop();
+  return `/${[...segments, language].join("/")}/`;
+}

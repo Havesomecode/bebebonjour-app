@@ -1,4 +1,5 @@
 import {
+  canonicalAnnouncementPath,
   shouldLoadNarrationResources,
   visiblePhraseTargetCount,
 } from "./phrase-progress.mjs";
@@ -57,18 +58,6 @@ function parseLanguageFromPath(pathname) {
   return segment === "ar" || segment === "fr" ? segment : null;
 }
 
-function buildBasePathFromCurrentPath() {
-  const normalized = window.location.pathname.replace(/\/+$/g, "");
-  const segments = normalized.split("/").filter(Boolean);
-  if (!segments.length) return "";
-
-  if (segments[segments.length - 1] === "ar" || segments[segments.length - 1] === "fr") {
-    return `/${segments.slice(0, -1).join("/")}`;
-  }
-
-  return `/${segments.join("/")}`;
-}
-
 function readUrlState() {
   const url = new URL(window.location.href);
   return {
@@ -84,8 +73,7 @@ function readUrlState() {
 
 function buildCanonicalUrl() {
   const url = new URL(window.location.origin);
-  const basePath = buildBasePathFromCurrentPath();
-  url.pathname = `${basePath}/${state.language}`.replace(/\/+/g, "/");
+  url.pathname = canonicalAnnouncementPath(window.location.pathname, state.language);
   url.searchParams.set("narration", state.narrationRequested ? "on" : "off");
   return `${url.pathname}?${url.searchParams.toString()}`;
 }

@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  canonicalAnnouncementPath,
   shouldLoadNarrationResources,
   visiblePhraseTargetCount,
 } from "../template/runtime/phrase-progress.mjs";
@@ -52,4 +53,10 @@ test("narration-off startup does not probe narration media", () => {
     privateReview: true,
     narrationRequested: true,
   }), false);
+});
+
+test("canonical language routes keep a trailing slash for relative narration assets", () => {
+  assert.equal(canonicalAnnouncementPath("/bayane/fr/", "fr"), "/bayane/fr/");
+  assert.equal(canonicalAnnouncementPath("/bayane/fr", "ar"), "/bayane/ar/");
+  assert.equal(canonicalAnnouncementPath("/nested/bayane/ar/", "fr"), "/nested/bayane/fr/");
 });

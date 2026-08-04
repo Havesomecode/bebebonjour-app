@@ -1180,7 +1180,7 @@ function buildSections({ intake, suggestion, childLabel, nameLatin, nameArabic, 
     };
     sections.verses.ar = {
       introLine: verses.ar.length
-        ? (religion === "islam" ? "قال تعالى:" : "مراجع مقترحة:")
+        ? (religion === "islam" ? "قال تعالى:" : "كلمات مختارة:")
         : (religion === "islam" ? "دعاء وأمنيات:" : "أمنيات جميلة:"),
       items: verses.ar.length
         ? verses.ar
@@ -1255,8 +1255,8 @@ function buildSections({ intake, suggestion, childLabel, nameLatin, nameArabic, 
     };
     sections.verses.fr = {
       introLine: verses.fr.length
-        ? (religion === "islam" ? "Références proposées :" : "Sources proposées :")
-        : (religion === "islam" ? "Vœux et bénédictions :" : "Vœux proposés :"),
+        ? (religion === "islam" ? "Versets choisis :" : "Textes choisis :")
+        : (religion === "islam" ? "Vœux et bénédictions :" : "Vœux de bonheur :"),
       items: verses.fr.length
         ? verses.fr
         : [{ quote: "Lumière, paix et espérance.", reference: "Vœu général", sourceKey: "generic-wish-fr" }],
