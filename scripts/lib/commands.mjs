@@ -1293,12 +1293,16 @@ function buildDraftPage(intake, suggestion, nameResolution) {
       provider: "openai",
       model: "gpt-4o-mini-tts",
       voiceByLanguage: {
-        ar: intake.voicePreference.gender === "female" ? "alloy" : "onyx",
-        fr: intake.voicePreference.gender === "female" ? "alloy" : "onyx",
+        ar: intake.voicePreference.gender === "female" ? "alloy" : "cedar",
+        fr: intake.voicePreference.gender === "female" ? "alloy" : "cedar",
       },
       instructionsByLanguage: {
-        ar: "Soft, spiritual, contemplative, and warm.",
-        fr: "Soft, spiritual, contemplative, and warm.",
+        ar: intake.voicePreference.gender === "female"
+          ? "Soft, spiritual, contemplative, and warm."
+          : "Speak in natural Modern Standard Arabic to one beloved family member sitting nearby. Do not perform, formally narrate, preach, or recite. Let the thoughts feel as if they are forming while you speak. Underplay the emotion: a private smile, quiet happiness, and affectionate closeness rather than projected excitement. Use tiny unsymmetrical hesitations before meaningful phrases, naturally uneven micro-pauses, slightly softer phrase endings, and relaxed articulation. Keep sacred wording respectful and keep the exact words, but do not over-enunciate them. Avoid polished voice-message energy, announcer cadence, rhythmic sentence symmetry, theatrical warmth, audiobook tone, and synthetic precision.",
+        fr: intake.voicePreference.gender === "female"
+          ? "Soft, spiritual, contemplative, and warm."
+          : "Speak in natural metropolitan French to one beloved family member sitting nearby. Do not perform and do not narrate. Let the thoughts feel as if they are forming while you speak. Underplay the emotion: a private smile, quiet happiness, and affectionate closeness rather than projected excitement. Use tiny unsymmetrical hesitations before meaningful phrases, naturally uneven micro-pauses, slightly softer phrase endings, and relaxed articulation. Keep the exact words, but do not over-enunciate them. Avoid polished voice-message energy, announcer cadence, rhythmic sentence symmetry, theatrical warmth, audiobook tone, advertising tone, and synthetic precision.",
       },
     },
     review: {
@@ -2047,7 +2051,7 @@ async function requestSpeech({ apiKey, model, voice, input, instructions }) {
       model,
       voice,
       input,
-      format: "mp3",
+      response_format: "mp3",
       instructions,
     }),
   });

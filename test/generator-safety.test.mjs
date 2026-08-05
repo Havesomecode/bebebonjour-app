@@ -146,10 +146,14 @@ async function stageNarrationFixture(t, prefix, language = "fr") {
 
   const originalFetch = globalThis.fetch;
   const originalApiKey = process.env.OPENAI_API_KEY;
-  globalThis.fetch = async () => ({
-    ok: true,
-    arrayBuffer: async () => Uint8Array.from(SYNTHETIC_MP3).buffer,
-  });
+  const speechRequests = [];
+  globalThis.fetch = async (url, options) => {
+    speechRequests.push({ url, options, body: JSON.parse(options.body) });
+    return {
+      ok: true,
+      arrayBuffer: async () => Uint8Array.from(SYNTHETIC_MP3).buffer,
+    };
+  };
   process.env.OPENAI_API_KEY = "synthetic-test-key";
   t.after(() => {
     globalThis.fetch = originalFetch;
@@ -163,7 +167,7 @@ async function stageNarrationFixture(t, prefix, language = "fr") {
     output: narrationReviewRoot,
     lang: language,
   }));
-  return { directory, pagePath, preparedRoot, narrationReviewRoot, approvalPath };
+  return { directory, pagePath, preparedRoot, narrationReviewRoot, approvalPath, speechRequests };
 }
 
 test("page validation rejects a path-bearing slug", () => {
@@ -201,6 +205,58 @@ test("compose preserves the customer email in private provenance", async (t) => 
 
   const page = JSON.parse(await readFile(pagePath, "utf8"));
   assert.equal(page.provenance.customerEmail, fixtureIntake.customer.email);
+  assert.deepEqual(page.audioPlan.voiceByLanguage, { ar: "cedar", fr: "cedar" });
+  assert.deepEqual(page.audioPlan.instructionsByLanguage, {
+    ar: "Speak in natural Modern Standard Arabic to one beloved family member sitting nearby. Do not perform, formally narrate, preach, or recite. Let the thoughts feel as if they are forming while you speak. Underplay the emotion: a private smile, quiet happiness, and affectionate closeness rather than projected excitement. Use tiny unsymmetrical hesitations before meaningful phrases, naturally uneven micro-pauses, slightly softer phrase endings, and relaxed articulation. Keep sacred wording respectful and keep the exact words, but do not over-enunciate them. Avoid polished voice-message energy, announcer cadence, rhythmic sentence symmetry, theatrical warmth, audiobook tone, and synthetic precision.",
+    fr: "Speak in natural metropolitan French to one beloved family member sitting nearby. Do not perform and do not narrate. Let the thoughts feel as if they are forming while you speak. Underplay the emotion: a private smile, quiet happiness, and affectionate closeness rather than projected excitement. Use tiny unsymmetrical hesitations before meaningful phrases, naturally uneven micro-pauses, slightly softer phrase endings, and relaxed articulation. Keep the exact words, but do not over-enunciate them. Avoid polished voice-message energy, announcer cadence, rhythmic sentence symmetry, theatrical warmth, audiobook tone, advertising tone, and synthetic precision.",
+  });
+});
+
+test("compose preserves the established Alloy narration plan for female voices", async (t) => {
+  const directory = await createTempDirectory(t, "bebebonjour-compose-female-voice-test-");
+  const intakePath = path.join(directory, "intake.json");
+  const pagePath = path.join(directory, "page.json");
+  const intake = structuredClone(fixtureIntake);
+  intake.voicePreference.gender = "female";
+  await writeFile(intakePath, `${JSON.stringify(intake, null, 2)}\n`, "utf8");
+
+  await captureConsole(() => commandCompose({
+    input: intakePath,
+    output: pagePath,
+    select: "religious-bayane",
+  }));
+
+  const page = JSON.parse(await readFile(pagePath, "utf8"));
+  assert.deepEqual(page.audioPlan.voiceByLanguage, { ar: "alloy", fr: "alloy" });
+  assert.deepEqual(page.audioPlan.instructionsByLanguage, {
+    ar: "Soft, spiritual, contemplative, and warm.",
+    fr: "Soft, spiritual, contemplative, and warm.",
+  });
+});
+
+test("tts sends exact provider-compatible speech request bodies", async (t) => {
+  const { speechRequests } = await stageNarrationFixture(
+    t,
+    "bebebonjour-provider-request-contract-test-",
+    "fr",
+  );
+  const page = cloneFixturePage();
+
+  assert.equal(speechRequests.length, page.sectionOrder.length);
+  for (const [index, request] of speechRequests.entries()) {
+    const section = page.sectionOrder[index];
+    assert.equal(request.url, "https://api.openai.com/v1/audio/speech");
+    assert.equal(request.options.method, "POST");
+    assert.equal(request.options.headers["Content-Type"], "application/json");
+    assert.deepEqual(request.body, {
+      model: page.audioPlan.model,
+      voice: page.audioPlan.voiceByLanguage.fr,
+      input: page.sections[section].fr.narrationText,
+      response_format: "mp3",
+      instructions: page.audioPlan.instructionsByLanguage.fr,
+    });
+    assert.equal(Object.hasOwn(request.body, "format"), false);
+  }
 });
 
 test("render separates private canonical artifacts from the public page", async (t) => {
