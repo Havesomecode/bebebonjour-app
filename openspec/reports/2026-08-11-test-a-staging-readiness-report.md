@@ -111,12 +111,17 @@ An initial convenience-script retry against an old ignored `out/amal` tree still
 - `npm audit --omit=dev`: **PASS**, 0 vulnerabilities.
 - `git diff --check`: **PASS**.
 
-Fresh pre-commit verification at `2026-08-11 22:06 CEST` additionally ran
+Fresh pre-push verification at `2026-08-11 22:19 CEST` additionally ran
 `npm run test:integration` against the harness-managed ephemeral local
-PostgreSQL 16 container: **PASS** — 158 tests, 158 pass, 0 fail, 0 skip. This
+PostgreSQL 16 container: **PASS** — 160 tests, 160 pass, 0 fail, 0 skip. This
 supersedes the deferred-database-evidence risk for the tested local bytes only;
 it does not authorize or provide evidence for a hosted database, provider
 account, customer data, deployment, publication, payment, or delivery.
+
+The pre-push hardening review also required two fail-closed controls now covered
+by regression tests: review decisions cannot mutate lifecycle state without an
+injected trusted verifier, and artifact collection validates every generated
+stage and manifest path before any manifest write or cleanup mutation.
 
 Resolved direct versions:
 

@@ -226,7 +226,10 @@ test("persisted orchestration drives compose, render, and retryable test-mode TT
   let now = "2026-08-11T00:00:00.000Z";
   const makeOrchestrator = () => createFulfillmentOrchestrator({
     store: createLocalTestFulfillmentStore({ filePath: storePath }),
-    handlers,
+    handlers: {
+      ...handlers,
+      verify_review_decision: async ({ decision }) => decision,
+    },
     clock: () => now,
     tokenFactory: (label) => `${label}:lease`,
     retryPolicy: retryPolicy(),

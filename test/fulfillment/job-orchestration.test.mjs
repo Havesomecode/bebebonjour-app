@@ -80,6 +80,9 @@ async function fixture(t, options = {}) {
     async verify_delivery_confirmation({ confirmation }) {
       return confirmation;
     },
+    async verify_review_decision({ decision }) {
+      return decision;
+    },
     ...options.handlers,
   };
   const clock = options.clock || (() => "2026-08-11T00:00:00.000Z");
@@ -184,6 +187,19 @@ async function reachPublishReady(orchestrator) {
   await orchestrator.recordReviewDecision("job_synthetic_001", approvedContentDecision());
   await orchestrator.runNext("job_synthetic_001");
 }
+
+test("review decisions require a trusted verifier before the state transition", async (t) => {
+  const { orchestrator } = await fixture(t, {
+    handlers: { verify_review_decision: undefined },
+  });
+  await reachContentReview(orchestrator);
+
+  await assert.rejects(
+    () => orchestrator.recordReviewDecision("job_synthetic_001", approvedContentDecision()),
+    /trusted review decision verifier is required/i,
+  );
+  assert.equal((await orchestrator.status("job_synthetic_001")).state, "content_review_required");
+});
 
 test("a synthetic job persists the guarded canonical lifecycle through completion", async (t) => {
   const { calls, orchestrator, store, storePath } = await fixture(t);

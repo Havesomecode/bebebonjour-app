@@ -39,7 +39,16 @@ export function createFulfillmentOrchestrator(options) {
     },
 
     async recordReviewDecision(jobId, decision) {
-      return statusFromAggregate(await store.recordReviewDecision(jobId, decision, clock()));
+      const aggregate = await requireJob(store, jobId);
+      const verifier = handlers.verify_review_decision;
+      if (typeof verifier !== "function") {
+        throw new Error("A trusted review decision verifier is required.");
+      }
+      const verified = await verifier(Object.freeze({
+        job: statusFromAggregate(aggregate),
+        decision: structuredClone(decision),
+      }));
+      return statusFromAggregate(await store.recordReviewDecision(jobId, verified, clock()));
     },
 
     async queueDelivery(jobId, command) {

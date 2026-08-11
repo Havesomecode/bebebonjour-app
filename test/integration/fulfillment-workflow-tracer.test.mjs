@@ -158,6 +158,9 @@ test("the TEST-A tracer persists one guarded synthetic order through confirmed d
       }
       return verified;
     },
+    async verify_review_decision({ decision }) {
+      return decision;
+    },
   };
 
   const storePath = path.join(rootPath, "fulfillment.json");
