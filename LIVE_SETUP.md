@@ -188,8 +188,18 @@ recorded idempotently and moves its order to `blocked` for investigation.
 Docker Desktop must be running for the PostgreSQL integration test.
 
 ```bash
+node --test test/integration/fulfillment-workflow-tracer.test.mjs
+npm run compose:bayane
 npm run verify
 ```
+
+The focused fulfillment tracer is local TEST-A evidence only. It uses an
+in-process no-network TTS adapter and dry-run publication/delivery, exercises
+both editorial review gates plus trusted delivery confirmation, and persists one
+simulated retry across a store restart. It must run without real Stripe, Convex,
+Vercel, Resend, or OpenAI credentials. A hosted migration or deployment, a real
+URL, removal of a dry-run flag, or any provider send still requires a separate
+explicit authorization for that exact target and operation.
 
 The integration harness uses an ephemeral Postgres 16 container from Quay and
 removes it after the test. No customer data is used.

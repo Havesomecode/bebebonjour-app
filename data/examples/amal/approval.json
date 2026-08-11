@@ -1,21 +1,21 @@
 {
   "schemaVersion": "1.0",
   "state": "approved",
-  "reviewer": "operator@example.com",
-  "reviewedAt": "2026-03-08T12:15:00Z",
-  "pageId": "page_amal_001",
+  "reviewer": "synthetic-fixture-operator",
+  "reviewedAt": "2026-08-11T13:18:23.180Z",
+  "pageId": "page_amal_f8c9e9a542747c15",
   "revision": "r1",
   "buildId": "blessed-arrival-1-0-0-r1",
-  "materialDigest": "558f4da6df94fa75fafb25f823e2fdbf460234d9f183cbf6bd139cb070da9436",
-  "dossierDigest": "007314ee8874d8371f5113c363a1718f4774c04ee44b027c8d7e75959cc07f5d",
-  "approvedPageDigest": "b34980679da993df8f686990f07989c6652808af40f22615ddb76e09898162e8",
-  "preparedBundleDigest": "557ce4abacacbfa56c5cf4f2625ea09337b7fdb14e6f0d8c6665d8e19e8292c9",
+  "materialDigest": "5e86b34f1a30e3d327c8f3e956d8a498699644eaf740856569d579a9f2af09b7",
+  "dossierDigest": "c7a3eb917c636416f47002027aaa2a85fd7161d803325bc0f62961541697aa32",
+  "approvedPageDigest": "76ec5ed5ab81227365f79da8383eff23d9c9fa4e07d7f44607122fd288b0fa95",
+  "preparedBundleDigest": "55fcbdcb9b65e18b80b58449d0352bc9f7b71224e7effcc42b9c305025e3d3ba",
   "signatureAlgorithm": "hmac-sha256",
   "acknowledgedReasons": [],
-  "demandsDisposition": null,
+  "demandsDisposition": "applied",
   "artifacts": {
     "approvedPage": "page.json",
     "approval": "approval.json"
   },
-  "signature": "88622cfa21a71c7f1c6c72bf8a0ca21f361335d7d6c09384307320008a10b7bf"
+  "signature": "6950ca520a0454ab6a2307ff68a43db8a4161e3199ad2213b906da0c51e0d9dc"
 }

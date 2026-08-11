@@ -3,6 +3,7 @@ import { mkdir, mkdtemp, readFile, rm, symlink, writeFile } from "node:fs/promis
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
+import { fileURLToPath } from "node:url";
 
 process.env.BEBEBONJOUR_APPROVAL_HMAC_KEY =
   "synthetic-fixture-approval-key-material-not-for-production";
@@ -21,6 +22,7 @@ import {
 const baseIntake = JSON.parse(
   await readFile(new URL("../data/examples/bayane/intake.json", import.meta.url), "utf8"),
 );
+const amalFixtureRoot = fileURLToPath(new URL("../data/examples/amal/", import.meta.url));
 
 async function captureConsole(action) {
   const original = console.log;
@@ -383,6 +385,28 @@ test("approve-review requires exact acknowledgement of review reasons", async (t
     /acknowledge exactly these review reasons: name_not_in_catalog/i,
   );
   assert.equal(await pathExists(approvalRoot), false);
+});
+
+test("checked-in Amal approval fixture reproduces its approved projection", async (t) => {
+  const preparedRoot = await mkdtemp(path.join(os.tmpdir(), "bebebonjour-amal-fixture-"));
+  t.after(() => rm(preparedRoot, { recursive: true, force: true }));
+
+  const [page, approval, job] = await Promise.all(
+    ["page.json", "approval.json", "job.json"].map(async (name) => JSON.parse(
+      await readFile(path.join(amalFixtureRoot, name), "utf8"),
+    )),
+  );
+  assert.equal(job.pageId, page.pageId);
+  assert.equal(job.review.reviewedBy, approval.reviewer);
+  assert.equal(job.review.reviewedAt, approval.reviewedAt);
+
+  await captureConsole(() => commandRender({
+    input: path.join(amalFixtureRoot, "page.json"),
+    approval: path.join(amalFixtureRoot, "approval.json"),
+    output: preparedRoot,
+  }));
+
+  assert.equal(await pathExists(path.join(preparedRoot, "deploy", "amal", "page.json")), true);
 });
 
 test("render rejects an approved page changed after the approval gate", async (t) => {

@@ -2,10 +2,11 @@
 
 Bébé Bonjour is an operator-controlled birth-announcement workflow with a privacy-conscious fulfillment ingress.
 
-The repository currently contains two connected but deliberately separated parts:
+The repository currently contains three connected but deliberately separated parts:
 
 - a structured CLI workflow for composing, rendering, narrating, and deploying reviewed announcement pages;
 - signed Tally and Stripe webhook ingress that durably reconciles a paid order in Supabase/Postgres.
+- a TEST-A first-party customer-flow contract for synthetic local validation.
 
 ## Safety boundary
 
@@ -54,6 +55,81 @@ npm run verify
 ```
 
 The verification command runs the unit suite, Docker-backed PostgreSQL integration tests, and the production dependency audit.
+
+## Synthetic fulfillment tracer
+
+The TEST-A fulfillment tracer is the canonical local proof of the complete
+workflow contract. It uses one synthetic `.test` order, the file-backed
+local-only store, deterministic workspace manifests, an in-process no-network
+TTS response, and dry-run publication and delivery commands. It never contacts
+Stripe, Convex, Vercel, Resend, or OpenAI and does not authorize a hosted
+migration, deployment, URL, email, or other provider effect.
+
+Requirements are Node.js 22, installed dependencies, and `ffprobe` from FFmpeg.
+The test installs a synthetic approval key and TTS adapter inside its isolated
+process; do not add real provider credentials. Run the focused proof and the
+representative Amal generator check with:
+
+```bash
+node --test test/integration/fulfillment-workflow-tracer.test.mjs
+npm run compose:bayane
+```
+
+The durable state flow exercised by the tracer is:
+
+```text
+awaiting_payment
+  -> generation_queued -> generating -> content_review_required
+  -> render_queued -> rendering -> tts_queued -> tts_generating
+  -> narration_review_required -> publish_ready -> publishing -> published
+  -> delivery_queued -> sending -> sent -> complete
+```
+
+`retry_wait` is a bounded side branch from an interrupted stage. A retry is
+available only after its persisted backoff, is capped by the stage policy, and
+reuses the same persisted idempotency key for the same logical effect. The test
+simulates an interrupted `prepare_review`, reopens the file-backed store, and
+proves that the exact job, retry, artifact manifests, decisions, and handoffs
+survive restart.
+
+There are three explicit human checkpoints in the contract:
+
+1. A qualified reviewer approves the exact private content-review artifact
+   digests under `bebebonjour-editorial-v1`; until then, render and publication
+   do not run.
+2. When narration is required, a qualified reviewer listens to and approves the
+   exact narration-review artifact digests; content approval alone cannot publish.
+3. Delivery becomes `complete` only after a trusted verifier confirms the exact
+   persisted provider message. A caller assertion or mismatched message is rejected.
+
+The integration test executes those decisions programmatically with synthetic
+reviewer identities so it is repeatable. For a manual local checkpoint, use the
+`prepare-review`, `approve-review`, `render`, `tts`, and `approve-narration`
+commands in the next section, inspect every private artifact before approval,
+and keep `deploy --dry-run` plus `send --provider console --dry-run`. Removing a
+dry-run flag, configuring a non-console delivery provider, applying hosted
+migrations, provisioning provider credentials, publishing, or sending remain
+separate operator-authorized operations and are not part of TEST-A.
+
+## First-party TEST-A customer flow
+
+The local customer-flow server creates the canonical job and opaque intake token,
+keeps the intake private in memory, records the canonical lifecycle projection in
+a process-scoped local file, and exposes only customer intake, status, and
+checkout-session routes. Payment authority, exact-revision editorial approval,
+publication, and delivery remain server-side commands and cannot be reached from
+the customer HTTP API.
+
+```bash
+npm run dev:customer-flow
+```
+
+It listens only on `http://127.0.0.1:8787`. The local payment adapter makes no
+provider calls, the intake accepts only synthetic `.test` addresses, and the
+server removes its canonical state file on shutdown. In a second terminal, run the landing repository
+with `npm run dev:local`. This is not a deployable production persistence adapter;
+Convex, Stripe test mode, Resend test mode, hosted URLs, and production remain
+behind their recorded authorization gates.
 
 ## Render an example
 

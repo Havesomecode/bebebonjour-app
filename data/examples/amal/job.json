@@ -1,7 +1,7 @@
 {
   "schemaVersion": "1.0",
   "jobId": "job_amal",
-  "pageId": "page_amal_001",
+  "pageId": "page_amal_f8c9e9a542747c15",
   "slug": "amal",
   "status": "created",
   "templateFamily": "blessed-arrival",
@@ -25,8 +25,8 @@
   },
   "review": {
     "status": "approved",
-    "reviewedBy": "operator@example.com",
-    "reviewedAt": "2026-03-08T12:15:00Z"
+    "reviewedBy": "synthetic-fixture-operator",
+    "reviewedAt": "2026-08-11T13:18:23.180Z"
   },
   "deploy": null,
   "email": {
