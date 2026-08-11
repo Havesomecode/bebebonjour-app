@@ -2,6 +2,7 @@
 .vercel/
 out/
 node_modules/
+.worktrees/
 .DS_Store
 .vercel
 .env*
