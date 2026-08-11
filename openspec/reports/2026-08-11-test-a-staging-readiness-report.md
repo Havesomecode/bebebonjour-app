@@ -139,9 +139,13 @@ Resolved direct versions:
 - `@hono/node-server` 2.1.0
 - `@supabase/supabase-js` 2.111.0
 - `ajv` 8.20.0
-- `convex` 1.43.0
 - `hono` 4.13.1
 - `stripe` 22.4.0
+
+Convex remains the approved hosted target but is deliberately not installed in
+TEST-A because no committed runtime source imports it. TEST-B should add the
+dependency with the first real Convex adapter rather than carrying an unused
+provider package.
 
 `npm outdated` reports newer patch releases for Supabase (`2.112.3`) and Stripe (`22.5.0`). They are not audit findings and should be upgraded only through a separate tested dependency change.
 
