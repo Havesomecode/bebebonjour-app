@@ -10,16 +10,21 @@
     "announce": "./bin/announce.mjs"
   },
   "scripts": {
+    "build": "node --check ./bin/announce.mjs && node --check ./api/webhooks/tally.mjs && node --check ./api/webhooks/stripe.mjs && node --check ./scripts/local-customer-flow-server.mjs",
     "test": "node --test",
     "test:integration": "RUN_DB_TESTS=1 node --test",
     "verify": "npm test && npm run test:integration && npm audit --omit=dev",
+    "dev:customer-flow": "node ./scripts/local-customer-flow-server.mjs",
     "render:bayane": "node ./bin/announce.mjs render --input data/examples/bayane/page.json --approval data/examples/bayane/approval.json --output out/bayane",
     "render:amal": "node ./bin/announce.mjs render --input data/examples/amal/page.json --approval data/examples/amal/approval.json --output out/amal",
     "compose:bayane": "node ./bin/announce.mjs compose --input data/examples/bayane/intake.json --output out/compose-bayane/page.json --select religious-bayane"
   },
   "dependencies": {
+    "@hono/node-server": "2.1.0",
     "@supabase/supabase-js": "2.111.0",
     "ajv": "8.20.0",
+    "convex": "1.43.0",
+    "hono": "4.13.1",
     "stripe": "22.4.0"
   }
 }
