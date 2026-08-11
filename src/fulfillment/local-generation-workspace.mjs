@@ -134,6 +134,9 @@ export function createLocalGenerationWorkspace({ rootPath }) {
     const pageRoot = layout.pageRootKey
       ? requiredResolvedPath(paths, layout.pageRootKey)
       : stageRoot;
+    for (const candidate of [stageRoot, inventoryRoot, pageRoot]) {
+      assertInsideRoot(resolvedRoot, candidate);
+    }
     const pagePath = path.join(pageRoot, ...layout.page);
     const transcriptPath = path.join(stageRoot, ...layout.transcript);
     if (!await allRegularFilesExist([pagePath, transcriptPath])) return null;
@@ -146,7 +149,9 @@ export function createLocalGenerationWorkspace({ rootPath }) {
       files,
     };
     const manifestRaw = `${JSON.stringify(manifest, null, 2)}\n`;
-    const manifestPath = path.join(requiredResolvedPath(paths, "manifestRoot"), `${kind}.json`);
+    const manifestRoot = requiredResolvedPath(paths, "manifestRoot");
+    assertInsideRoot(resolvedRoot, manifestRoot);
+    const manifestPath = path.join(manifestRoot, `${kind}.json`);
     const existingRaw = await readTextIfPresent(manifestPath);
     if (existingRaw !== null && existingRaw !== manifestRaw) {
       throw new Error(`${kind} artifacts diverge from the persisted manifest.`);
@@ -171,7 +176,9 @@ export function createLocalGenerationWorkspace({ rootPath }) {
     if (!layout) throw new Error(`Unsupported local artifact kind: ${kind}`);
     const stageRoot = requiredResolvedPath(paths, layout.rootKey);
     assertInsideRoot(resolvedRoot, stageRoot);
-    const manifestPath = path.join(requiredResolvedPath(paths, "manifestRoot"), `${kind}.json`);
+    const manifestRoot = requiredResolvedPath(paths, "manifestRoot");
+    assertInsideRoot(resolvedRoot, manifestRoot);
+    const manifestPath = path.join(manifestRoot, `${kind}.json`);
     await Promise.all([
       rm(stageRoot, { recursive: true, force: true }),
       rm(manifestPath, { force: true }),

@@ -92,6 +92,26 @@ test("local generation workspace derives revision paths from persisted inputs an
   );
 });
 
+test("artifact collection rejects an escaped manifest root before writing", async (t) => {
+  const { rootPath, workspace } = await fixture(t);
+  const paths = await workspace.resolveJobPaths(JOB);
+  await writePrivateReview(paths);
+  const escapedRoot = `${rootPath}-escaped-manifests`;
+  t.after(() => rm(escapedRoot, { recursive: true, force: true }));
+
+  await assert.rejects(
+    workspace.collectArtifactSet({
+      kind: "private_review",
+      paths: { ...paths, manifestRoot: escapedRoot },
+    }),
+    /must be a child of the local workspace root/i,
+  );
+  await assert.rejects(
+    readFile(path.join(escapedRoot, "private_review.json")),
+    { code: "ENOENT" },
+  );
+});
+
 test("generation handlers reuse complete artifacts and clean retryable partial output", async (t) => {
   const { workspace } = await fixture(t);
   let calls = 0;
