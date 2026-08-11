@@ -1,6 +1,7 @@
 # TEST-A staging readiness report
 
 - Validation date: 2026-08-11 15:30 CEST
+- Evidence reconciliation: 2026-08-11 22:27 CEST
 - Kanban validation: `t_3ddcadd6`
 - Scope: local-only TEST-A verification across `bebebonjour-app` and `bebebonjour-landing`
 - Remote side effects: none; no hosted deployment, live payment, live email, DNS, publication, or production action was attempted
@@ -12,10 +13,14 @@ This validation ran against existing shared dirty worktrees and did not reset or
 
 | Repository | Branch | HEAD | Git index tree |
 | --- | --- | --- | --- |
-| `bebebonjour-app` | `main` | `b532ab7012d3c9dd36ffd8ccfb190a7a2bf6389b` | `3e572a5cbef5445a2472ad0ba13a4d5c95bda92e` |
+| `bebebonjour-app` | `main` | `02b4107837de1d985a463f5aed5c2f8d29338531` | `a28ed22912ad003a16d97dc67a28a91021d77efc` |
 | `bebebonjour-landing` | `feat/tally-stripe-flow` | `feda566e46c884e5b1814a737cffc99a8c449031` | `0e73d64188fb72cc9c333a1fa990932974a55079` |
 
-The relevant implementation and tests remain uncommitted. A later acceptance gate must bind any approval to exact reviewed bytes rather than only these HEADs or index trees.
+The `bebebonjour-app` implementation is now committed and pushed at
+`02b4107837de1d985a463f5aed5c2f8d29338531`. The separate
+`bebebonjour-landing` candidate remains a dirty feature worktree and is not part
+of that release identity. Any cross-repository acceptance must still seal the
+landing bytes independently.
 
 ## TEST-A end-to-end evidence
 
@@ -27,7 +32,13 @@ Command:
 
 Result: **PASS** — 1 test, 1 pass, 0 fail, 0 skip, 1127 ms.
 
-The tracer exercised one synthetic Amal order through the canonical local intake and fulfillment path, including correlated payment authority, generation, persisted review decisions, mocked TTS, exact approval bindings, publication dry-run, delivery dry-run, provider-status reconciliation, and confirmed delivery. The final job was reconstructed from the persisted local store rather than trusted from transient in-memory state.
+The tracer exercised one synthetic Amal order from direct canonical job creation
+and payment recording through generation, persisted review decisions, mocked
+TTS, exact approval bindings, publication dry-run, delivery dry-run,
+provider-status reconciliation, and confirmed delivery. It does not exercise
+the customer HTTP intake or checkout-session boundary; the customer-flow suites
+cover those separately. The final job was reconstructed from the persisted
+local store rather than trusted from transient in-memory state.
 
 ### Deterministic persisted artifact
 
@@ -159,11 +170,15 @@ Registry checks confirmed that 6.4.3 is the latest Vite 6 release, 0.25.12 is th
 
 ## Unresolved risks and required next actions
 
-1. **Acceptance-boundary risk — shared dirty worktrees.** The candidate spans many modified and untracked paths in both repositories. Final acceptance must capture an exact path allowlist and hashes after all writers stop; current HEAD and index tree alone do not identify the tested bytes.
+1. **Acceptance-boundary risk — landing remains unsealed.** `bebebonjour-app` is release-identifiable at `02b4107837de1d985a463f5aed5c2f8d29338531`; the landing candidate still contains modified and untracked paths. Any combined release must capture its exact allowlist and hashes after all writers stop.
 2. **Hosted provider/database evidence remains deferred.** The three opt-in database integration tests now pass against the harness-managed ephemeral local PostgreSQL 16 container. No test targeted a hosted database or provider account, so hosted integration evidence remains separately gated.
 3. **No real-provider evidence.** TTS, deployment, email, payment, DNS, and hosted persistence were mocked, dry-run, or untouched as required by TEST-A. This report gives no authorization for those actions.
 4. **Operational policies remain provisional.** The 30-day private/PII cleanup period, 365-day public-bundle availability, and future agent-review boundaries remain policy decisions rather than verified production controls.
 5. **Patch updates available.** Supabase and Stripe have later patch releases. Current versions are audit-clean, but the updates should be evaluated separately with full regression evidence.
+6. **No socket-level TEST-A egress enforcement.** The tracer stubs `fetch` around the real TTS command path, so the tested execution makes no provider request, but the local boundary is not a general outbound-network sandbox. Keep provider credentials absent and add socket-level egress enforcement before using this harness as provider-isolation evidence.
+7. **Production intake durability is not implemented.** The local HTTP path does not require `Idempotency-Key`, and private intake creation plus canonical fulfillment creation spans separate non-transactional stores. TEST-B must require a durable key and provide atomic creation or explicit recovery before any real intake.
+8. **Canonical payment evidence is incomplete for production.** The local customer store validates Checkout Session, amount, and currency, but the canonical fulfillment payment record does not retain the expected Checkout binding. Persist and verify that binding before Stripe TEST-B or live payment.
+9. **External-effect completion ambiguity needs a recovery test.** If a publish or delivery provider succeeds and the subsequent completion write fails, the current path may classify the persistence error as terminal. TEST-B requires recoverable ambiguity, stable-key reconciliation, and fault-injection coverage proving no duplicate effect.
 
 ## Explicitly gated actions
 

@@ -58,12 +58,15 @@ The verification command runs the unit suite, Docker-backed PostgreSQL integrati
 
 ## Synthetic fulfillment tracer
 
-The TEST-A fulfillment tracer is the canonical local proof of the complete
-workflow contract. It uses one synthetic `.test` order, the file-backed
-local-only store, deterministic workspace manifests, an in-process no-network
-TTS response, and dry-run publication and delivery commands. It never contacts
-Stripe, Convex, Vercel, Resend, or OpenAI and does not authorize a hosted
-migration, deployment, URL, email, or other provider effect.
+The TEST-A fulfillment tracer is the canonical local proof of the fulfillment
+lifecycle after direct synthetic job creation and payment recording. The
+customer HTTP intake and checkout boundary is covered separately by the
+customer-flow tests. The tracer uses the file-backed local-only store,
+deterministic workspace manifests, a synthetic in-process `fetch` stub around
+the TTS command path, and dry-run publication and delivery commands. Current
+test execution makes no provider requests, but it does not install a
+socket-level egress blockade. Run it without provider credentials. It does not
+authorize a hosted migration, deployment, URL, email, or other provider effect.
 
 Requirements are Node.js 22, installed dependencies, and `ffprobe` from FFmpeg.
 The test installs a synthetic approval key and TTS adapter inside its isolated
