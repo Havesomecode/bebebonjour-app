@@ -442,11 +442,20 @@ export function externalEffectInputFromAggregate(aggregate, stage) {
   if (!deliveryAttempt?.operationBinding) {
     throw new Error("Delivery requires one persisted exact target binding.");
   }
+  const firstOperationAttempt = aggregate.stageAttempts.find(
+    (attempt) => attempt.stage === "deliver"
+      && attempt.revisionId === aggregate.currentRevisionId
+      && attempt.idempotencyKey === deliveryAttempt.idempotencyKey,
+  );
+  if (!firstOperationAttempt?.startedAt) {
+    throw new Error("Delivery requires the persisted first operation attempt time.");
+  }
   return clone({
     ...input,
     publication: aggregate.publication,
     delivery: aggregate.deliveryAttempts.at(-1) || null,
     deliveryTarget: deliveryAttempt.operationBinding,
+    attemptStartedAt: firstOperationAttempt.startedAt,
   });
 }
 

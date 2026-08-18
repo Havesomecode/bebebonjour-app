@@ -40,12 +40,18 @@ const PUBLIC_ERRORS = new Map([
   }],
 ]);
 
-export function createCustomerFlowHttpApi({ service, allowedOrigins = [] }) {
+export function createCustomerFlowHttpApi({
+  service,
+  allowedOrigins = [],
+  pathPrefix = "",
+  authorizeRequest = null,
+}) {
   if (!service) throw new Error("A customer-flow service is required.");
   const originAllowlist = new Set(allowedOrigins);
+  const apiPath = `${normalizePathPrefix(pathPrefix)}/v1`;
   const app = new Hono();
 
-  app.use("/v1/*", async (context, next) => {
+  app.use(`${apiPath}/*`, async (context, next) => {
     const origin = context.req.header("origin") || "";
     context.header("Cache-Control", "no-store");
     context.header("Vary", "Origin");
@@ -56,16 +62,23 @@ export function createCustomerFlowHttpApi({ service, allowedOrigins = [] }) {
 
     if (context.req.method === "OPTIONS") {
       context.header("Allow", "GET, POST, OPTIONS");
-      context.header("Access-Control-Allow-Headers", "authorization, content-type, idempotency-key");
+      context.header(
+        "Access-Control-Allow-Headers",
+        "authorization, content-type, idempotency-key, x-test-a-access-token",
+      );
       context.header("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
       return context.body(null, 204);
+    }
+
+    if (authorizeRequest && !await authorizeRequest(context.req)) {
+      return errorResponse(context, 401, "test_access_required", "TEST-A access is required.");
     }
 
     await next();
   });
 
   app.post(
-    "/v1/intakes",
+    `${apiPath}/intakes`,
     bodyLimit({
       maxSize: MAX_BODY_BYTES,
       onError: (context) => errorResponse(
@@ -85,14 +98,14 @@ export function createCustomerFlowHttpApi({ service, allowedOrigins = [] }) {
     },
   );
 
-  app.get("/v1/jobs/:jobId/status", async (context) => {
+  app.get(`${apiPath}/jobs/:jobId/status`, async (context) => {
     const jobId = validJobId(context.req.param("jobId"));
     if (!jobId) return context.notFound();
     const result = await service.getStatus(jobId, bearerToken(context.req.header("authorization")));
     return context.json(result);
   });
 
-  app.post("/v1/jobs/:jobId/checkout", async (context) => {
+  app.post(`${apiPath}/jobs/:jobId/checkout`, async (context) => {
     const jobId = validJobId(context.req.param("jobId"));
     if (!jobId) return context.notFound();
     const result = await service.createCheckout(jobId, bearerToken(context.req.header("authorization")));
@@ -111,6 +124,14 @@ export function createCustomerFlowHttpApi({ service, allowedOrigins = [] }) {
   });
 
   return app;
+}
+
+function normalizePathPrefix(value) {
+  if (value === "") return "";
+  if (typeof value !== "string" || !/^\/[A-Za-z0-9/_-]*[A-Za-z0-9_-]$/.test(value)) {
+    throw new Error("Customer-flow path prefix must be an absolute path without a trailing slash.");
+  }
+  return value;
 }
 
 function parseJsonBody(body) {

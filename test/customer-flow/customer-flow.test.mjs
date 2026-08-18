@@ -142,6 +142,16 @@ test("explicit intake idempotency replays only the same request and rejects conf
   );
 });
 
+test("synthetic-only intake accepts the documented Resend delivery test sink", async () => {
+  const { service } = harness();
+  const submission = await createJob(service, {
+    ...structuredClone(syntheticIntake),
+    customer: { email: "delivered@resend.dev", consent: true },
+  });
+
+  assert.equal(submission.status, "payment_pending");
+});
+
 test("customer-flow service exposes no parallel editorial or delivery lifecycle", () => {
   const { service } = harness();
   assert.deepEqual(Object.keys(service).sort(), [
@@ -182,10 +192,23 @@ test("payment authority is idempotent and cannot satisfy another job", async () 
     currency: "EUR",
     livemode: false,
     metadata: checkout.metadata,
+    payloadSha256: "e".repeat(64),
   };
   const accepted = await service.recordPaymentSucceeded(payment);
   const replay = await service.recordPaymentSucceeded(payment);
   assert.deepEqual(replay, accepted);
+  await assert.rejects(
+    service.recordPaymentSucceeded({ ...payment, payloadSha256: "f".repeat(64) }),
+    (error) => error instanceof CustomerFlowError && error.code === "payment_event_conflict",
+  );
+  await assert.rejects(
+    service.recordPaymentSucceeded({
+      ...payment,
+      providerEventId: "evt_stripe_test_duplicate_identity",
+      payloadSha256: "d".repeat(64),
+    }),
+    (error) => error instanceof CustomerFlowError && error.code === "payment_event_conflict",
+  );
   assert.equal((await service.getStatus(first.jobId, first.intakeToken)).payment, "paid");
   assert.equal((await service.getStatus(second.jobId, second.intakeToken)).payment, "pending");
 });
@@ -228,6 +251,55 @@ test("intake, payment, and customer status bind to the canonical fulfillment orc
   assert.equal(recorded.payment.commandId, "stripe:evt_stripe_test_001");
   assert.deepEqual(recorded.payment.correlation, created.input.paymentCorrelation);
   assert.equal((await service.getStatus(submission.jobId, submission.intakeToken)).status, "generation_pending");
+});
+
+test("concurrent same-id Stripe payload conflicts are fenced before a second effect", async () => {
+  let paymentCalls = 0;
+  let releaseFirst;
+  let markEntered;
+  const entered = new Promise((resolve) => { markEntered = resolve; });
+  const holdFirst = new Promise((resolve) => { releaseFirst = resolve; });
+  const fulfillmentOrchestrator = {
+    async createJob(input) { return { jobId: input.jobId, state: "awaiting_payment" }; },
+    async status(jobId) { return { jobId, state: "awaiting_payment" }; },
+    async recordPayment(jobId) {
+      paymentCalls += 1;
+      if (paymentCalls === 1) {
+        markEntered();
+        await holdFirst;
+      }
+      return { jobId, state: "generation_queued" };
+    },
+  };
+  const { service } = harness({ fulfillmentOrchestrator });
+  const submission = await createJob(service);
+  const checkout = await service.createCheckout(submission.jobId, submission.intakeToken);
+  const payment = {
+    providerEventId: "evt_test_concurrent",
+    sessionId: checkout.sessionId,
+    paymentIntentId: "pi_test_concurrent",
+    amountMinor: 3900,
+    currency: "EUR",
+    livemode: false,
+    metadata: checkout.metadata,
+    payloadSha256: "a".repeat(64),
+  };
+
+  const first = service.recordPaymentSucceeded(payment).then(
+    (value) => ({ value }),
+    (error) => ({ error }),
+  );
+  await entered;
+  const second = await service.recordPaymentSucceeded({
+    ...payment,
+    payloadSha256: "b".repeat(64),
+  }).then((value) => ({ value }), (error) => ({ error }));
+  releaseFirst();
+  const firstOutcome = await first;
+
+  assert.equal(firstOutcome.error, undefined);
+  assert.equal(second.error?.code, "payment_event_conflict");
+  assert.equal(paymentCalls, 1);
 });
 
 test("invalid customer credentials and fields fail with stable redacted errors", async () => {

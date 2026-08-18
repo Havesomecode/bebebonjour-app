@@ -1,0 +1,89 @@
+{
+  "schemaVersion": "1.0",
+  "candidateMode": "test-only",
+  "authorities": {
+    "intake": "first-party POST /api/customer-flow/v1/intakes",
+    "payment": "signed Stripe checkout.session.completed with livemode=false, amount_total=3900, currency=eur",
+    "durableOperations": "Convex customerFlowJobs plus fulfillmentJobs",
+    "publication": "operator-approved Vercel release only",
+    "delivery": "operator-approved Resend send only after the persisted fulfillment gate"
+  },
+  "deploymentOrder": [
+    "Create or select one isolated Convex TEST-A deployment; set CUSTOMER_FLOW_BACKEND_TOKEN in Convex without exposing its value.",
+    "Run npx convex deploy against that exact test deployment and record its deployment URL.",
+    "Install only the Vercel API runtime variables listed in vercelApi.environmentVariables, then create a new preview deployment.",
+    "Probe /api/customer-flow/health and an invalid webhook signature; do not open the landing route yet.",
+    "Create exactly one Stripe test-mode webhook endpoint for the canonical URL and accepted event.",
+    "Install STRIPE_CUSTOMER_FLOW_WEBHOOK_SECRET in Vercel, redeploy, and verify the active preview was built after the secret update.",
+    "Run one unique synthetic intake with delivered@resend.dev or an .example.test address, one Stripe test Checkout event, and an exact duplicate replay.",
+    "Query Convex directly for one customer job, one fulfillment aggregate, and one provider event; verify the fulfillment state is generation_queued.",
+    "Keep generation, publication, and delivery closed until a human review decision is persisted.",
+    "Install RESEND_API_KEY and RESEND_FROM only in the operator delivery runtime, never in the public Vercel API runtime.",
+    "After operator approval and a test Vercel publication receipt, send only to Resend's documented test sink and reconcile the provider message status.",
+    "Complete landing compatibility task t_b5ed0ad9, then independently review the exact app and landing SHAs before changing the landing API base URL."
+  ],
+  "convex": {
+    "functionsDirectory": "convex",
+    "environmentVariables": ["CUSTOMER_FLOW_BACKEND_TOKEN"],
+    "tables": [
+      "customerFlowJobs",
+      "customerFlowSubmissions",
+      "customerFlowProviderEvents",
+      "fulfillmentJobs"
+    ]
+  },
+  "vercelApi": {
+    "entrypoint": "api/customer-flow/[...route].mjs",
+    "environmentVariables": [
+      "CONVEX_URL",
+      "CUSTOMER_FLOW_BACKEND_TOKEN",
+      "CUSTOMER_FLOW_TOKEN_ENCRYPTION_KEY",
+      "CUSTOMER_FLOW_TEST_ACCESS_TOKEN",
+      "CUSTOMER_FLOW_ALLOWED_ORIGINS",
+      "STRIPE_SECRET_KEY",
+      "STRIPE_CUSTOMER_FLOW_WEBHOOK_SECRET",
+      "STRIPE_CHECKOUT_SUCCESS_URL",
+      "STRIPE_CHECKOUT_CANCEL_URL"
+    ],
+    "routes": [
+      "GET /api/customer-flow/health",
+      "POST /api/customer-flow/v1/intakes",
+      "GET /api/customer-flow/v1/jobs/:jobId/status",
+      "POST /api/customer-flow/v1/jobs/:jobId/checkout",
+      "POST /api/customer-flow/webhooks/stripe"
+    ],
+    "forbiddenVariables": ["RESEND_API_KEY", "VERCEL_TOKEN", "STRIPE_LIVE_SECRET_KEY"],
+    "testAccess": "X-Test-A-Access-Token is required on every /v1 command and must be collected interactively, held in memory only, and never bundled into browser assets"
+  },
+  "stripe": {
+    "mode": "test",
+    "acceptedAmountMinor": 3900,
+    "acceptedCurrency": "EUR",
+    "endpointPath": "/api/customer-flow/webhooks/stripe",
+    "events": ["checkout.session.completed"],
+    "metadataKeys": ["project", "product", "environment", "job_id", "intake_digest"],
+    "signedBusinessMismatch": "persist a redacted payload fingerprint and reason code, then acknowledge without advancing the job"
+  },
+  "resendOperatorRuntime": {
+    "environmentVariables": ["RESEND_API_KEY", "RESEND_FROM"],
+    "testSink": "delivered@resend.dev",
+    "publicApiAccess": false,
+    "requiresPersistedHumanApproval": true,
+    "idempotencySafety": "send only while the persisted delivery attempt is younger than 23 hours"
+  },
+  "rollback": [
+    "Restore the landing API base URL to its previous value or unset it.",
+    "Disable the single Stripe test webhook endpoint.",
+    "Remove the Vercel preview alias; preserve the deployment for audit until rollback is accepted.",
+    "Revoke the Vercel-scoped Convex backend token and Resend operator key.",
+    "Preserve Convex event and job records; do not delete evidence during rollback."
+  ],
+  "forbiddenActionsBeforeIndependentApproval": [
+    "push",
+    "provider mutation",
+    "deployment",
+    "publication",
+    "customer email",
+    "live payment"
+  ]
+}

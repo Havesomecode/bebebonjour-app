@@ -1173,12 +1173,15 @@ test("ambiguous delivery acceptance is reconciled before retrying the send effec
   let now = "2026-08-11T00:00:00.000Z";
   let sendCalls = 0;
   const receipts = new Map();
+  const attemptStarts = [];
   const deliveryAdapter = fakeDeliveryAdapter({
     async reconcile(request) {
+      attemptStarts.push(request.attemptStartedAt);
       return receipts.get(request.idempotencyKey) || null;
     },
     async send(request) {
       sendCalls += 1;
+      assert.equal(request.attemptStartedAt, "2026-08-11T00:00:00.000Z");
       const receipt = {
         provider: "fake-resend",
         revisionId: request.revisionId,
@@ -1215,6 +1218,10 @@ test("ambiguous delivery acceptance is reconciled before retrying the send effec
   assert.equal(status.state, "sent");
   assert.equal(status.delivery.providerMessageId, "fake-message-ambiguous-001");
   assert.equal(sendCalls, 1);
+  assert.deepEqual(attemptStarts, [
+    "2026-08-11T00:00:00.000Z",
+    "2026-08-11T00:00:00.000Z",
+  ]);
 });
 
 test("delivery retries keep the persisted exact target binding and never retarget", async (t) => {

@@ -43,6 +43,25 @@ export function createInMemoryCustomerFlowStore() {
       return event ? clone(event) : null;
     },
 
+    async claimProviderEvent(providerEventId, fingerprint) {
+      const existing = providerEvents.get(providerEventId);
+      if (existing) return { created: false, event: clone(existing) };
+      const event = { fingerprint, result: null };
+      providerEvents.set(providerEventId, clone(event));
+      return { created: true, event: clone(event) };
+    },
+
+    async completeProviderEvent(providerEventId, fingerprint, result) {
+      const existing = providerEvents.get(providerEventId);
+      if (!existing || existing.fingerprint !== fingerprint) {
+        return { completed: false, event: existing ? clone(existing) : null };
+      }
+      if (existing.result) return { completed: false, event: clone(existing) };
+      const event = { fingerprint, result: clone(result) };
+      providerEvents.set(providerEventId, clone(event));
+      return { completed: true, event: clone(event) };
+    },
+
     async recordProviderEvent(providerEventId, event) {
       const existing = providerEvents.get(providerEventId);
       if (existing) return { created: false, event: clone(existing) };

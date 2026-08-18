@@ -46,6 +46,7 @@ export function createExternalEffectStageHandlers(options = {}) {
         artifactManifestDigest: operation.artifactManifestDigest,
         publication: structuredClone(operation.publication),
         targetDigest: operation.deliveryTarget.targetDigest,
+        attemptStartedAt: operation.attemptStartedAt,
         idempotencyKey: requireIdempotencyKey(context),
       });
       const reconciled = await deliveryAdapter.reconcile(reconciliationRequest);
