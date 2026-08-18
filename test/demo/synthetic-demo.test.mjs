@@ -139,6 +139,22 @@ test("exports reject a symlinked announcements root without touching its target"
   });
 });
 
+test("exports reject a nonexistent output beneath a symlinked ancestor before writing", async (t) => {
+  const directory = await mkdtemp(path.join(os.tmpdir(), "bebebonjour-demo-ancestor-"));
+  const physicalParent = path.join(directory, "physical");
+  const linkedParent = path.join(directory, "alias");
+  t.after(() => rm(directory, { recursive: true, force: true }));
+  await mkdir(physicalParent);
+  await symlink(physicalParent, linkedParent, "dir");
+
+  await assert.rejects(
+    exportSyntheticDemo({ outputRoot: path.join(linkedParent, "demo") }),
+    /output path contains a symbolic link/,
+  );
+
+  assert.deepEqual(await readdir(physicalParent), []);
+});
+
 test("concurrent exports are serialized before either can clobber rollback state", async (t) => {
   const outputRoot = await mkdtemp(path.join(os.tmpdir(), "bebebonjour-demo-concurrent-"));
   t.after(() => rm(outputRoot, { recursive: true, force: true }));
