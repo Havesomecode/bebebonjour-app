@@ -134,6 +134,22 @@ with `npm run dev:local`. This is not a deployable production persistence adapte
 Convex, Stripe test mode, Resend test mode, hosted URLs, and production remain
 behind their recorded authorization gates.
 
+## Synthetic workflow demo artifact
+
+Export the deterministic, provider-free workflow packet into the sibling landing:
+
+```bash
+NODE_NO_WARNINGS=1 npm run demo:export -- ../bebebonjour-landing/public/demo
+```
+
+The exporter runs two built-in `.test` intakes through the canonical TEST-A customer
+flow, fulfillment orchestrator, exact-revision review, publication, and delivery
+projections. It creates static announcement slugs for Amal and Bayane. The public
+approval key, checkout, payment event, narration placeholders, publication receipt,
+and delivery receipt are synthetic test fixtures; no Stripe, Resend, TTS, Vercel, or
+other provider call is made. Re-running the command replaces only the target demo
+directory and produces the same manifest and static paths.
+
 ## Render an example
 
 ```bash

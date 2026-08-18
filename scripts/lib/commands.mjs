@@ -300,7 +300,9 @@ export async function commandApproveReview(args) {
     throw new Error("Canonical draft specific demands do not match the review dossier.");
   }
 
-  const reviewedAt = nowIso();
+  const reviewedAt = args["reviewed-at"] === undefined
+    ? nowIso()
+    : requireIsoTimestamp(args["reviewed-at"], "approve-review --reviewed-at");
   const approvedPage = cloneJson(canonicalPage);
   approvedPage.review = {
     ...cloneJson(canonicalPage.review),
@@ -401,6 +403,13 @@ async function assertFreshDirectory(directory, label) {
 function parseCommaSeparated(value) {
   if (typeof value !== "string" || value.trim() === "") return [];
   return [...new Set(value.split(",").map((entry) => entry.trim()).filter(Boolean))];
+}
+
+function requireIsoTimestamp(value, label) {
+  if (typeof value !== "string" || new Date(value).toISOString() !== value) {
+    throw new Error(`${label} must be a canonical ISO timestamp.`);
+  }
+  return value;
 }
 
 async function buildPrivateReviewMaterialBinding(selectionId) {
@@ -1275,7 +1284,10 @@ function buildDraftPage(intake, suggestion, nameResolution) {
     templateVersion: DEFAULT_TEMPLATE_VERSION,
     rendererVersion: DEFAULT_RENDERER_VERSION,
     pageRevision,
-    featureFlags: suggestion.featureFlags || [],
+    featureFlags: [
+      ...(suggestion.featureFlags || []),
+      ...(intake.preferences?.selfContainedFonts === true ? ["self-contained-fonts"] : []),
+    ],
     sectionOrder,
     identity: {
       nameLatin,
