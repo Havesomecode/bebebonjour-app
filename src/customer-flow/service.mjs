@@ -148,10 +148,8 @@ export function createCustomerFlowService({
     if (!job || !paymentMatchesJob(normalized, job)) {
       throw flowError(409, "payment_correlation_failed", "Payment could not be correlated to its canonical job.");
     }
-    if (job.payment.status === "paid" && (
-      job.payment.paymentIntentId !== normalized.paymentIntentId
-      || job.payment.acceptedEventId !== normalized.providerEventId
-    )) {
+    if (job.payment.status === "paid"
+        && job.payment.paymentIntentId !== normalized.paymentIntentId) {
       throw flowError(409, "payment_event_conflict", "A different payment event is already bound to this job.");
     }
 
@@ -161,9 +159,21 @@ export function createCustomerFlowService({
     }
     if (claim.event.result) return claim.event.result;
 
+    if (job.payment.status === "paid") {
+      const canonical = fulfillmentOrchestrator
+        ? await fulfillmentOrchestrator.status(jobId)
+        : null;
+      return completePaymentEvent(
+        store,
+        normalized.providerEventId,
+        fingerprint,
+        publicStatus(job, canonical),
+      );
+    }
+
     const canonical = fulfillmentOrchestrator
       ? await fulfillmentOrchestrator.recordPayment(jobId, {
-          commandId: `stripe:${normalized.providerEventId}`,
+          commandId: paymentCommandId(normalized),
           providerEventId: normalized.providerEventId,
           providerPaymentId: normalized.paymentIntentId,
           correlation: canonicalPaymentCorrelation(job),
@@ -173,8 +183,7 @@ export function createCustomerFlowService({
 
     const updated = await store.updateJob(jobId, (current) => {
       if (current.payment.status === "paid") {
-        if (current.payment.paymentIntentId !== normalized.paymentIntentId
-            || current.payment.acceptedEventId !== normalized.providerEventId) {
+        if (current.payment.paymentIntentId !== normalized.paymentIntentId) {
           throw flowError(409, "payment_event_conflict", "A different payment event is already bound to this job.");
         }
         return current;
@@ -190,15 +199,7 @@ export function createCustomerFlowService({
       return current;
     });
     const result = publicStatus(updated, canonical);
-    const completed = await store.completeProviderEvent(
-      normalized.providerEventId,
-      fingerprint,
-      result,
-    );
-    if (completed.event?.fingerprint !== fingerprint) {
-      throw flowError(409, "payment_event_conflict", "Payment event replay did not match its original payload.");
-    }
-    return completed.event.result;
+    return completePaymentEvent(store, normalized.providerEventId, fingerprint, result);
   }
 
 
@@ -209,6 +210,22 @@ export function createCustomerFlowService({
     return job;
   }
 
+}
+
+async function completePaymentEvent(store, providerEventId, fingerprint, result) {
+  const completed = await store.completeProviderEvent(providerEventId, fingerprint, result);
+  if (completed.event?.fingerprint !== fingerprint) {
+    throw flowError(409, "payment_event_conflict", "Payment event replay did not match its original payload.");
+  }
+  return completed.event.result;
+}
+
+function paymentCommandId(payment) {
+  return `stripe-payment:${digestJson({
+    jobId: payment.metadata.job_id,
+    sessionId: payment.sessionId,
+    paymentIntentId: payment.paymentIntentId,
+  })}`;
 }
 
 function normalizeIntake(input, syntheticOnly) {

@@ -89,6 +89,10 @@ export function recordPaymentTransition(aggregate, payment, at) {
       recordedAt: payment.recordedAt,
     });
     next.state = "generation_queued";
+  }, {
+    commandId: payment.commandId,
+    providerPaymentId: payment.providerPaymentId,
+    correlation: payment.correlation,
   });
 }
 

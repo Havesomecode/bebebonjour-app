@@ -153,7 +153,7 @@ test("hosted runtime advances one durable job from a signed Stripe test event", 
       origin: "https://bonjour.example.test",
     },
   });
-  const payload = JSON.stringify({
+  const event = {
     id: "evt_test_hosted_002",
     object: "event",
     type: "checkout.session.completed",
@@ -170,7 +170,8 @@ test("hosted runtime advances one durable job from a signed Stripe test event", 
         metadata: checkoutPayload.metadata,
       },
     },
-  });
+  };
+  const payload = JSON.stringify(event);
   const signature = signingStripe.webhooks.generateTestHeaderString({
     payload,
     secret: environment.STRIPE_CUSTOMER_FLOW_WEBHOOK_SECRET,
@@ -186,10 +187,35 @@ test("hosted runtime advances one durable job from a signed Stripe test event", 
     headers: { "stripe-signature": signature },
     body: payload,
   });
+  const duplicatePayload = JSON.stringify({ ...event, id: "evt_test_hosted_002_duplicate" });
+  const duplicate = await runtime.api.request("/api/customer-flow/webhooks/stripe", {
+    method: "POST",
+    headers: {
+      "stripe-signature": signingStripe.webhooks.generateTestHeaderString({
+        payload: duplicatePayload,
+        secret: environment.STRIPE_CUSTOMER_FLOW_WEBHOOK_SECRET,
+      }),
+    },
+    body: duplicatePayload,
+  });
+  const conflictingPayload = JSON.stringify({ ...event, created: 1_786_880_001 });
+  const conflict = await runtime.api.request("/api/customer-flow/webhooks/stripe", {
+    method: "POST",
+    headers: {
+      "stripe-signature": signingStripe.webhooks.generateTestHeaderString({
+        payload: conflictingPayload,
+        secret: environment.STRIPE_CUSTOMER_FLOW_WEBHOOK_SECRET,
+      }),
+    },
+    body: conflictingPayload,
+  });
 
   assert.equal(webhook.status, 200);
   assert.equal(replay.status, 200);
+  assert.equal(duplicate.status, 200);
+  assert.equal(conflict.status, 500);
   assert.equal((await webhook.json()).status, "generation_pending");
+  assert.equal((await duplicate.json()).status, "generation_pending");
   const persisted = await convexClient.run(async (context) => ({
     customer: (await context.db.query("customerFlowJobs").collect())[0].job,
     fulfillment: (await context.db.query("fulfillmentJobs").collect())[0].aggregate,
@@ -197,5 +223,110 @@ test("hosted runtime advances one durable job from a signed Stripe test event", 
   }));
   assert.equal(persisted.customer.payment.status, "paid");
   assert.equal(persisted.fulfillment.state, "generation_queued");
-  assert.equal(persisted.events.length, 1);
+  assert.equal(persisted.events.length, 2);
+  assert.equal(
+    persisted.fulfillment.events.filter(({ type }) => type === "payment_recorded").length,
+    1,
+  );
+});
+
+test("hosted runtime concurrently acknowledges distinct events for one Stripe payment", async () => {
+  const convexClient = convexFixture();
+  const signingStripe = new Stripe("«redacted:sk_test_…»");
+  let checkoutPayload;
+  const stripe = {
+    checkout: {
+      sessions: {
+        async create(payload) {
+          checkoutPayload = payload;
+          return {
+            id: "cs_test_hosted_003",
+            url: "https://checkout.stripe.com/c/pay/test-three",
+            livemode: false,
+          };
+        },
+      },
+    },
+    webhooks: signingStripe.webhooks,
+  };
+  const ids = ["job_test_hosted_003", "private-token-hosted-003"];
+  const runtime = createHostedCustomerFlowRuntime({
+    environment,
+    convexClient,
+    stripe,
+    createId: () => ids.shift(),
+    now: () => "2026-08-18T10:00:00.000Z",
+  });
+  const intakeResponse = await runtime.api.request("/api/customer-flow/v1/intakes", {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      "x-test-a-access-token": environment.CUSTOMER_FLOW_TEST_ACCESS_TOKEN,
+      origin: "https://bonjour.example.test",
+    },
+    body: JSON.stringify({
+      schemaVersion: "1.0",
+      customer: { email: "concurrent-payment@example.test", consent: true },
+      baby: { firstName: "Noor Test", gender: "neutral" },
+      languages: ["fr"],
+      voicePreference: { enabled: false, gender: "neutral" },
+    }),
+  });
+  const submission = await intakeResponse.json();
+  await runtime.api.request(`/api/customer-flow/v1/jobs/${submission.jobId}/checkout`, {
+    method: "POST",
+    headers: {
+      authorization: "Bearer " + submission.intakeToken,
+      "x-test-a-access-token": environment.CUSTOMER_FLOW_TEST_ACCESS_TOKEN,
+      origin: "https://bonjour.example.test",
+    },
+  });
+  const event = {
+    id: "evt_test_hosted_003_a",
+    object: "event",
+    type: "checkout.session.completed",
+    livemode: false,
+    data: {
+      object: {
+        id: "cs_test_hosted_003",
+        object: "checkout.session",
+        payment_status: "paid",
+        livemode: false,
+        amount_total: 3900,
+        currency: "eur",
+        payment_intent: "pi_test_hosted_003",
+        metadata: checkoutPayload.metadata,
+      },
+    },
+  };
+  const request = (candidate) => {
+    const payload = JSON.stringify(candidate);
+    const signature = signingStripe.webhooks.generateTestHeaderString({
+      payload,
+      secret: environment.STRIPE_CUSTOMER_FLOW_WEBHOOK_SECRET,
+    });
+    return runtime.api.request("/api/customer-flow/webhooks/stripe", {
+      method: "POST",
+      headers: { "stripe-signature": signature },
+      body: payload,
+    });
+  };
+
+  const responses = await Promise.all([
+    request(event),
+    request({ ...event, id: "evt_test_hosted_003_b" }),
+  ]);
+  const conflict = await request({ ...event, created: 1_786_880_003 });
+
+  assert.deepEqual(responses.map(({ status }) => status), [200, 200]);
+  assert.equal(conflict.status, 500);
+  const persisted = await convexClient.run(async (context) => ({
+    fulfillment: (await context.db.query("fulfillmentJobs").collect())[0].aggregate,
+    events: await context.db.query("customerFlowProviderEvents").collect(),
+  }));
+  assert.equal(persisted.events.length, 2);
+  assert.equal(
+    persisted.fulfillment.events.filter(({ type }) => type === "payment_recorded").length,
+    1,
+  );
 });
