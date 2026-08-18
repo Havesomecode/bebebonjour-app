@@ -1,4 +1,4 @@
-import { cp, mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
+import { cp, lstat, mkdtemp, mkdir, readFile, rename, rm, rmdir, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 
@@ -72,35 +72,87 @@ export async function exportSyntheticDemo({ outputRoot }) {
     throw new Error("A synthetic demo output root is required.");
   }
   const resolvedOutput = path.resolve(outputRoot);
-  await rm(resolvedOutput, { recursive: true, force: true });
-  await mkdir(resolvedOutput, { recursive: true });
-
-  const announcements = [];
-  for (const persona of PERSONAS) {
-    announcements.push(await buildAnnouncement(persona, resolvedOutput));
+  const outputParent = path.dirname(resolvedOutput);
+  const outputName = path.basename(resolvedOutput) || "synthetic-demo";
+  const lockRoot = path.join(outputParent, `.${outputName}-export-lock`);
+  await mkdir(outputParent, { recursive: true });
+  try {
+    await mkdir(lockRoot);
+  } catch (error) {
+    if (error.code === "EEXIST") {
+      throw new Error(
+        `A synthetic demo export is already in progress or requires recovery at ${lockRoot}.`,
+        { cause: error },
+      );
+    }
+    throw error;
   }
 
-  const manifest = {
-    schemaVersion: "1.0",
-    mode: "synthetic-demo",
-    simulated: true,
-    generatedAt: "2026-08-18T08:07:00.000Z",
-    price: { amountMinor: 3900, currency: "EUR", display: "39 €" },
-    safety: {
-      inventedProfilesOnly: true,
-      providersCalled: [],
-      networkRequired: false,
-      analytics: false,
-      reset: "Reloads the first immutable canonical projection.",
-    },
-    announcements,
-  };
-  await writeFile(
-    path.join(resolvedOutput, "workflow.json"),
-    `${JSON.stringify(manifest, null, 2)}\n`,
-    "utf8",
-  );
-  return manifest;
+  let stagingRoot;
+  let preserveStaging = false;
+  let operationError;
+  try {
+    stagingRoot = await mkdtemp(path.join(outputParent, `.${outputName}-staging-`));
+    const announcements = [];
+    for (const persona of PERSONAS) {
+      announcements.push(await buildAnnouncement(persona, stagingRoot));
+    }
+
+    const manifest = {
+      schemaVersion: "1.0",
+      mode: "synthetic-demo",
+      simulated: true,
+      generatedAt: "2026-08-18T08:07:00.000Z",
+      price: { amountMinor: 3900, currency: "EUR", display: "39 €" },
+      safety: {
+        inventedProfilesOnly: true,
+        providersCalled: [],
+        networkRequired: false,
+        analytics: false,
+        reset: "Reloads the first immutable canonical projection.",
+      },
+      announcements,
+    };
+    await writeFile(
+      path.join(stagingRoot, "workflow.json"),
+      `${JSON.stringify(manifest, null, 2)}\n`,
+      "utf8",
+    );
+    await installStagedExport({
+      outputRoot: resolvedOutput,
+      slugs: announcements.map(({ slug }) => slug),
+      stagingRoot,
+    });
+    return manifest;
+  } catch (error) {
+    operationError = error;
+    preserveStaging = error?.preserveStaging === true;
+    throw error;
+  } finally {
+    const cleanupErrors = [];
+    if (!preserveStaging && stagingRoot) {
+      try {
+        await rm(stagingRoot, { recursive: true, force: true });
+      } catch (error) {
+        cleanupErrors.push(error);
+      }
+    }
+    if (!preserveStaging) {
+      try {
+        await rmdir(lockRoot);
+      } catch (error) {
+        cleanupErrors.push(error);
+      }
+    }
+    if (cleanupErrors.length > 0) {
+      throw new AggregateError(
+        operationError ? [operationError, ...cleanupErrors] : cleanupErrors,
+        operationError
+          ? "Synthetic demo export failed and cleanup also failed."
+          : "Synthetic demo export completed but cleanup failed.",
+      );
+    }
+  }
 }
 
 async function buildAnnouncement(persona, outputRoot) {
@@ -354,6 +406,79 @@ async function copyAnnouncement(preparedRoot, slug, outputRoot) {
     recursive: true,
     force: true,
   });
+}
+
+async function installStagedExport({ outputRoot, slugs, stagingRoot }) {
+  const targetAnnouncements = path.join(outputRoot, "announcements");
+  const rollbackRoot = path.join(stagingRoot, ".previous");
+  await ensureLocalDirectory(outputRoot, "synthetic demo output root");
+  await ensureLocalDirectory(targetAnnouncements, "synthetic demo announcements root");
+  const replacements = [];
+  try {
+    for (const slug of slugs) {
+      const replacement = {
+        backup: path.join(rollbackRoot, "announcements", slug),
+        hadPrevious: false,
+        installed: false,
+        source: path.join(stagingRoot, "announcements", slug),
+        target: path.join(targetAnnouncements, slug),
+      };
+      await mkdir(path.dirname(replacement.backup), { recursive: true });
+      try {
+        await rename(replacement.target, replacement.backup);
+        replacement.hadPrevious = true;
+      } catch (error) {
+        if (error.code !== "ENOENT") throw error;
+      }
+      replacements.push(replacement);
+      await rename(replacement.source, replacement.target);
+      replacement.installed = true;
+    }
+
+    await rename(
+      path.join(stagingRoot, "workflow.json"),
+      path.join(outputRoot, "workflow.json"),
+    );
+  } catch (error) {
+    const rollbackErrors = [];
+    for (const replacement of replacements.reverse()) {
+      try {
+        if (replacement.installed) {
+          await rm(replacement.target, { recursive: true, force: true });
+        }
+        if (replacement.hadPrevious) {
+          await rename(replacement.backup, replacement.target);
+        }
+      } catch (rollbackError) {
+        rollbackErrors.push(rollbackError);
+      }
+    }
+    if (rollbackErrors.length > 0) {
+      const rollbackFailure = new AggregateError(
+        [error, ...rollbackErrors],
+        `Synthetic demo export failed and could not be rolled back; recovery files remain at ${stagingRoot}.`,
+      );
+      rollbackFailure.preserveStaging = true;
+      throw rollbackFailure;
+    }
+    throw error;
+  }
+}
+
+async function ensureLocalDirectory(directory, label) {
+  try {
+    const stats = await lstat(directory);
+    if (stats.isSymbolicLink() || !stats.isDirectory()) {
+      throw new Error(`The ${label} must be a real directory, not a file or symbolic link.`);
+    }
+  } catch (error) {
+    if (error.code !== "ENOENT") throw error;
+    await mkdir(directory);
+    const stats = await lstat(directory);
+    if (stats.isSymbolicLink() || !stats.isDirectory()) {
+      throw new Error(`The ${label} must be a real directory, not a file or symbolic link.`);
+    }
+  }
 }
 
 function pickDigests(artifactSet) {
