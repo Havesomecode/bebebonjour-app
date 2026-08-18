@@ -201,11 +201,18 @@ test("payment authority is idempotent and cannot satisfy another job", async () 
     service.recordPaymentSucceeded({ ...payment, payloadSha256: "f".repeat(64) }),
     (error) => error instanceof CustomerFlowError && error.code === "payment_event_conflict",
   );
+  const duplicate = await service.recordPaymentSucceeded({
+    ...payment,
+    providerEventId: "evt_stripe_test_duplicate_identity",
+    payloadSha256: "d".repeat(64),
+  });
+  assert.deepEqual(duplicate, accepted);
   await assert.rejects(
     service.recordPaymentSucceeded({
       ...payment,
-      providerEventId: "evt_stripe_test_duplicate_identity",
-      payloadSha256: "d".repeat(64),
+      providerEventId: "evt_stripe_test_other_payment",
+      paymentIntentId: "pi_test_other_payment",
+      payloadSha256: "c".repeat(64),
     }),
     (error) => error instanceof CustomerFlowError && error.code === "payment_event_conflict",
   );
@@ -248,7 +255,7 @@ test("intake, payment, and customer status bind to the canonical fulfillment orc
   await payJob(service, submission);
   const recorded = calls.find(({ method }) => method === "recordPayment");
   assert.equal(recorded.jobId, submission.jobId);
-  assert.equal(recorded.payment.commandId, "stripe:evt_stripe_test_001");
+  assert.match(recorded.payment.commandId, /^stripe-payment:[a-f0-9]{64}$/);
   assert.deepEqual(recorded.payment.correlation, created.input.paymentCorrelation);
   assert.equal((await service.getStatus(submission.jobId, submission.intakeToken)).status, "generation_pending");
 });

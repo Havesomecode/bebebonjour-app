@@ -874,7 +874,17 @@ test("command ids cannot be replayed across operations or rebound to different p
     /command replay/i,
   );
 
-  await orchestrator.recordPayment("job_synthetic_001", { ...payment, commandId: "payment-command" });
+  const recorded = await orchestrator.recordPayment(
+    "job_synthetic_001",
+    { ...payment, commandId: "payment-command" },
+  );
+  const duplicateDelivery = await orchestrator.recordPayment("job_synthetic_001", {
+    ...payment,
+    commandId: "payment-command",
+    providerEventId: "evt_test_synthetic_duplicate_delivery",
+    recordedAt: "2026-08-11T00:02:00.000Z",
+  });
+  assert.deepEqual(duplicateDelivery, recorded);
   await assert.rejects(
     () => orchestrator.recordPayment("job_synthetic_001", {
       ...payment,
