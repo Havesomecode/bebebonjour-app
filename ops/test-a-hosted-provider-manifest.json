@@ -1,6 +1,14 @@
 {
-  "schemaVersion": "1.0",
+  "schemaVersion": "2.0",
   "candidateMode": "test-only",
+  "candidate": {
+    "appRepository": "git@github.com:Havesomecode/bebebonjour-app.git",
+    "landingRepository": "git@github.com:Havesomecode/bebebonjour-landing.git",
+    "canonicalHostedOrigin": "https://bebebonjour-fulfillment.vercel.app",
+    "canonicalHostedApiBaseUrl": "https://bebebonjour-fulfillment.vercel.app/api/customer-flow",
+    "landingOrigin": "https://www.bebebonjour.com",
+    "bindingEvidence": ["signedAppCommit", "signedLandingCommit"]
+  },
   "authorities": {
     "intake": "first-party POST /api/customer-flow/v1/intakes",
     "payment": "signed Stripe checkout.session.completed with livemode=false, amount_total=3900, currency=eur",
@@ -8,21 +16,130 @@
     "publication": "operator-approved Vercel release only",
     "delivery": "operator-approved Resend send only after the persisted fulfillment gate"
   },
-  "deploymentOrder": [
-    "Create or select one isolated Convex TEST-A deployment; set CUSTOMER_FLOW_BACKEND_TOKEN in Convex without exposing its value.",
-    "Run npx convex deploy against that exact test deployment and record its deployment URL.",
-    "Install only the Vercel API runtime variables listed in vercelApi.environmentVariables, then create a new preview deployment.",
-    "Probe /api/customer-flow/health and an invalid webhook signature; do not open the landing route yet.",
-    "Create exactly one Stripe test-mode webhook endpoint for the canonical URL and accepted event.",
-    "Install STRIPE_CUSTOMER_FLOW_WEBHOOK_SECRET in Vercel, redeploy, and verify the active preview was built after the secret update.",
-    "Run one unique synthetic intake with delivered@resend.dev or an .example.test address, one Stripe test Checkout event, and an exact duplicate replay.",
-    "Query Convex directly for one customer job, one fulfillment aggregate, and one provider event; verify the fulfillment state is generation_queued.",
-    "Keep generation, publication, and delivery closed until a human review decision is persisted.",
-    "Install RESEND_API_KEY and RESEND_FROM only in the operator delivery runtime, never in the public Vercel API runtime.",
-    "After operator approval and a test Vercel publication receipt, send only to Resend's documented test sink and reconcile the provider message status.",
-    "Complete landing compatibility task t_b5ed0ad9, then independently review the exact app and landing SHAs before changing the landing API base URL."
+  "operations": [
+    {
+      "id": "freeze-signed-candidates",
+      "provider": "git",
+      "action": "verify signed app and landing commits and exact path allowlists",
+      "requiredEvidence": ["signedAppCommit", "signedLandingCommit", "appAllowlist", "landingAllowlist"]
+    },
+    {
+      "id": "provision-convex-preview",
+      "provider": "convex",
+      "action": "create or select only convex.identity",
+      "requiredEvidence": ["teamSlug", "projectSlug", "deploymentName", "deploymentUrl", "createdAt"]
+    },
+    {
+      "id": "install-convex-backend-token",
+      "provider": "convex",
+      "action": "install CUSTOMER_FLOW_BACKEND_TOKEN through the Convex secret store without command-line or transcript exposure",
+      "requiredEvidence": ["variableName", "secretStore", "updatedAt", "redactedValuePresent"]
+    },
+    {
+      "id": "deploy-convex-functions",
+      "provider": "convex",
+      "action": "deploy the signed app candidate functions to the exact preview after the backend token update",
+      "requiredEvidence": ["signedAppCommit", "deploymentName", "deploymentUrl", "deployedAt", "backendTokenUpdatedAt"]
+    },
+    {
+      "id": "install-vercel-bootstrap-environment",
+      "provider": "vercel",
+      "action": "install exactly secretStores.vercelProduction.allowed in production scope, using an unrecorded generated high-entropy bootstrap value for STRIPE_CUSTOMER_FLOW_WEBHOOK_SECRET",
+      "requiredEvidence": ["projectId", "environment", "variableInventory", "updatedAt", "bootstrapSecretPresent", "forbiddenVariablesAbsent"]
+    },
+    {
+      "id": "deploy-vercel-bootstrap-candidate",
+      "provider": "vercel",
+      "action": "deploy the exact signed app candidate to an immutable URL without moving the canonical alias",
+      "requiredEvidence": ["signedAppCommit", "projectId", "bootstrapDeploymentId", "bootstrapDeploymentUrl", "readyAt", "bootstrapEnvironmentUpdatedAt"]
+    },
+    {
+      "id": "create-stripe-test-webhook",
+      "provider": "stripe",
+      "action": "create one enabled endpoint targeting the bootstrap deployment URL, then capture its signing secret without transcript exposure",
+      "requiredEvidence": ["accountId", "endpointId", "bootstrapEndpointUrl", "events", "livemodeFalse", "createdAt", "signingSecretCaptured"]
+    },
+    {
+      "id": "install-stripe-webhook-secret",
+      "provider": "vercel",
+      "action": "replace only the bootstrap webhook value with the captured Stripe endpoint signing secret",
+      "requiredEvidence": ["projectId", "environment", "variableName", "updatedAt", "bootstrapSecretReplaced", "redactedValuePresent"]
+    },
+    {
+      "id": "deploy-vercel-final-candidate",
+      "provider": "vercel",
+      "action": "redeploy the same exact signed app candidate after the real webhook-secret update without assigning the canonical alias",
+      "requiredEvidence": ["signedAppCommit", "projectId", "finalDeploymentId", "finalDeploymentUrl", "readyAt", "webhookSecretUpdatedAt"]
+    },
+    {
+      "id": "retarget-webhook-to-final-deployment",
+      "provider": "stripe",
+      "action": "update only the existing endpoint URL to the final immutable deployment webhook route",
+      "requiredEvidence": ["accountId", "endpointId", "finalEndpointUrl", "eventsUnchanged", "updatedAt"]
+    },
+    {
+      "id": "probe-deployment-before-alias",
+      "provider": "vercel",
+      "action": "probe health and invalid Stripe signature on the final immutable deployment URL",
+      "requiredEvidence": ["finalDeploymentUrl", "healthStatus", "invalidSignatureStatus", "probedAt"]
+    },
+    {
+      "id": "assign-canonical-alias",
+      "provider": "vercel",
+      "action": "assign only vercelApi.identity.canonicalAlias to the proven deployment",
+      "requiredEvidence": ["finalDeploymentId", "canonicalAlias", "aliasAssignedAt", "healthStatus"]
+    },
+    {
+      "id": "retarget-webhook-to-canonical-alias",
+      "provider": "stripe",
+      "action": "update only the existing endpoint URL to stripe.endpoint.url after the canonical alias serves the proven deployment",
+      "requiredEvidence": ["accountId", "endpointId", "endpointUrl", "eventsUnchanged", "updatedAt", "canonicalAliasHealthStatus"]
+    },
+    {
+      "id": "activate-canonical-landing-build",
+      "provider": "vercel",
+      "action": "build and deploy the exact signed landing candidate with only landingBuild.nonSecretVariables",
+      "requiredEvidence": ["signedLandingCommit", "landingDeploymentId", "apiBaseValue", "approvedOriginOverrideAbsent", "readyAt"]
+    },
+    {
+      "id": "run-synthetic-provider-proof",
+      "provider": "stripe-convex-vercel",
+      "action": "run one synthetic €39 EUR intake, one checkout.session.completed event, and one exact replay",
+      "requiredEvidence": ["syntheticJobId", "checkoutSessionId", "endpointId", "deliveryId", "customerJobCount", "fulfillmentJobCount", "providerEventCount", "generationQueued", "replayUnchanged"]
+    },
+    {
+      "id": "persist-human-approval",
+      "provider": "convex",
+      "action": "persist qualified human approval for the exact generated revision before publication or delivery",
+      "requiredEvidence": ["jobId", "revisionDigest", "approvalId", "approvedAt", "reviewerAuthority"]
+    },
+    {
+      "id": "install-resend-operator-secrets",
+      "provider": "resend-operator-runtime",
+      "action": "install exactly secretStores.resendOperator.allowed after persisted approval",
+      "requiredEvidence": ["variableInventory", "secretStore", "updatedAt", "vercelProductionForbiddenVariablesAbsent"]
+    },
+    {
+      "id": "publish-approved-test-artifact",
+      "provider": "vercel",
+      "action": "publish only the exact approved revision and persist its publication receipt",
+      "requiredEvidence": ["jobId", "revisionDigest", "approvalId", "publicationId", "publicationUrl", "publishedAt"]
+    },
+    {
+      "id": "send-resend-test-sink",
+      "provider": "resend-operator-runtime",
+      "action": "send only the published approved revision to resendOperatorRuntime.identity.testSink and reconcile status",
+      "requiredEvidence": ["jobId", "publicationId", "recipient", "messageId", "providerStatus", "sentAt"]
+    }
   ],
   "convex": {
+    "identity": {
+      "teamSlug": "havesomecode",
+      "projectSlug": "bebebonjour-test-a",
+      "deploymentReference": "preview/test-a-t_3f375e12",
+      "deploymentType": "preview",
+      "expiration": "in 7 days"
+    },
     "functionsDirectory": "convex",
     "environmentVariables": ["CUSTOMER_FLOW_BACKEND_TOKEN"],
     "tables": [
@@ -33,6 +150,13 @@
     ]
   },
   "vercelApi": {
+    "identity": {
+      "scopeSlug": "zacaria-chtatars-projects",
+      "projectId": "prj_XJrkufo77hXAdvMuYjPn6F6AVZjn",
+      "projectName": "bebebonjour-fulfillment",
+      "environment": "production",
+      "canonicalAlias": "https://bebebonjour-fulfillment.vercel.app"
+    },
     "entrypoint": "api/customer-flow/[...route].mjs",
     "environmentVariables": [
       "CONVEX_URL",
@@ -45,6 +169,7 @@
       "STRIPE_CHECKOUT_SUCCESS_URL",
       "STRIPE_CHECKOUT_CANCEL_URL"
     ],
+    "allowedOrigins": ["https://www.bebebonjour.com"],
     "routes": [
       "GET /api/customer-flow/health",
       "POST /api/customer-flow/v1/intakes",
@@ -57,6 +182,20 @@
   },
   "stripe": {
     "mode": "test",
+    "endpoint": {
+      "accountId": "acct_1MKd4KGrir6mz3o7",
+      "mode": "test",
+      "url": "https://bebebonjour-fulfillment.vercel.app/api/customer-flow/webhooks/stripe",
+      "events": ["checkout.session.completed"],
+      "enabledAtCreation": true,
+      "creationTarget": "vercelBootstrapDeploymentUrl",
+      "preAliasTarget": "vercelFinalDeploymentUrl",
+      "providerIdEvidence": "required-after-creation"
+    },
+    "checkoutCallbacks": {
+      "successUrl": "https://www.bebebonjour.com/suivi?checkout=success",
+      "cancelUrl": "https://www.bebebonjour.com/suivi?checkout=cancel"
+    },
     "acceptedAmountMinor": 3900,
     "acceptedCurrency": "EUR",
     "endpointPath": "/api/customer-flow/webhooks/stripe",
@@ -65,19 +204,118 @@
     "signedBusinessMismatch": "persist a redacted payload fingerprint and reason code, then acknowledge without advancing the job"
   },
   "resendOperatorRuntime": {
+    "identity": {
+      "from": "Bébé Bonjour <onboarding@resend.dev>",
+      "testSink": "delivered@resend.dev"
+    },
     "environmentVariables": ["RESEND_API_KEY", "RESEND_FROM"],
     "testSink": "delivered@resend.dev",
     "publicApiAccess": false,
     "requiresPersistedHumanApproval": true,
     "idempotencySafety": "send only while the persisted delivery attempt is younger than 23 hours"
   },
-  "rollback": [
-    "Restore the landing API base URL to its previous value or unset it.",
-    "Disable the single Stripe test webhook endpoint.",
-    "Remove the Vercel preview alias; preserve the deployment for audit until rollback is accepted.",
-    "Revoke the Vercel-scoped Convex backend token and Resend operator key.",
-    "Preserve Convex event and job records; do not delete evidence during rollback."
-  ],
+  "secretStores": {
+    "convexPreview": {
+      "owner": "Convex deployment environment for convex.identity only",
+      "allowed": ["CUSTOMER_FLOW_BACKEND_TOKEN"],
+      "forbidden": [
+        "CONVEX_DEPLOY_KEY",
+        "CUSTOMER_FLOW_TOKEN_ENCRYPTION_KEY",
+        "CUSTOMER_FLOW_TEST_ACCESS_TOKEN",
+        "STRIPE_SECRET_KEY",
+        "STRIPE_CUSTOMER_FLOW_WEBHOOK_SECRET",
+        "RESEND_API_KEY",
+        "RESEND_FROM",
+        "VERCEL_TOKEN"
+      ]
+    },
+    "vercelProduction": {
+      "owner": "Vercel project vercelApi.identity in production scope only",
+      "allowed": [
+        "CONVEX_URL",
+        "CUSTOMER_FLOW_BACKEND_TOKEN",
+        "CUSTOMER_FLOW_TOKEN_ENCRYPTION_KEY",
+        "CUSTOMER_FLOW_TEST_ACCESS_TOKEN",
+        "CUSTOMER_FLOW_ALLOWED_ORIGINS",
+        "STRIPE_SECRET_KEY",
+        "STRIPE_CUSTOMER_FLOW_WEBHOOK_SECRET",
+        "STRIPE_CHECKOUT_SUCCESS_URL",
+        "STRIPE_CHECKOUT_CANCEL_URL"
+      ],
+      "forbidden": [
+        "CONVEX_DEPLOY_KEY",
+        "RESEND_API_KEY",
+        "RESEND_FROM",
+        "STRIPE_LIVE_SECRET_KEY",
+        "VERCEL_TOKEN",
+        "VITE_FULFILLMENT_API_BASE_URL",
+        "VITE_FULFILLMENT_API_APPROVED_HOSTED_ORIGIN"
+      ]
+    },
+    "landingBuild": {
+      "owner": "signed landing production build",
+      "allowed": [],
+      "nonSecretVariables": {
+        "VITE_FULFILLMENT_API_BASE_URL": "https://bebebonjour-fulfillment.vercel.app/api/customer-flow"
+      },
+      "forbidden": [
+        "VITE_FULFILLMENT_API_APPROVED_HOSTED_ORIGIN",
+        "CUSTOMER_FLOW_BACKEND_TOKEN",
+        "CUSTOMER_FLOW_TOKEN_ENCRYPTION_KEY",
+        "CUSTOMER_FLOW_TEST_ACCESS_TOKEN",
+        "STRIPE_SECRET_KEY",
+        "STRIPE_CUSTOMER_FLOW_WEBHOOK_SECRET",
+        "RESEND_API_KEY",
+        "RESEND_FROM",
+        "VERCEL_TOKEN"
+      ]
+    },
+    "resendOperator": {
+      "owner": "non-public operator delivery runtime after persisted approval",
+      "allowed": ["RESEND_API_KEY", "RESEND_FROM"],
+      "forbidden": [
+        "CONVEX_DEPLOY_KEY",
+        "CUSTOMER_FLOW_BACKEND_TOKEN",
+        "CUSTOMER_FLOW_TOKEN_ENCRYPTION_KEY",
+        "CUSTOMER_FLOW_TEST_ACCESS_TOKEN",
+        "STRIPE_SECRET_KEY",
+        "STRIPE_CUSTOMER_FLOW_WEBHOOK_SECRET",
+        "VERCEL_TOKEN",
+        "VITE_FULFILLMENT_API_BASE_URL"
+      ]
+    }
+  },
+  "rollback": {
+    "mode": "configuration-only",
+    "preserveEvidence": true,
+    "actions": [
+      {
+        "id": "disable-landing-client",
+        "action": "restore the prior signed landing deployment or unset VITE_FULFILLMENT_API_BASE_URL",
+        "deleteEvidence": false
+      },
+      {
+        "id": "restore-fulfillment-alias",
+        "action": "restore the prior canonical alias target or remove the candidate alias without deleting either deployment",
+        "deleteEvidence": false
+      },
+      {
+        "id": "disable-stripe-webhook",
+        "action": "disable the exact Stripe test endpoint while retaining its configuration and delivery logs",
+        "deleteEvidence": false
+      },
+      {
+        "id": "revoke-scoped-secrets",
+        "action": "revoke the Convex backend token, Stripe endpoint signing secret, TEST-A access token, token encryption key, and Resend operator key",
+        "deleteEvidence": false
+      },
+      {
+        "id": "preserve-provider-evidence",
+        "action": "retain Convex jobs/events, Vercel deployments, Stripe delivery logs, approval/publication receipts, and Resend receipts",
+        "deleteEvidence": false
+      }
+    ]
+  },
   "forbiddenActionsBeforeIndependentApproval": [
     "push",
     "provider mutation",

@@ -1,7 +1,7 @@
 # TEST-A hosted provider release candidate
 
 Date: 2026-08-18
-Mode: provider-neutral release candidate; no provider mutation performed
+Mode: provider-bound release candidate; no provider mutation performed
 
 ## Candidate outcome
 
@@ -40,7 +40,7 @@ Accepted provider event: `checkout.session.completed` only. Publication, custome
 - Accepted Stripe event ID + raw-payload fingerprint is atomically claimed in Convex before fulfillment effects and finalized afterward; concurrent conflicting bytes are fenced before a second effect, and a paid job rejects a new event ID even when the PaymentIntent matches.
 - Customer status and checkout require the private intake bearer token; tokens are persisted only as digests.
 - Idempotency replay stores the intake bearer token only as AES-256-GCM ciphertext under a Vercel-only key; Convex rejects plaintext token responses.
-- Every hosted `/v1/*` command also requires a separate high-entropy TEST-A access token; the landing compatibility task must collect it interactively and keep it in memory only.
+- Every hosted `/v1/*` command also requires a separate high-entropy TEST-A access token; the landing collects it interactively and keeps it in memory only. Its executable client accepts only `https://bebebonjour-fulfillment.vercel.app/api/customer-flow`; an equal operator-provided HTTPS/self override cannot authorize another host.
 - Convex functions require a separate 32+ character backend token stored in both Convex and the Vercel API runtime.
 - The public Vercel API runtime does not require or receive `RESEND_API_KEY`.
 - Resend accepts only test jobs and the exact `delivered@resend.dev` sink, uses the persisted operation idempotency key, and fails closed before Resend's 24-hour idempotency retention can expire.
@@ -69,33 +69,44 @@ This is signed-synthetic/local evidence only. It does not claim a provider endpo
 
 The machine-readable ordered manifest is `ops/test-a-hosted-provider-manifest.json`. Follow it exactly. Important separation:
 
-- Convex receives `CUSTOMER_FLOW_BACKEND_TOKEN`.
-- Vercel API receives Convex and Stripe test runtime variables plus the TEST-A access and token-encryption keys, but no Resend key.
+- Convex team/project/deployment is fixed to `havesomecode:bebebonjour-test-a:preview/test-a-t_3f375e12`; only its preview secret store receives `CUSTOMER_FLOW_BACKEND_TOKEN`.
+- Vercel production is fixed to project `bebebonjour-fulfillment` in scope `zacaria-chtatars-projects`, project ID `prj_XJrkufo77hXAdvMuYjPn6F6AVZjn`, and canonical alias `https://bebebonjour-fulfillment.vercel.app`. It receives exactly the listed Convex and Stripe test runtime variables plus the TEST-A access and token-encryption keys, but no Resend key.
+- Stripe test account `acct_1MKd4KGrir6mz3o7` receives exactly one endpoint subscribed only to `checkout.session.completed`; it is created against an immutable bootstrap deployment, retargeted to the final immutable deployment for proof, then retargeted once more to `https://bebebonjour-fulfillment.vercel.app/api/customer-flow/webhooks/stripe` after that alias serves the proven app deployment.
 - The operator delivery runtime receives Resend credentials only after the review/publication gate.
-- Stripe receives exactly one test endpoint subscribing only to `checkout.session.completed`.
+- The landing build receives only the non-secret canonical API base; the retired approved-origin override and every provider secret are forbidden.
 
-Environment updates must precede the Vercel deployment that is asserted to contain them.
+The first deployment uses a generated high-entropy bootstrap webhook value held only in the Vercel secret store. The Stripe endpoint is then created against that immutable bootstrap URL so its one-time signing secret can replace the bootstrap value. The same signed app candidate is redeployed after that update, the one endpoint is retargeted to the final immutable URL, and that final deployment is probed before the canonical alias moves. The endpoint is retargeted to the canonical URL and the landing is activated only after alias health succeeds. Both Vercel receipts must prove their deployment occurred after their respective secret update.
+
+## Pinned landing boundary
+
+On 2026-08-19, the public landing boundary was observed at `https://www.bebebonjour.com`: `https://bebebonjour.com` returned an HTTPS redirect to that `www` origin, which returned the active Vercel landing page. The hosted TEST-A candidate therefore pins CORS and Stripe Checkout callbacks to the exact active origin:
+
+```dotenv
+CUSTOMER_FLOW_ALLOWED_ORIGINS=["https://www.bebebonjour.com"]
+STRIPE_CHECKOUT_SUCCESS_URL=https://www.bebebonjour.com/suivi?checkout=success
+STRIPE_CHECKOUT_CANCEL_URL=https://www.bebebonjour.com/suivi?checkout=cancel
+```
+
+These are deterministic candidate values in `.env.example` and the provider migration manifest, not evidence that any Vercel or Stripe environment was changed. The API origin, test access token, provider credentials, deployment, publication, customer email, and live payment remain separately gated.
 
 ## Controlled end-to-end proof required after independent approval
 
-1. Provision an isolated Convex test deployment and deploy this candidate's functions.
-2. Create a Vercel preview after installing the exact API variables.
-3. Verify health and invalid-signature behavior directly.
-4. Create exactly one Stripe test endpoint and redeploy after installing its signing secret.
-5. Submit a unique synthetic order and complete Stripe test Checkout.
-6. Verify Stripe delivery logs and query Convex directly: one customer job, one fulfillment job, one provider event.
-7. Replay the exact event and prove no additional event or transition.
-8. Run generation and record the qualified human review decision.
-9. Publish only the approved artifact to a Vercel preview/stable test route.
-10. In the separate operator runtime, send through Resend to `delivered@resend.dev`, then reconcile the exact message ID.
-11. Re-check that no provider payload or plaintext intake token was persisted.
-12. Complete Kanban task `t_b5ed0ad9` so the landing client accepts the exact approved HTTPS API origin while preserving loopback-only local mode.
-13. Only an independently approved release may change the landing API base URL or open customer traffic.
+1. Verify the signed app and landing commit identities and exact path allowlists.
+2. Provision the exact seven-day Convex preview, install only its backend token, then deploy this candidate's functions.
+3. Install the complete allowed Vercel production inventory with an unrecorded generated bootstrap webhook secret, prove every forbidden variable absent, and deploy the signed app candidate to an immutable bootstrap URL without moving the alias.
+4. In the exact Stripe test account, create the one endpoint against that bootstrap URL and replace the Vercel bootstrap value directly with its signing secret without exposing either value in a command, file, or transcript.
+5. Redeploy the same signed app candidate after the real webhook-secret update, retarget the one endpoint to this final immutable URL, and verify health and invalid-signature behavior there.
+6. Assign the canonical fulfillment alias to that final deployment, retarget the same endpoint to the canonical webhook URL, then build/deploy the signed landing candidate with only the exact non-secret API base.
+7. Submit a unique synthetic €39 EUR order, complete one Stripe test Checkout event, and replay the exact event.
+8. Verify Stripe delivery logs and query Convex directly: one customer job, one fulfillment job, one provider event, and no replay transition.
+9. Run generation and persist the qualified human review decision for the exact revision.
+10. Install Resend credentials only in the separate operator runtime, publish only the approved test artifact, send only to `delivered@resend.dev`, and reconcile the exact message ID/status.
+11. Re-check that no provider payload, plaintext intake token, forbidden secret, real payment, or customer email crossed the boundary.
 
 ## Rollback
 
-Before customer traffic, rollback is configuration-only: restore or unset the landing API base URL, disable the single Stripe test endpoint, remove the Vercel preview alias, and revoke scoped Convex/Resend credentials. Preserve Convex records and provider logs as evidence. The prior local TEST-A and dormant Tally/Supabase code remain available until the observation window is accepted.
+Before customer traffic, rollback is configuration-only: restore the prior signed landing and canonical-alias targets (or unset the landing API base), disable the exact Stripe test endpoint, and revoke scoped Convex, Vercel-runtime, Stripe-webhook, TEST-A, encryption, and Resend credentials. Do not delete either Vercel deployment, Convex records, Stripe delivery logs, approval/publication receipts, or Resend receipts. The prior local TEST-A and dormant Tally/Supabase code remain available until the observation window is accepted.
 
 ## Exact boundary
 
-The app candidate is the signed commit containing this report. This task does not modify the landing repository. The required landing HTTPS-origin compatibility increment is isolated in `t_b5ed0ad9`, which is now an additional parent of the pre-created independent review/release child. No candidate is authorized for push or deployment until that child approves the exact SHAs.
+The candidate is bound by the signed app commit containing this report plus the signed landing commit that pins the canonical hosted API base in executable source. The release handoff must record both signed app and landing commit identities, verify each commit's exact path allowlist, and reject mixed/stale commit framing. No candidate is authorized for push or deployment until the pre-created review/release chain approves those exact identities.

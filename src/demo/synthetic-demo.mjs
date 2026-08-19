@@ -1,4 +1,15 @@
-import { cp, lstat, mkdtemp, mkdir, readFile, rename, rm, rmdir, writeFile } from "node:fs/promises";
+import {
+  cp,
+  lstat,
+  mkdtemp,
+  mkdir,
+  readFile,
+  realpath,
+  rename,
+  rm,
+  rmdir,
+  writeFile,
+} from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 
@@ -71,7 +82,7 @@ export async function exportSyntheticDemo({ outputRoot }) {
   if (typeof outputRoot !== "string" || outputRoot.trim() === "") {
     throw new Error("A synthetic demo output root is required.");
   }
-  const resolvedOutput = path.resolve(outputRoot);
+  const resolvedOutput = await resolvePhysicalExportDestination(outputRoot);
   const outputParent = path.dirname(resolvedOutput);
   const outputName = path.basename(resolvedOutput) || "synthetic-demo";
   const lockRoot = path.join(outputParent, `.${outputName}-export-lock`);
@@ -153,6 +164,40 @@ export async function exportSyntheticDemo({ outputRoot }) {
       );
     }
   }
+}
+
+async function resolvePhysicalExportDestination(outputRoot) {
+  const absoluteOutput = path.resolve(outputRoot);
+  const trustedAnchors = [path.resolve(process.cwd()), path.resolve(os.tmpdir())]
+    .filter((anchor) => isPathInside(anchor, absoluteOutput))
+    .sort((left, right) => right.length - left.length);
+  const lexicalAnchor = trustedAnchors[0] || path.parse(absoluteOutput).root;
+  let physicalDestination = await realpath(lexicalAnchor);
+  const components = path.relative(lexicalAnchor, absoluteOutput).split(path.sep).filter(Boolean);
+
+  for (const [index, component] of components.entries()) {
+    const candidate = path.join(physicalDestination, component);
+    try {
+      const stats = await lstat(candidate);
+      if (stats.isSymbolicLink()) {
+        throw new Error(`The synthetic demo output path contains a symbolic link: ${candidate}.`);
+      }
+      if (!stats.isDirectory()) {
+        throw new Error(`The synthetic demo output path contains a non-directory: ${candidate}.`);
+      }
+      physicalDestination = candidate;
+    } catch (error) {
+      if (error.code !== "ENOENT") throw error;
+      return path.join(physicalDestination, ...components.slice(index));
+    }
+  }
+
+  return physicalDestination;
+}
+
+function isPathInside(parent, candidate) {
+  const relative = path.relative(parent, candidate);
+  return relative === "" || (!relative.startsWith(`..${path.sep}`) && relative !== "..");
 }
 
 async function buildAnnouncement(persona, outputRoot) {
