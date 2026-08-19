@@ -76,6 +76,18 @@ The machine-readable ordered manifest is `ops/test-a-hosted-provider-manifest.js
 
 Environment updates must precede the Vercel deployment that is asserted to contain them.
 
+## Pinned landing boundary
+
+On 2026-08-19, the public landing boundary was observed at `https://www.bebebonjour.com`: `https://bebebonjour.com` returned an HTTPS redirect to that `www` origin, which returned the active Vercel landing page. The hosted TEST-A candidate therefore pins CORS and Stripe Checkout callbacks to the exact active origin:
+
+```dotenv
+CUSTOMER_FLOW_ALLOWED_ORIGINS=["https://www.bebebonjour.com"]
+STRIPE_CHECKOUT_SUCCESS_URL=https://www.bebebonjour.com/suivi?checkout=success
+STRIPE_CHECKOUT_CANCEL_URL=https://www.bebebonjour.com/suivi?checkout=cancel
+```
+
+These are deterministic candidate values in `.env.example` and the provider migration manifest, not evidence that any Vercel or Stripe environment was changed. The API origin, test access token, provider credentials, deployment, publication, customer email, and live payment remain separately gated.
+
 ## Controlled end-to-end proof required after independent approval
 
 1. Provision an isolated Convex test deployment and deploy this candidate's functions.

@@ -45,6 +45,7 @@
       "STRIPE_CHECKOUT_SUCCESS_URL",
       "STRIPE_CHECKOUT_CANCEL_URL"
     ],
+    "allowedOrigins": ["https://www.bebebonjour.com"],
     "routes": [
       "GET /api/customer-flow/health",
       "POST /api/customer-flow/v1/intakes",
@@ -57,6 +58,10 @@
   },
   "stripe": {
     "mode": "test",
+    "checkoutCallbacks": {
+      "successUrl": "https://www.bebebonjour.com/suivi?checkout=success",
+      "cancelUrl": "https://www.bebebonjour.com/suivi?checkout=cancel"
+    },
     "acceptedAmountMinor": 3900,
     "acceptedCurrency": "EUR",
     "endpointPath": "/api/customer-flow/webhooks/stripe",
