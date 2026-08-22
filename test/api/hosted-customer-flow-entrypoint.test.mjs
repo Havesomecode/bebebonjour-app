@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { createServer } from "node:http";
+import { PassThrough } from "node:stream";
 import test from "node:test";
 import Stripe from "stripe";
 
@@ -23,12 +24,25 @@ test("Vercel catch-all completes Node responses and preserves Stripe raw bytes",
 
   assert.equal(entrypoint.config.runtime, "nodejs");
   assert.equal(typeof entrypoint.default, "function");
+  assert.equal(entrypoint.default.length, 2);
 
   const server = createServer(async (request, response) => {
     try {
       const chunks = [];
       for await (const chunk of request) chunks.push(chunk);
-      request.rawBody = Buffer.concat(chunks);
+      const restoredBody = new PassThrough();
+      const onRestoredBody = restoredBody.on.bind(restoredBody);
+      const onOriginalRequest = request.on.bind(request);
+      request.read = restoredBody.read.bind(restoredBody);
+      request.on = request.addListener = (name, listener) => (
+        name === "data" || name === "end"
+          ? onRestoredBody(name, listener)
+          : onOriginalRequest(name, listener)
+      );
+      restoredBody.write(Buffer.concat(chunks));
+      restoredBody.end();
+
+      assert.equal("rawBody" in request, false);
       await entrypoint.default(request, response);
       if (!response.writableEnded) {
         response.statusCode = 500;
