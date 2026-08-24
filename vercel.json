@@ -1,0 +1,9 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "rewrites": [
+    {
+      "source": "/api/customer-flow/:route*",
+      "destination": "/api/customer-flow/[...route]"
+    }
+  ]
+}

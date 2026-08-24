@@ -13,6 +13,7 @@
     "build": "node --check ./bin/announce.mjs && node --check ./api/webhooks/tally.mjs && node --check ./api/webhooks/stripe.mjs && node --check './api/customer-flow/[...route].mjs' && node --check ./convex/schema.js && node --check ./convex/customerFlow.js && node --check ./convex/fulfillment.js && node --check ./scripts/local-customer-flow-server.mjs && node --check ./src/config/hosted-customer-flow-config.mjs && node --check ./src/customer-flow/hosted-http-api.mjs && node --check ./src/customer-flow/hosted-runtime.mjs && node --check ./src/customer-flow/stripe-checkout-webhook.mjs && node --check ./src/customer-flow/stripe-test-gateway.mjs && node --check ./src/fulfillment/resend-delivery-adapter.mjs && node --check ./src/persistence/convex-customer-flow-store.mjs && node --check ./src/persistence/convex-fulfillment-store.mjs",
     "test": "node --test",
     "test:integration": "RUN_DB_TESTS=1 node --test",
+    "test:vercel-routing": "node ./scripts/verify-vercel-routing.mjs",
     "verify": "npm test && npm run test:integration && npm audit --omit=dev",
     "dev:customer-flow": "node ./scripts/local-customer-flow-server.mjs",
     "demo:export": "node ./scripts/export-synthetic-demo.mjs",
