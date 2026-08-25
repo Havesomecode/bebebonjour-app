@@ -43,7 +43,7 @@ export function createVercelTestAPublicationProvider(options = {}) {
     const generatedFiles = [
       {
         publicPath: `announcements/${canaryJobId}/.publication.json`,
-        bytes: Buffer.from(`${JSON.stringify(publicationManifest, null, 2)}\n`, "utf8"),
+        bytes: publicationManifestBytes(publicationManifest),
       },
       {
         publicPath: "vercel.json",
@@ -127,7 +127,9 @@ export function createVercelTestAPublicationProvider(options = {}) {
     if (ready.projectId && ready.projectId !== projectId) {
       throw providerError("Vercel deployment resolved outside the configured TEST-A project.", false);
     }
-    const deploymentUrl = `${exactVercelDeploymentOrigin(ready?.url)}/announcements/${encodeURIComponent(canaryJobId)}`;
+    const deploymentOrigin = exactVercelDeploymentOrigin(ready?.url);
+    await verifyProviderDeploymentEvidence(deploymentId, deploymentOrigin, request, resolved);
+    const deploymentUrl = `${deploymentOrigin}/announcements/${encodeURIComponent(canaryJobId)}`;
     await verifyPublication(deploymentUrl, request, resolved, {
       label: "Selected Vercel deployment",
       finalMessage: "Selected Vercel deployment could not be verified before alias assignment.",
@@ -182,19 +184,15 @@ export function createVercelTestAPublicationProvider(options = {}) {
   async function verifyPublication(publicationUrl, request, resolved, verification) {
     const configurationBytes = vercelConfigurationBytes(request.jobId, resolved.entrypointPath);
     const expectedManifest = publicationManifestFor(request, resolved.files, configurationBytes);
+    const expectedManifestBytes = publicationManifestBytes(expectedManifest);
     let lastError;
     for (let attempt = 0; attempt < maxPollAttempts; attempt += 1) {
       try {
         const manifestResponse = await publicFetch(`${publicationUrl}/.publication.json`, verification);
-        let manifest;
-        try {
-          manifest = JSON.parse(Buffer.from(await manifestResponse.arrayBuffer()).toString("utf8"));
-        } catch (error) {
-          throw publicationMismatch(`${verification.label} manifest is not valid JSON.`, verification, error);
-        }
-        if (JSON.stringify(manifest) !== JSON.stringify(expectedManifest)) {
+        const manifestBytes = Buffer.from(await manifestResponse.arrayBuffer());
+        if (!manifestBytes.equals(expectedManifestBytes)) {
           throw publicationMismatch(
-            `${verification.label} manifest or Vercel configuration does not match the exact approved operation.`,
+            `${verification.label} raw publication manifest bytes or Vercel configuration do not match the exact approved operation.`,
             verification,
           );
         }
@@ -234,6 +232,60 @@ export function createVercelTestAPublicationProvider(options = {}) {
     throw providerError(verification.finalMessage, true, lastError);
   }
 
+  async function verifyProviderDeploymentEvidence(deploymentId, deploymentOrigin, request, resolved) {
+    const deployment = await vercelEvidenceJson(
+      `/v13/deployments/${encodeURIComponent(deploymentId)}?${teamQuery}`,
+    );
+    let providerDeploymentOrigin;
+    try {
+      providerDeploymentOrigin = exactVercelDeploymentOrigin(deployment?.url);
+    } catch (error) {
+      throw providerError("Vercel provider deployment evidence is malformed.", false, error);
+    }
+    if (
+      (deployment?.id || deployment?.uid) !== deploymentId
+      || deployment.projectId !== projectId
+      || deployment.readyState !== "READY"
+      || !metadataMatches(deployment.meta, request)
+      || providerDeploymentOrigin !== deploymentOrigin
+    ) {
+      throw providerError(
+        "Vercel provider deployment evidence does not match the exact READY TEST-A deployment.",
+        false,
+      );
+    }
+
+    const inventory = await vercelEvidenceJson(
+      `/v6/deployments/${encodeURIComponent(deploymentId)}/files?${teamQuery}`,
+    );
+    const files = flattenDeploymentFiles(inventory);
+    const expectedPaths = [
+      ...resolved.files.map(({ publicPath }) => `announcements/${canaryJobId}/${publicPath}`),
+      `announcements/${canaryJobId}/.publication.json`,
+      "vercel.json",
+    ].sort();
+    const actualPaths = files.map(({ path }) => path).sort();
+    if (JSON.stringify(actualPaths) !== JSON.stringify(expectedPaths)) {
+      throw providerError(
+        "Vercel provider deployment inventory does not match the exact approved file set.",
+        false,
+      );
+    }
+
+    const configurationFile = files.find(({ path }) => path === "vercel.json");
+    const configurationEvidence = await vercelEvidenceJson(
+      `/v8/deployments/${encodeURIComponent(deploymentId)}/files/${encodeURIComponent(configurationFile.uid)}?${teamQuery}`,
+    );
+    const configurationBytes = decodeProviderFileContents(configurationEvidence);
+    const expectedConfigurationBytes = vercelConfigurationBytes(request.jobId, resolved.entrypointPath);
+    if (!configurationBytes.equals(expectedConfigurationBytes)) {
+      throw providerError(
+        "Vercel provider configuration evidence does not match the exact approved routing and header configuration.",
+        false,
+      );
+    }
+  }
+
   async function publicFetch(url, verification) {
     let response;
     try {
@@ -259,6 +311,15 @@ export function createVercelTestAPublicationProvider(options = {}) {
       return await response.json();
     } catch (error) {
       throw providerError("Vercel returned an invalid JSON response.", true, error);
+    }
+  }
+
+  async function vercelEvidenceJson(resource) {
+    const response = await vercelRequest(resource, { method: "GET" }, new Set([200]));
+    try {
+      return await response.json();
+    } catch (error) {
+      throw providerError("Vercel returned malformed provider deployment evidence.", false, error);
     }
   }
 
@@ -339,6 +400,77 @@ function publicationManifestFor(request, files, configurationBytes) {
       bytes: file.bytes.byteLength,
     })),
   };
+}
+
+function publicationManifestBytes(manifest) {
+  return Buffer.from(`${JSON.stringify(manifest, null, 2)}\n`, "utf8");
+}
+
+function flattenDeploymentFiles(inventory) {
+  if (!Array.isArray(inventory)) {
+    throw providerError("Vercel provider deployment inventory is malformed.", false);
+  }
+  const files = [];
+  const seenPaths = new Set();
+  let nodeCount = 0;
+  const visit = (nodes, parentPath, depth) => {
+    if (!Array.isArray(nodes) || depth > 100) {
+      throw providerError("Vercel provider deployment inventory is malformed.", false);
+    }
+    for (const node of nodes) {
+      nodeCount += 1;
+      if (
+        nodeCount > 10_000
+        || !node
+        || typeof node !== "object"
+        || typeof node.name !== "string"
+        || node.name.length === 0
+        || node.name === "."
+        || node.name === ".."
+        || /[\\/]/u.test(node.name)
+        || !Number.isSafeInteger(node.mode)
+        || node.mode < 0
+      ) {
+        throw providerError("Vercel provider deployment inventory is malformed.", false);
+      }
+      const currentPath = parentPath ? `${parentPath}/${node.name}` : node.name;
+      if (seenPaths.has(currentPath)) {
+        throw providerError("Vercel provider deployment inventory is malformed.", false);
+      }
+      seenPaths.add(currentPath);
+      if (node.type === "directory") {
+        visit(node.children, currentPath, depth + 1);
+        continue;
+      }
+      if (
+        node.type !== "file"
+        || typeof node.uid !== "string"
+        || !/^[A-Za-z0-9_-]{1,160}$/u.test(node.uid)
+        || node.children !== undefined
+      ) {
+        throw providerError("Vercel provider deployment inventory is malformed.", false);
+      }
+      files.push({ path: currentPath, uid: node.uid });
+    }
+  };
+  visit(inventory, "", 0);
+  return files;
+}
+
+function decodeProviderFileContents(evidence) {
+  if (
+    evidence?.encoding !== "base64"
+    || typeof evidence.content !== "string"
+    || evidence.content.length % 4 !== 0
+    || !/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/u.test(evidence.content)
+  ) {
+    throw providerError("Vercel provider configuration evidence is malformed.", false);
+  }
+  const bytes = Buffer.from(evidence.content, "base64");
+  if (bytes.toString("base64") !== evidence.content) {
+    throw providerError("Vercel provider configuration evidence is malformed.", false);
+  }
+  return bytes;
 }
 
 function vercelConfiguration(jobId, entrypointPath) {

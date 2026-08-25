@@ -5,13 +5,16 @@ import { fileURLToPath } from "node:url";
 
 const rootPath = fileURLToPath(new URL("..", import.meta.url));
 const evidencePath = fileURLToPath(new URL("./test-a-publication-regression-audit.json", import.meta.url));
-const expectedBaselineCommit = "55ac93a76f12c6e36532b1979fc2c13f3c15b054";
+const expectedBaselineCommit = "413bd608d9a227d2d57a8135a0cfebae9404cb92";
 const testFiles = [
   "test/fulfillment/exact-revision-publication-adapter.test.mjs",
   "test/fulfillment/vercel-test-a-publication-provider.test.mjs",
 ];
 const expectedControls = [
   "nested-artifact-set-binding",
+  "exact-publication-manifest-bytes",
+  "provider-ready-deployment-evidence",
+  "provider-exact-file-inventory",
   "immutable-deployment-pre-alias-verification",
   "global-exact-deployment-uniqueness",
   "deployment-pagination-progress",

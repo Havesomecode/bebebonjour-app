@@ -1,7 +1,7 @@
 {
   "schemaVersion": "1.0",
-  "auditId": "test-a-publication-regression-audit-v2",
-  "baselineCommit": "55ac93a76f12c6e36532b1979fc2c13f3c15b054",
+  "auditId": "test-a-publication-regression-audit-v3",
+  "baselineCommit": "413bd608d9a227d2d57a8135a0cfebae9404cb92",
   "candidateBoundary": {
     "pathAllowlist": [
       "ops/test-a-production-audit.mjs",
@@ -12,16 +12,16 @@
     "reviewedFileDigests": [
       {
         "path": "src/fulfillment/vercel-test-a-publication-provider.mjs",
-        "sha256": "401030804715a9eb786fcaa5046f0150d1565db889692f66dbf1d2e0074ad658"
+        "sha256": "e4a94b89217e0dca987acd936397180d2c0b2f6c31cc731c9c2fda518b6d8733"
       },
       {
         "path": "test/fulfillment/vercel-test-a-publication-provider.test.mjs",
-        "sha256": "2813bed309b7afba68916dc3714b0becbb3569856c3280a5492805cb8565285a"
+        "sha256": "3a41e92d2dad2cb2631ef69ce08171a5a68443693de152e5a4f3ef13cd6ee025"
       }
     ]
   },
   "auditScript": "ops/test-a-production-audit.mjs",
-  "scope": "Offline production-readiness evidence for exact TEST-A artifact binding, immutable deployment byte verification before alias mutation, and Vercel deployment reconciliation. No provider mutation or live data is used.",
+  "scope": "Offline production-readiness evidence for exact TEST-A artifact binding, raw publication-manifest byte equality, provider-authoritative READY deployment configuration and exact file inventory, immutable public byte verification before alias mutation, and Vercel deployment reconciliation. No provider mutation or live data is used.",
   "controls": [
     {
       "id": "nested-artifact-set-binding",
@@ -36,6 +36,43 @@
         "test/fulfillment/vercel-test-a-publication-provider.test.mjs: Vercel TEST-A provider rejects an absent or mismatched nested artifact-set id before provider I/O"
       ],
       "failureMode": "Non-retryable rejection before provider invocation"
+    },
+    {
+      "id": "exact-publication-manifest-bytes",
+      "requirement": "Immediately before stable alias mutation, the immutable deployment .publication.json response bytes must equal the exact generated manifest bytes, including formatting and trailing newline; semantic JSON equivalence is insufficient.",
+      "implementation": [
+        "src/fulfillment/vercel-test-a-publication-provider.mjs"
+      ],
+      "proofs": [
+        "test/fulfillment/vercel-test-a-publication-provider.test.mjs: Vercel TEST-A reconciliation rejects a semantically equal manifest with different raw bytes",
+        "test/fulfillment/vercel-test-a-publication-provider.test.mjs: Vercel TEST-A provider resolves exact source bytes before one scoped alias mutation"
+      ],
+      "failureMode": "Immediate non-retryable fail-closed rejection with zero alias mutation"
+    },
+    {
+      "id": "provider-ready-deployment-evidence",
+      "requirement": "Before any immutable public read or alias mutation, provider-authoritative deployment detail and vercel.json file-content evidence must prove the selected deployment id, project, READY state, exact metadata, immutable URL, and exact routing/header configuration bytes.",
+      "implementation": [
+        "src/fulfillment/vercel-test-a-publication-provider.mjs"
+      ],
+      "proofs": [
+        "test/fulfillment/vercel-test-a-publication-provider.test.mjs: Vercel TEST-A provider reconciles the exact deployment metadata without creating another deployment",
+        "test/fulfillment/vercel-test-a-publication-provider.test.mjs: Vercel TEST-A reconciliation rejects mismatched provider configuration evidence",
+        "test/fulfillment/vercel-test-a-publication-provider.test.mjs: Vercel TEST-A provider evidence fails closed when missing, malformed, or unavailable"
+      ],
+      "failureMode": "Non-retryable rejection for malformed, incomplete, or mismatched evidence; retryable provider-unavailable rejection for transport and 5xx responses; zero alias mutation"
+    },
+    {
+      "id": "provider-exact-file-inventory",
+      "requirement": "Provider-authoritative deployment inventory must be structurally valid and contain exactly every approved uploaded announcement file plus .publication.json and vercel.json, with no missing, duplicate, or unexpected file paths.",
+      "implementation": [
+        "src/fulfillment/vercel-test-a-publication-provider.mjs"
+      ],
+      "proofs": [
+        "test/fulfillment/vercel-test-a-publication-provider.test.mjs: Vercel TEST-A reconciliation rejects an unexpected provider inventory file",
+        "test/fulfillment/vercel-test-a-publication-provider.test.mjs: Vercel TEST-A provider evidence fails closed when missing, malformed, or unavailable"
+      ],
+      "failureMode": "Immediate non-retryable fail-closed rejection with zero alias mutation"
     },
     {
       "id": "immutable-deployment-pre-alias-verification",
@@ -82,7 +119,7 @@
     },
     {
       "command": "node --test test/fulfillment/exact-revision-publication-adapter.test.mjs test/fulfillment/vercel-test-a-publication-provider.test.mjs",
-      "requiredResult": "18 passed, 0 failed"
+      "requiredResult": "29 passed, 0 failed"
     },
     {
       "command": "npm run test",
@@ -105,7 +142,7 @@
       "requiredResult": "exit 0 with 0 vulnerabilities"
     },
     {
-      "command": "git diff --check 55ac93a76f12c6e36532b1979fc2c13f3c15b054",
+      "command": "git diff --check 413bd608d9a227d2d57a8135a0cfebae9404cb92",
       "requiredResult": "exit 0"
     }
   ],
