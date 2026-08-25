@@ -11,6 +11,7 @@ export function createVercelTestAPublicationProvider(options = {}) {
   const projectId = requireIdentifier(options.projectId, "Vercel TEST-A project id");
   const projectName = requireProjectName(options.projectName);
   const stableOrigin = exactHttpsOrigin(options.stableOrigin);
+  const stableHostname = new URL(stableOrigin).hostname;
   const canaryJobId = requireIdentifier(options.canaryJobId, "TEST-A canary job id");
   const canaryRevisionId = requireIdentifier(options.canaryRevisionId, "TEST-A canary revision id");
   const artifactResolver = options.artifactResolver;
@@ -139,11 +140,11 @@ export function createVercelTestAPublicationProvider(options = {}) {
       `/v2/deployments/${encodeURIComponent(deploymentId)}/aliases?${teamQuery}`,
       {
         method: "POST",
-        body: JSON.stringify({ alias: new URL(stableOrigin).hostname }),
+        body: JSON.stringify({ alias: stableHostname }),
       },
       new Set([200, 201, 409]),
     );
-    await aliasResponse.arrayBuffer();
+    await verifyProviderAliasEvidence(deploymentId);
     await verifyPublication(stableUrl, request, resolved, {
       label: "Stable TEST-A publication",
       finalMessage: "Stable TEST-A publication could not be verified after alias assignment.",
@@ -281,6 +282,31 @@ export function createVercelTestAPublicationProvider(options = {}) {
     if (!configurationBytes.equals(expectedConfigurationBytes)) {
       throw providerError(
         "Vercel provider configuration evidence does not match the exact approved routing and header configuration.",
+        false,
+      );
+    }
+  }
+
+  async function verifyProviderAliasEvidence(deploymentId) {
+    let alias;
+    try {
+      alias = await vercelEvidenceJson(
+        `/v4/aliases/${encodeURIComponent(stableHostname)}`
+        + `?projectId=${encodeURIComponent(projectId)}&${teamQuery}`,
+      );
+    } catch (error) {
+      throw providerError(
+        `Vercel provider alias evidence could not be read: ${error.message}`,
+        error?.retryable === true,
+      );
+    }
+    if (
+      alias?.alias !== stableHostname
+      || alias.deploymentId !== deploymentId
+      || alias.projectId !== projectId
+    ) {
+      throw providerError(
+        "Vercel provider alias evidence does not match the exact TEST-A hostname, deployment, and project.",
         false,
       );
     }

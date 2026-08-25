@@ -16,6 +16,7 @@ const expectedControls = [
   "provider-ready-deployment-evidence",
   "provider-exact-file-inventory",
   "immutable-deployment-pre-alias-verification",
+  "provider-alias-readback",
   "global-exact-deployment-uniqueness",
   "deployment-pagination-progress",
 ];

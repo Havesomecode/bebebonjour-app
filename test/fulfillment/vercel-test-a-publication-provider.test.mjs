@@ -273,6 +273,19 @@ function deploymentEvidenceResponse(url, value, manifest, deployment, options = 
   return null;
 }
 
+function aliasEvidenceResponse(url, deploymentId, overrides = {}) {
+  const parsed = new URL(url);
+  if (parsed.pathname !== `/v4/aliases/${new URL(STABLE_ORIGIN).hostname}`) return null;
+  assert.equal(parsed.searchParams.get("projectId"), "prj_test_a_announcements");
+  assert.equal(parsed.searchParams.get("teamId"), "team_test_a");
+  return jsonResponse({
+    alias: new URL(STABLE_ORIGIN).hostname,
+    deploymentId,
+    projectId: "prj_test_a_announcements",
+    ...overrides,
+  });
+}
+
 test("Vercel TEST-A provider resolves exact source bytes before one scoped alias mutation", async (t) => {
   const value = await fixture(t);
   const calls = [];
@@ -325,8 +338,14 @@ test("Vercel TEST-A provider resolves exact source bytes before one scoped alias
       if (immutableResponse) return immutableResponse;
       if (url.includes("/v2/deployments/dpl_test_a_001/aliases")) {
         assert.deepEqual(JSON.parse(init.body), { alias: "test-a-announcements.example.test" });
-        return jsonResponse({ uid: "alias_test_a", alias: "test-a-announcements.example.test" });
+        return new Response(new ReadableStream({
+          start(controller) {
+            controller.error(new Error("alias response body unavailable"));
+          },
+        }), { status: 200 });
       }
+      const aliasEvidence = aliasEvidenceResponse(url, "dpl_test_a_001");
+      if (aliasEvidence) return aliasEvidence;
       if (url === `${STABLE_ORIGIN}/announcements/${JOB_ID}/.publication.json`) {
         return exactPublicationManifestResponse(publicationManifest);
       }
@@ -376,12 +395,16 @@ test("Vercel TEST-A provider resolves exact source bytes before one scoped alias
   const immutableReadIndex = calls.findIndex(({ url }) => (
     url === `${CREATED_DEPLOYMENT_ORIGIN}/announcements/${JOB_ID}/.publication.json`
   ));
-  const aliasIndex = calls.findIndex(({ url }) => url.includes("/aliases"));
+  const aliasMutationIndex = calls.findIndex(({ url }) => url.includes("/v2/deployments/dpl_test_a_001/aliases"));
+  const aliasEvidenceIndex = calls.findIndex(({ url }) => url.includes("/v4/aliases/"));
+  const stableReadIndex = calls.findIndex(({ url }) => url.startsWith(STABLE_ORIGIN));
   assert.ok(detailIndex >= 0 && detailIndex < inventoryIndex);
   assert.ok(inventoryIndex < configurationIndex);
   assert.ok(configurationIndex < immutableReadIndex);
-  assert.ok(immutableReadIndex < aliasIndex);
-  assert.equal(calls.filter(({ url }) => url.includes("/aliases")).length, 1);
+  assert.ok(immutableReadIndex < aliasMutationIndex);
+  assert.ok(aliasMutationIndex < aliasEvidenceIndex);
+  assert.ok(aliasEvidenceIndex < stableReadIndex);
+  assert.equal(calls.filter(({ url }) => url.includes("/v2/deployments/dpl_test_a_001/aliases")).length, 1);
 });
 
 test("Vercel TEST-A provider reconciles the exact deployment metadata without creating another deployment", async (t) => {
@@ -412,7 +435,11 @@ test("Vercel TEST-A provider reconciles the exact deployment metadata without cr
         origin: EXISTING_DEPLOYMENT_ORIGIN,
       });
       if (evidenceResponse) return evidenceResponse;
-      if (url.includes("/aliases")) return jsonResponse({ uid: "alias_existing" }, 409);
+      if (url.includes("/v2/deployments/dpl_test_a_existing/aliases")) {
+        return jsonResponse({ uid: "alias_existing" }, 409);
+      }
+      const aliasEvidence = aliasEvidenceResponse(url, "dpl_test_a_existing");
+      if (aliasEvidence) return aliasEvidence;
       if (url === `${EXISTING_DEPLOYMENT_ORIGIN}/announcements/${JOB_ID}/.publication.json`) {
         return exactPublicationManifestResponse(publicManifest);
       }
@@ -450,11 +477,113 @@ test("Vercel TEST-A provider reconciles the exact deployment metadata without cr
   const immutableReadIndexes = calls
     .map(({ url }, index) => (url.startsWith(EXISTING_DEPLOYMENT_ORIGIN) ? index : -1))
     .filter((index) => index >= 0);
-  const aliasIndex = calls.findIndex(({ url }) => url.includes("/aliases"));
+  const aliasMutationIndex = calls.findIndex(({ url }) => (
+    url.includes("/v2/deployments/dpl_test_a_existing/aliases")
+  ));
+  const aliasEvidenceIndex = calls.findIndex(({ url }) => url.includes("/v4/aliases/"));
   const stableReadIndex = calls.findIndex(({ url }) => url.startsWith(STABLE_ORIGIN));
   assert.ok(immutableReadIndexes.length >= 5, "the selected deployment manifest, redirect, and files must be read back");
-  assert.ok(immutableReadIndexes.every((index) => index < aliasIndex), "all immutable deployment verification must precede aliasing");
-  assert.ok(stableReadIndex > aliasIndex, "stable publication verification must follow aliasing");
+  assert.ok(immutableReadIndexes.every((index) => index < aliasMutationIndex), "all immutable deployment verification must precede aliasing");
+  assert.ok(aliasMutationIndex < aliasEvidenceIndex, "409 alias assignment must still be read back from Vercel");
+  assert.ok(stableReadIndex > aliasEvidenceIndex, "stable publication verification must follow provider alias evidence");
+});
+
+test("Vercel TEST-A provider alias evidence fails closed when malformed, mismatched, or unavailable", async (t) => {
+  const cases = [
+    { name: "mismatched hostname", overrides: { alias: "other.example.test" } },
+    { name: "mismatched deployment", overrides: { deploymentId: "dpl_other" } },
+    { name: "mismatched project", overrides: { projectId: "prj_other" } },
+    {
+      name: "incomplete response",
+      overrides: { alias: undefined, deploymentId: undefined, projectId: undefined },
+    },
+    {
+      name: "malformed JSON response",
+      response: () => new Response("{", {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      }),
+    },
+    {
+      name: "unavailable response",
+      response: () => jsonResponse({ error: "unavailable" }, 503),
+      retryable: true,
+    },
+  ];
+
+  for (const aliasCase of cases) {
+    await t.test(aliasCase.name, async (subtest) => {
+      const value = await fixture(subtest);
+      const calls = [];
+      const publicManifest = publicManifestFor(value);
+      const deployment = {
+        uid: "dpl_test_a_existing",
+        origin: EXISTING_DEPLOYMENT_ORIGIN,
+      };
+      const provider = createProvider({
+        calls,
+        fixtureValue: value,
+        async fetchImpl(url, init) {
+          if (url.includes("/v7/deployments")) {
+            return jsonResponse({
+              deployments: [{
+                uid: deployment.uid,
+                url: new URL(deployment.origin).hostname,
+                projectId: "prj_test_a_announcements",
+                readyState: "READY",
+                meta: {
+                  bbCanaryJobId: JOB_ID,
+                  bbRevisionId: REVISION_ID,
+                  bbArtifactSetId: value.request.artifactSetId,
+                  bbArtifactManifestDigest: value.request.artifactManifestDigest,
+                  bbIdempotencyKey: IDEMPOTENCY_KEY,
+                },
+              }],
+              pagination: { next: null },
+            });
+          }
+          const providerEvidence = deploymentEvidenceResponse(
+            url,
+            value,
+            publicManifest,
+            deployment,
+          );
+          if (providerEvidence) return providerEvidence;
+          const immutableResponse = publicationReadbackResponse(
+            url,
+            value,
+            publicManifest,
+            deployment.origin,
+          );
+          if (immutableResponse) return immutableResponse;
+          if (url.includes(`/v2/deployments/${deployment.uid}/aliases`)) {
+            return jsonResponse({ uid: "alias_existing" });
+          }
+          if (new URL(url).pathname.startsWith("/v4/aliases/") && aliasCase.response) {
+            return aliasCase.response();
+          }
+          const aliasEvidence = aliasEvidenceResponse(url, deployment.uid, aliasCase.overrides);
+          if (aliasEvidence) return aliasEvidence;
+          const stableResponse = publicationReadbackResponse(
+            url,
+            value,
+            publicManifest,
+            STABLE_ORIGIN,
+          );
+          if (stableResponse) return stableResponse;
+          throw new Error(`Unexpected fetch: ${init.method || "GET"} ${url}`);
+        },
+      });
+
+      await assert.rejects(provider.reconcile(value.request), (error) => {
+        assert.match(error.message, /provider alias evidence/i);
+        assert.equal(error.retryable, aliasCase.retryable ?? false);
+        return true;
+      });
+      assert.equal(calls.filter(({ url }) => url.includes("/v4/aliases/")).length, 1);
+      assert.equal(calls.some(({ url }) => url.startsWith(STABLE_ORIGIN)), false);
+    });
+  }
 });
 
 test("Vercel TEST-A reconciliation rejects mismatched immutable deployment bytes before alias mutation", async (t) => {
@@ -897,7 +1026,11 @@ test("Vercel TEST-A reconciliation selects one exact deployment found only on a 
         origin: LATER_DEPLOYMENT_ORIGIN,
       });
       if (evidenceResponse) return evidenceResponse;
-      if (url.includes("/aliases")) return jsonResponse({ uid: "alias_existing" }, 409);
+      if (url.includes("/v2/deployments/dpl_match_later/aliases")) {
+        return jsonResponse({ uid: "alias_created" }, 201);
+      }
+      const aliasEvidence = aliasEvidenceResponse(url, "dpl_match_later");
+      if (aliasEvidence) return aliasEvidence;
       if (url.endsWith("/.publication.json")) return exactPublicationManifestResponse(publicManifest);
       if (url.endsWith(`/announcements/${JOB_ID}`)) {
         return new Response(null, {
@@ -915,6 +1048,11 @@ test("Vercel TEST-A reconciliation selects one exact deployment found only on a 
 
   assert.equal(receipt.providerReceiptId, "dpl_match_later");
   assert.equal(calls.filter(({ url }) => url.includes("/v7/deployments")).length, 2);
+  const aliasMutationIndex = calls.findIndex(({ url }) => (
+    url.includes("/v2/deployments/dpl_match_later/aliases")
+  ));
+  const aliasEvidenceIndex = calls.findIndex(({ url }) => url.includes("/v4/aliases/"));
+  assert.ok(aliasMutationIndex < aliasEvidenceIndex, "201 alias assignment must be read back from Vercel");
 });
 
 test("Vercel TEST-A reconciliation returns no match only after exhausting deployment pages", async (t) => {
