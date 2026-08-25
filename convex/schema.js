@@ -19,4 +19,8 @@ export default defineSchema({
     jobId: v.string(),
     aggregate: v.any(),
   }).index("by_job_id", ["jobId"]),
+  fulfillmentReviewApprovals: defineTable({
+    approvalId: v.string(),
+    approval: v.any(),
+  }).index("by_approval_id", ["approvalId"]),
 });

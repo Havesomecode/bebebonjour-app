@@ -108,22 +108,22 @@
       "requiredEvidence": ["syntheticJobId", "checkoutSessionId", "endpointId", "deliveryId", "customerJobCount", "fulfillmentJobCount", "providerEventCount", "generationQueued", "replayUnchanged"]
     },
     {
+      "id": "install-operator-runtime-secrets",
+      "provider": "test-a-operator-runtime",
+      "action": "install exactly secretStores.resendOperator.allowed through the private runtime secret store before review verification, publication, or delivery",
+      "requiredEvidence": ["variableInventory", "secretStore", "updatedAt", "vercelProductionForbiddenVariablesAbsent"]
+    },
+    {
       "id": "persist-human-approval",
       "provider": "convex",
       "action": "persist qualified human approval for the exact generated revision before publication or delivery",
-      "requiredEvidence": ["jobId", "revisionDigest", "approvalId", "approvedAt", "reviewerAuthority"]
-    },
-    {
-      "id": "install-resend-operator-secrets",
-      "provider": "resend-operator-runtime",
-      "action": "install exactly secretStores.resendOperator.allowed after persisted approval",
-      "requiredEvidence": ["variableInventory", "secretStore", "updatedAt", "vercelProductionForbiddenVariablesAbsent"]
+      "requiredEvidence": ["jobId", "intakeDigest", "runId", "revisionDigest", "artifactManifestDigest", "approvalId", "approvedAt", "reviewerAuthority"]
     },
     {
       "id": "publish-approved-test-artifact",
       "provider": "vercel",
       "action": "publish only the exact approved revision and persist its publication receipt",
-      "requiredEvidence": ["jobId", "revisionDigest", "approvalId", "publicationId", "publicationUrl", "publishedAt"]
+      "requiredEvidence": ["jobId", "revisionDigest", "artifactManifestDigest", "approvalId", "publicationId", "publicationUrl", "publishedAt"]
     },
     {
       "id": "send-resend-test-sink",
@@ -146,7 +146,8 @@
       "customerFlowJobs",
       "customerFlowSubmissions",
       "customerFlowProviderEvents",
-      "fulfillmentJobs"
+      "fulfillmentJobs",
+      "fulfillmentReviewApprovals"
     ]
   },
   "vercelApi": {
@@ -208,7 +209,15 @@
       "from": "Bébé Bonjour <onboarding@resend.dev>",
       "testSink": "delivered@resend.dev"
     },
-    "environmentVariables": ["RESEND_API_KEY", "RESEND_FROM"],
+    "environmentVariables": [
+      "CONVEX_URL",
+      "CUSTOMER_FLOW_BACKEND_TOKEN",
+      "BEBEBONJOUR_APPROVAL_HMAC_KEY",
+      "VERCEL_TOKEN",
+      "RESEND_API_KEY",
+      "RESEND_FROM",
+      "TEST_A_PUBLICATION_ORIGIN"
+    ],
     "testSink": "delivered@resend.dev",
     "publicApiAccess": false,
     "requiresPersistedHumanApproval": true,
@@ -271,16 +280,22 @@
       ]
     },
     "resendOperator": {
-      "owner": "non-public operator delivery runtime after persisted approval",
-      "allowed": ["RESEND_API_KEY", "RESEND_FROM"],
+      "owner": "non-public TEST-A review, publication, and delivery runtime only",
+      "allowed": [
+        "CONVEX_URL",
+        "CUSTOMER_FLOW_BACKEND_TOKEN",
+        "BEBEBONJOUR_APPROVAL_HMAC_KEY",
+        "VERCEL_TOKEN",
+        "RESEND_API_KEY",
+        "RESEND_FROM",
+        "TEST_A_PUBLICATION_ORIGIN"
+      ],
       "forbidden": [
         "CONVEX_DEPLOY_KEY",
-        "CUSTOMER_FLOW_BACKEND_TOKEN",
         "CUSTOMER_FLOW_TOKEN_ENCRYPTION_KEY",
         "CUSTOMER_FLOW_TEST_ACCESS_TOKEN",
         "STRIPE_SECRET_KEY",
         "STRIPE_CUSTOMER_FLOW_WEBHOOK_SECRET",
-        "VERCEL_TOKEN",
         "VITE_FULFILLMENT_API_BASE_URL"
       ]
     }

@@ -165,6 +165,7 @@
       ],
       "properties": {
         "decision_id": { "type": "string", "pattern": "^review_[a-f0-9]{24}$" },
+        "approval_id": { "type": "string", "pattern": "^approval_[a-f0-9]{24}$" },
         "decision_type": { "enum": ["content", "narration"] },
         "revision_id": { "$ref": "#/$defs/revision_id" },
         "outcome": { "enum": ["approved", "request_changes", "rejected"] },

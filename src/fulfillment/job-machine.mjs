@@ -271,6 +271,7 @@ export function recordReviewDecisionTransition(aggregate, decision, at) {
         decision.decidedAt,
         decision.reviewer.id,
       ),
+      ...(decision.approvalId ? { approvalId: reviewApprovalId(decision.approvalId) } : {}),
       decisionType: decision.decisionType,
       revisionId: decision.revisionId,
       outcome: decision.outcome,
@@ -774,6 +775,13 @@ function assertPaymentCorrelation(correlation, input) {
   if (!isDeepStrictEqual(correlation, expected)) {
     throw new Error("Payment correlation must bind project, product, environment, job, and intake digest.");
   }
+}
+
+function reviewApprovalId(value) {
+  if (typeof value !== "string" || !/^approval_[a-f0-9]{24}$/.test(value)) {
+    throw new Error("Review approval id is invalid.");
+  }
+  return value;
 }
 
 function assertReviewer(reviewer) {

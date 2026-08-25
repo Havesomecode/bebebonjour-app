@@ -15,7 +15,9 @@ import {
 const DEFAULT_FUNCTIONS = Object.freeze({
   createJob: "fulfillment:createJob",
   getJob: "fulfillment:getJob",
+  getReviewApproval: "fulfillment:getReviewApproval",
   replaceJob: "fulfillment:replaceJob",
+  saveReviewApproval: "fulfillment:saveReviewApproval",
 });
 
 export function createConvexFulfillmentStore(options = {}) {
@@ -73,6 +75,18 @@ export function createConvexFulfillmentStore(options = {}) {
 
     getJob(jobId) {
       return client.query(functions.getJob, { backendToken, jobId });
+    },
+
+    getReviewApproval(approvalId) {
+      return client.query(functions.getReviewApproval, { backendToken, approvalId });
+    },
+
+    async saveReviewApproval(approval) {
+      const result = await client.mutation(functions.saveReviewApproval, {
+        backendToken,
+        approval,
+      });
+      return structuredClone(result.approval);
     },
 
     recordPayment(jobId, payment, at) {

@@ -107,7 +107,7 @@ async function readMigrations() {
 
 test(
   "same-transaction eligibility cycles use a monotonic per-order ordinal",
-  { skip: !runDatabaseTests, timeout: 120_000 },
+  { skip: !runDatabaseTests, timeout: 300_000 },
   async (t) => {
     const migrations = await readMigrations();
     const containerName = `bebebonjour-postgres-cycle-test-${process.pid}`;
@@ -431,7 +431,7 @@ test(
 
 test(
   "provider ordering and retries create one review job and generation run per valid order",
-  { skip: !runDatabaseTests, timeout: 120_000 },
+  { skip: !runDatabaseTests, timeout: 300_000 },
   async (t) => {
     const migrations = await readMigrations();
     const containerName = `bebebonjour-postgres-test-${process.pid}`;

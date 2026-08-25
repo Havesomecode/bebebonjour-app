@@ -64,3 +64,34 @@ test("Convex fulfillment store applies payment transitions with compare-and-set 
   assert.equal(calls[1].args.expectedVersion, created.version);
   assert.equal(calls[1].args.aggregate.version, created.version + 1);
 });
+
+test("Convex fulfillment store persists and reloads one immutable review approval", async () => {
+  const approval = {
+    schemaVersion: "1.0",
+    approvalId: `approval_${"a".repeat(24)}`,
+    binding: { jobId: input.jobId },
+    decision: { outcome: "approved" },
+    signature: "b".repeat(64),
+  };
+  let persisted = null;
+  const client = {
+    async query(reference, args) {
+      assert.equal(reference, "fulfillment:getReviewApproval");
+      assert.equal(args.approvalId, approval.approvalId);
+      return structuredClone(persisted);
+    },
+    async mutation(reference, args) {
+      assert.equal(reference, "fulfillment:saveReviewApproval");
+      assert.deepEqual(args.approval, approval);
+      persisted = structuredClone(args.approval);
+      return { created: true, approval: structuredClone(persisted) };
+    },
+  };
+  const store = createConvexFulfillmentStore({
+    client,
+    backendToken: "backend-token-at-least-32-characters",
+  });
+
+  assert.deepEqual(await store.saveReviewApproval(approval), approval);
+  assert.deepEqual(await store.getReviewApproval(approval.approvalId), approval);
+});

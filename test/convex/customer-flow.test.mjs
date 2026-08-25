@@ -16,6 +16,8 @@ const completeProviderEvent = makeFunctionReference("customerFlow:completeProvid
 const createFulfillmentJob = makeFunctionReference("fulfillment:createJob");
 const getFulfillmentJob = makeFunctionReference("fulfillment:getJob");
 const replaceFulfillmentJob = makeFunctionReference("fulfillment:replaceJob");
+const saveReviewApproval = makeFunctionReference("fulfillment:saveReviewApproval");
+const getReviewApproval = makeFunctionReference("fulfillment:getReviewApproval");
 const backendToken = "backend-token-at-least-32-characters";
 const job = {
   jobId: "job_test_001",
@@ -218,4 +220,61 @@ test("Convex persists fulfillment aggregates with create-once compare-and-set se
   assert.deepEqual(replaced, { updated: true, aggregate: next });
   assert.deepEqual(stale, { updated: false, current: next });
   assert.deepEqual(await convex.query(getFulfillmentJob, { backendToken, jobId: job.jobId }), next);
+});
+
+test("Convex persists one immutable human review approval per approval id", async () => {
+  const convex = fixture();
+  const approval = {
+    schemaVersion: "1.0",
+    approvalId: `approval_${"a".repeat(24)}`,
+    binding: { jobId: job.jobId },
+    decision: { outcome: "approved" },
+    signature: "b".repeat(64),
+  };
+
+  assert.deepEqual(await convex.mutation(saveReviewApproval, {
+    backendToken,
+    approval,
+  }), { created: true, approval });
+  assert.deepEqual(await convex.mutation(saveReviewApproval, {
+    backendToken,
+    approval: { ...approval, binding: { jobId: "job_test_other" } },
+  }), { created: false, approval });
+  assert.deepEqual(await convex.query(getReviewApproval, {
+    backendToken,
+    approvalId: approval.approvalId,
+  }), approval);
+});
+
+test("Convex rejects extra review approval fields before durable storage", async () => {
+  const convex = fixture();
+  const approval = {
+    schemaVersion: "1.0",
+    approvalId: `approval_${"c".repeat(24)}`,
+    binding: { jobId: job.jobId },
+    decision: { outcome: "approved" },
+    signature: "d".repeat(64),
+    customerEmail: "not-needed@example.test",
+  };
+
+  await assert.rejects(convex.mutation(saveReviewApproval, {
+    backendToken,
+    approval,
+  }), /unexpected fields/i);
+});
+
+test("Convex rejects extra nested review data before durable storage", async () => {
+  const convex = fixture();
+  const approval = {
+    schemaVersion: "1.0",
+    approvalId: `approval_${"e".repeat(24)}`,
+    binding: { jobId: job.jobId, customerEmail: "not-needed@example.test" },
+    decision: { outcome: "approved" },
+    signature: "f".repeat(64),
+  };
+
+  await assert.rejects(convex.mutation(saveReviewApproval, {
+    backendToken,
+    approval,
+  }), /unexpected fields/i);
 });
