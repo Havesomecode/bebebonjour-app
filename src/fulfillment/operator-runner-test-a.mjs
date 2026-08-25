@@ -9,7 +9,9 @@ import { createFulfillmentOrchestrator } from "./job-orchestrator.mjs";
 import {
   createPersistedReviewDecisionVerifier,
 } from "./persisted-review-decision.mjs";
+import { createLocalArtifactResolver } from "./local-artifact-resolver.mjs";
 import { createResendDeliveryAdapter } from "./resend-delivery-adapter.mjs";
+import { createVercelTestAPublicationProvider } from "./vercel-test-a-publication-provider.mjs";
 import { createConvexFulfillmentStore } from "../persistence/convex-fulfillment-store.mjs";
 
 const TEST_SINK = "delivered@resend.dev";
@@ -36,8 +38,9 @@ export function createTestAOperatorRunner(options = {}) {
     }
   }
 
+  const publicationProvider = options.publicationProvider || createHostedPublicationProvider(environment);
   const publicationAdapter = createExactRevisionPublicationAdapter({
-    provider: options.publicationProvider,
+    provider: publicationProvider,
     stableOrigin: publicationOrigin,
   });
   const deliveryAdapter = createResendDeliveryAdapter({
@@ -131,6 +134,21 @@ function createHostedStore(options, environment) {
   const backendToken = requiredSecret(environment, "CUSTOMER_FLOW_BACKEND_TOKEN", 32);
   const client = options.convexClient || new ConvexHttpClient(convexUrl);
   return createConvexFulfillmentStore({ client, backendToken });
+}
+
+function createHostedPublicationProvider(environment) {
+  return createVercelTestAPublicationProvider({
+    token: requiredString(environment, "VERCEL_TOKEN"),
+    teamId: requiredString(environment, "TEST_A_PUBLICATION_VERCEL_TEAM_ID"),
+    projectId: requiredString(environment, "TEST_A_PUBLICATION_VERCEL_PROJECT_ID"),
+    projectName: requiredString(environment, "TEST_A_PUBLICATION_VERCEL_PROJECT_NAME"),
+    stableOrigin: requiredHttpsOrigin(environment, "TEST_A_PUBLICATION_ORIGIN"),
+    canaryJobId: requiredString(environment, "TEST_A_PUBLICATION_CANARY_JOB_ID"),
+    canaryRevisionId: requiredString(environment, "TEST_A_PUBLICATION_CANARY_REVISION_ID"),
+    artifactResolver: createLocalArtifactResolver({
+      rootPath: requiredString(environment, "TEST_A_ARTIFACT_ROOT"),
+    }),
+  });
 }
 
 function requiredString(environment, name) {

@@ -143,6 +143,12 @@ test("provider manifest binds one executable least-privilege hosted candidate", 
     "RESEND_API_KEY",
     "RESEND_FROM",
     "TEST_A_PUBLICATION_ORIGIN",
+    "TEST_A_PUBLICATION_VERCEL_TEAM_ID",
+    "TEST_A_PUBLICATION_VERCEL_PROJECT_ID",
+    "TEST_A_PUBLICATION_VERCEL_PROJECT_NAME",
+    "TEST_A_PUBLICATION_CANARY_JOB_ID",
+    "TEST_A_PUBLICATION_CANARY_REVISION_ID",
+    "TEST_A_ARTIFACT_ROOT",
   ]);
   assert.deepEqual(providerManifest.resendOperatorRuntime.environmentVariables,
     providerManifest.secretStores.resendOperator.allowed);
@@ -158,6 +164,8 @@ test("provider manifest binds one executable least-privilege hosted candidate", 
 test("production build syntax-checks every private TEST-A operator module", () => {
   for (const modulePath of [
     "./src/fulfillment/exact-revision-publication-adapter.mjs",
+    "./src/fulfillment/local-artifact-resolver.mjs",
+    "./src/fulfillment/vercel-test-a-publication-provider.mjs",
     "./src/fulfillment/persisted-review-decision.mjs",
     "./src/fulfillment/operator-runner-test-a.mjs",
   ]) {

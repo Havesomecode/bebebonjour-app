@@ -122,7 +122,7 @@
     {
       "id": "publish-approved-test-artifact",
       "provider": "vercel",
-      "action": "publish only the exact approved revision and persist its publication receipt",
+      "action": "publish only the exact approved configured canary revision from verified immutable source bytes into its dedicated Vercel TEST-A project and alias, then read back every public byte before persisting its receipt",
       "requiredEvidence": ["jobId", "revisionDigest", "artifactManifestDigest", "approvalId", "publicationId", "publicationUrl", "publishedAt"]
     },
     {
@@ -216,12 +216,19 @@
       "VERCEL_TOKEN",
       "RESEND_API_KEY",
       "RESEND_FROM",
-      "TEST_A_PUBLICATION_ORIGIN"
+      "TEST_A_PUBLICATION_ORIGIN",
+      "TEST_A_PUBLICATION_VERCEL_TEAM_ID",
+      "TEST_A_PUBLICATION_VERCEL_PROJECT_ID",
+      "TEST_A_PUBLICATION_VERCEL_PROJECT_NAME",
+      "TEST_A_PUBLICATION_CANARY_JOB_ID",
+      "TEST_A_PUBLICATION_CANARY_REVISION_ID",
+      "TEST_A_ARTIFACT_ROOT"
     ],
     "testSink": "delivered@resend.dev",
     "publicApiAccess": false,
     "requiresPersistedHumanApproval": true,
-    "idempotencySafety": "send only while the persisted delivery attempt is younger than 23 hours"
+    "idempotencySafety": "send only while the persisted delivery attempt is younger than 23 hours",
+    "publicationScope": "one configured prepared_bundle canary job/revision; one dedicated Vercel project and exact alias; provider mutation follows local manifest and byte verification and precedes stable read-back verification"
   },
   "secretStores": {
     "convexPreview": {
@@ -288,7 +295,13 @@
         "VERCEL_TOKEN",
         "RESEND_API_KEY",
         "RESEND_FROM",
-        "TEST_A_PUBLICATION_ORIGIN"
+        "TEST_A_PUBLICATION_ORIGIN",
+        "TEST_A_PUBLICATION_VERCEL_TEAM_ID",
+        "TEST_A_PUBLICATION_VERCEL_PROJECT_ID",
+        "TEST_A_PUBLICATION_VERCEL_PROJECT_NAME",
+        "TEST_A_PUBLICATION_CANARY_JOB_ID",
+        "TEST_A_PUBLICATION_CANARY_REVISION_ID",
+        "TEST_A_ARTIFACT_ROOT"
       ],
       "forbidden": [
         "CONVEX_DEPLOY_KEY",

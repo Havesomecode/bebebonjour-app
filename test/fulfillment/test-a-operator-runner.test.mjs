@@ -225,7 +225,7 @@ test("private TEST-A operator runner fails closed when runtime secrets or exact 
   }), /exact HTTPS origin/);
 });
 
-test("private TEST-A operator runner provides production-safe clock and token defaults", () => {
+test("private TEST-A operator runner wires production-safe provider, clock, and token defaults", () => {
   const store = {
     async getJob() {
       return null;
@@ -244,8 +244,14 @@ test("private TEST-A operator runner provides production-safe clock and token de
       RESEND_API_KEY: "re_test_operator_runner",
       RESEND_FROM: "Bébé Bonjour <onboarding@resend.dev>",
       TEST_A_PUBLICATION_ORIGIN: "https://announcements.example.test",
+      VERCEL_TOKEN: "vercel_test_token",
+      TEST_A_PUBLICATION_VERCEL_TEAM_ID: "team_test_a",
+      TEST_A_PUBLICATION_VERCEL_PROJECT_ID: "prj_test_a_announcements",
+      TEST_A_PUBLICATION_VERCEL_PROJECT_NAME: "bebebonjour-test-a-announcements",
+      TEST_A_PUBLICATION_CANARY_JOB_ID: "job_test_001",
+      TEST_A_PUBLICATION_CANARY_REVISION_ID: "r1",
+      TEST_A_ARTIFACT_ROOT: "/tmp/bebebonjour-test-a-artifacts",
     },
-    publicationProvider: { reconcile: async () => null, publish: async () => null },
     resend: { emails: { send: async () => null, get: async () => null } },
   });
 
