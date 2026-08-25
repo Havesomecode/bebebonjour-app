@@ -64,6 +64,7 @@ async function fixture(t) {
     artifactSetId: "artifact-set-test-001",
     artifactManifestDigest: sha256(manifestBytes),
     artifactSet: {
+      artifactSetId: "artifact-set-test-001",
       kind: "prepared_bundle",
       revisionId: REVISION_ID,
       pageDigest: "b".repeat(64),
@@ -103,6 +104,22 @@ function createProvider({ calls, fixtureValue, fetchImpl }) {
   });
 }
 
+function publicManifestFor(value) {
+  return {
+    schemaVersion: "1.0",
+    jobId: JOB_ID,
+    revisionId: REVISION_ID,
+    artifactSetId: value.request.artifactSetId,
+    artifactManifestDigest: value.request.artifactManifestDigest,
+    idempotencyKey: IDEMPOTENCY_KEY,
+    files: value.request.artifactSet.files.map((file) => ({
+      path: file.path.slice("deploy/canary/".length),
+      sha256: file.sha256,
+      bytes: file.bytes,
+    })),
+  };
+}
+
 test("Vercel TEST-A provider resolves exact source bytes before one scoped alias mutation", async (t) => {
   const value = await fixture(t);
   const calls = [];
@@ -124,6 +141,7 @@ test("Vercel TEST-A provider resolves exact source bytes before one scoped alias
         );
         assert.equal(payload.project, "prj_test_a_announcements");
         assert.equal(payload.target, undefined);
+        assert.equal(payload.meta.bbArtifactSetId, value.request.artifactSetId);
         assert.equal(payload.meta.bbArtifactManifestDigest, value.request.artifactManifestDigest);
         assert.ok(payload.files.every(({ file }) => file.startsWith(`announcements/${JOB_ID}/`) || file === "vercel.json"));
         return jsonResponse({ id: "dpl_test_a_001", readyState: "QUEUED" });
@@ -158,6 +176,7 @@ test("Vercel TEST-A provider resolves exact source bytes before one scoped alias
     providerReceiptId: "dpl_test_a_001",
     stableUrl: `${STABLE_ORIGIN}/announcements/${JOB_ID}`,
     revisionId: REVISION_ID,
+    artifactSetId: value.request.artifactSetId,
     artifactManifestDigest: value.request.artifactManifestDigest,
     idempotencyKey: IDEMPOTENCY_KEY,
   });
@@ -181,18 +200,7 @@ test("Vercel TEST-A provider resolves exact source bytes before one scoped alias
 test("Vercel TEST-A provider reconciles the exact deployment metadata without creating another deployment", async (t) => {
   const value = await fixture(t);
   const calls = [];
-  const publicManifest = {
-    schemaVersion: "1.0",
-    jobId: JOB_ID,
-    revisionId: REVISION_ID,
-    artifactManifestDigest: value.request.artifactManifestDigest,
-    idempotencyKey: IDEMPOTENCY_KEY,
-    files: value.request.artifactSet.files.map((file) => ({
-      path: file.path.slice("deploy/canary/".length),
-      sha256: file.sha256,
-      bytes: file.bytes,
-    })),
-  };
+  const publicManifest = publicManifestFor(value);
   const provider = createProvider({
     calls,
     fixtureValue: value,
@@ -205,6 +213,7 @@ test("Vercel TEST-A provider reconciles the exact deployment metadata without cr
           meta: {
             bbCanaryJobId: JOB_ID,
             bbRevisionId: REVISION_ID,
+            bbArtifactSetId: value.request.artifactSetId,
             bbArtifactManifestDigest: value.request.artifactManifestDigest,
             bbIdempotencyKey: IDEMPOTENCY_KEY,
           },
@@ -229,6 +238,163 @@ test("Vercel TEST-A provider reconciles the exact deployment metadata without cr
   assert.equal(receipt.providerReceiptId, "dpl_test_a_existing");
   assert.equal(calls.filter(({ url, init }) => url.includes("/v13/deployments") && init.method === "POST").length, 0);
   assert.equal(calls.filter(({ url }) => url.includes("/v2/files")).length, 0);
+});
+
+test("Vercel TEST-A provider rejects an absent or mismatched nested artifact-set id before provider I/O", async (t) => {
+  const value = await fixture(t);
+  const calls = [];
+  const provider = createProvider({
+    calls,
+    fixtureValue: value,
+    async fetchImpl() {
+      throw new Error("provider I/O must not occur");
+    },
+  });
+  const { artifactSetId: _, ...withoutArtifactSetId } = value.request.artifactSet;
+  const invalidRequests = [
+    { ...value.request, artifactSet: withoutArtifactSetId },
+    {
+      ...value.request,
+      artifactSet: { ...value.request.artifactSet, artifactSetId: "artifact-set-test-002" },
+    },
+  ];
+
+  for (const method of ["reconcile", "publish"]) {
+    for (const invalidRequest of invalidRequests) {
+      await assert.rejects(provider[method](invalidRequest), /artifact set id/i);
+    }
+  }
+  assert.equal(calls.length, 0);
+});
+
+test("Vercel TEST-A reconciliation rejects duplicate exact matches across deployment pages", async (t) => {
+  const value = await fixture(t);
+  const calls = [];
+  const exactDeployment = (uid) => ({
+    uid,
+    projectId: "prj_test_a_announcements",
+    readyState: "READY",
+    meta: {
+      bbCanaryJobId: JOB_ID,
+      bbRevisionId: REVISION_ID,
+      bbArtifactSetId: value.request.artifactSetId,
+      bbArtifactManifestDigest: value.request.artifactManifestDigest,
+      bbIdempotencyKey: IDEMPOTENCY_KEY,
+    },
+  });
+  const provider = createProvider({
+    calls,
+    fixtureValue: value,
+    async fetchImpl(url) {
+      const parsed = new URL(url);
+      if (parsed.pathname === "/v7/deployments" && !parsed.searchParams.has("until")) {
+        return jsonResponse({ deployments: [exactDeployment("dpl_match_newer")], pagination: { next: 200 } });
+      }
+      if (parsed.pathname === "/v7/deployments" && parsed.searchParams.get("until") === "200") {
+        return jsonResponse({ deployments: [exactDeployment("dpl_match_older")], pagination: { next: null } });
+      }
+      throw new Error(`Unexpected fetch: ${url}`);
+    },
+  });
+
+  await assert.rejects(provider.reconcile(value.request), /multiple deployments/i);
+  assert.equal(calls.filter(({ url }) => url.includes("/v7/deployments")).length, 2);
+  assert.equal(calls.some(({ url }) => url.includes("/aliases")), false);
+});
+
+test("Vercel TEST-A reconciliation selects one exact deployment found only on a later page", async (t) => {
+  const value = await fixture(t);
+  const calls = [];
+  const publicManifest = publicManifestFor(value);
+  const provider = createProvider({
+    calls,
+    fixtureValue: value,
+    async fetchImpl(url, init) {
+      const parsed = new URL(url);
+      if (parsed.pathname === "/v7/deployments" && !parsed.searchParams.has("until")) {
+        return jsonResponse({ deployments: [], pagination: { next: 200 } });
+      }
+      if (parsed.pathname === "/v7/deployments" && parsed.searchParams.get("until") === "200") {
+        return jsonResponse({ deployments: [{
+          uid: "dpl_match_later",
+          projectId: "prj_test_a_announcements",
+          readyState: "READY",
+          meta: {
+            bbCanaryJobId: JOB_ID,
+            bbRevisionId: REVISION_ID,
+            bbArtifactSetId: value.request.artifactSetId,
+            bbArtifactManifestDigest: value.request.artifactManifestDigest,
+            bbIdempotencyKey: IDEMPOTENCY_KEY,
+          },
+        }], pagination: { next: null } });
+      }
+      if (url.includes("/aliases")) return jsonResponse({ uid: "alias_existing" }, 409);
+      if (url.endsWith("/.publication.json")) return jsonResponse(publicManifest);
+      if (url.endsWith(`/announcements/${JOB_ID}`)) {
+        return new Response(null, {
+          status: 307,
+          headers: { location: `/announcements/${JOB_ID}/fr/` },
+        });
+      }
+      if (url.endsWith(`/announcements/${JOB_ID}/fr/`) || url.endsWith("/fr/index.html")) return new Response(value.index);
+      if (url.endsWith("/_assets/build/canary.bin")) return new Response(value.asset);
+      throw new Error(`Unexpected fetch: ${init.method || "GET"} ${url}`);
+    },
+  });
+
+  const receipt = await provider.reconcile(value.request);
+
+  assert.equal(receipt.providerReceiptId, "dpl_match_later");
+  assert.equal(calls.filter(({ url }) => url.includes("/v7/deployments")).length, 2);
+});
+
+test("Vercel TEST-A reconciliation returns no match only after exhausting deployment pages", async (t) => {
+  const value = await fixture(t);
+  const calls = [];
+  const provider = createProvider({
+    calls,
+    fixtureValue: value,
+    async fetchImpl(url) {
+      const parsed = new URL(url);
+      if (parsed.pathname !== "/v7/deployments") throw new Error(`Unexpected fetch: ${url}`);
+      return jsonResponse({
+        deployments: [],
+        pagination: { next: parsed.searchParams.has("until") ? null : 200 },
+      });
+    },
+  });
+
+  assert.equal(await provider.reconcile(value.request), null);
+  assert.equal(calls.length, 2);
+});
+
+test("Vercel TEST-A reconciliation rejects repeated, cyclic, and non-monotonic cursors", async (t) => {
+  const cases = [
+    { name: "repeated", cursors: [200, 200] },
+    { name: "cyclic", cursors: [200, 100, 200] },
+    { name: "non-monotonic", cursors: [100, 200] },
+  ];
+
+  for (const cursorCase of cases) {
+    await t.test(cursorCase.name, async () => {
+      const value = await fixture(t);
+      const calls = [];
+      let page = 0;
+      const provider = createProvider({
+        calls,
+        fixtureValue: value,
+        async fetchImpl(url) {
+          if (new URL(url).pathname !== "/v7/deployments") throw new Error(`Unexpected fetch: ${url}`);
+          const next = cursorCase.cursors[page];
+          page += 1;
+          return jsonResponse({ deployments: [], pagination: { next } });
+        },
+      });
+
+      await assert.rejects(provider.reconcile(value.request), /pagination cursor/i);
+      assert.equal(calls.some(({ url }) => url.includes("/aliases")), false);
+    });
+  }
 });
 
 test("local artifact resolution fails closed on changed source bytes before provider I/O", async (t) => {

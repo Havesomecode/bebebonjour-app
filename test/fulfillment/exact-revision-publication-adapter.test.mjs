@@ -11,6 +11,7 @@ const request = Object.freeze({
   artifactSetId: "artifact-set-test-001",
   artifactManifestDigest: "a".repeat(64),
   artifactSet: {
+    artifactSetId: "artifact-set-test-001",
     kind: "prepared_bundle",
     revisionId: "r1",
     pageDigest: "b".repeat(64),
@@ -43,6 +44,7 @@ test("exact revision publication adapter passes only the bound TEST-A artifact m
           providerReceiptId: "deployment_test_001",
           stableUrl: "https://announcements.example.test/announcements/job_test_001",
           revisionId: value.revisionId,
+          artifactSetId: value.artifactSetId,
           artifactManifestDigest: value.artifactManifestDigest,
           idempotencyKey: value.idempotencyKey,
         };
@@ -82,5 +84,61 @@ test("exact revision publication adapter rejects unsafe manifest paths before th
       files: [{ ...request.artifactSet.files[0], path: "../review.json" }],
     },
   }), /safe relative path/i);
+  assert.equal(calls, 0);
+});
+
+test("exact revision publication adapter rejects a provider receipt for another artifact set", async () => {
+  const adapter = createExactRevisionPublicationAdapter({
+    provider: {
+      async reconcile() {
+        return null;
+      },
+      async publish(value) {
+        return {
+          provider: "vercel",
+          providerReceiptId: "deployment_test_001",
+          stableUrl: "https://announcements.example.test/announcements/job_test_001",
+          revisionId: value.revisionId,
+          artifactSetId: "artifact-set-test-002",
+          artifactManifestDigest: value.artifactManifestDigest,
+          idempotencyKey: value.idempotencyKey,
+        };
+      },
+    },
+    stableOrigin: "https://announcements.example.test",
+  });
+
+  await assert.rejects(adapter.publish(request), /exact persisted operation/i);
+});
+
+test("exact revision publication adapter rejects an absent or mismatched nested artifact-set id", async () => {
+  let calls = 0;
+  const adapter = createExactRevisionPublicationAdapter({
+    provider: {
+      async reconcile() {
+        calls += 1;
+        return null;
+      },
+      async publish() {
+        calls += 1;
+        return {};
+      },
+    },
+    stableOrigin: "https://announcements.example.test",
+  });
+  const { artifactSetId: _, ...withoutArtifactSetId } = request.artifactSet;
+  const invalidRequests = [
+    { ...request, artifactSet: withoutArtifactSetId },
+    {
+      ...request,
+      artifactSet: { ...request.artifactSet, artifactSetId: "artifact-set-test-002" },
+    },
+  ];
+
+  for (const method of ["reconcile", "publish"]) {
+    for (const invalidRequest of invalidRequests) {
+      await assert.rejects(adapter[method](invalidRequest), /artifact set id/i);
+    }
+  }
   assert.equal(calls, 0);
 });

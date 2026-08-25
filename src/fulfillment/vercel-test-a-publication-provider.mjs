@@ -86,8 +86,10 @@ export function createVercelTestAPublicationProvider(options = {}) {
 
   async function findExactDeployment(request) {
     let until;
+    let exactDeployment = null;
+    const seenCursors = new Set();
     for (let page = 0; page < 100; page += 1) {
-      const cursorQuery = until ? `&until=${encodeURIComponent(until)}` : "";
+      const cursorQuery = until === undefined ? "" : `&until=${encodeURIComponent(until)}`;
       const result = await vercelJson(
         `/v7/deployments?projectId=${encodeURIComponent(projectId)}&limit=100${cursorQuery}&${teamQuery}`,
         { method: "GET" },
@@ -95,16 +97,24 @@ export function createVercelTestAPublicationProvider(options = {}) {
       const matches = (Array.isArray(result?.deployments) ? result.deployments : []).filter((deployment) => (
         deployment?.projectId === projectId && metadataMatches(deployment.meta, request)
       ));
-      if (matches.length > 1) {
+      if (matches.length > 1 || (matches.length === 1 && exactDeployment)) {
         throw providerError("Vercel returned multiple deployments for one exact TEST-A publication operation.", false);
       }
-      if (matches.length === 1) return matches[0];
+      if (matches.length === 1) exactDeployment = matches[0];
       const next = result?.pagination?.next;
-      if (next === null || next === undefined) return null;
-      if (!Number.isSafeInteger(Number(next)) || Number(next) < 0) {
+      if (next === null || next === undefined) return exactDeployment;
+      const nextNumber = Number(next);
+      const nextCursor = String(next);
+      if (
+        !Number.isSafeInteger(nextNumber)
+        || nextNumber < 0
+        || seenCursors.has(nextCursor)
+        || (until !== undefined && nextNumber >= Number(until))
+      ) {
         throw providerError("Vercel returned an invalid deployment pagination cursor.", true);
       }
-      until = String(next);
+      seenCursors.add(nextCursor);
+      until = nextCursor;
     }
     throw providerError("Vercel deployment reconciliation exceeded its bounded page limit.", true);
   }
@@ -130,6 +140,7 @@ export function createVercelTestAPublicationProvider(options = {}) {
       providerReceiptId: deploymentId,
       stableUrl,
       revisionId: request.revisionId,
+      artifactSetId: request.artifactSetId,
       artifactManifestDigest: request.artifactManifestDigest,
       idempotencyKey: request.idempotencyKey,
     };
@@ -255,12 +266,20 @@ function assertCanaryRequest(request, canaryJobId, canaryRevisionId) {
   ) {
     throw providerError("Publication is restricted to the configured TEST-A canary job and revision.", false);
   }
+  if (
+    typeof request.artifactSetId !== "string"
+    || !/^[A-Za-z0-9_-]{1,160}$/.test(request.artifactSetId)
+    || request.artifactSet?.artifactSetId !== request.artifactSetId
+  ) {
+    throw providerError("Publication artifact set id does not match the exact persisted operation.", false);
+  }
 }
 
 function metadataFor(request) {
   return {
     bbCanaryJobId: request.jobId,
     bbRevisionId: request.revisionId,
+    bbArtifactSetId: request.artifactSetId,
     bbArtifactManifestDigest: request.artifactManifestDigest,
     bbIdempotencyKey: request.idempotencyKey,
   };
@@ -276,6 +295,7 @@ function publicationManifestFor(request, files) {
     schemaVersion: "1.0",
     jobId: request.jobId,
     revisionId: request.revisionId,
+    artifactSetId: request.artifactSetId,
     artifactManifestDigest: request.artifactManifestDigest,
     idempotencyKey: request.idempotencyKey,
     files: files.map((file) => ({

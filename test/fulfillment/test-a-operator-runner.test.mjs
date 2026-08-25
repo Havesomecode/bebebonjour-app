@@ -128,6 +128,7 @@ test("private TEST-A operator runner persists review before exact publication an
           providerReceiptId: "deployment_test_001",
           stableUrl: "https://announcements.example.test/announcements/job_test_001",
           revisionId: request.revisionId,
+          artifactSetId: request.artifactSetId,
           artifactManifestDigest: request.artifactManifestDigest,
           idempotencyKey: request.idempotencyKey,
         };

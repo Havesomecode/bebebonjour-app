@@ -1,0 +1,82 @@
+{
+  "schemaVersion": "1.0",
+  "auditId": "test-a-publication-regression-audit-v1",
+  "baselineCommit": "857b22056f9d30abb99ed68701773fd4058b6b9b",
+  "auditScript": "ops/test-a-production-audit.mjs",
+  "scope": "Offline production-readiness evidence for exact TEST-A artifact binding and Vercel deployment reconciliation. No provider mutation or live data is used.",
+  "controls": [
+    {
+      "id": "nested-artifact-set-binding",
+      "requirement": "The top-level publication artifactSetId must equal a valid artifactSet.artifactSetId before adapter or provider I/O and remain bound in provider metadata, stable read-back, and receipts.",
+      "implementation": [
+        "src/fulfillment/exact-revision-publication-adapter.mjs",
+        "src/fulfillment/vercel-test-a-publication-provider.mjs"
+      ],
+      "proofs": [
+        "test/fulfillment/exact-revision-publication-adapter.test.mjs: exact revision publication adapter rejects an absent or mismatched nested artifact-set id",
+        "test/fulfillment/exact-revision-publication-adapter.test.mjs: exact revision publication adapter rejects a provider receipt for another artifact set",
+        "test/fulfillment/vercel-test-a-publication-provider.test.mjs: Vercel TEST-A provider rejects an absent or mismatched nested artifact-set id before provider I/O"
+      ],
+      "failureMode": "Non-retryable rejection before provider invocation"
+    },
+    {
+      "id": "global-exact-deployment-uniqueness",
+      "requirement": "Reconciliation must scan every bounded Vercel result page and reject more than one exact metadata match across the complete scanned result set.",
+      "implementation": [
+        "src/fulfillment/vercel-test-a-publication-provider.mjs"
+      ],
+      "proofs": [
+        "test/fulfillment/vercel-test-a-publication-provider.test.mjs: Vercel TEST-A reconciliation rejects duplicate exact matches across deployment pages",
+        "test/fulfillment/vercel-test-a-publication-provider.test.mjs: Vercel TEST-A reconciliation selects one exact deployment found only on a later page",
+        "test/fulfillment/vercel-test-a-publication-provider.test.mjs: Vercel TEST-A reconciliation returns no match only after exhausting deployment pages"
+      ],
+      "failureMode": "Non-retryable rejection before alias mutation or stable read-back"
+    },
+    {
+      "id": "deployment-pagination-progress",
+      "requirement": "Every Vercel until cursor must be a non-negative safe integer, unseen, and strictly decreasing; repeated, cyclic, and non-monotonic cursors fail closed.",
+      "implementation": [
+        "src/fulfillment/vercel-test-a-publication-provider.mjs"
+      ],
+      "proofs": [
+        "test/fulfillment/vercel-test-a-publication-provider.test.mjs: Vercel TEST-A reconciliation rejects repeated, cyclic, and non-monotonic cursors"
+      ],
+      "failureMode": "Retryable provider-unavailable rejection before alias mutation or stable read-back"
+    }
+  ],
+  "verification": [
+    {
+      "command": "node ops/test-a-production-audit.mjs",
+      "requiredResult": "deterministic PASS with no provider mutation"
+    },
+    {
+      "command": "node --test test/fulfillment/exact-revision-publication-adapter.test.mjs test/fulfillment/vercel-test-a-publication-provider.test.mjs",
+      "requiredResult": "16 passed, 0 failed"
+    },
+    {
+      "command": "npm run test",
+      "requiredResult": "exit 0"
+    },
+    {
+      "command": "npm run test:integration",
+      "requiredResult": "exit 0 with RUN_DB_TESTS=1"
+    },
+    {
+      "command": "npm run build",
+      "requiredResult": "exit 0"
+    },
+    {
+      "command": "npm run test:vercel-routing",
+      "requiredResult": "exit 0"
+    },
+    {
+      "command": "npm audit --omit=dev",
+      "requiredResult": "exit 0 with 0 vulnerabilities"
+    },
+    {
+      "command": "git diff --check 857b22056f9d30abb99ed68701773fd4058b6b9b..HEAD",
+      "requiredResult": "exit 0"
+    }
+  ],
+  "releaseConstraint": "This evidence authorizes only a reviewed release candidate. It does not authorize provider mutation, deployment, alias changes, publication, or live customer-data access."
+}

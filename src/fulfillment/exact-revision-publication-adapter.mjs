@@ -36,7 +36,12 @@ function normalizeRequest(request) {
   const artifactSet = exact.artifactSet;
   if (
     !artifactSet
-    || !SAFE_ARTIFACT_KINDS.has(artifactSet.kind)
+    || requireIdentifier(artifactSet.artifactSetId, "publication nested artifact set id") !== exact.artifactSetId
+  ) {
+    throw publicationError("Publication artifact set id does not match the exact persisted operation.");
+  }
+  if (
+    !SAFE_ARTIFACT_KINDS.has(artifactSet.kind)
     || artifactSet.revisionId !== exact.revisionId
     || artifactSet.assetManifestDigest !== exact.artifactManifestDigest
     || !Array.isArray(artifactSet.files)
@@ -62,6 +67,7 @@ function normalizeReceipt(receipt, request, stableOrigin) {
   }
   if (
     receipt.revisionId !== request.revisionId
+    || receipt.artifactSetId !== request.artifactSetId
     || receipt.artifactManifestDigest !== request.artifactManifestDigest
     || receipt.idempotencyKey !== request.idempotencyKey
   ) {
@@ -81,6 +87,7 @@ function normalizeReceipt(receipt, request, stableOrigin) {
     providerReceiptId: requireNonEmptyString(receipt.providerReceiptId, "publication provider receipt id"),
     stableUrl: stableUrl.href,
     revisionId: request.revisionId,
+    artifactSetId: request.artifactSetId,
     artifactManifestDigest: request.artifactManifestDigest,
     idempotencyKey: request.idempotencyKey,
   };
