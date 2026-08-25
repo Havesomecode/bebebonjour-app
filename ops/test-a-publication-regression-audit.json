@@ -1,9 +1,27 @@
 {
   "schemaVersion": "1.0",
-  "auditId": "test-a-publication-regression-audit-v1",
-  "baselineCommit": "857b22056f9d30abb99ed68701773fd4058b6b9b",
+  "auditId": "test-a-publication-regression-audit-v2",
+  "baselineCommit": "55ac93a76f12c6e36532b1979fc2c13f3c15b054",
+  "candidateBoundary": {
+    "pathAllowlist": [
+      "ops/test-a-production-audit.mjs",
+      "ops/test-a-publication-regression-audit.json",
+      "src/fulfillment/vercel-test-a-publication-provider.mjs",
+      "test/fulfillment/vercel-test-a-publication-provider.test.mjs"
+    ],
+    "reviewedFileDigests": [
+      {
+        "path": "src/fulfillment/vercel-test-a-publication-provider.mjs",
+        "sha256": "401030804715a9eb786fcaa5046f0150d1565db889692f66dbf1d2e0074ad658"
+      },
+      {
+        "path": "test/fulfillment/vercel-test-a-publication-provider.test.mjs",
+        "sha256": "2813bed309b7afba68916dc3714b0becbb3569856c3280a5492805cb8565285a"
+      }
+    ]
+  },
   "auditScript": "ops/test-a-production-audit.mjs",
-  "scope": "Offline production-readiness evidence for exact TEST-A artifact binding and Vercel deployment reconciliation. No provider mutation or live data is used.",
+  "scope": "Offline production-readiness evidence for exact TEST-A artifact binding, immutable deployment byte verification before alias mutation, and Vercel deployment reconciliation. No provider mutation or live data is used.",
   "controls": [
     {
       "id": "nested-artifact-set-binding",
@@ -18,6 +36,19 @@
         "test/fulfillment/vercel-test-a-publication-provider.test.mjs: Vercel TEST-A provider rejects an absent or mismatched nested artifact-set id before provider I/O"
       ],
       "failureMode": "Non-retryable rejection before provider invocation"
+    },
+    {
+      "id": "immutable-deployment-pre-alias-verification",
+      "requirement": "Immediately before stable alias mutation, the selected immutable Vercel deployment URL must return the exact publication manifest and Vercel configuration digest, language redirect, private cache policy, and every approved file digest. Any content or configuration mismatch fails immediately without alias mutation.",
+      "implementation": [
+        "src/fulfillment/vercel-test-a-publication-provider.mjs"
+      ],
+      "proofs": [
+        "test/fulfillment/vercel-test-a-publication-provider.test.mjs: Vercel TEST-A provider reconciles the exact deployment metadata without creating another deployment",
+        "test/fulfillment/vercel-test-a-publication-provider.test.mjs: Vercel TEST-A reconciliation rejects mismatched immutable deployment bytes before alias mutation",
+        "test/fulfillment/vercel-test-a-publication-provider.test.mjs: Vercel TEST-A reconciliation rejects mismatched immutable deployment configuration before alias mutation"
+      ],
+      "failureMode": "Immediate fail-closed rejection with zero alias mutation for any mismatch; bounded retry only for transport or provider availability failures"
     },
     {
       "id": "global-exact-deployment-uniqueness",
@@ -51,7 +82,7 @@
     },
     {
       "command": "node --test test/fulfillment/exact-revision-publication-adapter.test.mjs test/fulfillment/vercel-test-a-publication-provider.test.mjs",
-      "requiredResult": "16 passed, 0 failed"
+      "requiredResult": "18 passed, 0 failed"
     },
     {
       "command": "npm run test",
@@ -74,7 +105,7 @@
       "requiredResult": "exit 0 with 0 vulnerabilities"
     },
     {
-      "command": "git diff --check 857b22056f9d30abb99ed68701773fd4058b6b9b..HEAD",
+      "command": "git diff --check 55ac93a76f12c6e36532b1979fc2c13f3c15b054",
       "requiredResult": "exit 0"
     }
   ],

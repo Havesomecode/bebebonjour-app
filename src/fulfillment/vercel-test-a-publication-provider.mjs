@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 
 const VERCEL_API_ORIGIN = "https://api.vercel.com";
+const PUBLICATION_CACHE_CONTROL = "private, no-store, max-age=0";
 const PENDING_STATES = new Set(["QUEUED", "INITIALIZING", "BUILDING"]);
 const TERMINAL_FAILURE_STATES = new Set(["ERROR", "CANCELED", "DELETED", "BLOCKED"]);
 
@@ -37,7 +38,8 @@ export function createVercelTestAPublicationProvider(options = {}) {
     const existing = await findExactDeployment(request);
     if (existing) return finalizeDeployment(existing, request, resolved);
 
-    const publicationManifest = publicationManifestFor(request, resolved.files);
+    const configurationBytes = vercelConfigurationBytes(canaryJobId, resolved.entrypointPath);
+    const publicationManifest = publicationManifestFor(request, resolved.files, configurationBytes);
     const generatedFiles = [
       {
         publicPath: `announcements/${canaryJobId}/.publication.json`,
@@ -45,7 +47,7 @@ export function createVercelTestAPublicationProvider(options = {}) {
       },
       {
         publicPath: "vercel.json",
-        bytes: Buffer.from(`${JSON.stringify(vercelConfiguration(canaryJobId, resolved.entrypointPath), null, 2)}\n`, "utf8"),
+        bytes: configurationBytes,
       },
     ];
     const deploymentFiles = [
@@ -125,6 +127,12 @@ export function createVercelTestAPublicationProvider(options = {}) {
     if (ready.projectId && ready.projectId !== projectId) {
       throw providerError("Vercel deployment resolved outside the configured TEST-A project.", false);
     }
+    const deploymentUrl = `${exactVercelDeploymentOrigin(ready?.url)}/announcements/${encodeURIComponent(canaryJobId)}`;
+    await verifyPublication(deploymentUrl, request, resolved, {
+      label: "Selected Vercel deployment",
+      finalMessage: "Selected Vercel deployment could not be verified before alias assignment.",
+      retryMismatches: false,
+    });
     const aliasResponse = await vercelRequest(
       `/v2/deployments/${encodeURIComponent(deploymentId)}/aliases?${teamQuery}`,
       {
@@ -134,7 +142,11 @@ export function createVercelTestAPublicationProvider(options = {}) {
       new Set([200, 201, 409]),
     );
     await aliasResponse.arrayBuffer();
-    await verifyStablePublication(request, resolved);
+    await verifyPublication(stableUrl, request, resolved, {
+      label: "Stable TEST-A publication",
+      finalMessage: "Stable TEST-A publication could not be verified after alias assignment.",
+      retryMismatches: true,
+    });
     return {
       provider: "vercel",
       providerReceiptId: deploymentId,
@@ -167,57 +179,76 @@ export function createVercelTestAPublicationProvider(options = {}) {
     throw providerError("Vercel TEST-A deployment did not become ready within the bounded poll window.", true);
   }
 
-  async function verifyStablePublication(request, resolved) {
+  async function verifyPublication(publicationUrl, request, resolved, verification) {
+    const configurationBytes = vercelConfigurationBytes(request.jobId, resolved.entrypointPath);
+    const expectedManifest = publicationManifestFor(request, resolved.files, configurationBytes);
     let lastError;
     for (let attempt = 0; attempt < maxPollAttempts; attempt += 1) {
       try {
-        const manifestResponse = await publicFetch(`${stableUrl}/.publication.json`);
-        const manifest = JSON.parse(Buffer.from(await manifestResponse.arrayBuffer()).toString("utf8"));
-        const expectedManifest = publicationManifestFor(request, resolved.files);
+        const manifestResponse = await publicFetch(`${publicationUrl}/.publication.json`, verification);
+        let manifest;
+        try {
+          manifest = JSON.parse(Buffer.from(await manifestResponse.arrayBuffer()).toString("utf8"));
+        } catch (error) {
+          throw publicationMismatch(`${verification.label} manifest is not valid JSON.`, verification, error);
+        }
         if (JSON.stringify(manifest) !== JSON.stringify(expectedManifest)) {
-          throw providerError("Stable publication manifest does not match the exact approved operation.", true);
+          throw publicationMismatch(
+            `${verification.label} manifest or Vercel configuration does not match the exact approved operation.`,
+            verification,
+          );
         }
         for (const file of resolved.files) {
-          const response = await publicFetch(`${stableUrl}/${encodePublicPath(file.publicPath)}`);
+          const response = await publicFetch(`${publicationUrl}/${encodePublicPath(file.publicPath)}`, verification);
           const bytes = Buffer.from(await response.arrayBuffer());
           if (bytes.byteLength !== file.bytes.byteLength || sha256(bytes) !== file.sha256) {
-            throw providerError(`Stable publication bytes do not match ${file.publicPath}.`, true);
+            throw publicationMismatch(`${verification.label} bytes do not match ${file.publicPath}.`, verification);
           }
         }
         const index = resolved.files.find(({ publicPath }) => publicPath === resolved.entrypointPath);
-        const canonicalUrl = `${stableUrl}/${resolved.entrypointPath.slice(0, -"index.html".length)}`;
-        const redirectResponse = await fetchImpl(stableUrl, { redirect: "manual" });
+        const canonicalUrl = `${publicationUrl}/${resolved.entrypointPath.slice(0, -"index.html".length)}`;
+        const redirectResponse = await fetchImpl(publicationUrl, { method: "GET", redirect: "manual" });
         const redirectTarget = redirectResponse.headers.get("location");
         if (
           ![307, 308].includes(redirectResponse.status)
           || !redirectTarget
-          || new URL(redirectTarget, stableOrigin).href !== canonicalUrl
+          || new URL(redirectTarget, publicationUrl).href !== canonicalUrl
         ) {
-          throw providerError("Stable TEST-A publication did not return its exact language redirect.", true);
+          throw publicationMismatch(`${verification.label} did not return its exact language redirect.`, verification);
         }
-        const stableResponse = await publicFetch(canonicalUrl);
-        const stableBytes = Buffer.from(await stableResponse.arrayBuffer());
-        if (stableBytes.byteLength !== index.bytes.byteLength || sha256(stableBytes) !== index.sha256) {
-          throw providerError("Stable TEST-A URL does not resolve the exact approved index bytes.", true);
+        const canonicalResponse = await publicFetch(canonicalUrl, verification);
+        const canonicalBytes = Buffer.from(await canonicalResponse.arrayBuffer());
+        if (canonicalBytes.byteLength !== index.bytes.byteLength || sha256(canonicalBytes) !== index.sha256) {
+          throw publicationMismatch(
+            `${verification.label} URL does not resolve the exact approved index bytes.`,
+            verification,
+          );
         }
         return;
       } catch (error) {
         lastError = error;
+        if (error?.retryable === false) throw error;
         if (attempt + 1 < maxPollAttempts) await wait(pollIntervalMs);
       }
     }
-    throw providerError("Stable TEST-A publication could not be verified after alias assignment.", true, lastError);
+    throw providerError(verification.finalMessage, true, lastError);
   }
 
-  async function publicFetch(url) {
+  async function publicFetch(url, verification) {
     let response;
     try {
       response = await fetchImpl(url, { method: "GET", redirect: "error" });
     } catch (error) {
-      throw providerError("Stable TEST-A publication read-back failed.", true, error);
+      throw providerError(`${verification.label} read-back failed.`, true, error);
     }
     if (!response?.ok) {
-      throw providerError(`Stable TEST-A publication read-back returned HTTP ${response?.status}.`, true);
+      throw providerError(`${verification.label} read-back returned HTTP ${response?.status}.`, true);
+    }
+    if (!verification.retryMismatches && response.headers.get("cache-control") !== PUBLICATION_CACHE_CONTROL) {
+      throw publicationMismatch(
+        `${verification.label} did not return the exact private cache policy.`,
+        verification,
+      );
     }
     return response;
   }
@@ -290,7 +321,7 @@ function metadataMatches(metadata, request) {
   return Object.entries(expected).every(([key, value]) => metadata?.[key] === value);
 }
 
-function publicationManifestFor(request, files) {
+function publicationManifestFor(request, files, configurationBytes) {
   return {
     schemaVersion: "1.0",
     jobId: request.jobId,
@@ -298,6 +329,10 @@ function publicationManifestFor(request, files) {
     artifactSetId: request.artifactSetId,
     artifactManifestDigest: request.artifactManifestDigest,
     idempotencyKey: request.idempotencyKey,
+    vercelConfiguration: {
+      sha256: sha256(configurationBytes),
+      bytes: configurationBytes.byteLength,
+    },
     files: files.map((file) => ({
       path: file.publicPath,
       sha256: file.sha256,
@@ -315,9 +350,13 @@ function vercelConfiguration(jobId, entrypointPath) {
     }],
     headers: [{
       source: `/announcements/${jobId}/(.*)`,
-      headers: [{ key: "cache-control", value: "private, no-store, max-age=0" }],
+      headers: [{ key: "cache-control", value: PUBLICATION_CACHE_CONTROL }],
     }],
   };
+}
+
+function vercelConfigurationBytes(jobId, entrypointPath) {
+  return Buffer.from(`${JSON.stringify(vercelConfiguration(jobId, entrypointPath), null, 2)}\n`, "utf8");
 }
 
 function encodePublicPath(value) {
@@ -328,6 +367,32 @@ function exactHttpsOrigin(value) {
   const url = new URL(value);
   if (url.protocol !== "https:" || url.pathname !== "/" || url.search || url.hash) {
     throw new Error("The Vercel TEST-A stable origin must be an exact HTTPS origin.");
+  }
+  return url.origin;
+}
+
+function exactVercelDeploymentOrigin(value) {
+  if (typeof value !== "string" || value.trim() === "") {
+    throw providerError("Vercel deployment did not include its immutable URL.", true);
+  }
+  let url;
+  try {
+    const normalized = value.includes("://") ? value : `https://${value}`;
+    url = new URL(normalized);
+  } catch (error) {
+    throw providerError("Vercel deployment returned an invalid immutable URL.", true, error);
+  }
+  if (
+    url.protocol !== "https:"
+    || url.username
+    || url.password
+    || url.port
+    || url.pathname !== "/"
+    || url.search
+    || url.hash
+    || !url.hostname.endsWith(".vercel.app")
+  ) {
+    throw providerError("Vercel deployment returned an invalid immutable HTTPS origin.", true);
   }
   return url.origin;
 }
@@ -380,4 +445,8 @@ function providerError(message, retryable, cause) {
   error.reasonCode = retryable ? "publication_provider_unavailable" : "publication_scope_invalid";
   error.retryable = retryable;
   return error;
+}
+
+function publicationMismatch(message, verification, cause) {
+  return providerError(message, verification.retryMismatches, cause);
 }

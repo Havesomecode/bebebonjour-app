@@ -12,6 +12,10 @@ const JOB_ID = "job_test_001";
 const REVISION_ID = "r1";
 const IDEMPOTENCY_KEY = `bb_${"e".repeat(64)}`;
 const STABLE_ORIGIN = "https://test-a-announcements.example.test";
+const CREATED_DEPLOYMENT_ORIGIN = "https://dpl-test-a-001.vercel.app";
+const EXISTING_DEPLOYMENT_ORIGIN = "https://dpl-test-a-existing.vercel.app";
+const LATER_DEPLOYMENT_ORIGIN = "https://dpl-match-later.vercel.app";
+const PUBLICATION_CACHE_CONTROL = "private, no-store, max-age=0";
 
 function sha256(value) {
   return createHash("sha256").update(value).digest("hex");
@@ -85,6 +89,34 @@ function jsonResponse(body, status = 200) {
   });
 }
 
+function publicationJsonResponse(body) {
+  return new Response(JSON.stringify(body), {
+    status: 200,
+    headers: {
+      "cache-control": PUBLICATION_CACHE_CONTROL,
+      "content-type": "application/json",
+    },
+  });
+}
+
+function publicationBytesResponse(body) {
+  return new Response(body, { headers: { "cache-control": PUBLICATION_CACHE_CONTROL } });
+}
+
+function vercelConfigurationBytes() {
+  return Buffer.from(`${JSON.stringify({
+    redirects: [{
+      source: `/announcements/${JOB_ID}`,
+      destination: `/announcements/${JOB_ID}/fr/`,
+      permanent: false,
+    }],
+    headers: [{
+      source: `/announcements/${JOB_ID}/(.*)`,
+      headers: [{ key: "cache-control", value: PUBLICATION_CACHE_CONTROL }],
+    }],
+  }, null, 2)}\n`, "utf8");
+}
+
 function createProvider({ calls, fixtureValue, fetchImpl }) {
   return createVercelTestAPublicationProvider({
     token: "vercel_test_token",
@@ -105,6 +137,7 @@ function createProvider({ calls, fixtureValue, fetchImpl }) {
 }
 
 function publicManifestFor(value) {
+  const configurationBytes = vercelConfigurationBytes();
   return {
     schemaVersion: "1.0",
     jobId: JOB_ID,
@@ -112,12 +145,34 @@ function publicManifestFor(value) {
     artifactSetId: value.request.artifactSetId,
     artifactManifestDigest: value.request.artifactManifestDigest,
     idempotencyKey: IDEMPOTENCY_KEY,
+    vercelConfiguration: {
+      sha256: sha256(configurationBytes),
+      bytes: configurationBytes.byteLength,
+    },
     files: value.request.artifactSet.files.map((file) => ({
       path: file.path.slice("deploy/canary/".length),
       sha256: file.sha256,
       bytes: file.bytes,
     })),
   };
+}
+
+function publicationReadbackResponse(url, value, manifest, origin, index = value.index) {
+  if (url === `${origin}/announcements/${JOB_ID}/.publication.json`) return publicationJsonResponse(manifest);
+  if (url === `${origin}/announcements/${JOB_ID}`) {
+    return new Response(null, {
+      status: 307,
+      headers: { location: `/announcements/${JOB_ID}/fr/` },
+    });
+  }
+  if (
+    url === `${origin}/announcements/${JOB_ID}/fr/`
+    || url === `${origin}/announcements/${JOB_ID}/fr/index.html`
+  ) return publicationBytesResponse(index);
+  if (url === `${origin}/announcements/${JOB_ID}/_assets/build/canary.bin`) {
+    return publicationBytesResponse(value.asset);
+  }
+  return null;
 }
 
 test("Vercel TEST-A provider resolves exact source bytes before one scoped alias mutation", async (t) => {
@@ -139,16 +194,38 @@ test("Vercel TEST-A provider resolves exact source bytes before one scoped alias
         publicationManifest = JSON.parse(
           uploadedBodies.find((body) => body.includes(Buffer.from("artifactManifestDigest"))).toString("utf8"),
         );
+        const uploadedConfiguration = uploadedBodies.find((body) => body.includes(Buffer.from("redirects")));
+        assert.deepEqual(publicationManifest.vercelConfiguration, {
+          sha256: sha256(uploadedConfiguration),
+          bytes: uploadedConfiguration.byteLength,
+        });
+        assert.deepEqual(uploadedConfiguration, vercelConfigurationBytes());
         assert.equal(payload.project, "prj_test_a_announcements");
         assert.equal(payload.target, undefined);
         assert.equal(payload.meta.bbArtifactSetId, value.request.artifactSetId);
         assert.equal(payload.meta.bbArtifactManifestDigest, value.request.artifactManifestDigest);
         assert.ok(payload.files.every(({ file }) => file.startsWith(`announcements/${JOB_ID}/`) || file === "vercel.json"));
-        return jsonResponse({ id: "dpl_test_a_001", readyState: "QUEUED" });
+        return jsonResponse({
+          id: "dpl_test_a_001",
+          url: new URL(CREATED_DEPLOYMENT_ORIGIN).hostname,
+          readyState: "QUEUED",
+        });
       }
       if (url.includes("/v13/deployments/dpl_test_a_001")) {
-        return jsonResponse({ id: "dpl_test_a_001", projectId: "prj_test_a_announcements", readyState: "READY" });
+        return jsonResponse({
+          id: "dpl_test_a_001",
+          url: new URL(CREATED_DEPLOYMENT_ORIGIN).hostname,
+          projectId: "prj_test_a_announcements",
+          readyState: "READY",
+        });
       }
+      const immutableResponse = publicationReadbackResponse(
+        url,
+        value,
+        publicationManifest,
+        CREATED_DEPLOYMENT_ORIGIN,
+      );
+      if (immutableResponse) return immutableResponse;
       if (url.includes("/v2/deployments/dpl_test_a_001/aliases")) {
         assert.deepEqual(JSON.parse(init.body), { alias: "test-a-announcements.example.test" });
         return jsonResponse({ uid: "alias_test_a", alias: "test-a-announcements.example.test" });
@@ -208,6 +285,7 @@ test("Vercel TEST-A provider reconciles the exact deployment metadata without cr
       if (url.includes("/v7/deployments")) {
         return jsonResponse({ deployments: [{
           uid: "dpl_test_a_existing",
+          url: new URL(EXISTING_DEPLOYMENT_ORIGIN).hostname,
           projectId: "prj_test_a_announcements",
           readyState: "READY",
           meta: {
@@ -220,6 +298,22 @@ test("Vercel TEST-A provider reconciles the exact deployment metadata without cr
         }], pagination: { next: null } });
       }
       if (url.includes("/aliases")) return jsonResponse({ uid: "alias_existing" }, 409);
+      if (url === `${EXISTING_DEPLOYMENT_ORIGIN}/announcements/${JOB_ID}/.publication.json`) {
+        return publicationJsonResponse(publicManifest);
+      }
+      if (url === `${EXISTING_DEPLOYMENT_ORIGIN}/announcements/${JOB_ID}`) {
+        return new Response(null, {
+          status: 307,
+          headers: { location: `/announcements/${JOB_ID}/fr/` },
+        });
+      }
+      if (
+        url === `${EXISTING_DEPLOYMENT_ORIGIN}/announcements/${JOB_ID}/fr/`
+        || url === `${EXISTING_DEPLOYMENT_ORIGIN}/announcements/${JOB_ID}/fr/index.html`
+      ) return publicationBytesResponse(value.index);
+      if (url === `${EXISTING_DEPLOYMENT_ORIGIN}/announcements/${JOB_ID}/_assets/build/canary.bin`) {
+        return publicationBytesResponse(value.asset);
+      }
       if (url.endsWith("/.publication.json")) return jsonResponse(publicManifest);
       if (url.endsWith(`/announcements/${JOB_ID}`)) {
         return new Response(null, {
@@ -238,6 +332,114 @@ test("Vercel TEST-A provider reconciles the exact deployment metadata without cr
   assert.equal(receipt.providerReceiptId, "dpl_test_a_existing");
   assert.equal(calls.filter(({ url, init }) => url.includes("/v13/deployments") && init.method === "POST").length, 0);
   assert.equal(calls.filter(({ url }) => url.includes("/v2/files")).length, 0);
+  const immutableReadIndexes = calls
+    .map(({ url }, index) => (url.startsWith(EXISTING_DEPLOYMENT_ORIGIN) ? index : -1))
+    .filter((index) => index >= 0);
+  const aliasIndex = calls.findIndex(({ url }) => url.includes("/aliases"));
+  const stableReadIndex = calls.findIndex(({ url }) => url.startsWith(STABLE_ORIGIN));
+  assert.ok(immutableReadIndexes.length >= 5, "the selected deployment manifest, redirect, and files must be read back");
+  assert.ok(immutableReadIndexes.every((index) => index < aliasIndex), "all immutable deployment verification must precede aliasing");
+  assert.ok(stableReadIndex > aliasIndex, "stable publication verification must follow aliasing");
+});
+
+test("Vercel TEST-A reconciliation rejects mismatched immutable deployment bytes before alias mutation", async (t) => {
+  const value = await fixture(t);
+  const calls = [];
+  let indexReadCount = 0;
+  const publicManifest = publicManifestFor(value);
+  const provider = createProvider({
+    calls,
+    fixtureValue: value,
+    async fetchImpl(url) {
+      if (url.includes("/v7/deployments")) {
+        return jsonResponse({ deployments: [{
+          uid: "dpl_test_a_existing",
+          url: new URL(EXISTING_DEPLOYMENT_ORIGIN).hostname,
+          projectId: "prj_test_a_announcements",
+          readyState: "READY",
+          meta: {
+            bbCanaryJobId: JOB_ID,
+            bbRevisionId: REVISION_ID,
+            bbArtifactSetId: value.request.artifactSetId,
+            bbArtifactManifestDigest: value.request.artifactManifestDigest,
+            bbIdempotencyKey: IDEMPOTENCY_KEY,
+          },
+        }], pagination: { next: null } });
+      }
+      if (url === `${EXISTING_DEPLOYMENT_ORIGIN}/announcements/${JOB_ID}/.publication.json`) {
+        return publicationJsonResponse(publicManifest);
+      }
+      if (url === `${EXISTING_DEPLOYMENT_ORIGIN}/announcements/${JOB_ID}`) {
+        return new Response(null, {
+          status: 307,
+          headers: { location: `/announcements/${JOB_ID}/fr/` },
+        });
+      }
+      if (
+        url === `${EXISTING_DEPLOYMENT_ORIGIN}/announcements/${JOB_ID}/fr/`
+        || url === `${EXISTING_DEPLOYMENT_ORIGIN}/announcements/${JOB_ID}/fr/index.html`
+      ) {
+        indexReadCount += 1;
+        return publicationBytesResponse(indexReadCount === 1 ? "wrong deployment bytes" : value.index);
+      }
+      if (url === `${EXISTING_DEPLOYMENT_ORIGIN}/announcements/${JOB_ID}/_assets/build/canary.bin`) {
+        return publicationBytesResponse(value.asset);
+      }
+      if (url.includes("/aliases")) return jsonResponse({ uid: "alias_must_not_happen" });
+      throw new Error(`Unexpected fetch: ${url}`);
+    },
+  });
+
+  await assert.rejects(provider.reconcile(value.request), /deployment.*verified|deployment bytes/i);
+  assert.equal(calls.filter(({ url }) => url.includes("/aliases")).length, 0);
+  assert.equal(indexReadCount, 1, "an immutable byte mismatch must not be retried into success");
+});
+
+test("Vercel TEST-A reconciliation rejects mismatched immutable deployment configuration before alias mutation", async (t) => {
+  const value = await fixture(t);
+  const calls = [];
+  const publicManifest = publicManifestFor(value);
+  const mismatchedManifest = {
+    ...publicManifest,
+    vercelConfiguration: {
+      ...publicManifest.vercelConfiguration,
+      sha256: "0".repeat(64),
+    },
+  };
+  const provider = createProvider({
+    calls,
+    fixtureValue: value,
+    async fetchImpl(url) {
+      if (url.includes("/v7/deployments")) {
+        return jsonResponse({ deployments: [{
+          uid: "dpl_test_a_existing",
+          url: new URL(EXISTING_DEPLOYMENT_ORIGIN).hostname,
+          projectId: "prj_test_a_announcements",
+          readyState: "READY",
+          meta: {
+            bbCanaryJobId: JOB_ID,
+            bbRevisionId: REVISION_ID,
+            bbArtifactSetId: value.request.artifactSetId,
+            bbArtifactManifestDigest: value.request.artifactManifestDigest,
+            bbIdempotencyKey: IDEMPOTENCY_KEY,
+          },
+        }], pagination: { next: null } });
+      }
+      const immutableResponse = publicationReadbackResponse(
+        url,
+        value,
+        mismatchedManifest,
+        EXISTING_DEPLOYMENT_ORIGIN,
+      );
+      if (immutableResponse) return immutableResponse;
+      if (url.includes("/aliases")) return jsonResponse({ uid: "alias_must_not_happen" });
+      throw new Error(`Unexpected fetch: ${url}`);
+    },
+  });
+
+  await assert.rejects(provider.reconcile(value.request), /manifest or Vercel configuration/i);
+  assert.equal(calls.filter(({ url }) => url.includes("/aliases")).length, 0);
+  assert.equal(calls.filter(({ url }) => url.endsWith("/.publication.json")).length, 1);
 });
 
 test("Vercel TEST-A provider rejects an absent or mismatched nested artifact-set id before provider I/O", async (t) => {
@@ -310,6 +512,8 @@ test("Vercel TEST-A reconciliation selects one exact deployment found only on a 
     calls,
     fixtureValue: value,
     async fetchImpl(url, init) {
+      const immutableResponse = publicationReadbackResponse(url, value, publicManifest, LATER_DEPLOYMENT_ORIGIN);
+      if (immutableResponse) return immutableResponse;
       const parsed = new URL(url);
       if (parsed.pathname === "/v7/deployments" && !parsed.searchParams.has("until")) {
         return jsonResponse({ deployments: [], pagination: { next: 200 } });
@@ -317,6 +521,7 @@ test("Vercel TEST-A reconciliation selects one exact deployment found only on a 
       if (parsed.pathname === "/v7/deployments" && parsed.searchParams.get("until") === "200") {
         return jsonResponse({ deployments: [{
           uid: "dpl_match_later",
+          url: new URL(LATER_DEPLOYMENT_ORIGIN).hostname,
           projectId: "prj_test_a_announcements",
           readyState: "READY",
           meta: {
