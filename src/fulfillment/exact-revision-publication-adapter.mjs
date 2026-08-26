@@ -27,7 +27,14 @@ function normalizeRequest(request) {
   if (!request || request.environment !== "test" || request.product !== "announcement-page") {
     throw publicationError("Publication is restricted to the TEST-A announcement product.");
   }
-  const exact = structuredClone(request);
+  const { fenceExternalEffect, ...serializableRequest } = request;
+  const exact = structuredClone(serializableRequest);
+  if (fenceExternalEffect !== undefined) {
+    if (typeof fenceExternalEffect !== "function") {
+      throw publicationError("Publication external-effect fence is invalid.");
+    }
+    exact.fenceExternalEffect = fenceExternalEffect;
+  }
   requireIdentifier(exact.jobId, "publication job id");
   requireIdentifier(exact.revisionId, "publication revision id");
   requireIdentifier(exact.artifactSetId, "publication artifact set id");
@@ -37,6 +44,15 @@ function normalizeRequest(request) {
     && (!Number.isSafeInteger(exact.reconciliationCursor) || exact.reconciliationCursor < 0)
   ) {
     throw publicationError("Publication reconciliation cursor is invalid.");
+  }
+  if (
+    exact.priorEffectStartedAt !== undefined
+    && !isRfc3339DateTime(exact.priorEffectStartedAt)
+  ) {
+    throw publicationError("Publication prior effect start time is invalid.");
+  }
+  if (exact.reconciliationOnly !== undefined && typeof exact.reconciliationOnly !== "boolean") {
+    throw publicationError("Publication reconciliation mode is invalid.");
   }
   assertDigest(exact.artifactManifestDigest, "publication artifact manifest digest");
   const artifactSet = exact.artifactSet;
@@ -145,6 +161,29 @@ function assertSafeRelativePath(value, label) {
     throw publicationError(`${label} must be a safe relative path.`);
   }
   return normalized;
+}
+
+function isRfc3339DateTime(value) {
+  if (typeof value !== "string") return false;
+  const match = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.\d+)?(?:Z|[+-](\d{2}):(\d{2}))$/i.exec(value);
+  if (!match) return false;
+  const [, yearText, monthText, dayText, hourText, minuteText, secondText, offsetHourText, offsetMinuteText] = match;
+  const year = Number(yearText);
+  const month = Number(monthText);
+  const day = Number(dayText);
+  const leapYear = year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0);
+  const daysInMonth = [31, leapYear ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+  return (
+    month >= 1
+    && month <= 12
+    && day >= 1
+    && day <= daysInMonth[month - 1]
+    && Number(hourText) <= 23
+    && Number(minuteText) <= 59
+    && Number(secondText) <= 59
+    && Number(offsetHourText || 0) <= 23
+    && Number(offsetMinuteText || 0) <= 59
+  );
 }
 
 function publicationError(message) {

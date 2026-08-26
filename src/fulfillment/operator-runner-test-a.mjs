@@ -19,11 +19,31 @@ import { createVercelTestAPublicationProvider } from "./vercel-test-a-publicatio
 import { createConvexFulfillmentStore } from "../persistence/convex-fulfillment-store.mjs";
 
 const STAGES = Object.freeze(["prepare_review", "render_approved", "generate_tts", "publish", "deliver"]);
-const DEFAULT_RETRY_POLICY = Object.freeze({
+export const TEST_A_RETRY_POLICY = Object.freeze({
   leaseMsByStage: Object.freeze(Object.fromEntries(STAGES.map((stage) => [stage, 300_000]))),
   maxAttemptsByStage: Object.freeze(Object.fromEntries(STAGES.map((stage) => [stage, 2]))),
   backoffMsByStage: Object.freeze(Object.fromEntries(STAGES.map((stage) => [stage, Object.freeze([60_000])]))),
 });
+
+export function createTestAOperatorStatusRunner(options = {}) {
+  const environment = options.environment || process.env;
+  const store = options.store || createHostedStore(options, environment);
+  if (typeof store?.getJob !== "function") {
+    throw new Error("The TEST-A fulfillment store must implement getJob().");
+  }
+  const orchestrator = createFulfillmentOrchestrator({
+    store,
+    handlers: {},
+    clock: options.clock,
+    tokenFactory: options.tokenFactory,
+    retryPolicy: options.retryPolicy || TEST_A_RETRY_POLICY,
+  });
+  return Object.freeze({
+    status(jobId) {
+      return orchestrator.status(jobId);
+    },
+  });
+}
 
 export function createTestAOperatorRunner(options = {}) {
   const environment = options.environment || process.env;
@@ -76,7 +96,7 @@ export function createTestAOperatorRunner(options = {}) {
     handlers,
     clock,
     tokenFactory,
-    retryPolicy: options.retryPolicy || DEFAULT_RETRY_POLICY,
+    retryPolicy: options.retryPolicy || TEST_A_RETRY_POLICY,
   });
 
   return Object.freeze({

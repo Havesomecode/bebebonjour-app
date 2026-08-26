@@ -1,13 +1,6 @@
-export const REVIEWED_TEST_A_OPERATOR_IDENTITY = Object.freeze({
-  resendFrom: "Bébé Bonjour <onboarding@resend.dev>",
-  testSink: "delivered@resend.dev",
-  publication: Object.freeze({
-    teamId: "team_test_a",
-    projectId: "prj_test_a_announcements",
-    projectName: "bebebonjour-test-a-announcements",
-    stableOrigin: "https://announcements.example.test",
-  }),
-});
+import { REVIEWED_TEST_A_OPERATOR_POLICY } from "../config/test-a-hosted-provider-manifest.mjs";
+
+export const REVIEWED_TEST_A_OPERATOR_IDENTITY = REVIEWED_TEST_A_OPERATOR_POLICY.identity;
 
 export function requireReviewedTestAOperatorIdentity(environment) {
   const expected = REVIEWED_TEST_A_OPERATOR_IDENTITY;

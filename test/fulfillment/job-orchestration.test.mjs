@@ -14,6 +14,7 @@ import {
 } from "../../src/fulfillment/job-orchestrator.mjs";
 import { createExternalEffectStageHandlers } from "../../src/fulfillment/external-effect-stage-handlers.mjs";
 import { claimStageTransition } from "../../src/fulfillment/job-machine.mjs";
+import { createResendDeliveryAdapter } from "../../src/fulfillment/resend-delivery-adapter.mjs";
 import { createLocalTestFulfillmentStore } from "../../src/persistence/local-test-fulfillment-store.mjs";
 
 const DIGESTS = Object.freeze({
@@ -86,7 +87,8 @@ async function fixture(t, options = {}) {
     ...options.handlers,
   };
   const clock = options.clock || (() => "2026-08-11T00:00:00.000Z");
-  const store = createLocalTestFulfillmentStore({ filePath: storePath });
+  const persistedStore = createLocalTestFulfillmentStore({ filePath: storePath });
+  const store = options.decorateStore ? options.decorateStore(persistedStore) : persistedStore;
   const orchestrator = createFulfillmentOrchestrator({
     store,
     handlers,
@@ -1127,19 +1129,21 @@ test("review-gated external adapters recover ambiguous publication without a dup
         assert.equal(request.environment, "test");
         assert.equal(request.revisionId, "r1");
         assert.equal(request.artifactManifestDigest, DIGESTS.assetManifestDigest);
-        const receipt = {
-          provider: "fake-vercel",
-          revisionId: request.revisionId,
-          stableUrl: "https://example.invalid/announcements/job_synthetic_001",
-          artifactManifestDigest: request.artifactManifestDigest,
-          providerReceiptId: "fake-deployment-001",
-          idempotencyKey: request.idempotencyKey,
-        };
-        receipts.set(request.idempotencyKey, receipt);
-        const error = new Error("synthetic timeout after provider acceptance");
-        error.retryable = true;
-        error.reasonCode = "provider_outcome_unknown";
-        throw error;
+        return request.fenceExternalEffect({ effectMayBeIssued: true }, async () => {
+          const receipt = {
+            provider: "fake-vercel",
+            revisionId: request.revisionId,
+            stableUrl: "https://example.invalid/announcements/job_synthetic_001",
+            artifactManifestDigest: request.artifactManifestDigest,
+            providerReceiptId: "fake-deployment-001",
+            idempotencyKey: request.idempotencyKey,
+          };
+          receipts.set(request.idempotencyKey, receipt);
+          const error = new Error("synthetic timeout after provider acceptance");
+          error.retryable = true;
+          error.reasonCode = "provider_outcome_unknown";
+          throw error;
+        });
       },
     },
     deliveryAdapter: fakeDeliveryAdapter(),
@@ -1214,19 +1218,21 @@ test("ambiguous delivery acceptance is reconciled before retrying the send effec
     async send(request) {
       sendCalls += 1;
       assert.equal(request.attemptStartedAt, "2026-08-11T00:00:00.000Z");
-      const receipt = {
-        provider: "fake-resend",
-        revisionId: request.revisionId,
-        providerMessageId: "fake-message-ambiguous-001",
-        idempotencyKey: request.idempotencyKey,
-        artifactManifestDigest: request.artifactManifestDigest,
-        targetDigest: request.targetDigest,
-      };
-      receipts.set(request.idempotencyKey, receipt);
-      const error = new Error("synthetic timeout after message acceptance");
-      error.retryable = true;
-      error.reasonCode = "provider_outcome_unknown";
-      throw error;
+      return request.fenceExternalEffect({ effectMayBeIssued: true }, async () => {
+        const receipt = {
+          provider: "fake-resend",
+          revisionId: request.revisionId,
+          providerMessageId: "fake-message-ambiguous-001",
+          idempotencyKey: request.idempotencyKey,
+          artifactManifestDigest: request.artifactManifestDigest,
+          targetDigest: request.targetDigest,
+        };
+        receipts.set(request.idempotencyKey, receipt);
+        const error = new Error("synthetic timeout after message acceptance");
+        error.retryable = true;
+        error.reasonCode = "provider_outcome_unknown";
+        throw error;
+      });
     },
   });
   const externalHandlers = createExternalEffectStageHandlers({
@@ -1261,12 +1267,14 @@ test("delivery retries reconcile only and never retarget or resend", async (t) =
   let address = "first@example.test";
   let sendCalls = 0;
   const deliveryAdapter = fakeDeliveryAdapter({
-    async send() {
+    async send(request) {
       sendCalls += 1;
-      const error = new Error("synthetic provider unavailable before acceptance");
-      error.retryable = true;
-      error.reasonCode = "provider_unavailable";
-      throw error;
+      return request.fenceExternalEffect({ effectMayBeIssued: true }, async () => {
+        const error = new Error("synthetic provider unavailable before acceptance");
+        error.retryable = true;
+        error.reasonCode = "provider_unavailable";
+        throw error;
+      });
     },
   });
   const externalHandlers = createExternalEffectStageHandlers({
@@ -1291,9 +1299,221 @@ test("delivery retries reconcile only and never retarget or resend", async (t) =
   now = "2026-08-11T00:00:01.000Z";
   status = await orchestrator.runNext("job_synthetic_001");
 
-  assert.equal(status.state, "failed");
+  assert.equal(status.state, "reconciliation_required");
   assert.equal(status.stageAttempts.at(-1).failure.reasonCode, "provider_outcome_unknown");
   assert.equal(sendCalls, 1);
+});
+
+test("an issued delivery remains nonterminal when the final reconciliation lease expires", async (t) => {
+  let now = "2026-08-11T00:00:00.000Z";
+  let reconcileCalls = 0;
+  let sendCalls = 0;
+  let releaseFinalReconciliation;
+  let signalFinalReconciliationStarted;
+  const finalReconciliationRelease = new Promise((resolve) => { releaseFinalReconciliation = resolve; });
+  const finalReconciliationStarted = new Promise((resolve) => { signalFinalReconciliationStarted = resolve; });
+  const deliveryAdapter = fakeDeliveryAdapter({
+    async reconcile() {
+      reconcileCalls += 1;
+      if (reconcileCalls === 2) {
+        signalFinalReconciliationStarted();
+        await finalReconciliationRelease;
+      }
+      return null;
+    },
+    async send(request) {
+      sendCalls += 1;
+      return request.fenceExternalEffect({ effectMayBeIssued: true }, async () => {
+        const error = new Error("synthetic timeout after send issue");
+        error.retryable = true;
+        error.reasonCode = "provider_outcome_unknown";
+        throw error;
+      });
+    },
+  });
+  const externalHandlers = createExternalEffectStageHandlers({
+    publicationAdapter: fakePublicationAdapter(),
+    deliveryAdapter,
+    resolveDeliveryTarget: async () => ({ targetRef: "synthetic-recipient-001" }),
+  });
+  const retryPolicy = {
+    leaseMsByStage: Object.fromEntries([
+      "prepare_review", "generate_tts", "render_approved", "publish", "deliver",
+    ].map((stage) => [stage, 1_000])),
+    maxAttemptsByStage: Object.fromEntries([
+      "prepare_review", "generate_tts", "render_approved", "publish", "deliver",
+    ].map((stage) => [stage, 2])),
+    backoffMsByStage: Object.fromEntries([
+      "prepare_review", "generate_tts", "render_approved", "publish", "deliver",
+    ].map((stage) => [stage, [1_000]])),
+  };
+  const { orchestrator } = await fixture(t, {
+    clock: () => now,
+    handlers: externalHandlers,
+    retryPolicy,
+  });
+  await reachPublishReady(orchestrator);
+  await orchestrator.runNext("job_synthetic_001");
+  await orchestrator.queueDelivery("job_synthetic_001", { commandId: "queue-issued-delivery" });
+  assert.equal((await orchestrator.runNext("job_synthetic_001")).state, "retry_wait");
+
+  now = "2026-08-11T00:00:01.000Z";
+  const finalReconciliation = orchestrator.runNext("job_synthetic_001");
+  await finalReconciliationStarted;
+  try {
+    now = "2026-08-11T00:00:02.000Z";
+    const unresolved = await orchestrator.runNext("job_synthetic_001");
+    assert.equal(unresolved.state, "reconciliation_required");
+    assert.equal(unresolved.stageAttempts.at(-1).failure.reasonCode, "lease_expired");
+    assert.equal(sendCalls, 1);
+  } finally {
+    releaseFinalReconciliation();
+    await finalReconciliation.catch(() => undefined);
+  }
+});
+
+test("an expired delivery worker is fenced before the real Resend send boundary", async (t) => {
+  let now = "2026-08-11T00:00:00.000Z";
+  let resolverCalls = 0;
+  let sendCalls = 0;
+  let releaseStaleResolver;
+  let signalStaleResolverStarted;
+  const staleResolverRelease = new Promise((resolve) => { releaseStaleResolver = resolve; });
+  const staleResolverStarted = new Promise((resolve) => { signalStaleResolverStarted = resolve; });
+  const deliveryAdapter = createResendDeliveryAdapter({
+    from: "Bébé Bonjour <delivery@example.test>",
+    clock: () => now,
+    resend: {
+      emails: {
+        async send() {
+          sendCalls += 1;
+          return { data: { id: "email_fenced_001" }, error: null };
+        },
+      },
+    },
+  });
+  const externalHandlers = createExternalEffectStageHandlers({
+    publicationAdapter: fakePublicationAdapter(),
+    deliveryAdapter,
+    async resolveDeliveryTarget() {
+      resolverCalls += 1;
+      if (resolverCalls === 2) {
+        signalStaleResolverStarted();
+        await staleResolverRelease;
+      }
+      return { targetRef: "synthetic-recipient-001", email: "delivered@resend.dev" };
+    },
+  });
+  const retryPolicy = {
+    leaseMsByStage: Object.fromEntries([
+      "prepare_review", "generate_tts", "render_approved", "publish", "deliver",
+    ].map((stage) => [stage, 1_000])),
+    maxAttemptsByStage: Object.fromEntries([
+      "prepare_review", "generate_tts", "render_approved", "publish", "deliver",
+    ].map((stage) => [stage, 2])),
+    backoffMsByStage: Object.fromEntries([
+      "prepare_review", "generate_tts", "render_approved", "publish", "deliver",
+    ].map((stage) => [stage, [1_000]])),
+  };
+  const { orchestrator } = await fixture(t, {
+    clock: () => now,
+    handlers: externalHandlers,
+    retryPolicy,
+  });
+  await reachPublishReady(orchestrator);
+  await orchestrator.runNext("job_synthetic_001");
+  await orchestrator.queueDelivery("job_synthetic_001", { commandId: "queue-fenced-delivery" });
+
+  const staleRun = orchestrator.runNext("job_synthetic_001");
+  await staleResolverStarted;
+  try {
+    now = "2026-08-11T00:00:01.000Z";
+    await orchestrator.runNext("job_synthetic_001");
+    now = "2026-08-11T00:00:02.000Z";
+    const recovered = await orchestrator.runNext("job_synthetic_001");
+    assert.equal(recovered.state, "sent");
+    assert.equal(sendCalls, 1);
+  } finally {
+    releaseStaleResolver();
+    await staleRun.catch(() => undefined);
+  }
+  assert.equal(sendCalls, 1);
+});
+
+test("a stale delivery worker cannot invoke its Resend callback after its persisted fence loses ownership", async (t) => {
+  let now = "2026-08-11T00:00:00.000Z";
+  let sendCalls = 0;
+  let releaseStaleSendFence;
+  let signalStaleSendFencePersisted;
+  const staleSendFenceRelease = new Promise((resolve) => { releaseStaleSendFence = resolve; });
+  const staleSendFencePersisted = new Promise((resolve) => { signalStaleSendFencePersisted = resolve; });
+  const deliveryAdapter = createResendDeliveryAdapter({
+    from: "Bébé Bonjour <delivery@example.test>",
+    clock: () => now,
+    resend: {
+      emails: {
+        async send() {
+          sendCalls += 1;
+          return { data: { id: "email_fenced_001" }, error: null };
+        },
+      },
+    },
+  });
+  const externalHandlers = createExternalEffectStageHandlers({
+    publicationAdapter: fakePublicationAdapter(),
+    deliveryAdapter,
+    resolveDeliveryTarget: async () => ({
+      targetRef: "synthetic-recipient-001",
+      email: "delivered@resend.dev",
+    }),
+  });
+  const retryPolicy = {
+    leaseMsByStage: Object.fromEntries([
+      "prepare_review", "generate_tts", "render_approved", "publish", "deliver",
+    ].map((stage) => [stage, 1_000])),
+    maxAttemptsByStage: Object.fromEntries([
+      "prepare_review", "generate_tts", "render_approved", "publish", "deliver",
+    ].map((stage) => [stage, 2])),
+    backoffMsByStage: Object.fromEntries([
+      "prepare_review", "generate_tts", "render_approved", "publish", "deliver",
+    ].map((stage) => [stage, [1_000]])),
+  };
+  const { orchestrator } = await fixture(t, {
+    clock: () => now,
+    decorateStore(persistedStore) {
+      return {
+        ...persistedStore,
+        async fenceExternalEffect(jobId, command, at) {
+          const aggregate = await persistedStore.fenceExternalEffect(jobId, command, at);
+          if (command.effectMayBeIssued === true) {
+            signalStaleSendFencePersisted();
+            await staleSendFenceRelease;
+          }
+          return aggregate;
+        },
+      };
+    },
+    handlers: externalHandlers,
+    retryPolicy,
+  });
+  await reachPublishReady(orchestrator);
+  await orchestrator.runNext("job_synthetic_001");
+  await orchestrator.queueDelivery("job_synthetic_001", { commandId: "queue-fenced-delivery" });
+
+  const staleRun = orchestrator.runNext("job_synthetic_001");
+  await staleSendFencePersisted;
+  try {
+    now = "2026-08-11T00:00:01.000Z";
+    await orchestrator.runNext("job_synthetic_001");
+    now = "2026-08-11T00:00:02.000Z";
+    const recovered = await orchestrator.runNext("job_synthetic_001");
+    assert.equal(recovered.state, "reconciliation_required");
+    assert.equal(sendCalls, 0);
+  } finally {
+    releaseStaleSendFence();
+    await staleRun.catch(() => undefined);
+  }
+  assert.equal(sendCalls, 0);
 });
 
 test("caller-asserted delivery completion is rejected without a trusted verifier", async (t) => {

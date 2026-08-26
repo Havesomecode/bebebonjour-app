@@ -28,16 +28,25 @@ export function createVercelTestAPublicationProvider(options = {}) {
   async function reconcile(request) {
     assertCanaryRequest(request, canaryJobId, canaryRevisionId);
     const resolved = await artifactResolver.resolve(request);
-    const deployment = await findExactDeployment(request);
-    if (!deployment) return null;
-    return finalizeDeployment(deployment, request, resolved, { allowAliasMutation: false });
+    const attempts = request.reconciliationOnly === true ? maxPollAttempts : 1;
+    for (let attempt = 0; attempt < attempts; attempt += 1) {
+      const deployment = await findExactDeployment(request);
+      if (deployment) {
+        const receipt = await finalizeDeployment(deployment, request, resolved, {
+          aliasMutationMode: request.reconciliationOnly === true ? "if-missing" : "none",
+        });
+        if (receipt) return receipt;
+      }
+      if (attempt + 1 < attempts) await wait(pollIntervalMs);
+    }
+    return null;
   }
 
   async function publish(request) {
     assertCanaryRequest(request, canaryJobId, canaryRevisionId);
     const resolved = await artifactResolver.resolve(request);
     const existing = await findExactDeployment(request);
-    if (existing) return finalizeDeployment(existing, request, resolved, { allowAliasMutation: true });
+    if (existing) return finalizeDeployment(existing, request, resolved, { aliasMutationMode: "required" });
 
     const configurationBytes = vercelConfigurationBytes(canaryJobId, resolved.entrypointPath);
     const publicationManifest = publicationManifestFor(request, resolved.files, configurationBytes);
@@ -61,18 +70,18 @@ export function createVercelTestAPublicationProvider(options = {}) {
     const uploaded = [];
     for (const file of deploymentFiles) {
       const sha = sha1(file.bytes);
-      await vercelRequest(`/v2/files?${teamQuery}`, {
+      await fencedProviderMutation(request, false, () => vercelRequest(`/v2/files?${teamQuery}`, {
         method: "POST",
         headers: {
           "content-type": "application/octet-stream",
           "x-vercel-digest": sha,
         },
         body: file.bytes,
-      }, new Set([200, 201, 409]));
+      }, new Set([200, 201, 409])));
       uploaded.push({ file: file.publicPath, sha, size: file.bytes.byteLength });
     }
 
-    const deployment = await vercelJson(`/v13/deployments?${teamQuery}`, {
+    const deployment = await fencedProviderMutation(request, true, () => vercelJson(`/v13/deployments?${teamQuery}`, {
       method: "POST",
       body: JSON.stringify({
         name: projectName,
@@ -81,14 +90,14 @@ export function createVercelTestAPublicationProvider(options = {}) {
         meta: metadataFor(request),
         projectSettings: { framework: null },
       }),
-    }, new Set([200, 201]));
+    }, new Set([200, 201])));
     const deploymentId = deployment?.id || deployment?.uid;
     requireIdentifier(deploymentId, "Vercel deployment id");
     return finalizeDeployment(
       { ...deployment, uid: deploymentId },
       request,
       resolved,
-      { allowAliasMutation: true },
+      { aliasMutationMode: "required" },
     );
   }
 
@@ -143,34 +152,38 @@ export function createVercelTestAPublicationProvider(options = {}) {
     throw providerError("Vercel deployment reconciliation exceeded its bounded page limit.", true);
   }
 
-  async function finalizeDeployment(deployment, request, resolved, { allowAliasMutation }) {
+  async function finalizeDeployment(deployment, request, resolved, { aliasMutationMode }) {
     const ready = await waitForReady(deployment);
     const deploymentId = requireIdentifier(ready?.uid || ready?.id, "Vercel deployment id");
     if (ready.projectId && ready.projectId !== projectId) {
       throw providerError("Vercel deployment resolved outside the configured TEST-A project.", false);
     }
     const deploymentOrigin = exactVercelDeploymentOrigin(ready?.url);
-    await verifyProviderDeploymentEvidence(deploymentId, deploymentOrigin, request, resolved);
+    const deploymentEvidence = await verifyProviderDeploymentEvidence(
+      deploymentId,
+      deploymentOrigin,
+      request,
+      resolved,
+    );
     const deploymentUrl = `${deploymentOrigin}/announcements/${encodeURIComponent(canaryJobId)}`;
     await verifyPublication(deploymentUrl, request, resolved, {
       label: "Selected Vercel deployment",
       finalMessage: "Selected Vercel deployment could not be verified before alias assignment.",
       retryMismatches: false,
     });
-    if (!allowAliasMutation) {
+    if (aliasMutationMode === "none") {
       const aliased = await verifyProviderAliasEvidence(deploymentId, { allowMissing: true });
-      if (!aliased) return null;
+      if (!aliased) {
+        if (!canContinueAliasMutation(request, deploymentEvidence.createdAt)) return null;
+        await assignAndVerifyAlias(deploymentId, request);
+      }
     } else {
-      const aliasResponse = await vercelRequest(
-        `/v2/deployments/${encodeURIComponent(deploymentId)}/aliases?${teamQuery}`,
-        {
-          method: "POST",
-          body: JSON.stringify({ alias: stableHostname }),
-        },
-        new Set([200]),
-      );
-      await verifyAliasMutationResponse(aliasResponse, deploymentId);
-      await verifyProviderAliasEvidence(deploymentId);
+      const aliased = aliasMutationMode === "if-missing"
+        ? await verifyProviderAliasEvidence(deploymentId, { allowMissing: true })
+        : false;
+      if (!aliased) {
+        await assignAndVerifyAlias(deploymentId, request);
+      }
     }
     await verifyPublication(stableUrl, request, resolved, {
       label: "Stable TEST-A publication",
@@ -186,6 +199,26 @@ export function createVercelTestAPublicationProvider(options = {}) {
       artifactManifestDigest: request.artifactManifestDigest,
       idempotencyKey: request.idempotencyKey,
     };
+  }
+
+  async function fencedProviderMutation(request, effectMayBeIssued, providerMutation) {
+    if (typeof request?.fenceExternalEffect !== "function") {
+      throw providerError("Vercel publication requires a persisted provider-mutation lease fence.", false);
+    }
+    return request.fenceExternalEffect({ effectMayBeIssued }, providerMutation);
+  }
+
+  async function assignAndVerifyAlias(deploymentId, request) {
+    const aliasResponse = await fencedProviderMutation(request, true, () => vercelRequest(
+      `/v2/deployments/${encodeURIComponent(deploymentId)}/aliases?${teamQuery}`,
+      {
+        method: "POST",
+        body: JSON.stringify({ alias: stableHostname }),
+      },
+      new Set([200]),
+    ));
+    await verifyAliasMutationResponse(aliasResponse, deploymentId);
+    await verifyProviderAliasEvidence(deploymentId);
   }
 
   async function waitForReady(initial) {
@@ -270,10 +303,13 @@ export function createVercelTestAPublicationProvider(options = {}) {
     } catch (error) {
       throw providerError("Vercel provider deployment evidence is malformed.", false, error);
     }
+    const createdAt = deployment?.createdAt;
     if (
       (deployment?.id || deployment?.uid) !== deploymentId
       || deployment.projectId !== projectId
       || deployment.readyState !== "READY"
+      || !Number.isSafeInteger(createdAt)
+      || createdAt < 0
       || !metadataMatches(deployment.meta, request)
       || providerDeploymentOrigin !== deploymentOrigin
     ) {
@@ -312,6 +348,7 @@ export function createVercelTestAPublicationProvider(options = {}) {
         false,
       );
     }
+    return { createdAt };
   }
 
   async function verifyProviderAliasEvidence(deploymentId, { allowMissing = false } = {}) {
@@ -461,6 +498,17 @@ function assertCanaryRequest(request, canaryJobId, canaryRevisionId) {
   ) {
     throw providerError("Publication artifact set id does not match the exact persisted operation.", false);
   }
+  if (
+    request.priorEffectStartedAt !== undefined
+    && !isRfc3339DateTime(request.priorEffectStartedAt)
+  ) {
+    throw providerError("Publication prior effect start time is invalid.", false);
+  }
+}
+
+function canContinueAliasMutation(request, deploymentCreatedAt) {
+  if (request.priorEffectStartedAt === undefined) return false;
+  return deploymentCreatedAt >= Date.parse(request.priorEffectStartedAt);
 }
 
 function reconciliationCursor(request) {

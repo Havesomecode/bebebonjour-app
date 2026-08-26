@@ -164,22 +164,14 @@ export function createFulfillmentOrchestrator(options) {
         (entry) => entry.stage === stage && entry.status === "running",
       );
       const externalEffectStage = stage === "publish" || stage === "deliver";
-      const reconciliationOnly = externalEffectStage && aggregate.stageAttempts.some(
+      const priorEffectAttempt = externalEffectStage && aggregate.stageAttempts.find(
         (entry) => entry.attemptId !== attempt.attemptId
           && entry.stage === stage
           && entry.revisionId === attempt.revisionId
           && entry.idempotencyKey === attempt.idempotencyKey
           && typeof entry.effectStartedAt === "string",
       );
-
-      if (externalEffectStage) {
-        aggregate = await store.markExternalEffectStarted(jobId, {
-          commandId: `effect-started:${attempt.attemptId}`,
-          stage,
-          attemptId: attempt.attemptId,
-          leaseToken,
-        }, clock());
-      }
+      const reconciliationOnly = Boolean(priorEffectAttempt);
 
       const failAttempt = async (error, at = clock()) => {
         const classification = hasLeaseExpired(attempt, at)
@@ -196,14 +188,47 @@ export function createFulfillmentOrchestrator(options) {
 
       let result;
       try {
+        let effectFenceNumber = 0;
+        const fenceExternalEffect = externalEffectStage
+          ? async ({ effectMayBeIssued = false } = {}, providerMutation) => {
+            if (typeof providerMutation !== "function") {
+              throw new Error("External-effect fencing requires the exact provider mutation callback.");
+            }
+            await store.fenceExternalEffect(jobId, {
+              commandId: `effect-fence:${attempt.attemptId}:${effectFenceNumber += 1}`,
+              stage,
+              attemptId: attempt.attemptId,
+              leaseToken,
+              leaseMs,
+              effectMayBeIssued,
+            }, clock());
+            aggregate = await store.getJob(jobId);
+            const fencedAttempt = aggregate?.stageAttempts.find(
+              (entry) => entry.attemptId === attempt.attemptId,
+            );
+            const checkedAt = clock();
+            if (
+              fencedAttempt?.status !== "running"
+              || fencedAttempt.leaseToken !== leaseToken
+              || Date.parse(checkedAt) >= Date.parse(fencedAttempt.leaseExpiresAt)
+            ) {
+              throw new Error("Provider mutation requires current unexpired stage ownership.");
+            }
+            attempt.leaseExpiresAt = fencedAttempt.leaseExpiresAt;
+            attempt.effectStartedAt = fencedAttempt.effectStartedAt;
+            return providerMutation();
+          }
+          : null;
         result = await handler(Object.freeze({
           job: statusFromAggregate(aggregate),
           stage,
           attemptId: attempt.attemptId,
           attemptNumber: attempt.attemptNumber,
           attemptStartedAt: attempt.startedAt,
+          priorEffectStartedAt: priorEffectAttempt?.effectStartedAt,
           idempotencyKey: attempt.idempotencyKey,
           reconciliationOnly,
+          fenceExternalEffect,
           leaseToken,
           operation: externalEffectStage
             ? externalEffectInputFromAggregate(aggregate, stage)

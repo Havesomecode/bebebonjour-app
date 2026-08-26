@@ -25,6 +25,13 @@ export function createExternalEffectStageHandlers(options = {}) {
       if (!Number.isSafeInteger(reconciliationCursor) || reconciliationCursor < 0) {
         throw new Error("Publication reconciliation requires the persisted attempt start time.");
       }
+      const priorEffectStartedAt = context.priorEffectStartedAt;
+      if (
+        priorEffectStartedAt !== undefined
+        && (typeof priorEffectStartedAt !== "string" || !Number.isFinite(Date.parse(priorEffectStartedAt)))
+      ) {
+        throw new Error("Publication reconciliation requires a valid persisted prior effect start time.");
+      }
       const request = Object.freeze({
         jobId: operation.jobId,
         environment: operation.environment,
@@ -34,7 +41,10 @@ export function createExternalEffectStageHandlers(options = {}) {
         artifactManifestDigest: operation.artifactManifestDigest,
         artifactSet: structuredClone(operation.artifactSet),
         reconciliationCursor,
+        priorEffectStartedAt,
         idempotencyKey: requireIdempotencyKey(context),
+        reconciliationOnly: context.reconciliationOnly === true,
+        fenceExternalEffect: requireEffectFence(context),
       });
       const reconciled = await publicationAdapter.reconcile(request);
       if (!reconciled && context.reconciliationOnly) throw reconciliationPending("publication");
@@ -54,6 +64,7 @@ export function createExternalEffectStageHandlers(options = {}) {
         targetDigest: operation.deliveryTarget.targetDigest,
         attemptStartedAt: operation.attemptStartedAt,
         idempotencyKey: requireIdempotencyKey(context),
+        fenceExternalEffect: requireEffectFence(context),
       });
       const reconciled = await deliveryAdapter.reconcile(reconciliationRequest);
       if (reconciled) {
@@ -190,6 +201,13 @@ function requireIdempotencyKey(context) {
     throw new Error("A persisted fulfillment idempotency key is required.");
   }
   return value;
+}
+
+function requireEffectFence(context) {
+  if (typeof context?.fenceExternalEffect !== "function") {
+    throw new Error("A persisted external-effect lease fence is required.");
+  }
+  return context.fenceExternalEffect;
 }
 
 function assertDeliveryTarget(target) {

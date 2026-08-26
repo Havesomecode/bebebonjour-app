@@ -175,6 +175,32 @@ export function markExternalEffectStartedTransition(aggregate, command, at) {
   });
 }
 
+export function fenceExternalEffectTransition(aggregate, command, at) {
+  return withCommand(aggregate, command, "external_effect_fenced", at, (next) => {
+    if (command.stage !== "publish" && command.stage !== "deliver") {
+      throw new Error("Only publication and delivery stages can fence an external effect.");
+    }
+    assertPositiveInteger(command.leaseMs, "leaseMs");
+    const attempt = currentRunningAttempt(next, command.stage, command.leaseToken);
+    if (attempt.attemptId !== command.attemptId) {
+      throw new Error(`External effect fence must bind running attempt ${attempt.attemptId}.`);
+    }
+    if (Date.parse(at) >= Date.parse(attempt.leaseExpiresAt)) {
+      throw new Error("External effect cannot cross its provider boundary after the stage lease expired.");
+    }
+    if (command.effectMayBeIssued === true && attempt.effectStartedAt === null) {
+      attempt.effectStartedAt = at;
+    }
+    attempt.leaseExpiresAt = new Date(Date.parse(at) + command.leaseMs).toISOString();
+  }, {
+    commandId: command.commandId,
+    stage: command.stage,
+    attemptId: command.attemptId,
+    leaseMs: command.leaseMs,
+    effectMayBeIssued: command.effectMayBeIssued === true,
+  });
+}
+
 export function completeStageTransition(aggregate, completion, at) {
   return withCommand(aggregate, completion, "stage_completed", at, (next) => {
     const attempt = currentRunningAttempt(next, completion.stage, completion.leaseToken);
@@ -222,7 +248,17 @@ export function failStageTransition(aggregate, failure, policy, at) {
     }
     const maxAttempts = configuredPositiveInteger(policy?.maxAttemptsByStage?.[failure.stage], "max attempts");
     const retryable = failure.retryable === true && attempt.attemptNumber < maxAttempts;
-    attempt.status = retryable ? "retry_wait" : "failed";
+    const unresolvedExternalEffect = next.stageAttempts.some((entry) => (
+        entry.stage === attempt.stage
+        && entry.revisionId === attempt.revisionId
+        && entry.idempotencyKey === attempt.idempotencyKey
+        && typeof entry.effectStartedAt === "string"
+    ));
+    attempt.status = retryable
+      ? "retry_wait"
+      : unresolvedExternalEffect
+        ? "reconciliation_required"
+        : "failed";
     attempt.completedAt = at;
     attempt.leaseToken = null;
     attempt.leaseExpiresAt = null;
@@ -242,7 +278,7 @@ export function failStageTransition(aggregate, failure, policy, at) {
       return;
     }
 
-    next.state = "failed";
+    next.state = unresolvedExternalEffect ? "reconciliation_required" : "failed";
     next.retry = null;
   });
 }

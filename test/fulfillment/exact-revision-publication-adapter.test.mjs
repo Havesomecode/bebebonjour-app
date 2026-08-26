@@ -142,3 +142,26 @@ test("exact revision publication adapter rejects an absent or mismatched nested 
   }
   assert.equal(calls, 0);
 });
+
+test("exact revision publication adapter rejects a malformed prior effect timestamp", async () => {
+  let calls = 0;
+  const adapter = createExactRevisionPublicationAdapter({
+    provider: {
+      async reconcile() {
+        calls += 1;
+        return null;
+      },
+      async publish() {
+        calls += 1;
+        return {};
+      },
+    },
+    stableOrigin: "https://announcements.example.test",
+  });
+
+  await assert.rejects(adapter.reconcile({
+    ...request,
+    priorEffectStartedAt: "2026-02-30T12:00:00.000Z",
+  }), /prior effect start time/i);
+  assert.equal(calls, 0);
+});

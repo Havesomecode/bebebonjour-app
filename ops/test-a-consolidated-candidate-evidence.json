@@ -1,0 +1,383 @@
+{
+  "schemaVersion": "1.0",
+  "auditId": "test-a-consolidated-candidate-successor-2026-08-26",
+  "baselineCommit": "c7abbb7338282b7bfba2616693f2a8d75285d8d3",
+  "candidateBoundary": {
+    "changedPaths": [
+      "ops/test-a-consolidated-candidate-audit.mjs",
+      "ops/test-a-consolidated-candidate-evidence.json",
+      "package.json",
+      "schemas/fulfillment-job-store.schema.json",
+      "src/config/test-a-hosted-provider-manifest.mjs",
+      "src/fulfillment/exact-revision-publication-adapter.mjs",
+      "src/fulfillment/external-effect-stage-handlers.mjs",
+      "src/fulfillment/job-machine.mjs",
+      "src/fulfillment/job-orchestrator.mjs",
+      "src/fulfillment/operator-runner-test-a.mjs",
+      "src/fulfillment/resend-delivery-adapter.mjs",
+      "src/fulfillment/test-a-operator-runtime-identity.mjs",
+      "src/fulfillment/test-a-operator-startup.mjs",
+      "src/fulfillment/vercel-test-a-publication-provider.mjs",
+      "src/persistence/convex-fulfillment-store.mjs",
+      "src/persistence/local-test-fulfillment-store.mjs",
+      "test/config/hosted-provider-artifacts.test.mjs",
+      "test/config/test-a-hosted-provider-manifest-policy.test.mjs",
+      "test/config/test-a-operator-isolation-audit.test.mjs",
+      "test/fulfillment/exact-revision-publication-adapter.test.mjs",
+      "test/fulfillment/job-orchestration.test.mjs",
+      "test/fulfillment/resend-delivery-adapter.test.mjs",
+      "test/fulfillment/test-a-operator-startup.test.mjs",
+      "test/fulfillment/vercel-test-a-publication-provider.test.mjs"
+    ],
+    "pathAllowlist": [
+      "ops/test-a-consolidated-candidate-audit.mjs",
+      "ops/test-a-consolidated-candidate-evidence.json",
+      "package.json",
+      "schemas/fulfillment-job-store.schema.json",
+      "src/config/test-a-hosted-provider-manifest.mjs",
+      "src/fulfillment/exact-revision-publication-adapter.mjs",
+      "src/fulfillment/external-effect-stage-handlers.mjs",
+      "src/fulfillment/job-machine.mjs",
+      "src/fulfillment/job-orchestrator.mjs",
+      "src/fulfillment/operator-runner-test-a.mjs",
+      "src/fulfillment/resend-delivery-adapter.mjs",
+      "src/fulfillment/test-a-operator-runtime-identity.mjs",
+      "src/fulfillment/test-a-operator-startup.mjs",
+      "src/fulfillment/vercel-test-a-publication-provider.mjs",
+      "src/persistence/convex-fulfillment-store.mjs",
+      "src/persistence/local-test-fulfillment-store.mjs",
+      "test/config/hosted-provider-artifacts.test.mjs",
+      "test/config/test-a-hosted-provider-manifest-policy.test.mjs",
+      "test/config/test-a-operator-isolation-audit.test.mjs",
+      "test/fulfillment/exact-revision-publication-adapter.test.mjs",
+      "test/fulfillment/job-orchestration.test.mjs",
+      "test/fulfillment/resend-delivery-adapter.test.mjs",
+      "test/fulfillment/test-a-operator-startup.test.mjs",
+      "test/fulfillment/vercel-test-a-publication-provider.test.mjs"
+    ],
+    "reviewedFileDigests": [
+      {
+        "path": ".env.example",
+        "sha256": "0fa7d587cf5d9af7655db0413d30d2a9d34abc3255ace44fd59e6ce9c133f014"
+      },
+      {
+        "path": "api/customer-flow/[...route].mjs",
+        "sha256": "c02c032e2ac35fe0201d9cf3750eb5acfbbc326c27c473a4ffe3fc3dd4a93531"
+      },
+      {
+        "path": "api/webhooks/stripe.mjs",
+        "sha256": "a0280b9d7bfb821d1c79e03cbac7f944744cf5e875fb661b4c8ee10d557ba7c0"
+      },
+      {
+        "path": "api/webhooks/tally.mjs",
+        "sha256": "abcffc084bf1300a8d121a5e9614cf8804aa3bb90db4dfcae63617b60e775524"
+      },
+      {
+        "path": "ops/run-test-a-operator.mjs",
+        "sha256": "0e564883867ed83ff9239ace8167b71e837edddf1c6d5f7570337e92ea3dcaff"
+      },
+      {
+        "path": "ops/test-a-consolidated-candidate-audit.mjs",
+        "sha256": "73daa0d347e86f63f62f4112384c07c974c1e436f57c7909e659bcb95133297f"
+      },
+      {
+        "path": "ops/test-a-hosted-provider-manifest.json",
+        "sha256": "1ceebd23fa6bb4c2aa43ecbf63199f2fb689806d899e4eed2f5b39c0f9154a71"
+      },
+      {
+        "path": "package-lock.json",
+        "sha256": "17687ade9739e82e1b93a6590ba3e765e1a003b74300911a42d7a4ce1241140a"
+      },
+      {
+        "path": "package.json",
+        "sha256": "73e80dce461f096625d58f4d57bede8e5790eeb05b5c47f0b274feea2da4fc17"
+      },
+      {
+        "path": "schemas/fulfillment-job-store.schema.json",
+        "sha256": "826342b8055e22d4caf1b2ee07251ae7961e358dd5c06cffbd5ffad04219d50c"
+      },
+      {
+        "path": "scripts/lib/common.mjs",
+        "sha256": "a80c25d7c33d578f4d9a0e6cc1b4c7f81e90b484da99d2c1fe0bc66b57f69949"
+      },
+      {
+        "path": "scripts/lib/validators.mjs",
+        "sha256": "26e05efd57bc079e76e57a89ae070e6bc27b38ff8cc84bdb6878a8c08ffec164"
+      },
+      {
+        "path": "scripts/verify-vercel-routing.mjs",
+        "sha256": "5db40dcae7feb9133152129da2dee7c2ae2e42669fe351e2e11d87bcd319026e"
+      },
+      {
+        "path": "src/config/fulfillment-config.mjs",
+        "sha256": "cdccf071d916a470a30ae7fc21b4abb53febcc20b41a695068ab524ec115e4fc"
+      },
+      {
+        "path": "src/config/hosted-customer-flow-config.mjs",
+        "sha256": "c7d8939847f27c37b287ba137ef9db55ebd4c30ebf9d64470a1089dd630bcc67"
+      },
+      {
+        "path": "src/config/test-a-hosted-provider-manifest.mjs",
+        "sha256": "cca793cda178f4fb08fc507c120b1cfb5e0967274c22b552550ce383d607697d"
+      },
+      {
+        "path": "src/customer-flow/hosted-http-api.mjs",
+        "sha256": "c105c27be589e1591466169bd141eaac8f6683696736f52a437631e89c96572d"
+      },
+      {
+        "path": "src/customer-flow/hosted-runtime.mjs",
+        "sha256": "e74de33c39743c8642f6ea3473b9c8e72ab3d16d00d6aaf46a8ccd1c92ed31a5"
+      },
+      {
+        "path": "src/customer-flow/http-api.mjs",
+        "sha256": "0b964e06886486e34007104f7a26765f4680ba2e0613cec1c424ceb803de6624"
+      },
+      {
+        "path": "src/customer-flow/service.mjs",
+        "sha256": "1249fd4dd69eb0b3a08ae701fdd4c08949f42cc17239c7bb0bad520d1b51dc77"
+      },
+      {
+        "path": "src/customer-flow/stripe-checkout-webhook.mjs",
+        "sha256": "3d845c30a136cb2158d0c69f08a610dd7a91373f9878027e6c7abf016ac69e9f"
+      },
+      {
+        "path": "src/customer-flow/stripe-test-gateway.mjs",
+        "sha256": "18b68686d01259725a5da943b81116c5a8e1ab810ed8cf4dae0cb6b798d44183"
+      },
+      {
+        "path": "src/fulfillment/exact-revision-publication-adapter.mjs",
+        "sha256": "127b046d7cf79ae89791106c841205f0ece6efddd214991c499fb19e36cf64d4"
+      },
+      {
+        "path": "src/fulfillment/external-effect-stage-handlers.mjs",
+        "sha256": "96aaa5d45fffa146fab94093cfc691539b04895855f3fc0efd9abeab1e06dd50"
+      },
+      {
+        "path": "src/fulfillment/job-machine.mjs",
+        "sha256": "6c1110fdd99ed1e39a47c6c09cf7d1df2f9489b6faf65ae6726d13f21ab6d9f0"
+      },
+      {
+        "path": "src/fulfillment/job-orchestrator.mjs",
+        "sha256": "baa3e6ccfbe4df53ca5f4fa8ca281ef74adb6e27cc0a020d9a2755ef49a2bf55"
+      },
+      {
+        "path": "src/fulfillment/local-artifact-resolver.mjs",
+        "sha256": "88afe46135d292cc22aecec893f0df6e873e5002245e681e6e8ec823e3492fec"
+      },
+      {
+        "path": "src/fulfillment/operator-runner-test-a.mjs",
+        "sha256": "c59ed0105d44f83e79fce457fc62239eebf56893bb08c8650611beb7ef0208b5"
+      },
+      {
+        "path": "src/fulfillment/persisted-review-decision.mjs",
+        "sha256": "6606abaa1d3465ddef1deefbec2a651bf7f5d5f1870ab530b66b0fa8b47e0479"
+      },
+      {
+        "path": "src/fulfillment/resend-delivery-adapter.mjs",
+        "sha256": "035823af368bab8fa4bf4c377e8fcb1c6f207ea82f3bff47554058ea473f9659"
+      },
+      {
+        "path": "src/fulfillment/test-a-operator-runtime-identity.mjs",
+        "sha256": "b19073db755d4b77a2925111e20dafbb06d402b1b37845818929d63888f338ea"
+      },
+      {
+        "path": "src/fulfillment/test-a-operator-startup.mjs",
+        "sha256": "4804259564877e1f57e67d9fa5537224ae537cc56c3456016ea00cbbdacc4373"
+      },
+      {
+        "path": "src/fulfillment/vercel-test-a-publication-provider.mjs",
+        "sha256": "f3928438bda6149ad823db384671169dc813e609b4506e39de3026c96b4d6ab1"
+      },
+      {
+        "path": "src/http/production-webhooks.mjs",
+        "sha256": "49e2fd00389b49643afd246efe9711d9f5bf6a9dc9bc7c7e3d5461552f072663"
+      },
+      {
+        "path": "src/http/webhook-handlers.mjs",
+        "sha256": "cc5e36571897b8459cab4480b0bd8fa83bf07a8419f5f6b4835b467d30c112be"
+      },
+      {
+        "path": "src/persistence/convex-customer-flow-store.mjs",
+        "sha256": "8d4d2c93060c9a436e38ef62ab3942d9d3485d5a3c910a7d75e7dbe9295b7c9b"
+      },
+      {
+        "path": "src/persistence/convex-fulfillment-store.mjs",
+        "sha256": "89076cf188966992d8e9394681645938a167603ecf22c9b262dcc6b059507999"
+      },
+      {
+        "path": "src/persistence/local-test-fulfillment-store.mjs",
+        "sha256": "1e00fb400d0f00e283255c3175aada8f429a9b8d4d55b275e0b8867fb649409e"
+      },
+      {
+        "path": "src/persistence/supabase-fulfillment-store.mjs",
+        "sha256": "d3b0851635858149b24fc061d065ff959185e752c15233dd8a59f57961756c4e"
+      },
+      {
+        "path": "src/webhooks/errors.mjs",
+        "sha256": "ec97f17dc9c469ef172ca786f632d19dff3743418b1b0fc0ce76cf3a57785a70"
+      },
+      {
+        "path": "src/webhooks/evidence.mjs",
+        "sha256": "9b85f2d057066a7cdb45c8bcfb624e3d3470b00d78af9453379133e5a6b00b17"
+      },
+      {
+        "path": "src/webhooks/process-stripe-webhook.mjs",
+        "sha256": "0934f0fa9f5ebffaebc32d43ccfb1b6a3451c1856331cfa93fb01507e01e6887"
+      },
+      {
+        "path": "src/webhooks/process-tally-webhook.mjs",
+        "sha256": "d75d0060ded8a964b430e0b9e983fed71722e8ba3c206b8d22f6602a974744cd"
+      },
+      {
+        "path": "src/webhooks/stripe.mjs",
+        "sha256": "d9e6b2df610f213a1711a74351d2be16fe7adb6b5cd83481d1fd31b3a7db9770"
+      },
+      {
+        "path": "src/webhooks/tally.mjs",
+        "sha256": "16bc6422e15e2571137bc71b97659061f1bfa8a7557393d5717460d8ac5aeeb4"
+      },
+      {
+        "path": "test/config/hosted-provider-artifacts.test.mjs",
+        "sha256": "98bdcd7e4f4b84956926a37ea11a92e578ab0ece494f6fe3e7cbd81d6dc5d209"
+      },
+      {
+        "path": "test/config/test-a-hosted-provider-manifest-policy.test.mjs",
+        "sha256": "145b99f9f31a156c86cef1cd6e0c78e8767d250990f8f71b2bd877a64b6f7581"
+      },
+      {
+        "path": "test/config/test-a-operator-isolation-audit.test.mjs",
+        "sha256": "a906ccbb8285caadf1e4bfb4e52348f617d36ae98b9af91ebcc0787fc889fa53"
+      },
+      {
+        "path": "test/fulfillment/exact-revision-publication-adapter.test.mjs",
+        "sha256": "aa16a21f4f5a20ee14c849fae20af35bc9157bd54799862579d0fc4e33d1aad7"
+      },
+      {
+        "path": "test/fulfillment/job-orchestration.test.mjs",
+        "sha256": "42f3d45a2b8250033d7dd4fd7191b6cf0f774a84d38030b023e7031983db25f3"
+      },
+      {
+        "path": "test/fulfillment/resend-delivery-adapter.test.mjs",
+        "sha256": "44313ba390e1b177eaea6beef2821d6519658d439aa5c42f3f7a5f3a8e2268a0"
+      },
+      {
+        "path": "test/fulfillment/test-a-operator-startup.test.mjs",
+        "sha256": "027e49fd4f31865c5f09ed7c036045a5b26e8c19611908cdcc879d7c14e7ceea"
+      },
+      {
+        "path": "test/fulfillment/vercel-test-a-publication-provider.test.mjs",
+        "sha256": "223c12a85ccbcb481a562857fd38862d4affa0e4c4a66628058c6720ed63b038"
+      },
+      {
+        "path": "vercel.json",
+        "sha256": "be564ba1b2ff5c27eab497c33bef83b8912c17ce93e5c67deec56af03f7c0ec6"
+      }
+    ]
+  },
+  "reviewedManifest": {
+    "path": "ops/test-a-hosted-provider-manifest.json",
+    "sha256": "1ceebd23fa6bb4c2aa43ecbf63199f2fb689806d899e4eed2f5b39c0f9154a71"
+  },
+  "controls": [
+    {
+      "id": "fail-closed-private-operator-startup",
+      "requirement": "Provider-capable commands validate the reviewed secret-store policy before construction, while status uses a delivery-disabled runner that cannot construct Vercel or Resend adapters.",
+      "proofs": [
+        "test/fulfillment/test-a-operator-startup.test.mjs: status uses the delivery-disabled runner without requiring publication or delivery credentials",
+        "test/fulfillment/test-a-operator-startup.test.mjs: real status entrypoint reaches hosted-store construction and fails closed without provider credentials"
+      ]
+    },
+    {
+      "id": "interrupted-publication-exact-reconciliation",
+      "requirement": "A fresh worker recovers the one exact deployment left before alias assignment and aliases only that deployment without a second upload or deployment creation.",
+      "proofs": [
+        "test/fulfillment/vercel-test-a-publication-provider.test.mjs: a fresh worker aliases the exact deployment left by a crash before alias assignment",
+        "test/fulfillment/vercel-test-a-publication-provider.test.mjs: Vercel TEST-A publication retry starts reconciliation at the supplied cursor after an interrupted deployment"
+      ]
+    },
+    {
+      "id": "persisted-provider-mutation-fencing",
+      "requirement": "Every Vercel upload, deployment, and alias mutation plus every Resend send rechecks persisted attempt ownership immediately before provider invocation.",
+      "proofs": [
+        "test/fulfillment/job-orchestration.test.mjs: an expired stage lease is fenced, persisted, and retried with the same side-effect key",
+        "test/fulfillment/vercel-test-a-publication-provider.test.mjs: a stale Vercel worker cannot invoke its alias callback after its persisted fence loses ownership",
+        "test/fulfillment/job-orchestration.test.mjs: a stale delivery worker cannot invoke its Resend callback after its persisted fence loses ownership"
+      ]
+    },
+    {
+      "id": "reviewed-manifest-cold-start-authority",
+      "requirement": "The exact SHA-256-pinned hosted provider manifest supplies runtime identity and allowed/forbidden secret-store policy at cold start.",
+      "proofs": [
+        "test/config/test-a-hosted-provider-manifest-policy.test.mjs: reviewed TEST-A operator policy is loaded from the exact pinned manifest bytes",
+        "test/config/test-a-hosted-provider-manifest-policy.test.mjs: reviewed TEST-A operator policy rejects tampered bytes and contradictory secret-store policy"
+      ]
+    },
+    {
+      "id": "private-runtime-and-provider-identity-corrections",
+      "requirement": "The private operator remains absent from public entrypoints; exact deployment, project, alias, immutable bytes, canonical sink, and reviewed runtime identity are provider-authoritatively verified.",
+      "proofs": [
+        "test/config/test-a-operator-isolation.test.mjs: operator isolation inventory traces one private invocation outside every public route graph",
+        "test/fulfillment/vercel-test-a-publication-provider.test.mjs: Vercel TEST-A provider evidence fails closed when missing, malformed, or unavailable",
+        "test/fulfillment/resend-delivery-adapter.test.mjs: Resend delivery adapter rejects every non-canonical test sink before sending"
+      ]
+    }
+  ],
+  "isolation": {
+    "privateInvocation": "ops/run-test-a-operator.mjs",
+    "publicEntrypoints": [
+      "api/customer-flow/[...route].mjs",
+      "api/webhooks/stripe.mjs",
+      "api/webhooks/tally.mjs"
+    ],
+    "publicModuleGraph": [
+      "api/customer-flow/[...route].mjs",
+      "api/webhooks/stripe.mjs",
+      "api/webhooks/tally.mjs",
+      "scripts/lib/common.mjs",
+      "scripts/lib/validators.mjs",
+      "src/config/fulfillment-config.mjs",
+      "src/config/hosted-customer-flow-config.mjs",
+      "src/customer-flow/hosted-http-api.mjs",
+      "src/customer-flow/hosted-runtime.mjs",
+      "src/customer-flow/http-api.mjs",
+      "src/customer-flow/service.mjs",
+      "src/customer-flow/stripe-checkout-webhook.mjs",
+      "src/customer-flow/stripe-test-gateway.mjs",
+      "src/fulfillment/job-machine.mjs",
+      "src/fulfillment/job-orchestrator.mjs",
+      "src/http/production-webhooks.mjs",
+      "src/http/webhook-handlers.mjs",
+      "src/persistence/convex-customer-flow-store.mjs",
+      "src/persistence/convex-fulfillment-store.mjs",
+      "src/persistence/supabase-fulfillment-store.mjs",
+      "src/webhooks/errors.mjs",
+      "src/webhooks/evidence.mjs",
+      "src/webhooks/process-stripe-webhook.mjs",
+      "src/webhooks/process-tally-webhook.mjs",
+      "src/webhooks/stripe.mjs",
+      "src/webhooks/tally.mjs"
+    ],
+    "privateCapabilityModules": [
+      "ops/run-test-a-operator.mjs",
+      "src/fulfillment/operator-runner-test-a.mjs",
+      "src/fulfillment/test-a-operator-runtime-identity.mjs",
+      "src/fulfillment/test-a-operator-startup.mjs"
+    ],
+    "packageCommandReferences": [],
+    "publicCapabilityMarkers": []
+  },
+  "verification": {
+    "focusedTestFiles": [
+      "test/config/test-a-hosted-provider-manifest-policy.test.mjs",
+      "test/config/test-a-operator-isolation.test.mjs",
+      "test/fulfillment/exact-revision-publication-adapter.test.mjs",
+      "test/fulfillment/job-orchestration.test.mjs",
+      "test/fulfillment/resend-delivery-adapter.test.mjs",
+      "test/fulfillment/test-a-operator-runner.test.mjs",
+      "test/fulfillment/test-a-operator-startup.test.mjs",
+      "test/fulfillment/vercel-test-a-publication-provider.test.mjs"
+    ],
+    "providerMutation": "none"
+  },
+  "releaseConstraint": "Reviewed release candidate only; no provider mutation, deployment, alias, publication, or live customer-data access is authorized."
+}

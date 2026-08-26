@@ -1,6 +1,10 @@
 import path from "node:path";
 
-import { createTestAOperatorRunner } from "./operator-runner-test-a.mjs";
+import { requireReviewedTestAOperatorEnvironment } from "../config/test-a-hosted-provider-manifest.mjs";
+import {
+  createTestAOperatorRunner,
+  createTestAOperatorStatusRunner,
+} from "./operator-runner-test-a.mjs";
 import { requireReviewedTestAOperatorIdentity } from "./test-a-operator-runtime-identity.mjs";
 
 const COMMANDS = Object.freeze({
@@ -21,8 +25,11 @@ export async function runTestAOperatorCommand(options = {}) {
   }
 
   const environment = options.environment || process.env;
-  requireColdStartConfiguration(environment);
-  const createRunner = options.createRunner || createTestAOperatorRunner;
+  const providerCapable = command !== "status";
+  requireColdStartConfiguration(environment, { providerCapable });
+  const createRunner = providerCapable
+    ? options.createRunner || createTestAOperatorRunner
+    : options.createStatusRunner || createTestAOperatorStatusRunner;
   const runner = createRunner({ environment });
   if (typeof runner?.[method] !== "function") {
     throw new Error(`The private TEST-A operator runner does not implement ${method}().`);
@@ -30,10 +37,12 @@ export async function runTestAOperatorCommand(options = {}) {
   return runner[method](jobId);
 }
 
-function requireColdStartConfiguration(environment) {
-  requiredSecret(environment, "BEBEBONJOUR_APPROVAL_HMAC_KEY", 32);
+function requireColdStartConfiguration(environment, { providerCapable }) {
+  requireReviewedTestAOperatorEnvironment(environment, { providerCapable });
+  if (providerCapable) requiredSecret(environment, "BEBEBONJOUR_APPROVAL_HMAC_KEY", 32);
   requiredHttpsOrigin(environment, "CONVEX_URL");
   requiredSecret(environment, "CUSTOMER_FLOW_BACKEND_TOKEN", 32);
+  if (!providerCapable) return;
   const resendApiKey = requiredString(environment, "RESEND_API_KEY");
   if (!resendApiKey.startsWith("re_")) throw new Error("RESEND_API_KEY must be a Resend API key.");
   requireReviewedTestAOperatorIdentity(environment);

@@ -49,6 +49,7 @@
         "sending",
         "sent",
         "retry_wait",
+        "reconciliation_required",
         "failed",
         "rejected",
         "complete"
@@ -231,7 +232,7 @@
             { "type": "null" }
           ]
         },
-        "status": { "enum": ["running", "completed", "retry_wait", "failed"] },
+        "status": { "enum": ["running", "completed", "retry_wait", "reconciliation_required", "failed"] },
         "lease_token": { "type": ["string", "null"] },
         "lease_expires_at": {
           "oneOf": [

@@ -191,8 +191,10 @@ test("production build syntax-checks every private TEST-A operator module", () =
     "./src/fulfillment/operator-runner-test-a.mjs",
     "./src/fulfillment/test-a-operator-runtime-identity.mjs",
     "./src/fulfillment/test-a-operator-startup.mjs",
+    "./src/config/test-a-hosted-provider-manifest.mjs",
     "./src/config/test-a-operator-isolation.mjs",
     "./ops/run-test-a-operator.mjs",
+    "./ops/test-a-consolidated-candidate-audit.mjs",
     "./ops/test-a-operator-isolation-audit.mjs",
   ]) {
     assert.ok(packageJson.scripts.build.includes(`node --check ${modulePath}`));
@@ -207,9 +209,13 @@ test("production build syntax-checks every private TEST-A operator module", () =
   );
   assert.equal(
     packageJson.scripts["test:operator-isolation"],
-    "node ./ops/test-a-operator-isolation-audit.mjs",
+    "node ./ops/test-a-consolidated-candidate-audit.mjs",
   );
-  assert.match(packageJson.scripts.verify, /npm run test:operator-isolation/);
+  assert.equal(
+    packageJson.scripts["test:production-audit"],
+    "node ./ops/test-a-consolidated-candidate-audit.mjs",
+  );
+  assert.match(packageJson.scripts.verify, /npm run test:production-audit/);
 });
 
 test("TEST-A operator runner is absent from public HTTP and package command surfaces", () => {

@@ -85,6 +85,9 @@ async function fixture(t) {
       files,
     },
     idempotencyKey: IDEMPOTENCY_KEY,
+    async fenceExternalEffect(_fence, providerMutation) {
+      return providerMutation();
+    },
   };
   return { asset, index, manifestPath, preparedRoot, request, rootPath };
 }
@@ -262,6 +265,9 @@ function deploymentEvidenceResponse(url, value, manifest, deployment, options = 
       url: options.omitDeploymentUrl ? undefined : new URL(deployment.origin).hostname,
       projectId: "prj_test_a_announcements",
       readyState: options.deploymentReadyState ?? "READY",
+      createdAt: options.omitDeploymentCreatedAt
+        ? undefined
+        : options.createdAt ?? Date.parse("2026-08-26T12:00:00.500Z"),
       meta: {
         bbCanaryJobId: request.jobId,
         bbRevisionId: request.revisionId,
@@ -304,6 +310,11 @@ test("Vercel TEST-A provider resolves exact source bytes before one scoped alias
   const calls = [];
   let publicationManifest;
   const uploadedBodies = [];
+  const providerMutationFences = [];
+  value.request.fenceExternalEffect = async (fence, providerMutation) => {
+    providerMutationFences.push(fence);
+    return providerMutation();
+  };
   const provider = createProvider({
     calls,
     fixtureValue: value,
@@ -314,6 +325,8 @@ test("Vercel TEST-A provider resolves exact source bytes before one scoped alias
         return jsonResponse({});
       }
       if (url.includes("/v13/deployments") && init.method === "POST") {
+        assert.deepEqual(providerMutationFences.at(-1), { effectMayBeIssued: true });
+        assert.equal(providerMutationFences.filter(({ effectMayBeIssued }) => effectMayBeIssued).length, 1);
         const payload = JSON.parse(init.body);
         publicationManifest = JSON.parse(
           uploadedBodies.find((body) => body.includes(Buffer.from("artifactManifestDigest"))).toString("utf8"),
@@ -350,6 +363,8 @@ test("Vercel TEST-A provider resolves exact source bytes before one scoped alias
       );
       if (immutableResponse) return immutableResponse;
       if (url.includes("/v2/deployments/dpl_test_a_001/aliases")) {
+        assert.deepEqual(providerMutationFences.at(-1), { effectMayBeIssued: true });
+        assert.equal(providerMutationFences.filter(({ effectMayBeIssued }) => effectMayBeIssued).length, 2);
         assert.deepEqual(JSON.parse(init.body), { alias: "test-a-announcements.example.test" });
         return jsonResponse(aliasMutationResponse());
       }
@@ -414,6 +429,8 @@ test("Vercel TEST-A provider resolves exact source bytes before one scoped alias
   assert.ok(aliasMutationIndex < aliasEvidenceIndex);
   assert.ok(aliasEvidenceIndex < stableReadIndex);
   assert.equal(calls.filter(({ url }) => url.includes("/v2/deployments/dpl_test_a_001/aliases")).length, 1);
+  assert.equal(providerMutationFences.filter(({ effectMayBeIssued }) => !effectMayBeIssued).length, 4);
+  assert.equal(providerMutationFences.filter(({ effectMayBeIssued }) => effectMayBeIssued).length, 2);
 });
 
 test("Vercel TEST-A provider reconciles a fully aliased deployment without provider mutation", async (t) => {
@@ -493,6 +510,76 @@ test("Vercel TEST-A provider reconciles a fully aliased deployment without provi
   assert.equal(aliasMutationIndex, -1, "reconciliation must not assign the alias");
   assert.ok(immutableReadIndexes.every((index) => index < aliasEvidenceIndex), "all immutable deployment verification must precede alias evidence");
   assert.ok(stableReadIndex > aliasEvidenceIndex, "stable publication verification must follow provider alias evidence");
+});
+
+test("a fresh worker aliases the exact deployment left by a crash before alias assignment", async (t) => {
+  const value = await fixture(t);
+  const calls = [];
+  const publicManifest = publicManifestFor(value);
+  let aliasAssigned = false;
+  const deployment = {
+    uid: "dpl_test_a_existing",
+    origin: EXISTING_DEPLOYMENT_ORIGIN,
+  };
+  const provider = createProvider({
+    calls,
+    fixtureValue: value,
+    async fetchImpl(url, init) {
+      if (url.includes("/v7/deployments")) {
+        return jsonResponse({ deployments: [{
+          uid: deployment.uid,
+          url: new URL(deployment.origin).hostname,
+          projectId: "prj_test_a_announcements",
+          readyState: "READY",
+          meta: {
+            bbCanaryJobId: JOB_ID,
+            bbRevisionId: REVISION_ID,
+            bbArtifactSetId: value.request.artifactSetId,
+            bbArtifactManifestDigest: value.request.artifactManifestDigest,
+            bbIdempotencyKey: IDEMPOTENCY_KEY,
+          },
+        }], pagination: { next: null } });
+      }
+      const evidenceResponse = deploymentEvidenceResponse(url, value, publicManifest, deployment);
+      if (evidenceResponse) return evidenceResponse;
+      if (url.includes(`/v2/deployments/${deployment.uid}/aliases`)) {
+        aliasAssigned = true;
+        return jsonResponse(aliasMutationResponse({
+          deploymentId: deployment.uid,
+          projectId: "prj_test_a_announcements",
+        }));
+      }
+      if (url.includes("/v4/aliases/")) {
+        return aliasAssigned
+          ? aliasEvidenceResponse(url, deployment.uid)
+          : jsonResponse({ error: "not found" }, 404);
+      }
+      if (url.endsWith("/.publication.json")) return exactPublicationManifestResponse(publicManifest);
+      if (url.endsWith(`/announcements/${JOB_ID}`)) {
+        return new Response(null, {
+          status: 307,
+          headers: { location: `/announcements/${JOB_ID}/fr/` },
+        });
+      }
+      if (url.endsWith(`/announcements/${JOB_ID}/fr/`) || url.endsWith("/fr/index.html")) {
+        return publicationBytesResponse(value.index);
+      }
+      if (url.endsWith("/_assets/build/canary.bin")) return publicationBytesResponse(value.asset);
+      throw new Error(`Unexpected fetch: ${init.method || "GET"} ${url}`);
+    },
+  });
+
+  const receipt = await provider.reconcile({
+    ...value.request,
+    priorEffectStartedAt: "2026-08-26T12:00:00.000Z",
+    reconciliationOnly: true,
+  });
+
+  assert.equal(receipt.providerReceiptId, deployment.uid);
+  assert.equal(calls.filter(({ url }) => url.includes("/v2/files")).length, 0);
+  assert.equal(calls.filter(({ url, init }) => url.includes("/v13/deployments") && init.method === "POST").length, 0);
+  assert.equal(calls.filter(({ url }) => url.includes(`/v2/deployments/${deployment.uid}/aliases`)).length, 1);
+  assert.equal(calls.filter(({ url }) => url.startsWith(STABLE_ORIGIN)).length >= 5, true);
 });
 
 test("Vercel TEST-A provider rejects undocumented or unbound alias responses before read-back", async (t) => {
@@ -1386,7 +1473,7 @@ test("local artifact resolution rejects stale persisted manifest and non-canary 
   assert.equal(calls.length, 0);
 });
 
-test("expired publication overlap creates one deployment and one stable alias through the real adapter", async (t) => {
+test("a stale Vercel worker cannot invoke its alias callback after its persisted fence loses ownership", async (t) => {
   const value = await fixture(t);
   const sortedFiles = [...value.request.artifactSet.files].sort((left, right) => left.path.localeCompare(right.path));
   const manifestBytes = Buffer.from(`${JSON.stringify({
@@ -1405,7 +1492,23 @@ test("expired publication overlap creates one deployment and one stable alias th
       files: sortedFiles,
     },
   };
-  const store = createLocalTestFulfillmentStore({ filePath: path.join(value.rootPath, "fulfillment.json") });
+  const persistedStore = createLocalTestFulfillmentStore({ filePath: path.join(value.rootPath, "fulfillment.json") });
+  let issuedFenceCount = 0;
+  let releaseStaleAliasFence;
+  let signalStaleAliasFencePersisted;
+  const staleAliasFenceRelease = new Promise((resolve) => { releaseStaleAliasFence = resolve; });
+  const staleAliasFencePersisted = new Promise((resolve) => { signalStaleAliasFencePersisted = resolve; });
+  const store = {
+    ...persistedStore,
+    async fenceExternalEffect(jobId, command, at) {
+      const aggregate = await persistedStore.fenceExternalEffect(jobId, command, at);
+      if (command.effectMayBeIssued === true && (issuedFenceCount += 1) === 2) {
+        signalStaleAliasFencePersisted();
+        await staleAliasFenceRelease;
+      }
+      return aggregate;
+    },
+  };
   const baseResolver = createLocalArtifactResolver({ rootPath: value.rootPath });
   const uploadedBodies = [];
   const deployments = [];
@@ -1414,10 +1517,6 @@ test("expired publication overlap creates one deployment and one stable alias th
   let aliasDeploymentId = null;
   let deploymentCreates = 0;
   let aliasMutations = 0;
-  let releaseFirstDeployment;
-  let signalFirstDeploymentStarted;
-  const firstDeploymentRelease = new Promise((resolve) => { releaseFirstDeployment = resolve; });
-  const firstDeploymentStarted = new Promise((resolve) => { signalFirstDeploymentStarted = resolve; });
 
   const provider = createVercelTestAPublicationProvider({
     token: "vercel_test_token",
@@ -1429,7 +1528,7 @@ test("expired publication overlap creates one deployment and one stable alias th
     canaryRevisionId: REVISION_ID,
     artifactResolver: {
       async resolve(request) {
-        activeRequest = structuredClone(request);
+        activeRequest = { ...request };
         return baseResolver.resolve(request);
       },
     },
@@ -1454,10 +1553,6 @@ test("expired publication overlap creates one deployment and one stable alias th
       if (parsed.pathname === "/v13/deployments" && init.method === "POST") {
         deploymentCreates += 1;
         const deploymentNumber = deploymentCreates;
-        if (deploymentNumber === 1) {
-          signalFirstDeploymentStarted();
-          await firstDeploymentRelease;
-        }
         publicationManifest = JSON.parse(
           uploadedBodies.find((body) => body.includes(Buffer.from("artifactManifestDigest"))).toString("utf8"),
         );
@@ -1602,23 +1697,23 @@ test("expired publication overlap creates one deployment and one stable alias th
 
   const firstRun = firstWorker.runNext(JOB_ID);
   await Promise.race([
-    firstDeploymentStarted,
+    staleAliasFencePersisted,
     firstRun.then((status) => {
-      throw new Error(`publication returned before deployment creation: ${JSON.stringify(status)}`);
+      throw new Error(`publication returned before the alias fence pause: ${JSON.stringify(status)}`);
     }),
   ]);
   now = "2026-08-26T12:00:01.000Z";
   await recoveryWorker.runNext(JOB_ID);
   now = "2026-08-26T12:00:02.000Z";
-  let recovered = await recoveryWorker.runNext(JOB_ID);
-  releaseFirstDeployment();
-  await firstRun.catch(() => undefined);
-  if (recovered.state === "retry_wait") {
-    now = "2026-08-26T12:00:03.000Z";
-    recovered = await recoveryWorker.runNext(JOB_ID);
+  try {
+    const recovered = await recoveryWorker.runNext(JOB_ID);
+    assert.equal(recovered.state, "published");
+    assert.equal(deploymentCreates, 1);
+    assert.equal(aliasMutations, 1);
+  } finally {
+    releaseStaleAliasFence();
+    await firstRun.catch(() => undefined);
   }
-
-  assert.equal(recovered.state, "published");
   assert.equal(deploymentCreates, 1);
   assert.equal(aliasMutations, 1);
 });
