@@ -16,7 +16,7 @@ import { createConvexFulfillmentStore } from "../persistence/convex-fulfillment-
 
 const TEST_SINK = "delivered@resend.dev";
 const STAGES = Object.freeze(["prepare_review", "render_approved", "generate_tts", "publish", "deliver"]);
-const DEFAULT_RETRY_POLICY = Object.freeze({
+export const TEST_A_RETRY_POLICY = Object.freeze({
   leaseMsByStage: Object.freeze(Object.fromEntries(STAGES.map((stage) => [stage, 300_000]))),
   maxAttemptsByStage: Object.freeze(Object.fromEntries(STAGES.map((stage) => [stage, 2]))),
   backoffMsByStage: Object.freeze(Object.fromEntries(STAGES.map((stage) => [stage, Object.freeze([60_000])]))),
@@ -72,7 +72,7 @@ export function createTestAOperatorRunner(options = {}) {
     handlers,
     clock,
     tokenFactory,
-    retryPolicy: options.retryPolicy || DEFAULT_RETRY_POLICY,
+    retryPolicy: options.retryPolicy || TEST_A_RETRY_POLICY,
   });
 
   return Object.freeze({

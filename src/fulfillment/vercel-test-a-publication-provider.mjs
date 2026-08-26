@@ -28,9 +28,16 @@ export function createVercelTestAPublicationProvider(options = {}) {
   async function reconcile(request) {
     assertCanaryRequest(request, canaryJobId, canaryRevisionId);
     const resolved = await artifactResolver.resolve(request);
-    const deployment = await findExactDeployment(request);
-    if (!deployment) return null;
-    return finalizeDeployment(deployment, request, resolved, { allowAliasMutation: false });
+    const attempts = request.reconciliationOnly === true ? maxPollAttempts : 1;
+    for (let attempt = 0; attempt < attempts; attempt += 1) {
+      const deployment = await findExactDeployment(request);
+      if (deployment) {
+        const receipt = await finalizeDeployment(deployment, request, resolved, { allowAliasMutation: false });
+        if (receipt) return receipt;
+      }
+      if (attempt + 1 < attempts) await wait(pollIntervalMs);
+    }
+    return null;
   }
 
   async function publish(request) {

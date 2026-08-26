@@ -8,6 +8,7 @@ import test from "node:test";
 import { createExternalEffectStageHandlers } from "../../src/fulfillment/external-effect-stage-handlers.mjs";
 import { createFulfillmentOrchestrator } from "../../src/fulfillment/job-orchestrator.mjs";
 import { createLocalArtifactResolver } from "../../src/fulfillment/local-artifact-resolver.mjs";
+import { TEST_A_RETRY_POLICY } from "../../src/fulfillment/operator-runner-test-a.mjs";
 import { createVercelTestAPublicationProvider } from "../../src/fulfillment/vercel-test-a-publication-provider.mjs";
 import { createLocalTestFulfillmentStore } from "../../src/persistence/local-test-fulfillment-store.mjs";
 
@@ -1387,6 +1388,7 @@ test("local artifact resolution rejects stale persisted manifest and non-canary 
 });
 
 test("expired publication overlap creates one deployment and one stable alias through the real adapter", async (t) => {
+  assert.equal(TEST_A_RETRY_POLICY.maxAttemptsByStage.publish, 2);
   const value = await fixture(t);
   const sortedFiles = [...value.request.artifactSet.files].sort((left, right) => left.path.localeCompare(right.path));
   const manifestBytes = Buffer.from(`${JSON.stringify({
@@ -1416,8 +1418,14 @@ test("expired publication overlap creates one deployment and one stable alias th
   let aliasMutations = 0;
   let releaseFirstDeployment;
   let signalFirstDeploymentStarted;
+  let signalRecoveryReconciliationStarted;
+  let signalAliasMutationFinished;
   const firstDeploymentRelease = new Promise((resolve) => { releaseFirstDeployment = resolve; });
   const firstDeploymentStarted = new Promise((resolve) => { signalFirstDeploymentStarted = resolve; });
+  const recoveryReconciliationStarted = new Promise((resolve) => {
+    signalRecoveryReconciliationStarted = resolve;
+  });
+  const aliasMutationFinished = new Promise((resolve) => { signalAliasMutationFinished = resolve; });
 
   const provider = createVercelTestAPublicationProvider({
     token: "vercel_test_token",
@@ -1436,6 +1444,9 @@ test("expired publication overlap creates one deployment and one stable alias th
     fetch: async (url, init = {}) => {
       const parsed = new URL(url);
       if (parsed.pathname === "/v7/deployments") {
+        if (deploymentCreates === 1 && deployments.length === 0) {
+          signalRecoveryReconciliationStarted();
+        }
         return jsonResponse({
           deployments: deployments.map((deployment) => ({
             uid: deployment.id,
@@ -1493,6 +1504,7 @@ test("expired publication overlap creates one deployment and one stable alias th
         if (parsed.pathname === `/v2/deployments/${deployment.id}/aliases`) {
           aliasMutations += 1;
           aliasDeploymentId = deployment.id;
+          signalAliasMutationFinished();
           return jsonResponse(aliasMutationResponse({
             uid: `alias_overlap_${aliasMutations}`,
             deploymentId: deployment.id,
@@ -1501,6 +1513,7 @@ test("expired publication overlap creates one deployment and one stable alias th
         }
       }
       if (parsed.pathname === `/v4/aliases/${new URL(STABLE_ORIGIN).hostname}`) {
+        if (!aliasDeploymentId && deploymentCreates === 1) await aliasMutationFinished;
         if (!aliasDeploymentId) return jsonResponse({}, 404);
         return aliasEvidenceResponse(url, aliasDeploymentId);
       }
@@ -1548,9 +1561,7 @@ test("expired publication overlap creates one deployment and one stable alias th
       leaseMsByStage: Object.fromEntries([
         "prepare_review", "generate_tts", "render_approved", "publish", "deliver",
       ].map((stage) => [stage, 1_000])),
-      maxAttemptsByStage: Object.fromEntries([
-        "prepare_review", "generate_tts", "render_approved", "publish", "deliver",
-      ].map((stage) => [stage, stage === "publish" ? 3 : 2])),
+      maxAttemptsByStage: TEST_A_RETRY_POLICY.maxAttemptsByStage,
       backoffMsByStage: Object.fromEntries([
         "prepare_review", "generate_tts", "render_approved", "publish", "deliver",
       ].map((stage) => [stage, [1_000, 1_000]])),
@@ -1610,15 +1621,16 @@ test("expired publication overlap creates one deployment and one stable alias th
   now = "2026-08-26T12:00:01.000Z";
   await recoveryWorker.runNext(JOB_ID);
   now = "2026-08-26T12:00:02.000Z";
-  let recovered = await recoveryWorker.runNext(JOB_ID);
+  const recoveryRun = recoveryWorker.runNext(JOB_ID);
+  await recoveryReconciliationStarted;
   releaseFirstDeployment();
-  await firstRun.catch(() => undefined);
-  if (recovered.state === "retry_wait") {
-    now = "2026-08-26T12:00:03.000Z";
-    recovered = await recoveryWorker.runNext(JOB_ID);
-  }
+  const [recovered] = await Promise.all([recoveryRun, firstRun.catch(() => undefined)]);
 
   assert.equal(recovered.state, "published");
+  assert.deepEqual(
+    recovered.stageAttempts.filter(({ stage }) => stage === "publish").map(({ attemptNumber }) => attemptNumber),
+    [1, 2],
+  );
   assert.equal(deploymentCreates, 1);
   assert.equal(aliasMutations, 1);
 });

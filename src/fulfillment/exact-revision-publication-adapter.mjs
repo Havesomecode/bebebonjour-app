@@ -38,6 +38,9 @@ function normalizeRequest(request) {
   ) {
     throw publicationError("Publication reconciliation cursor is invalid.");
   }
+  if (exact.reconciliationOnly !== undefined && typeof exact.reconciliationOnly !== "boolean") {
+    throw publicationError("Publication reconciliation mode is invalid.");
+  }
   assertDigest(exact.artifactManifestDigest, "publication artifact manifest digest");
   const artifactSet = exact.artifactSet;
   if (
