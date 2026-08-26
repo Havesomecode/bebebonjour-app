@@ -6,7 +6,14 @@ const landingOrigin = "https://www.bebebonjour.com";
 const successUrl = `${landingOrigin}/suivi?checkout=success`;
 const cancelUrl = `${landingOrigin}/suivi?checkout=cancel`;
 
-const [environmentExample, providerManifest, releaseCandidate, packageJson, hostedRuntime] = await Promise.all([
+const [
+  environmentExample,
+  providerManifest,
+  releaseCandidate,
+  packageJson,
+  hostedRuntime,
+  vercelRoutingVerifier,
+] = await Promise.all([
   readFile(new URL("../../.env.example", import.meta.url), "utf8"),
   readFile(new URL("../../ops/test-a-hosted-provider-manifest.json", import.meta.url), "utf8").then(JSON.parse),
   readFile(
@@ -15,6 +22,7 @@ const [environmentExample, providerManifest, releaseCandidate, packageJson, host
   ),
   readFile(new URL("../../package.json", import.meta.url), "utf8").then(JSON.parse),
   readFile(new URL("../../src/customer-flow/hosted-runtime.mjs", import.meta.url), "utf8"),
+  readFile(new URL("../../scripts/verify-vercel-routing.mjs", import.meta.url), "utf8"),
 ]);
 
 function environmentValue(name) {
@@ -28,6 +36,13 @@ test("hosted TEST-A artifacts pin CORS and checkout callbacks to the active land
   assert.equal(environmentValue("STRIPE_CHECKOUT_SUCCESS_URL"), successUrl);
   assert.equal(environmentValue("STRIPE_CHECKOUT_CANCEL_URL"), cancelUrl);
   assert.equal(environmentValue("RESEND_FROM"), "Bébé Bonjour <onboarding@resend.dev>");
+  assert.equal(environmentValue("TEST_A_PUBLICATION_ORIGIN"), "https://announcements.example.test");
+  assert.equal(environmentValue("TEST_A_PUBLICATION_VERCEL_TEAM_ID"), "team_test_a");
+  assert.equal(environmentValue("TEST_A_PUBLICATION_VERCEL_PROJECT_ID"), "prj_test_a_announcements");
+  assert.equal(
+    environmentValue("TEST_A_PUBLICATION_VERCEL_PROJECT_NAME"),
+    "bebebonjour-test-a-announcements",
+  );
 
   assert.deepEqual(providerManifest.vercelApi.allowedOrigins, [landingOrigin]);
   assert.deepEqual(providerManifest.stripe.checkoutCallbacks, {
@@ -79,6 +94,12 @@ test("provider manifest binds one executable least-privilege hosted candidate", 
   assert.deepEqual(providerManifest.resendOperatorRuntime.identity, {
     from: "Bébé Bonjour <onboarding@resend.dev>",
     testSink: "delivered@resend.dev",
+    publication: {
+      stableOrigin: "https://announcements.example.test",
+      teamId: "team_test_a",
+      projectId: "prj_test_a_announcements",
+      projectName: "bebebonjour-test-a-announcements",
+    },
   });
 
   assert.deepEqual(providerManifest.operations.map(({ id }) => id), [
@@ -168,13 +189,33 @@ test("production build syntax-checks every private TEST-A operator module", () =
     "./src/fulfillment/vercel-test-a-publication-provider.mjs",
     "./src/fulfillment/persisted-review-decision.mjs",
     "./src/fulfillment/operator-runner-test-a.mjs",
+    "./src/fulfillment/test-a-operator-runtime-identity.mjs",
+    "./src/fulfillment/test-a-operator-startup.mjs",
+    "./src/config/test-a-operator-isolation.mjs",
+    "./ops/run-test-a-operator.mjs",
+    "./ops/test-a-operator-isolation-audit.mjs",
   ]) {
     assert.ok(packageJson.scripts.build.includes(`node --check ${modulePath}`));
   }
+  assert.equal(
+    packageJson.scripts.test,
+    "node --test 'test/*.test.mjs' 'test/**/*.test.mjs'",
+  );
+  assert.equal(
+    packageJson.scripts["test:integration"],
+    "RUN_DB_TESTS=1 node --test --test-concurrency=1 'test/*.test.mjs' 'test/**/*.test.mjs'",
+  );
+  assert.equal(
+    packageJson.scripts["test:operator-isolation"],
+    "node ./ops/test-a-operator-isolation-audit.mjs",
+  );
+  assert.match(packageJson.scripts.verify, /npm run test:operator-isolation/);
 });
 
 test("TEST-A operator runner is absent from public HTTP and package command surfaces", () => {
   assert.doesNotMatch(hostedRuntime, /createTestAOperatorRunner|operator-runner-test-a|test-a-operator-runner/);
   assert.deepEqual(packageJson.bin, { announce: "./bin/announce.mjs" });
   assert.equal(providerManifest.resendOperatorRuntime.publicApiAccess, false);
+  assert.match(vercelRoutingVerifier, /inspectGeneratedPublicArtifact\(outputRoot\)/);
+  assert.match(vercelRoutingVerifier, /HERMES_VERIFY_RESULT/);
 });

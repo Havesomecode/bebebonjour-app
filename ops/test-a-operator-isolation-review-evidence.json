@@ -1,0 +1,319 @@
+{
+  "auditId": "test-a-operator-isolation-successor-2026-08-26",
+  "baselineCommit": "9c8721d3a3c10657fbcca4eb6020aca5e4b2888f",
+  "candidateBoundary": {
+    "changedPaths": [
+      ".env.example",
+      "ops/run-test-a-operator.mjs",
+      "ops/test-a-hosted-provider-manifest.json",
+      "ops/test-a-operator-isolation-audit.mjs",
+      "ops/test-a-operator-isolation-review-evidence.json",
+      "package.json",
+      "scripts/verify-vercel-routing.mjs",
+      "src/config/test-a-operator-isolation.mjs",
+      "src/fulfillment/operator-runner-test-a.mjs",
+      "src/fulfillment/test-a-operator-runtime-identity.mjs",
+      "src/fulfillment/test-a-operator-startup.mjs",
+      "test/config/hosted-provider-artifacts.test.mjs",
+      "test/config/test-a-operator-isolation-audit.test.mjs",
+      "test/config/test-a-operator-isolation.test.mjs",
+      "test/fulfillment/test-a-operator-runner.test.mjs",
+      "test/fulfillment/test-a-operator-startup.test.mjs"
+    ],
+    "pathAllowlist": [
+      ".env.example",
+      "api/customer-flow/[...route].mjs",
+      "api/webhooks/stripe.mjs",
+      "api/webhooks/tally.mjs",
+      "ops/run-test-a-operator.mjs",
+      "ops/test-a-hosted-provider-manifest.json",
+      "ops/test-a-operator-isolation-audit.mjs",
+      "ops/test-a-operator-isolation-review-evidence.json",
+      "package-lock.json",
+      "package.json",
+      "scripts/lib/common.mjs",
+      "scripts/lib/validators.mjs",
+      "scripts/verify-vercel-routing.mjs",
+      "src/config/fulfillment-config.mjs",
+      "src/config/hosted-customer-flow-config.mjs",
+      "src/config/test-a-operator-isolation.mjs",
+      "src/customer-flow/hosted-http-api.mjs",
+      "src/customer-flow/hosted-runtime.mjs",
+      "src/customer-flow/http-api.mjs",
+      "src/customer-flow/service.mjs",
+      "src/customer-flow/stripe-checkout-webhook.mjs",
+      "src/customer-flow/stripe-test-gateway.mjs",
+      "src/fulfillment/exact-revision-publication-adapter.mjs",
+      "src/fulfillment/external-effect-stage-handlers.mjs",
+      "src/fulfillment/job-machine.mjs",
+      "src/fulfillment/job-orchestrator.mjs",
+      "src/fulfillment/local-artifact-resolver.mjs",
+      "src/fulfillment/operator-runner-test-a.mjs",
+      "src/fulfillment/persisted-review-decision.mjs",
+      "src/fulfillment/resend-delivery-adapter.mjs",
+      "src/fulfillment/test-a-operator-runtime-identity.mjs",
+      "src/fulfillment/test-a-operator-startup.mjs",
+      "src/fulfillment/vercel-test-a-publication-provider.mjs",
+      "src/http/production-webhooks.mjs",
+      "src/http/webhook-handlers.mjs",
+      "src/persistence/convex-customer-flow-store.mjs",
+      "src/persistence/convex-fulfillment-store.mjs",
+      "src/persistence/supabase-fulfillment-store.mjs",
+      "src/webhooks/errors.mjs",
+      "src/webhooks/evidence.mjs",
+      "src/webhooks/process-stripe-webhook.mjs",
+      "src/webhooks/process-tally-webhook.mjs",
+      "src/webhooks/stripe.mjs",
+      "src/webhooks/tally.mjs",
+      "test/config/hosted-provider-artifacts.test.mjs",
+      "test/config/test-a-operator-isolation-audit.test.mjs",
+      "test/config/test-a-operator-isolation.test.mjs",
+      "test/fulfillment/test-a-operator-runner.test.mjs",
+      "test/fulfillment/test-a-operator-startup.test.mjs",
+      "vercel.json"
+    ],
+    "reviewedFileDigests": [
+      {
+        "path": ".env.example",
+        "sha256": "0fa7d587cf5d9af7655db0413d30d2a9d34abc3255ace44fd59e6ce9c133f014"
+      },
+      {
+        "path": "api/customer-flow/[...route].mjs",
+        "sha256": "c02c032e2ac35fe0201d9cf3750eb5acfbbc326c27c473a4ffe3fc3dd4a93531"
+      },
+      {
+        "path": "api/webhooks/stripe.mjs",
+        "sha256": "a0280b9d7bfb821d1c79e03cbac7f944744cf5e875fb661b4c8ee10d557ba7c0"
+      },
+      {
+        "path": "api/webhooks/tally.mjs",
+        "sha256": "abcffc084bf1300a8d121a5e9614cf8804aa3bb90db4dfcae63617b60e775524"
+      },
+      {
+        "path": "ops/run-test-a-operator.mjs",
+        "sha256": "0e564883867ed83ff9239ace8167b71e837edddf1c6d5f7570337e92ea3dcaff"
+      },
+      {
+        "path": "ops/test-a-hosted-provider-manifest.json",
+        "sha256": "1ceebd23fa6bb4c2aa43ecbf63199f2fb689806d899e4eed2f5b39c0f9154a71"
+      },
+      {
+        "path": "ops/test-a-operator-isolation-audit.mjs",
+        "sha256": "e90f4c8a601c909d69c7d7ecf144dc18c1c6acf52d927cb107cfe4937c797135"
+      },
+      {
+        "path": "package-lock.json",
+        "sha256": "17687ade9739e82e1b93a6590ba3e765e1a003b74300911a42d7a4ce1241140a"
+      },
+      {
+        "path": "package.json",
+        "sha256": "c8931b9be134139458bfa945ec6071e91a074791fb8dc37b803c84b915448980"
+      },
+      {
+        "path": "scripts/lib/common.mjs",
+        "sha256": "a80c25d7c33d578f4d9a0e6cc1b4c7f81e90b484da99d2c1fe0bc66b57f69949"
+      },
+      {
+        "path": "scripts/lib/validators.mjs",
+        "sha256": "26e05efd57bc079e76e57a89ae070e6bc27b38ff8cc84bdb6878a8c08ffec164"
+      },
+      {
+        "path": "scripts/verify-vercel-routing.mjs",
+        "sha256": "5db40dcae7feb9133152129da2dee7c2ae2e42669fe351e2e11d87bcd319026e"
+      },
+      {
+        "path": "src/config/fulfillment-config.mjs",
+        "sha256": "cdccf071d916a470a30ae7fc21b4abb53febcc20b41a695068ab524ec115e4fc"
+      },
+      {
+        "path": "src/config/hosted-customer-flow-config.mjs",
+        "sha256": "c7d8939847f27c37b287ba137ef9db55ebd4c30ebf9d64470a1089dd630bcc67"
+      },
+      {
+        "path": "src/config/test-a-operator-isolation.mjs",
+        "sha256": "74f63f6f88af39f6e239f3330e7cce5188d5dff47b8dee533e29b3c446e32741"
+      },
+      {
+        "path": "src/customer-flow/hosted-http-api.mjs",
+        "sha256": "c105c27be589e1591466169bd141eaac8f6683696736f52a437631e89c96572d"
+      },
+      {
+        "path": "src/customer-flow/hosted-runtime.mjs",
+        "sha256": "e74de33c39743c8642f6ea3473b9c8e72ab3d16d00d6aaf46a8ccd1c92ed31a5"
+      },
+      {
+        "path": "src/customer-flow/http-api.mjs",
+        "sha256": "0b964e06886486e34007104f7a26765f4680ba2e0613cec1c424ceb803de6624"
+      },
+      {
+        "path": "src/customer-flow/service.mjs",
+        "sha256": "1249fd4dd69eb0b3a08ae701fdd4c08949f42cc17239c7bb0bad520d1b51dc77"
+      },
+      {
+        "path": "src/customer-flow/stripe-checkout-webhook.mjs",
+        "sha256": "3d845c30a136cb2158d0c69f08a610dd7a91373f9878027e6c7abf016ac69e9f"
+      },
+      {
+        "path": "src/customer-flow/stripe-test-gateway.mjs",
+        "sha256": "18b68686d01259725a5da943b81116c5a8e1ab810ed8cf4dae0cb6b798d44183"
+      },
+      {
+        "path": "src/fulfillment/exact-revision-publication-adapter.mjs",
+        "sha256": "335b2ca984309dc3834c365d3c6382587c8ca26e7110fe724501b93f9a2257fc"
+      },
+      {
+        "path": "src/fulfillment/external-effect-stage-handlers.mjs",
+        "sha256": "bb03f2c99c4ec3da6a9630ebd26e343aa0f9b5e7badafa123b488e91e3f9f7ea"
+      },
+      {
+        "path": "src/fulfillment/job-machine.mjs",
+        "sha256": "5b926816dbf03d89c8edadaf9fc0b42b37a5522b06811532bfdd1ddc1987cc88"
+      },
+      {
+        "path": "src/fulfillment/job-orchestrator.mjs",
+        "sha256": "852fbdfcf3344e7c8e828fe2331e9f17d837fc485581a6010c62c54d1af08e2d"
+      },
+      {
+        "path": "src/fulfillment/local-artifact-resolver.mjs",
+        "sha256": "88afe46135d292cc22aecec893f0df6e873e5002245e681e6e8ec823e3492fec"
+      },
+      {
+        "path": "src/fulfillment/operator-runner-test-a.mjs",
+        "sha256": "d4d8b182f74434a5944c0dc4779c72c4c0562a8f10b8e748685087e549890377"
+      },
+      {
+        "path": "src/fulfillment/persisted-review-decision.mjs",
+        "sha256": "6606abaa1d3465ddef1deefbec2a651bf7f5d5f1870ab530b66b0fa8b47e0479"
+      },
+      {
+        "path": "src/fulfillment/resend-delivery-adapter.mjs",
+        "sha256": "a9c7b3ec54832461d1fa80b535312df5c74d55b91cbf8ba17a4b91e5694ed74b"
+      },
+      {
+        "path": "src/fulfillment/test-a-operator-runtime-identity.mjs",
+        "sha256": "543b3ba6d20c717036e677e42b15cafd1a93b7bfdf4c3b93240ce73f4042d4a5"
+      },
+      {
+        "path": "src/fulfillment/test-a-operator-startup.mjs",
+        "sha256": "b0f203d6a6981d038e4c6dd60699c443c7d2fd72f0283ac225fd6fc0ec8b78ba"
+      },
+      {
+        "path": "src/fulfillment/vercel-test-a-publication-provider.mjs",
+        "sha256": "2472db7388a100cb45dd32f68d045df87786c045ec508c12816219553f114e77"
+      },
+      {
+        "path": "src/http/production-webhooks.mjs",
+        "sha256": "49e2fd00389b49643afd246efe9711d9f5bf6a9dc9bc7c7e3d5461552f072663"
+      },
+      {
+        "path": "src/http/webhook-handlers.mjs",
+        "sha256": "cc5e36571897b8459cab4480b0bd8fa83bf07a8419f5f6b4835b467d30c112be"
+      },
+      {
+        "path": "src/persistence/convex-customer-flow-store.mjs",
+        "sha256": "8d4d2c93060c9a436e38ef62ab3942d9d3485d5a3c910a7d75e7dbe9295b7c9b"
+      },
+      {
+        "path": "src/persistence/convex-fulfillment-store.mjs",
+        "sha256": "ba85d94fbbee1dc3e20b13c1b906fe548110294c219e4d4b28abdb41772cab3e"
+      },
+      {
+        "path": "src/persistence/supabase-fulfillment-store.mjs",
+        "sha256": "d3b0851635858149b24fc061d065ff959185e752c15233dd8a59f57961756c4e"
+      },
+      {
+        "path": "src/webhooks/errors.mjs",
+        "sha256": "ec97f17dc9c469ef172ca786f632d19dff3743418b1b0fc0ce76cf3a57785a70"
+      },
+      {
+        "path": "src/webhooks/evidence.mjs",
+        "sha256": "9b85f2d057066a7cdb45c8bcfb624e3d3470b00d78af9453379133e5a6b00b17"
+      },
+      {
+        "path": "src/webhooks/process-stripe-webhook.mjs",
+        "sha256": "0934f0fa9f5ebffaebc32d43ccfb1b6a3451c1856331cfa93fb01507e01e6887"
+      },
+      {
+        "path": "src/webhooks/process-tally-webhook.mjs",
+        "sha256": "d75d0060ded8a964b430e0b9e983fed71722e8ba3c206b8d22f6602a974744cd"
+      },
+      {
+        "path": "src/webhooks/stripe.mjs",
+        "sha256": "d9e6b2df610f213a1711a74351d2be16fe7adb6b5cd83481d1fd31b3a7db9770"
+      },
+      {
+        "path": "src/webhooks/tally.mjs",
+        "sha256": "16bc6422e15e2571137bc71b97659061f1bfa8a7557393d5717460d8ac5aeeb4"
+      },
+      {
+        "path": "test/config/hosted-provider-artifacts.test.mjs",
+        "sha256": "f59b99ec396da31d9e8d5b37682e1f14d91a96a2ad99cebdd9a006cffa511017"
+      },
+      {
+        "path": "test/config/test-a-operator-isolation-audit.test.mjs",
+        "sha256": "470d568090cb31a0e2a7b53f8b4b217929cfda1414d3c12ce1003ce983628c62"
+      },
+      {
+        "path": "test/config/test-a-operator-isolation.test.mjs",
+        "sha256": "27ded63557535175c359f3cfe5ed3ff1f257fea411915932d0204aa8c548ab1e"
+      },
+      {
+        "path": "test/fulfillment/test-a-operator-runner.test.mjs",
+        "sha256": "5935f1a1da3c76407e854eae546aa2a712d4b20f1b9055b380ef738be2a80132"
+      },
+      {
+        "path": "test/fulfillment/test-a-operator-startup.test.mjs",
+        "sha256": "2a7cea0ee28ea9ffcacc9a337e49e75b9c39df3af4e455f7ec6b26b6b9557c41"
+      },
+      {
+        "path": "vercel.json",
+        "sha256": "be564ba1b2ff5c27eab497c33bef83b8912c17ce93e5c67deec56af03f7c0ec6"
+      }
+    ]
+  },
+  "isolation": {
+    "privateInvocation": "ops/run-test-a-operator.mjs",
+    "publicEntrypoints": [
+      "api/customer-flow/[...route].mjs",
+      "api/webhooks/stripe.mjs",
+      "api/webhooks/tally.mjs"
+    ],
+    "publicModuleGraph": [
+      "api/customer-flow/[...route].mjs",
+      "api/webhooks/stripe.mjs",
+      "api/webhooks/tally.mjs",
+      "scripts/lib/common.mjs",
+      "scripts/lib/validators.mjs",
+      "src/config/fulfillment-config.mjs",
+      "src/config/hosted-customer-flow-config.mjs",
+      "src/customer-flow/hosted-http-api.mjs",
+      "src/customer-flow/hosted-runtime.mjs",
+      "src/customer-flow/http-api.mjs",
+      "src/customer-flow/service.mjs",
+      "src/customer-flow/stripe-checkout-webhook.mjs",
+      "src/customer-flow/stripe-test-gateway.mjs",
+      "src/fulfillment/job-machine.mjs",
+      "src/fulfillment/job-orchestrator.mjs",
+      "src/http/production-webhooks.mjs",
+      "src/http/webhook-handlers.mjs",
+      "src/persistence/convex-customer-flow-store.mjs",
+      "src/persistence/convex-fulfillment-store.mjs",
+      "src/persistence/supabase-fulfillment-store.mjs",
+      "src/webhooks/errors.mjs",
+      "src/webhooks/evidence.mjs",
+      "src/webhooks/process-stripe-webhook.mjs",
+      "src/webhooks/process-tally-webhook.mjs",
+      "src/webhooks/stripe.mjs",
+      "src/webhooks/tally.mjs"
+    ],
+    "privateCapabilityModules": [
+      "ops/run-test-a-operator.mjs",
+      "src/fulfillment/operator-runner-test-a.mjs",
+      "src/fulfillment/test-a-operator-runtime-identity.mjs",
+      "src/fulfillment/test-a-operator-startup.mjs"
+    ],
+    "packageCommandReferences": [],
+    "publicCapabilityMarkers": []
+  },
+  "providerMutation": "none"
+}

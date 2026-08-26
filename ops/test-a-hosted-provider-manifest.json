@@ -207,7 +207,13 @@
   "resendOperatorRuntime": {
     "identity": {
       "from": "Bébé Bonjour <onboarding@resend.dev>",
-      "testSink": "delivered@resend.dev"
+      "testSink": "delivered@resend.dev",
+      "publication": {
+        "stableOrigin": "https://announcements.example.test",
+        "teamId": "team_test_a",
+        "projectId": "prj_test_a_announcements",
+        "projectName": "bebebonjour-test-a-announcements"
+      }
     },
     "environmentVariables": [
       "CONVEX_URL",

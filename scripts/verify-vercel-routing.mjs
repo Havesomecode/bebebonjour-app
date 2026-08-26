@@ -5,6 +5,8 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { inspectGeneratedPublicArtifact } from "../src/config/test-a-operator-isolation.mjs";
+
 const EXPECTED_VERCEL_VERSION = "50.39.0";
 const FUNCTION_DESTINATION = "/api/customer-flow/[...route]";
 const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -113,9 +115,17 @@ try {
     );
   }
 
+  const artifactInventory = await inspectGeneratedPublicArtifact(outputRoot);
+
   console.log(
     `PASS: Vercel CLI ${EXPECTED_VERCEL_VERSION} packages ${FUNCTION_DESTINATION} and routes all ${manifest.vercelApi.routes.length} manifest paths to it.`,
   );
+  console.log(`HERMES_VERIFY_RESULT=${JSON.stringify({
+    status: "PASS",
+    generatedArtifactFileCount: artifactInventory.fileCount,
+    generatedArtifactPathInventorySha256: artifactInventory.pathInventorySha256,
+    privateOperatorReachable: false,
+  })}`);
 } finally {
   await rm(scratchRoot, { recursive: true, force: true });
 }

@@ -33,6 +33,20 @@ const retryPolicy = Object.freeze({
   )),
 });
 
+const reviewedOperatorEnvironment = Object.freeze({
+  BEBEBONJOUR_APPROVAL_HMAC_KEY: "operator-review-key-with-at-least-thirty-two-bytes",
+  RESEND_API_KEY: "re_test_operator_runner",
+  RESEND_FROM: "Bébé Bonjour <onboarding@resend.dev>",
+  TEST_A_PUBLICATION_ORIGIN: "https://announcements.example.test",
+  TEST_A_PUBLICATION_VERCEL_TEAM_ID: "team_test_a",
+  TEST_A_PUBLICATION_VERCEL_PROJECT_ID: "prj_test_a_announcements",
+  TEST_A_PUBLICATION_VERCEL_PROJECT_NAME: "bebebonjour-test-a-announcements",
+});
+
+function operatorEnvironment(overrides = {}) {
+  return { ...reviewedOperatorEnvironment, ...overrides };
+}
+
 function jobInput() {
   return {
     jobId: "job_test_001",
@@ -111,12 +125,7 @@ test("private TEST-A operator runner persists review before exact publication an
   const resendCalls = [];
   const runner = createTestAOperatorRunner({
     store,
-    environment: {
-      BEBEBONJOUR_APPROVAL_HMAC_KEY: "operator-review-key-with-at-least-thirty-two-bytes",
-      RESEND_API_KEY: "re_test_operator_runner",
-      RESEND_FROM: "Bébé Bonjour <onboarding@resend.dev>",
-      TEST_A_PUBLICATION_ORIGIN: "https://announcements.example.test",
-    },
+    environment: operatorEnvironment(),
     publicationProvider: {
       async reconcile(request) {
         publicationCalls.push({ method: "reconcile", request });
@@ -231,6 +240,43 @@ test("private TEST-A operator runner fails closed when runtime secrets or exact 
   }), /exact HTTPS origin/);
 });
 
+test("private TEST-A operator runner rejects every non-reviewed provider identity before provider I/O", () => {
+  let providerIo = 0;
+  const publicationProvider = {
+    async reconcile() { providerIo += 1; },
+    async publish() { providerIo += 1; },
+  };
+  const resend = {
+    emails: {
+      async send() { providerIo += 1; },
+      async get() { providerIo += 1; },
+    },
+  };
+  const mismatches = [
+    { RESEND_FROM: "Contradictory Sender <other@example.test>" },
+    { RESEND_FROM: " Bébé Bonjour <onboarding@resend.dev> " },
+    { TEST_A_PUBLICATION_ORIGIN: "https://bebebonjour-fulfillment.vercel.app" },
+    { TEST_A_PUBLICATION_ORIGIN: "https://announcements.example.test:443" },
+    { TEST_A_PUBLICATION_VERCEL_TEAM_ID: "team_hosted_customer_flow" },
+    { TEST_A_PUBLICATION_VERCEL_TEAM_ID: " team_test_a " },
+    { TEST_A_PUBLICATION_VERCEL_PROJECT_ID: "prj_XJrkufo77hXAdvMuYjPn6F6AVZjn" },
+    { TEST_A_PUBLICATION_VERCEL_PROJECT_NAME: "bebebonjour-fulfillment" },
+  ];
+
+  for (const mismatch of mismatches) {
+    assert.throws(
+      () => createTestAOperatorRunner({
+        environment: operatorEnvironment(mismatch),
+        store: {},
+        publicationProvider,
+        resend,
+      }),
+      /does not match the reviewed TEST-A operator identity/,
+    );
+  }
+  assert.equal(providerIo, 0);
+});
+
 test("private TEST-A operator runner wires production-safe provider, clock, and token defaults", () => {
   const store = {
     async getJob() {
@@ -245,19 +291,12 @@ test("private TEST-A operator runner wires production-safe provider, clock, and 
   };
   const runner = createTestAOperatorRunner({
     store,
-    environment: {
-      BEBEBONJOUR_APPROVAL_HMAC_KEY: "operator-review-key-with-at-least-thirty-two-bytes",
-      RESEND_API_KEY: "re_test_operator_runner",
-      RESEND_FROM: "Bébé Bonjour <onboarding@resend.dev>",
-      TEST_A_PUBLICATION_ORIGIN: "https://announcements.example.test",
+    environment: operatorEnvironment({
       VERCEL_TOKEN: "vercel_test_token",
-      TEST_A_PUBLICATION_VERCEL_TEAM_ID: "team_test_a",
-      TEST_A_PUBLICATION_VERCEL_PROJECT_ID: "prj_test_a_announcements",
-      TEST_A_PUBLICATION_VERCEL_PROJECT_NAME: "bebebonjour-test-a-announcements",
       TEST_A_PUBLICATION_CANARY_JOB_ID: "job_test_001",
       TEST_A_PUBLICATION_CANARY_REVISION_ID: "r1",
       TEST_A_ARTIFACT_ROOT: "/tmp/bebebonjour-test-a-artifacts",
-    },
+    }),
     resend: { emails: { send: async () => null, get: async () => null } },
   });
 

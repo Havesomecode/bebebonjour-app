@@ -11,10 +11,13 @@ import {
 } from "./persisted-review-decision.mjs";
 import { createLocalArtifactResolver } from "./local-artifact-resolver.mjs";
 import { createResendDeliveryAdapter } from "./resend-delivery-adapter.mjs";
+import {
+  requireReviewedTestAOperatorIdentity,
+  REVIEWED_TEST_A_OPERATOR_IDENTITY,
+} from "./test-a-operator-runtime-identity.mjs";
 import { createVercelTestAPublicationProvider } from "./vercel-test-a-publication-provider.mjs";
 import { createConvexFulfillmentStore } from "../persistence/convex-fulfillment-store.mjs";
 
-const TEST_SINK = "delivered@resend.dev";
 const STAGES = Object.freeze(["prepare_review", "render_approved", "generate_tts", "publish", "deliver"]);
 const DEFAULT_RETRY_POLICY = Object.freeze({
   leaseMsByStage: Object.freeze(Object.fromEntries(STAGES.map((stage) => [stage, 300_000]))),
@@ -27,8 +30,9 @@ export function createTestAOperatorRunner(options = {}) {
   const hmacKey = requiredSecret(environment, "BEBEBONJOUR_APPROVAL_HMAC_KEY", 32);
   const resendApiKey = requiredString(environment, "RESEND_API_KEY");
   if (!resendApiKey.startsWith("re_")) throw new Error("RESEND_API_KEY must be a Resend API key.");
-  const resendFrom = requiredString(environment, "RESEND_FROM");
-  const publicationOrigin = requiredHttpsOrigin(environment, "TEST_A_PUBLICATION_ORIGIN");
+  const runtimeIdentity = requireReviewedTestAOperatorIdentity(environment);
+  const resendFrom = runtimeIdentity.resendFrom;
+  const publicationOrigin = runtimeIdentity.publication.stableOrigin;
   const clock = options.clock || (() => new Date().toISOString());
   const tokenFactory = options.tokenFactory || (() => `operator_${randomUUID()}`);
   const store = options.store || createHostedStore(options, environment);
@@ -54,7 +58,7 @@ export function createTestAOperatorRunner(options = {}) {
     deliveryAdapter,
     resolveDeliveryTarget: async () => ({
       targetRef: "resend:test-a-sink",
-      email: TEST_SINK,
+      email: REVIEWED_TEST_A_OPERATOR_IDENTITY.testSink,
     }),
   });
   const verifyPersistedReview = createPersistedReviewDecisionVerifier({
@@ -137,12 +141,13 @@ function createHostedStore(options, environment) {
 }
 
 function createHostedPublicationProvider(environment) {
+  const { publication } = requireReviewedTestAOperatorIdentity(environment);
   return createVercelTestAPublicationProvider({
     token: requiredString(environment, "VERCEL_TOKEN"),
-    teamId: requiredString(environment, "TEST_A_PUBLICATION_VERCEL_TEAM_ID"),
-    projectId: requiredString(environment, "TEST_A_PUBLICATION_VERCEL_PROJECT_ID"),
-    projectName: requiredString(environment, "TEST_A_PUBLICATION_VERCEL_PROJECT_NAME"),
-    stableOrigin: requiredHttpsOrigin(environment, "TEST_A_PUBLICATION_ORIGIN"),
+    teamId: publication.teamId,
+    projectId: publication.projectId,
+    projectName: publication.projectName,
+    stableOrigin: publication.stableOrigin,
     canaryJobId: requiredString(environment, "TEST_A_PUBLICATION_CANARY_JOB_ID"),
     canaryRevisionId: requiredString(environment, "TEST_A_PUBLICATION_CANARY_REVISION_ID"),
     artifactResolver: createLocalArtifactResolver({
