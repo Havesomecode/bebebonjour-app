@@ -30,14 +30,14 @@ export function createVercelTestAPublicationProvider(options = {}) {
     const resolved = await artifactResolver.resolve(request);
     const deployment = await findExactDeployment(request);
     if (!deployment) return null;
-    return finalizeDeployment(deployment, request, resolved);
+    return finalizeDeployment(deployment, request, resolved, { allowAliasMutation: false });
   }
 
   async function publish(request) {
     assertCanaryRequest(request, canaryJobId, canaryRevisionId);
     const resolved = await artifactResolver.resolve(request);
     const existing = await findExactDeployment(request);
-    if (existing) return finalizeDeployment(existing, request, resolved);
+    if (existing) return finalizeDeployment(existing, request, resolved, { allowAliasMutation: true });
 
     const configurationBytes = vercelConfigurationBytes(canaryJobId, resolved.entrypointPath);
     const publicationManifest = publicationManifestFor(request, resolved.files, configurationBytes);
@@ -84,7 +84,12 @@ export function createVercelTestAPublicationProvider(options = {}) {
     }, new Set([200, 201]));
     const deploymentId = deployment?.id || deployment?.uid;
     requireIdentifier(deploymentId, "Vercel deployment id");
-    return finalizeDeployment({ ...deployment, uid: deploymentId }, request, resolved);
+    return finalizeDeployment(
+      { ...deployment, uid: deploymentId },
+      request,
+      resolved,
+      { allowAliasMutation: true },
+    );
   }
 
   async function findExactDeployment(request) {
@@ -122,7 +127,7 @@ export function createVercelTestAPublicationProvider(options = {}) {
     throw providerError("Vercel deployment reconciliation exceeded its bounded page limit.", true);
   }
 
-  async function finalizeDeployment(deployment, request, resolved) {
+  async function finalizeDeployment(deployment, request, resolved, { allowAliasMutation }) {
     const ready = await waitForReady(deployment);
     const deploymentId = requireIdentifier(ready?.uid || ready?.id, "Vercel deployment id");
     if (ready.projectId && ready.projectId !== projectId) {
@@ -136,16 +141,21 @@ export function createVercelTestAPublicationProvider(options = {}) {
       finalMessage: "Selected Vercel deployment could not be verified before alias assignment.",
       retryMismatches: false,
     });
-    const aliasResponse = await vercelRequest(
-      `/v2/deployments/${encodeURIComponent(deploymentId)}/aliases?${teamQuery}`,
-      {
-        method: "POST",
-        body: JSON.stringify({ alias: stableHostname }),
-      },
-      new Set([200]),
-    );
-    await verifyAliasMutationResponse(aliasResponse, deploymentId);
-    await verifyProviderAliasEvidence(deploymentId);
+    if (!allowAliasMutation) {
+      const aliased = await verifyProviderAliasEvidence(deploymentId, { allowMissing: true });
+      if (!aliased) return null;
+    } else {
+      const aliasResponse = await vercelRequest(
+        `/v2/deployments/${encodeURIComponent(deploymentId)}/aliases?${teamQuery}`,
+        {
+          method: "POST",
+          body: JSON.stringify({ alias: stableHostname }),
+        },
+        new Set([200]),
+      );
+      await verifyAliasMutationResponse(aliasResponse, deploymentId);
+      await verifyProviderAliasEvidence(deploymentId);
+    }
     await verifyPublication(stableUrl, request, resolved, {
       label: "Stable TEST-A publication",
       finalMessage: "Stable TEST-A publication could not be verified after alias assignment.",
@@ -288,18 +298,27 @@ export function createVercelTestAPublicationProvider(options = {}) {
     }
   }
 
-  async function verifyProviderAliasEvidence(deploymentId) {
-    let alias;
+  async function verifyProviderAliasEvidence(deploymentId, { allowMissing = false } = {}) {
+    let response;
     try {
-      alias = await vercelEvidenceJson(
+      response = await vercelRequest(
         `/v4/aliases/${encodeURIComponent(stableHostname)}`
         + `?projectId=${encodeURIComponent(projectId)}&${teamQuery}`,
+        { method: "GET" },
+        new Set(allowMissing ? [200, 404] : [200]),
       );
     } catch (error) {
       throw providerError(
         `Vercel provider alias evidence could not be read: ${error.message}`,
         error?.retryable === true,
       );
+    }
+    if (response.status === 404) return false;
+    let alias;
+    try {
+      alias = await response.json();
+    } catch (error) {
+      throw providerError("Vercel provider alias evidence is malformed.", false, error);
     }
     if (
       alias?.alias !== stableHostname
@@ -311,6 +330,7 @@ export function createVercelTestAPublicationProvider(options = {}) {
         false,
       );
     }
+    return true;
   }
 
   async function verifyAliasMutationResponse(response, deploymentId) {

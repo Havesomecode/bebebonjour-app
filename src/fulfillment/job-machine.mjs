@@ -137,6 +137,7 @@ export function claimStageTransition(aggregate, claim, at) {
       leaseToken: claim.leaseToken,
       leaseExpiresAt: new Date(Date.parse(at) + claim.leaseMs).toISOString(),
       startedAt: at,
+      effectStartedAt: null,
       completedAt: null,
       failure: null,
     });
@@ -148,6 +149,29 @@ export function claimStageTransition(aggregate, claim, at) {
     leaseMs: claim.leaseMs,
     maxAttempts: claim.maxAttempts,
     operationBinding: claim.operationBinding || null,
+  });
+}
+
+export function markExternalEffectStartedTransition(aggregate, command, at) {
+  return withCommand(aggregate, command, "external_effect_started", at, (next) => {
+    if (command.stage !== "publish" && command.stage !== "deliver") {
+      throw new Error("Only publication and delivery stages can start an external effect.");
+    }
+    const attempt = currentRunningAttempt(next, command.stage, command.leaseToken);
+    if (attempt.attemptId !== command.attemptId) {
+      throw new Error(`External effect marker must bind running attempt ${attempt.attemptId}.`);
+    }
+    if (Date.parse(at) >= Date.parse(attempt.leaseExpiresAt)) {
+      throw new Error("External effect cannot start after its stage lease expired.");
+    }
+    if (attempt.effectStartedAt !== null) {
+      throw new Error("External effect start is already persisted for this attempt.");
+    }
+    attempt.effectStartedAt = at;
+  }, {
+    commandId: command.commandId,
+    stage: command.stage,
+    attemptId: command.attemptId,
   });
 }
 
@@ -412,6 +436,7 @@ export function statusFromAggregate(aggregate) {
       operationNumber: attempt.operationNumber,
       idempotencyKey: attempt.idempotencyKey,
       status: attempt.status,
+      effectStartedAt: attempt.effectStartedAt,
       failure: attempt.failure,
     })),
   });

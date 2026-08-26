@@ -5,8 +5,11 @@ import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 
+import { createExternalEffectStageHandlers } from "../../src/fulfillment/external-effect-stage-handlers.mjs";
+import { createFulfillmentOrchestrator } from "../../src/fulfillment/job-orchestrator.mjs";
 import { createLocalArtifactResolver } from "../../src/fulfillment/local-artifact-resolver.mjs";
 import { createVercelTestAPublicationProvider } from "../../src/fulfillment/vercel-test-a-publication-provider.mjs";
+import { createLocalTestFulfillmentStore } from "../../src/persistence/local-test-fulfillment-store.mjs";
 
 const JOB_ID = "job_test_001";
 const REVISION_ID = "r1";
@@ -252,6 +255,7 @@ function deploymentFileTreeFor(value, manifest, options = {}) {
 function deploymentEvidenceResponse(url, value, manifest, deployment, options = {}) {
   const parsed = new URL(url);
   const deploymentId = deployment.id || deployment.uid;
+  const request = options.request || value.request;
   if (parsed.pathname === `/v13/deployments/${deploymentId}`) {
     return jsonResponse({
       id: deploymentId,
@@ -259,11 +263,11 @@ function deploymentEvidenceResponse(url, value, manifest, deployment, options = 
       projectId: "prj_test_a_announcements",
       readyState: options.deploymentReadyState ?? "READY",
       meta: {
-        bbCanaryJobId: JOB_ID,
-        bbRevisionId: REVISION_ID,
-        bbArtifactSetId: value.request.artifactSetId,
-        bbArtifactManifestDigest: value.request.artifactManifestDigest,
-        bbIdempotencyKey: IDEMPOTENCY_KEY,
+        bbCanaryJobId: request.jobId,
+        bbRevisionId: request.revisionId,
+        bbArtifactSetId: request.artifactSetId,
+        bbArtifactManifestDigest: request.artifactManifestDigest,
+        bbIdempotencyKey: request.idempotencyKey,
       },
     });
   }
@@ -412,7 +416,7 @@ test("Vercel TEST-A provider resolves exact source bytes before one scoped alias
   assert.equal(calls.filter(({ url }) => url.includes("/v2/deployments/dpl_test_a_001/aliases")).length, 1);
 });
 
-test("Vercel TEST-A provider reconciles the exact deployment metadata without creating another deployment", async (t) => {
+test("Vercel TEST-A provider reconciles a fully aliased deployment without provider mutation", async (t) => {
   const value = await fixture(t);
   const calls = [];
   const publicManifest = publicManifestFor(value);
@@ -482,14 +486,12 @@ test("Vercel TEST-A provider reconciles the exact deployment metadata without cr
   const immutableReadIndexes = calls
     .map(({ url }, index) => (url.startsWith(EXISTING_DEPLOYMENT_ORIGIN) ? index : -1))
     .filter((index) => index >= 0);
-  const aliasMutationIndex = calls.findIndex(({ url }) => (
-    url.includes("/v2/deployments/dpl_test_a_existing/aliases")
-  ));
+  const aliasMutationIndex = calls.findIndex(({ url }) => url.includes("/v2/deployments/dpl_test_a_existing/aliases"));
   const aliasEvidenceIndex = calls.findIndex(({ url }) => url.includes("/v4/aliases/"));
   const stableReadIndex = calls.findIndex(({ url }) => url.startsWith(STABLE_ORIGIN));
   assert.ok(immutableReadIndexes.length >= 5, "the selected deployment manifest, redirect, and files must be read back");
-  assert.ok(immutableReadIndexes.every((index) => index < aliasMutationIndex), "all immutable deployment verification must precede aliasing");
-  assert.ok(aliasMutationIndex < aliasEvidenceIndex, "exact alias assignment must be read back from Vercel");
+  assert.equal(aliasMutationIndex, -1, "reconciliation must not assign the alias");
+  assert.ok(immutableReadIndexes.every((index) => index < aliasEvidenceIndex), "all immutable deployment verification must precede alias evidence");
   assert.ok(stableReadIndex > aliasEvidenceIndex, "stable publication verification must follow provider alias evidence");
 });
 
@@ -569,7 +571,7 @@ test("Vercel TEST-A provider rejects undocumented or unbound alias responses bef
         },
       });
 
-      await assert.rejects(provider.reconcile(value.request), (error) => {
+      await assert.rejects(provider.publish(value.request), (error) => {
         assert.match(error.message, aliasCase.error);
         assert.equal(error.retryable, false);
         return true;
@@ -1227,4 +1229,241 @@ test("local artifact resolution rejects stale persisted manifest and non-canary 
   await assert.rejects(provider.publish(value.request), /persisted manifest digest/i);
   await assert.rejects(provider.publish({ ...value.request, revisionId: "r2" }), /configured TEST-A canary/i);
   assert.equal(calls.length, 0);
+});
+
+test("expired publication overlap creates one deployment and one stable alias through the real adapter", async (t) => {
+  const value = await fixture(t);
+  const sortedFiles = [...value.request.artifactSet.files].sort((left, right) => left.path.localeCompare(right.path));
+  const manifestBytes = Buffer.from(`${JSON.stringify({
+    schemaVersion: "1.0",
+    kind: "prepared_bundle",
+    revisionId: REVISION_ID,
+    files: sortedFiles,
+  }, null, 2)}\n`, "utf8");
+  await writeFile(value.manifestPath, manifestBytes);
+  value.request = {
+    ...value.request,
+    artifactManifestDigest: sha256(manifestBytes),
+    artifactSet: {
+      ...value.request.artifactSet,
+      assetManifestDigest: sha256(manifestBytes),
+      files: sortedFiles,
+    },
+  };
+  const store = createLocalTestFulfillmentStore({ filePath: path.join(value.rootPath, "fulfillment.json") });
+  const baseResolver = createLocalArtifactResolver({ rootPath: value.rootPath });
+  const uploadedBodies = [];
+  const deployments = [];
+  let activeRequest;
+  let publicationManifest;
+  let aliasDeploymentId = null;
+  let deploymentCreates = 0;
+  let aliasMutations = 0;
+  let releaseFirstDeployment;
+  let signalFirstDeploymentStarted;
+  const firstDeploymentRelease = new Promise((resolve) => { releaseFirstDeployment = resolve; });
+  const firstDeploymentStarted = new Promise((resolve) => { signalFirstDeploymentStarted = resolve; });
+
+  const provider = createVercelTestAPublicationProvider({
+    token: "vercel_test_token",
+    teamId: "team_test_a",
+    projectId: "prj_test_a_announcements",
+    projectName: "bebebonjour-test-a-announcements",
+    stableOrigin: STABLE_ORIGIN,
+    canaryJobId: JOB_ID,
+    canaryRevisionId: REVISION_ID,
+    artifactResolver: {
+      async resolve(request) {
+        activeRequest = structuredClone(request);
+        return baseResolver.resolve(request);
+      },
+    },
+    fetch: async (url, init = {}) => {
+      const parsed = new URL(url);
+      if (parsed.pathname === "/v7/deployments") {
+        return jsonResponse({
+          deployments: deployments.map((deployment) => ({
+            uid: deployment.id,
+            url: new URL(deployment.origin).hostname,
+            projectId: "prj_test_a_announcements",
+            readyState: "READY",
+            meta: deployment.meta,
+          })),
+          pagination: { next: null },
+        });
+      }
+      if (parsed.pathname === "/v2/files") {
+        uploadedBodies.push(Buffer.from(await new Response(init.body).arrayBuffer()));
+        return jsonResponse({});
+      }
+      if (parsed.pathname === "/v13/deployments" && init.method === "POST") {
+        deploymentCreates += 1;
+        const deploymentNumber = deploymentCreates;
+        if (deploymentNumber === 1) {
+          signalFirstDeploymentStarted();
+          await firstDeploymentRelease;
+        }
+        publicationManifest = JSON.parse(
+          uploadedBodies.find((body) => body.includes(Buffer.from("artifactManifestDigest"))).toString("utf8"),
+        );
+        const payload = JSON.parse(init.body);
+        const deployment = {
+          id: `dpl_overlap_${deploymentNumber}`,
+          origin: `https://dpl-overlap-${deploymentNumber}.vercel.app`,
+          meta: payload.meta,
+        };
+        deployments.push(deployment);
+        return jsonResponse({
+          id: deployment.id,
+          url: new URL(deployment.origin).hostname,
+          readyState: "READY",
+        });
+      }
+      for (const deployment of deployments) {
+        const evidence = deploymentEvidenceResponse(
+          url,
+          value,
+          publicationManifest,
+          deployment,
+          { request: activeRequest },
+        );
+        if (evidence) return evidence;
+        const immutable = publicationReadbackResponse(
+          url,
+          value,
+          publicationManifest,
+          deployment.origin,
+        );
+        if (immutable) return immutable;
+        if (parsed.pathname === `/v2/deployments/${deployment.id}/aliases`) {
+          aliasMutations += 1;
+          aliasDeploymentId = deployment.id;
+          return jsonResponse(aliasMutationResponse({
+            uid: `alias_overlap_${aliasMutations}`,
+            deploymentId: deployment.id,
+            projectId: "prj_test_a_announcements",
+          }));
+        }
+      }
+      if (parsed.pathname === `/v4/aliases/${new URL(STABLE_ORIGIN).hostname}`) {
+        if (!aliasDeploymentId) return jsonResponse({}, 404);
+        return aliasEvidenceResponse(url, aliasDeploymentId);
+      }
+      if (url.startsWith(STABLE_ORIGIN) && aliasDeploymentId) {
+        return publicationReadbackResponse(url, value, publicationManifest, STABLE_ORIGIN);
+      }
+      throw new Error(`Unexpected fetch: ${init.method || "GET"} ${url}`);
+    },
+    pollIntervalMs: 0,
+    maxPollAttempts: 3,
+  });
+  const externalHandlers = createExternalEffectStageHandlers({
+    publicationAdapter: provider,
+    deliveryAdapter: {
+      async reconcile() { return null; },
+      async send() { throw new Error("delivery is outside this publication regression"); },
+      async status() { throw new Error("delivery is outside this publication regression"); },
+    },
+    resolveDeliveryTarget: async () => ({ targetRef: "unused" }),
+  });
+  let now = "2026-08-26T12:00:00.000Z";
+  let tokenNumber = 0;
+  const options = {
+    store,
+    handlers: {
+      async prepare_review() {
+        return {
+          revision: { revisionId: REVISION_ID, ordinal: 1, inputDigest: "a".repeat(64) },
+          artifactSet: {
+            kind: "private_review",
+            revisionId: REVISION_ID,
+            pageDigest: value.request.artifactSet.pageDigest,
+            transcriptDigest: value.request.artifactSet.transcriptDigest,
+            assetManifestDigest: value.request.artifactSet.assetManifestDigest,
+          },
+        };
+      },
+      async render_approved() { return { artifactSet: value.request.artifactSet }; },
+      async verify_review_decision({ decision }) { return decision; },
+      ...externalHandlers,
+    },
+    clock: () => now,
+    tokenFactory: () => `overlap-lease-${tokenNumber += 1}`,
+    retryPolicy: {
+      leaseMsByStage: Object.fromEntries([
+        "prepare_review", "generate_tts", "render_approved", "publish", "deliver",
+      ].map((stage) => [stage, 1_000])),
+      maxAttemptsByStage: Object.fromEntries([
+        "prepare_review", "generate_tts", "render_approved", "publish", "deliver",
+      ].map((stage) => [stage, stage === "publish" ? 3 : 2])),
+      backoffMsByStage: Object.fromEntries([
+        "prepare_review", "generate_tts", "render_approved", "publish", "deliver",
+      ].map((stage) => [stage, [1_000, 1_000]])),
+    },
+  };
+  const firstWorker = createFulfillmentOrchestrator(options);
+  const recoveryWorker = createFulfillmentOrchestrator(options);
+  const job = {
+    jobId: JOB_ID,
+    environment: "test",
+    product: "announcement-page",
+    intakeDigest: "a".repeat(64),
+    paymentCorrelation: {
+      project: "bebebonjour",
+      product: "announcement-page",
+      environment: "test",
+      jobId: JOB_ID,
+      intakeDigest: "a".repeat(64),
+    },
+    narrationRequired: false,
+  };
+  await firstWorker.createJob(job, { commandId: "create-overlap-job" });
+  await firstWorker.recordPayment(JOB_ID, {
+    commandId: "record-overlap-payment",
+    providerEventId: "evt_overlap_payment",
+    providerPaymentId: "pi_overlap_payment",
+    correlation: job.paymentCorrelation,
+    recordedAt: now,
+  });
+  await firstWorker.runNext(JOB_ID);
+  await firstWorker.recordReviewDecision(JOB_ID, {
+    commandId: "approve-overlap-content",
+    decisionType: "content",
+    revisionId: REVISION_ID,
+    outcome: "approved",
+    policyVersion: "bebebonjour-editorial-v1",
+    rubricVersion: "bebebonjour-content-rubric-v1",
+    reviewer: { id: "reviewer_overlap", role: "qualified-human-reviewer", competencies: ["editorial"] },
+    decidedAt: now,
+    artifactDigests: {
+      pageDigest: value.request.artifactSet.pageDigest,
+      transcriptDigest: value.request.artifactSet.transcriptDigest,
+      assetManifestDigest: value.request.artifactSet.assetManifestDigest,
+    },
+    reasons: ["synthetic overlap regression"],
+  });
+  const ready = await firstWorker.runNext(JOB_ID);
+  assert.equal(ready.state, "publish_ready", JSON.stringify(ready.stageAttempts.at(-1)?.failure));
+
+  const firstRun = firstWorker.runNext(JOB_ID);
+  await Promise.race([
+    firstDeploymentStarted,
+    firstRun.then((status) => {
+      throw new Error(`publication returned before deployment creation: ${JSON.stringify(status)}`);
+    }),
+  ]);
+  now = "2026-08-26T12:00:01.000Z";
+  await recoveryWorker.runNext(JOB_ID);
+  now = "2026-08-26T12:00:02.000Z";
+  let recovered = await recoveryWorker.runNext(JOB_ID);
+  releaseFirstDeployment();
+  await firstRun.catch(() => undefined);
+  if (recovered.state === "retry_wait") {
+    now = "2026-08-26T12:00:03.000Z";
+    recovered = await recoveryWorker.runNext(JOB_ID);
+  }
+
+  assert.equal(recovered.state, "published");
+  assert.equal(deploymentCreates, 1);
+  assert.equal(aliasMutations, 1);
 });

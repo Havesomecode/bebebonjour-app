@@ -12,6 +12,7 @@ import {
   confirmDeliveryTransition,
   createJobAggregate,
   failStageTransition,
+  markExternalEffectStartedTransition,
   queueDeliveryTransition,
   reconcileDeliveryTransition,
   recordPaymentTransition,
@@ -192,6 +193,10 @@ export function createLocalTestFulfillmentStore({ filePath }) {
         }
         return { aggregate: structuredClone(next), acquired: !replay };
       });
+    },
+
+    markExternalEffectStarted(jobId, command, at) {
+      return change(jobId, (aggregate) => markExternalEffectStartedTransition(aggregate, command, at));
     },
 
     completeStage(jobId, completion, at) {

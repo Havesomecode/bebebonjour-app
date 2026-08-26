@@ -728,6 +728,28 @@ test("an expired stage lease is fenced, persisted, and retried with the same sid
   assert.deepEqual(publishKeys, [abandonedKey]);
 });
 
+test("an external effect marker cannot be rebound to another attempt", async (t) => {
+  const { orchestrator, store } = await fixture(t);
+  await reachPublishReady(orchestrator);
+  const claimed = await store.claimStage("job_synthetic_001", {
+    commandId: "claim-publish-for-effect-marker",
+    stage: "publish",
+    leaseToken: "effect-marker-lease",
+    leaseMs: 1_000,
+    maxAttempts: 2,
+  }, "2026-08-11T00:00:00.000Z");
+
+  await assert.rejects(
+    () => store.markExternalEffectStarted("job_synthetic_001", {
+      commandId: "mark-wrong-publish-attempt",
+      stage: "publish",
+      attemptId: "attempt_000000000000000000000000",
+      leaseToken: "effect-marker-lease",
+    }, "2026-08-11T00:00:00.000Z"),
+    new RegExp(claimed.aggregate.stageAttempts.at(-1).attemptId),
+  );
+});
+
 test("a completion at or after lease expiry cannot commit stage output", async (t) => {
   const { orchestrator, store } = await fixture(t);
   await orchestrator.createJob(syntheticJob(), { commandId: "create-job" });
@@ -1234,7 +1256,7 @@ test("ambiguous delivery acceptance is reconciled before retrying the send effec
   ]);
 });
 
-test("delivery retries keep the persisted exact target binding and never retarget", async (t) => {
+test("delivery retries reconcile only and never retarget or resend", async (t) => {
   let now = "2026-08-11T00:00:00.000Z";
   let address = "first@example.test";
   let sendCalls = 0;
@@ -1270,7 +1292,7 @@ test("delivery retries keep the persisted exact target binding and never retarge
   status = await orchestrator.runNext("job_synthetic_001");
 
   assert.equal(status.state, "failed");
-  assert.equal(status.stageAttempts.at(-1).failure.reasonCode, "provider_receipt_invalid");
+  assert.equal(status.stageAttempts.at(-1).failure.reasonCode, "provider_outcome_unknown");
   assert.equal(sendCalls, 1);
 });
 

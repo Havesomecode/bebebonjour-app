@@ -5,6 +5,7 @@ import {
   confirmDeliveryTransition,
   createJobAggregate,
   failStageTransition,
+  markExternalEffectStartedTransition,
   queueDeliveryTransition,
   reconcileDeliveryTransition,
   recordPaymentTransition,
@@ -106,6 +107,10 @@ export function createConvexFulfillmentStore(options = {}) {
         return next;
       });
       return { aggregate, acquired };
+    },
+
+    markExternalEffectStarted(jobId, command, at) {
+      return change(jobId, (aggregate) => markExternalEffectStartedTransition(aggregate, command, at));
     },
 
     completeStage(jobId, completion, at) {

@@ -214,6 +214,7 @@
         "lease_token",
         "lease_expires_at",
         "started_at",
+        "effect_started_at",
         "completed_at",
         "failure"
       ],
@@ -239,6 +240,12 @@
           ]
         },
         "started_at": { "type": "string", "format": "date-time" },
+        "effect_started_at": {
+          "oneOf": [
+            { "type": "string", "format": "date-time" },
+            { "type": "null" }
+          ]
+        },
         "completed_at": {
           "oneOf": [
             { "type": "string", "format": "date-time" },

@@ -163,6 +163,23 @@ export function createFulfillmentOrchestrator(options) {
       const attempt = [...aggregate.stageAttempts].reverse().find(
         (entry) => entry.stage === stage && entry.status === "running",
       );
+      const externalEffectStage = stage === "publish" || stage === "deliver";
+      const reconciliationOnly = externalEffectStage && aggregate.stageAttempts.some(
+        (entry) => entry.attemptId !== attempt.attemptId
+          && entry.stage === stage
+          && entry.revisionId === attempt.revisionId
+          && entry.idempotencyKey === attempt.idempotencyKey
+          && typeof entry.effectStartedAt === "string",
+      );
+
+      if (externalEffectStage) {
+        aggregate = await store.markExternalEffectStarted(jobId, {
+          commandId: `effect-started:${attempt.attemptId}`,
+          stage,
+          attemptId: attempt.attemptId,
+          leaseToken,
+        }, clock());
+      }
 
       const failAttempt = async (error, at = clock()) => {
         const classification = hasLeaseExpired(attempt, at)
@@ -185,8 +202,9 @@ export function createFulfillmentOrchestrator(options) {
           attemptId: attempt.attemptId,
           attemptNumber: attempt.attemptNumber,
           idempotencyKey: attempt.idempotencyKey,
+          reconciliationOnly,
           leaseToken,
-          operation: stage === "publish" || stage === "deliver"
+          operation: externalEffectStage
             ? externalEffectInputFromAggregate(aggregate, stage)
             : null,
         }));

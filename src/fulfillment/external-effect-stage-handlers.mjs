@@ -32,6 +32,7 @@ export function createExternalEffectStageHandlers(options = {}) {
         idempotencyKey: requireIdempotencyKey(context),
       });
       const reconciled = await publicationAdapter.reconcile(request);
+      if (!reconciled && context.reconciliationOnly) throw reconciliationPending("publication");
       const publication = reconciled || await publicationAdapter.publish(request);
       return { publication: normalizePublication(publication, request) };
     },
@@ -53,6 +54,7 @@ export function createExternalEffectStageHandlers(options = {}) {
       if (reconciled) {
         return { delivery: normalizeDelivery(reconciled, reconciliationRequest) };
       }
+      if (context.reconciliationOnly) throw reconciliationPending("delivery");
       const target = await resolveDeliveryTarget(context.job, operation.deliveryTarget.targetRef);
       assertDeliveryTarget(target);
       const currentBinding = deliveryTargetBinding(target);
@@ -226,6 +228,13 @@ function providerResultError(message) {
   const error = new Error(message);
   error.reasonCode = "provider_receipt_invalid";
   error.retryable = false;
+  return error;
+}
+
+function reconciliationPending(effect) {
+  const error = new Error(`Prior ${effect} effect has no reconciled provider receipt yet.`);
+  error.reasonCode = "provider_outcome_unknown";
+  error.retryable = true;
   return error;
 }
 
