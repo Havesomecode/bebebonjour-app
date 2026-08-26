@@ -12,7 +12,7 @@
     "reviewedFileDigests": [
       {
         "path": "src/fulfillment/vercel-test-a-publication-provider.mjs",
-        "sha256": "ebd0686c4ad3d3b1013a40f4d69bf92c2fbdc1947b2e9a67db96e3e0e588fbef"
+        "sha256": "8e800df0e35564ef99d59109d405f690b79dea0751a7e3d542393abccd62e1e7"
       },
       {
         "path": "test/fulfillment/vercel-test-a-publication-provider.test.mjs",

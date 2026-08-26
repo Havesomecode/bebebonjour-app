@@ -1,0 +1,27 @@
+{
+  "compilerOptions": {
+    "allowJs": true,
+    "checkJs": true,
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "noEmit": true,
+    "resolveJsonModule": true,
+    "skipLibCheck": true,
+    "strict": false,
+    "target": "ES2023",
+    "types": ["node"]
+  },
+  "include": [
+    "types/fulfillment-error.d.ts",
+    "convex/fulfillment.js",
+    "convex/schema.js",
+    "ops/test-a-production-audit.mjs",
+    "src/fulfillment/exact-revision-publication-adapter.mjs",
+    "src/fulfillment/job-machine.mjs",
+    "src/fulfillment/local-artifact-resolver.mjs",
+    "src/fulfillment/operator-runner-test-a.mjs",
+    "src/fulfillment/persisted-review-decision.mjs",
+    "src/fulfillment/vercel-test-a-publication-provider.mjs",
+    "src/persistence/convex-fulfillment-store.mjs"
+  ]
+}

@@ -595,7 +595,9 @@ function sha256(value) {
 }
 
 function wait(milliseconds) {
-  return milliseconds === 0 ? Promise.resolve() : new Promise((resolve) => setTimeout(resolve, milliseconds));
+  return milliseconds === 0 ? Promise.resolve() : new Promise((resolve) => {
+    setTimeout(resolve, milliseconds);
+  });
 }
 
 function providerError(message, retryable, cause) {

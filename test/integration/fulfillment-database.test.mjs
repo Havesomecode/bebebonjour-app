@@ -27,7 +27,9 @@ async function waitForPostgres(containerName) {
       { encoding: "utf8" },
     );
     if (result.status === 0) return;
-    await new Promise((resolve) => setTimeout(resolve, 500));
+    await new Promise((resolve) => {
+      setTimeout(resolve, 500);
+    });
   }
   throw new Error("PostgreSQL test container did not become ready.");
 }
@@ -80,7 +82,9 @@ function openPsqlSession(containerName) {
     async waitForOutput(marker) {
       for (let attempt = 0; attempt < 500; attempt += 1) {
         if (stdout.includes(marker)) return;
-        await new Promise((resolve) => setTimeout(resolve, 10));
+        await new Promise((resolve) => {
+          setTimeout(resolve, 10);
+        });
       }
       throw new Error(`Timed out waiting for ${marker}.\n${stdout}${stderr}`);
     },
@@ -90,7 +94,9 @@ function openPsqlSession(containerName) {
 async function waitForDatabaseCondition(containerName, sql) {
   for (let attempt = 0; attempt < 500; attempt += 1) {
     if (psql(containerName, sql) === "t") return;
-    await new Promise((resolve) => setTimeout(resolve, 10));
+    await new Promise((resolve) => {
+      setTimeout(resolve, 10);
+    });
   }
   throw new Error(`Timed out waiting for database condition: ${sql}`);
 }

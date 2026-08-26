@@ -10,6 +10,7 @@ const KIND_ROOTS = Object.freeze({
 const MAX_FILES = 500;
 const MAX_TOTAL_BYTES = 128 * 1024 * 1024;
 
+/** @param {{ rootPath?: string }} [options] */
 export function createLocalArtifactResolver({ rootPath } = {}) {
   if (typeof rootPath !== "string" || !path.isAbsolute(rootPath)) {
     throw new Error("TEST_A_ARTIFACT_ROOT must be an absolute local artifact workspace path.");

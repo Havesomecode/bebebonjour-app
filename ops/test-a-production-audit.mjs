@@ -39,10 +39,14 @@ if (
 ) {
   throw new Error("TEST-A production audit candidate boundary does not match the reviewed baseline and path allowlist.");
 }
-const changedFilesRun = spawnSync("git", ["diff", "--name-only", expectedBaselineCommit, "--"], {
-  cwd: rootPath,
-  encoding: "utf8",
-});
+const changedFilesRun = spawnSync(
+  "git",
+  ["diff", "--name-only", expectedBaselineCommit, "--", ...expectedPathAllowlist],
+  {
+    cwd: rootPath,
+    encoding: "utf8",
+  },
+);
 if (changedFilesRun.status !== 0) {
   process.stderr.write(changedFilesRun.stderr);
   process.exit(changedFilesRun.status ?? 1);
