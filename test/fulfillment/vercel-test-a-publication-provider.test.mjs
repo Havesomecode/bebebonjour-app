@@ -1167,6 +1167,46 @@ test("Vercel TEST-A reconciliation returns no match only after exhausting deploy
   assert.equal(calls.length, 2);
 });
 
+test("Vercel TEST-A deployment discovery rejects malformed list responses before mutation", async (t) => {
+  const cases = [
+    { name: "missing deployments", result: { pagination: { next: null } } },
+    { name: "non-array deployments", result: { deployments: {}, pagination: { next: null } } },
+    { name: "missing pagination", result: { deployments: [] } },
+    { name: "non-object pagination", result: { deployments: [], pagination: "invalid" } },
+    { name: "missing pagination next", result: { deployments: [], pagination: { count: 0 } } },
+  ];
+
+  for (const method of ["reconcile", "publish"]) {
+    for (const malformedCase of cases) {
+      await t.test(`${method}: ${malformedCase.name}`, async (subtest) => {
+        const value = await fixture(subtest);
+        const calls = [];
+        const provider = createProvider({
+          calls,
+          fixtureValue: value,
+          async fetchImpl(url, init) {
+            if (new URL(url).pathname === "/v7/deployments") {
+              return jsonResponse(malformedCase.result);
+            }
+            throw new Error(`Malformed deployment discovery reached mutation: ${init.method || "GET"} ${url}`);
+          },
+        });
+        const request = method === "publish"
+          ? { ...value.request, reconciliationCursor: 200 }
+          : value.request;
+
+        await assert.rejects(provider[method](request), (error) => {
+          assert.match(error.message, /malformed deployment list response/i);
+          assert.equal(error.retryable, false);
+          return true;
+        });
+        assert.equal(calls.length, 1);
+        assert.equal(new URL(calls[0].url).pathname, "/v7/deployments");
+      });
+    }
+  }
+});
+
 test("Vercel TEST-A publication retry starts reconciliation at the supplied cursor after an interrupted deployment", async (t) => {
   const value = await fixture(t);
   const calls = [];
@@ -1280,11 +1320,12 @@ test("Vercel TEST-A publication retry starts reconciliation at the supplied curs
   )).length, 1);
 });
 
-test("Vercel TEST-A reconciliation rejects repeated, cyclic, and non-monotonic cursors", async (t) => {
+test("Vercel TEST-A reconciliation rejects invalid deployment pagination cursors", async (t) => {
   const cases = [
     { name: "repeated", cursors: [200, 200] },
     { name: "cyclic", cursors: [200, 100, 200] },
     { name: "non-monotonic", cursors: [100, 200] },
+    { name: "non-cursor type", cursors: [true], expectedCalls: 1 },
   ];
 
   for (const cursorCase of cases) {
@@ -1305,6 +1346,7 @@ test("Vercel TEST-A reconciliation rejects repeated, cyclic, and non-monotonic c
 
       await assert.rejects(provider.reconcile(value.request), /pagination cursor/i);
       assert.equal(calls.some(({ url }) => url.includes("/aliases")), false);
+      if (cursorCase.expectedCalls) assert.equal(calls.length, cursorCase.expectedCalls);
     });
   }
 });

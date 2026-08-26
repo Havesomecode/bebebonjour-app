@@ -97,19 +97,35 @@ export function createVercelTestAPublicationProvider(options = {}) {
         `/v7/deployments?projectId=${encodeURIComponent(projectId)}&limit=100${cursorQuery}&${teamQuery}`,
         { method: "GET" },
       );
-      const matches = (Array.isArray(result?.deployments) ? result.deployments : []).filter((deployment) => (
+      if (
+        !result
+        || typeof result !== "object"
+        || Array.isArray(result)
+        || !Array.isArray(result.deployments)
+        || !result.pagination
+        || typeof result.pagination !== "object"
+        || Array.isArray(result.pagination)
+        || !Object.hasOwn(result.pagination, "next")
+      ) {
+        throw providerError("Vercel returned a malformed deployment list response.", false);
+      }
+      const matches = result.deployments.filter((deployment) => (
         deployment?.projectId === projectId && metadataMatches(deployment.meta, request)
       ));
       if (matches.length > 1 || (matches.length === 1 && exactDeployment)) {
         throw providerError("Vercel returned multiple deployments for one exact TEST-A publication operation.", false);
       }
       if (matches.length === 1) exactDeployment = matches[0];
-      const next = result?.pagination?.next;
-      if (next === null || next === undefined) return exactDeployment;
+      const next = result.pagination.next;
+      if (next === null) return exactDeployment;
       const nextNumber = Number(next);
       const nextCursor = String(next);
       if (
-        !Number.isSafeInteger(nextNumber)
+        !(
+          (typeof next === "number" && Number.isSafeInteger(next))
+          || (typeof next === "string" && /^(?:0|[1-9]\d*)$/u.test(next))
+        )
+        || !Number.isSafeInteger(nextNumber)
         || nextNumber < 0
         || seenCursors.has(nextCursor)
         || (until !== undefined && nextNumber >= Number(until))

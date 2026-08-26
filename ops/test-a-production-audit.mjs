@@ -18,6 +18,7 @@ const expectedControls = [
   "provider-exact-file-inventory",
   "immutable-deployment-pre-alias-verification",
   "provider-alias-readback",
+  "deployment-list-response-validation",
   "global-exact-deployment-uniqueness",
   "deployment-pagination-progress",
   "interrupted-publication-reconciliation",
