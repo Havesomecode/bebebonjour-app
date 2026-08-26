@@ -1,6 +1,6 @@
 {
   "schemaVersion": "1.0",
-  "auditId": "test-a-publication-regression-audit-v10",
+  "auditId": "test-a-publication-regression-audit-v11",
   "baselineCommit": "956c62ddee38d876be984285a9fcc953c361b942",
   "candidateBoundary": {
     "pathAllowlist": [
@@ -11,6 +11,7 @@
       "src/fulfillment/job-orchestrator.mjs",
       "src/fulfillment/resend-delivery-adapter.mjs",
       "src/fulfillment/vercel-test-a-publication-provider.mjs",
+      "test/fulfillment/exact-revision-publication-adapter.test.mjs",
       "test/fulfillment/resend-delivery-adapter.test.mjs",
       "test/fulfillment/test-a-operator-runner.test.mjs",
       "test/fulfillment/vercel-test-a-publication-provider.test.mjs"
@@ -22,11 +23,11 @@
       },
       {
         "path": "src/fulfillment/exact-revision-publication-adapter.mjs",
-        "sha256": "335b2ca984309dc3834c365d3c6382587c8ca26e7110fe724501b93f9a2257fc"
+        "sha256": "3479bde2d95d6ffa896fca3f600670256847ef0b80c37bc5ff055b21b20370a2"
       },
       {
         "path": "src/fulfillment/external-effect-stage-handlers.mjs",
-        "sha256": "bb03f2c99c4ec3da6a9630ebd26e343aa0f9b5e7badafa123b488e91e3f9f7ea"
+        "sha256": "2ba6d6bef20d86ed73e4c49cc7a9a371b837058bfe769b75b78f7efd5788ce73"
       },
       {
         "path": "src/fulfillment/job-machine.mjs",
@@ -34,7 +35,7 @@
       },
       {
         "path": "src/fulfillment/job-orchestrator.mjs",
-        "sha256": "852fbdfcf3344e7c8e828fe2331e9f17d837fc485581a6010c62c54d1af08e2d"
+        "sha256": "528926a8c2e4cb9643255516443f673fb42ef197d0bb7e29dae80edfe4673ee6"
       },
       {
         "path": "src/fulfillment/resend-delivery-adapter.mjs",
@@ -42,7 +43,7 @@
       },
       {
         "path": "src/fulfillment/vercel-test-a-publication-provider.mjs",
-        "sha256": "2472db7388a100cb45dd32f68d045df87786c045ec508c12816219553f114e77"
+        "sha256": "8a37ebd45fbbd49cd52f95d5bb531f0d7f9ced58403b6010bf1caafab5a2c42e"
       },
       {
         "path": "src/persistence/convex-fulfillment-store.mjs",
@@ -51,6 +52,10 @@
       {
         "path": "src/persistence/local-test-fulfillment-store.mjs",
         "sha256": "d596cb9eb1af8b73993d32a41c62b277c9d606d3e753215922449692831af65b"
+      },
+      {
+        "path": "test/fulfillment/exact-revision-publication-adapter.test.mjs",
+        "sha256": "aa16a21f4f5a20ee14c849fae20af35bc9157bd54799862579d0fc4e33d1aad7"
       },
       {
         "path": "test/fulfillment/job-orchestration.test.mjs",
@@ -66,16 +71,16 @@
       },
       {
         "path": "test/fulfillment/vercel-test-a-publication-provider.test.mjs",
-        "sha256": "d993b2155eea4e52c01ef1f8cc70e4cfd0daeff48faaa8d05ce9b0b5ce4c5525"
+        "sha256": "34899edbbc8097284bb48b5cbb6dd4317e1eaae369c116ca3177ecbbae21fd74"
       }
     ]
   },
   "auditScript": "ops/test-a-production-audit.mjs",
-  "scope": "Offline consolidated production-readiness evidence for durable external-effect fencing, canonical Resend TEST-A sink enforcement, exact TEST-A artifact binding, provider-authoritative deployment and alias evidence, strict deployment-list validation, and retry-safe read-only Vercel reconciliation from the persisted attempt cursor. No provider mutation or live data is used.",
+  "scope": "Offline consolidated production-readiness evidence for durable external-effect fencing, canonical Resend TEST-A sink enforcement, exact TEST-A artifact binding, provider-authoritative deployment and alias evidence, strict deployment-list validation, and retry-safe Vercel reconciliation that may complete one scoped alias only for an exact verified deployment created after the persisted prior effect start. No provider mutation or live data is used.",
   "controls": [
     {
       "id": "durable-external-effect-fencing",
-      "requirement": "Publication and delivery persist an exact-attempt effect_started marker before provider I/O. Any retry or expired-lease reclaim for the same logical operation is reconciliation-only and cannot create a deployment, mutate the stable alias, retarget a recipient, or resend.",
+      "requirement": "Publication and delivery persist an exact-attempt effect_started marker before provider I/O. Any retry or expired-lease reclaim for the same logical operation is reconciliation-only: it cannot create a deployment, retarget a recipient, or resend, and may assign the stable alias only after exact provider and immutable-byte verification proves the deployment was created at or after the persisted prior effect start.",
       "implementation": [
         "schemas/fulfillment-job-store.schema.json",
         "src/fulfillment/external-effect-stage-handlers.mjs",
@@ -88,9 +93,9 @@
       "proofs": [
         "test/fulfillment/job-orchestration.test.mjs: an external effect marker cannot be rebound to another attempt",
         "test/fulfillment/job-orchestration.test.mjs: delivery retries reconcile only and never retarget or resend",
-        "test/fulfillment/vercel-test-a-publication-provider.test.mjs: expired publication overlap creates one deployment and one stable alias through the real adapter"
+        "test/fulfillment/vercel-test-a-publication-provider.test.mjs: a fresh worker completes the alias after the creating worker crashes before alias assignment"
       ],
-      "failureMode": "Retryable provider_outcome_unknown without a second external mutation; bounded terminal failure after the configured reconciliation attempts are exhausted"
+      "failureMode": "Retryable provider_outcome_unknown without duplicate deployment creation; alias continuation remains unavailable unless exact verified deployment evidence and the persisted effect-start boundary both match"
     },
     {
       "id": "canonical-resend-test-sink",
@@ -132,7 +137,7 @@
     },
     {
       "id": "provider-ready-deployment-evidence",
-      "requirement": "Before any immutable public read or alias mutation, provider-authoritative deployment detail and vercel.json file-content evidence must prove the selected deployment id, project, READY state, exact metadata, immutable URL, and exact routing/header configuration bytes.",
+      "requirement": "Before any immutable public read or alias mutation, provider-authoritative deployment detail and vercel.json file-content evidence must prove the selected deployment id, project, READY state, exact metadata, immutable URL, safe creation timestamp, and exact routing/header configuration bytes.",
       "implementation": [
         "src/fulfillment/vercel-test-a-publication-provider.mjs"
       ],
@@ -219,7 +224,7 @@
     },
     {
       "id": "interrupted-publication-reconciliation",
-      "requirement": "Every TEST-A publication attempt must derive a non-negative safe Vercel until cursor from its persisted attempt start time, start reconciliation at that exact cursor, and recover an already-created exact deployment before any duplicate upload or deployment creation.",
+      "requirement": "Every TEST-A publication attempt must derive a non-negative safe Vercel until cursor from its persisted attempt start time, start reconciliation at that exact cursor, and recover an already-created exact deployment before duplicate upload or deployment creation. A fresh worker may complete the scoped alias only when provider-authoritative createdAt is at or after the earliest persisted effect start for the same operation and all immutable evidence has passed.",
       "implementation": [
         "src/fulfillment/job-orchestrator.mjs",
         "src/fulfillment/external-effect-stage-handlers.mjs",
@@ -229,9 +234,10 @@
       "proofs": [
         "test/fulfillment/test-a-operator-runner.test.mjs: private TEST-A operator runner persists review before exact publication and one sink delivery",
         "test/fulfillment/vercel-test-a-publication-provider.test.mjs: Vercel TEST-A publication retry starts reconciliation at the supplied cursor after an interrupted deployment",
-        "test/fulfillment/vercel-test-a-publication-provider.test.mjs: expired publication overlap creates one deployment and one stable alias through the real adapter"
+        "test/fulfillment/vercel-test-a-publication-provider.test.mjs: a fresh worker completes the alias after the creating worker crashes before alias assignment",
+        "test/fulfillment/vercel-test-a-publication-provider.test.mjs: Vercel TEST-A reconciliation cannot alias a deployment created before the prior effect"
       ],
-      "failureMode": "Invalid persisted cursor fails before provider mutation; retry recovery remains reconciliation-only and performs no duplicate deployment or alias mutation"
+      "failureMode": "Invalid persisted timestamps fail before provider mutation; retry recovery never creates a duplicate deployment and cannot alias an older or incompletely verified deployment"
     }
   ],
   "verification": [
@@ -241,7 +247,7 @@
     },
     {
       "command": "node --test test/fulfillment/resend-delivery-adapter.test.mjs test/fulfillment/exact-revision-publication-adapter.test.mjs test/fulfillment/job-orchestration.test.mjs test/fulfillment/test-a-operator-runner.test.mjs test/fulfillment/vercel-test-a-publication-provider.test.mjs",
-      "requiredResult": "106 passed, 0 failed"
+      "requiredResult": "109 passed, 0 failed"
     },
     {
       "command": "npm run test",

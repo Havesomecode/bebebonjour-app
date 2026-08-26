@@ -150,7 +150,12 @@ export function createVercelTestAPublicationProvider(options = {}) {
       throw providerError("Vercel deployment resolved outside the configured TEST-A project.", false);
     }
     const deploymentOrigin = exactVercelDeploymentOrigin(ready?.url);
-    await verifyProviderDeploymentEvidence(deploymentId, deploymentOrigin, request, resolved);
+    const deploymentEvidence = await verifyProviderDeploymentEvidence(
+      deploymentId,
+      deploymentOrigin,
+      request,
+      resolved,
+    );
     const deploymentUrl = `${deploymentOrigin}/announcements/${encodeURIComponent(canaryJobId)}`;
     await verifyPublication(deploymentUrl, request, resolved, {
       label: "Selected Vercel deployment",
@@ -159,18 +164,12 @@ export function createVercelTestAPublicationProvider(options = {}) {
     });
     if (!allowAliasMutation) {
       const aliased = await verifyProviderAliasEvidence(deploymentId, { allowMissing: true });
-      if (!aliased) return null;
+      if (!aliased) {
+        if (!canContinueAliasMutation(request, deploymentEvidence.createdAt)) return null;
+        await assignAndVerifyAlias(deploymentId);
+      }
     } else {
-      const aliasResponse = await vercelRequest(
-        `/v2/deployments/${encodeURIComponent(deploymentId)}/aliases?${teamQuery}`,
-        {
-          method: "POST",
-          body: JSON.stringify({ alias: stableHostname }),
-        },
-        new Set([200]),
-      );
-      await verifyAliasMutationResponse(aliasResponse, deploymentId);
-      await verifyProviderAliasEvidence(deploymentId);
+      await assignAndVerifyAlias(deploymentId);
     }
     await verifyPublication(stableUrl, request, resolved, {
       label: "Stable TEST-A publication",
@@ -186,6 +185,19 @@ export function createVercelTestAPublicationProvider(options = {}) {
       artifactManifestDigest: request.artifactManifestDigest,
       idempotencyKey: request.idempotencyKey,
     };
+  }
+
+  async function assignAndVerifyAlias(deploymentId) {
+    const aliasResponse = await vercelRequest(
+      `/v2/deployments/${encodeURIComponent(deploymentId)}/aliases?${teamQuery}`,
+      {
+        method: "POST",
+        body: JSON.stringify({ alias: stableHostname }),
+      },
+      new Set([200]),
+    );
+    await verifyAliasMutationResponse(aliasResponse, deploymentId);
+    await verifyProviderAliasEvidence(deploymentId);
   }
 
   async function waitForReady(initial) {
@@ -270,10 +282,13 @@ export function createVercelTestAPublicationProvider(options = {}) {
     } catch (error) {
       throw providerError("Vercel provider deployment evidence is malformed.", false, error);
     }
+    const createdAt = deployment?.createdAt;
     if (
       (deployment?.id || deployment?.uid) !== deploymentId
       || deployment.projectId !== projectId
       || deployment.readyState !== "READY"
+      || !Number.isSafeInteger(createdAt)
+      || createdAt < 0
       || !metadataMatches(deployment.meta, request)
       || providerDeploymentOrigin !== deploymentOrigin
     ) {
@@ -312,6 +327,7 @@ export function createVercelTestAPublicationProvider(options = {}) {
         false,
       );
     }
+    return { createdAt };
   }
 
   async function verifyProviderAliasEvidence(deploymentId, { allowMissing = false } = {}) {
@@ -461,6 +477,17 @@ function assertCanaryRequest(request, canaryJobId, canaryRevisionId) {
   ) {
     throw providerError("Publication artifact set id does not match the exact persisted operation.", false);
   }
+  if (
+    request.priorEffectStartedAt !== undefined
+    && !isRfc3339DateTime(request.priorEffectStartedAt)
+  ) {
+    throw providerError("Publication prior effect start time is invalid.", false);
+  }
+}
+
+function canContinueAliasMutation(request, deploymentCreatedAt) {
+  if (request.priorEffectStartedAt === undefined) return false;
+  return deploymentCreatedAt >= Date.parse(request.priorEffectStartedAt);
 }
 
 function reconciliationCursor(request) {

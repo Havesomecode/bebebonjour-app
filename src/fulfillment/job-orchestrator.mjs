@@ -164,13 +164,14 @@ export function createFulfillmentOrchestrator(options) {
         (entry) => entry.stage === stage && entry.status === "running",
       );
       const externalEffectStage = stage === "publish" || stage === "deliver";
-      const reconciliationOnly = externalEffectStage && aggregate.stageAttempts.some(
+      const priorEffectAttempt = externalEffectStage && aggregate.stageAttempts.find(
         (entry) => entry.attemptId !== attempt.attemptId
           && entry.stage === stage
           && entry.revisionId === attempt.revisionId
           && entry.idempotencyKey === attempt.idempotencyKey
           && typeof entry.effectStartedAt === "string",
       );
+      const reconciliationOnly = Boolean(priorEffectAttempt);
 
       if (externalEffectStage) {
         aggregate = await store.markExternalEffectStarted(jobId, {
@@ -202,6 +203,7 @@ export function createFulfillmentOrchestrator(options) {
           attemptId: attempt.attemptId,
           attemptNumber: attempt.attemptNumber,
           attemptStartedAt: attempt.startedAt,
+          priorEffectStartedAt: priorEffectAttempt?.effectStartedAt,
           idempotencyKey: attempt.idempotencyKey,
           reconciliationOnly,
           leaseToken,

@@ -25,6 +25,13 @@ export function createExternalEffectStageHandlers(options = {}) {
       if (!Number.isSafeInteger(reconciliationCursor) || reconciliationCursor < 0) {
         throw new Error("Publication reconciliation requires the persisted attempt start time.");
       }
+      const priorEffectStartedAt = context.priorEffectStartedAt;
+      if (
+        priorEffectStartedAt !== undefined
+        && (typeof priorEffectStartedAt !== "string" || !Number.isFinite(Date.parse(priorEffectStartedAt)))
+      ) {
+        throw new Error("Publication reconciliation requires a valid persisted prior effect start time.");
+      }
       const request = Object.freeze({
         jobId: operation.jobId,
         environment: operation.environment,
@@ -34,6 +41,7 @@ export function createExternalEffectStageHandlers(options = {}) {
         artifactManifestDigest: operation.artifactManifestDigest,
         artifactSet: structuredClone(operation.artifactSet),
         reconciliationCursor,
+        priorEffectStartedAt,
         idempotencyKey: requireIdempotencyKey(context),
       });
       const reconciled = await publicationAdapter.reconcile(request);
