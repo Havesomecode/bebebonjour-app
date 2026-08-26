@@ -1,6 +1,6 @@
 {
   "schemaVersion": "1.0",
-  "auditId": "test-a-publication-regression-audit-v11",
+  "auditId": "test-a-publication-regression-audit-v12",
   "baselineCommit": "956c62ddee38d876be984285a9fcc953c361b942",
   "candidateBoundary": {
     "pathAllowlist": [
@@ -39,7 +39,7 @@
       },
       {
         "path": "src/fulfillment/job-orchestrator.mjs",
-        "sha256": "6dc513674b14ca7457887e1d3ec8201bc9dae959d48af5f258c4bfa30ac763f3"
+        "sha256": "85140b4fc090e9f51e83f763756ec885c83385c3b65bc23187f29f4bf6d7649f"
       },
       {
         "path": "src/fulfillment/resend-delivery-adapter.mjs",
@@ -59,7 +59,7 @@
       },
       {
         "path": "test/fulfillment/job-orchestration.test.mjs",
-        "sha256": "1e3bd709fb1865b76ea0fae2a8f915b84d9fa2f28ef9a503082ce393de7fe3ed"
+        "sha256": "42f3d45a2b8250033d7dd4fd7191b6cf0f774a84d38030b023e7031983db25f3"
       },
       {
         "path": "test/fulfillment/resend-delivery-adapter.test.mjs",
@@ -71,16 +71,16 @@
       },
       {
         "path": "test/fulfillment/vercel-test-a-publication-provider.test.mjs",
-        "sha256": "3d8a780cc1d8b6d9a26825e6127c2c337aea6f8d0a5d02b9e772ed70ff5cf3a2"
+        "sha256": "7c4b4bb54ad091d29019c12adcd60403dc3c1d75be3749c24888199c79453d06"
       }
     ]
   },
   "auditScript": "ops/test-a-production-audit.mjs",
-  "scope": "Offline consolidated production-readiness evidence for lease-aware provider-boundary fencing, durable ambiguous-effect preservation, canonical Resend TEST-A sink enforcement, exact TEST-A artifact binding, provider-authoritative deployment and alias evidence, strict deployment-list validation, and retry-safe Vercel reconciliation from the persisted attempt cursor. No provider mutation or live data is used.",
+  "scope": "Offline consolidated production-readiness evidence for lease-aware provider-boundary fencing with a post-commit ownership re-read, durable ambiguous-effect preservation, canonical Resend TEST-A sink enforcement, exact TEST-A artifact binding, provider-authoritative deployment and alias evidence, strict deployment-list validation, and retry-safe Vercel reconciliation from the persisted attempt cursor. No provider mutation or live data is used.",
   "controls": [
     {
       "id": "durable-external-effect-fencing",
-      "requirement": "Publication and delivery validate and renew the exact attempt lease, then invoke each provider mutation inside the same fence callback, persisting effect_started before an externally visible effect may be issued. Expired workers cannot create a deployment, mutate the stable alias, or send through Resend; issued but unrecorded effects remain reconciliation-only and nonterminal after bounded retries or later lease expiry.",
+      "requirement": "Publication and delivery validate and renew the exact attempt lease, persist effect_started before an externally visible effect may be issued, then re-read the committed aggregate and require the same running lease immediately before invoking each provider callback. Expired workers cannot create a deployment, mutate the stable alias, or send through Resend; issued but unrecorded effects remain reconciliation-only and nonterminal after bounded retries or later lease expiry.",
       "implementation": [
         "schemas/fulfillment-job-store.schema.json",
         "src/fulfillment/external-effect-stage-handlers.mjs",
@@ -93,8 +93,8 @@
       "proofs": [
         "test/fulfillment/job-orchestration.test.mjs: an external effect marker cannot be rebound to another attempt",
         "test/fulfillment/job-orchestration.test.mjs: delivery retries reconcile only and never retarget or resend",
-        "test/fulfillment/job-orchestration.test.mjs: an expired delivery worker is fenced before the real Resend send boundary",
-        "test/fulfillment/vercel-test-a-publication-provider.test.mjs: lease expiry during Vercel deployment creation creates one deployment and one stable alias"
+        "test/fulfillment/job-orchestration.test.mjs: a stale delivery worker cannot invoke its Resend callback after its persisted fence loses ownership",
+        "test/fulfillment/vercel-test-a-publication-provider.test.mjs: a stale Vercel worker cannot invoke its alias callback after its persisted fence loses ownership"
       ],
       "failureMode": "Retryable provider_outcome_unknown without a second external mutation; reconciliation_required rather than terminal failure after bounded reconciliation attempts are exhausted"
     },
@@ -235,7 +235,7 @@
       "proofs": [
         "test/fulfillment/test-a-operator-runner.test.mjs: private TEST-A operator runner persists review before exact publication and one sink delivery",
         "test/fulfillment/vercel-test-a-publication-provider.test.mjs: Vercel TEST-A publication retry starts reconciliation at the supplied cursor after an interrupted deployment",
-        "test/fulfillment/vercel-test-a-publication-provider.test.mjs: expired publication overlap creates one deployment and one stable alias through the real adapter"
+        "test/fulfillment/vercel-test-a-publication-provider.test.mjs: a stale Vercel worker cannot invoke its alias callback after its persisted fence loses ownership"
       ],
       "failureMode": "Invalid persisted cursor fails before provider mutation; retry recovery remains reconciliation-only and performs no duplicate deployment or alias mutation"
     }
@@ -247,7 +247,7 @@
     },
     {
       "command": "node --test test/fulfillment/resend-delivery-adapter.test.mjs test/fulfillment/exact-revision-publication-adapter.test.mjs test/fulfillment/job-orchestration.test.mjs test/fulfillment/test-a-operator-runner.test.mjs test/fulfillment/vercel-test-a-publication-provider.test.mjs",
-      "requiredResult": "106 passed, 0 failed"
+      "requiredResult": "109 passed, 0 failed"
     },
     {
       "command": "npm run test",

@@ -87,7 +87,8 @@ async function fixture(t, options = {}) {
     ...options.handlers,
   };
   const clock = options.clock || (() => "2026-08-11T00:00:00.000Z");
-  const store = createLocalTestFulfillmentStore({ filePath: storePath });
+  const persistedStore = createLocalTestFulfillmentStore({ filePath: storePath });
+  const store = options.decorateStore ? options.decorateStore(persistedStore) : persistedStore;
   const orchestrator = createFulfillmentOrchestrator({
     store,
     handlers,
@@ -1437,6 +1438,82 @@ test("an expired delivery worker is fenced before the real Resend send boundary"
     await staleRun.catch(() => undefined);
   }
   assert.equal(sendCalls, 1);
+});
+
+test("a stale delivery worker cannot invoke its Resend callback after its persisted fence loses ownership", async (t) => {
+  let now = "2026-08-11T00:00:00.000Z";
+  let sendCalls = 0;
+  let releaseStaleSendFence;
+  let signalStaleSendFencePersisted;
+  const staleSendFenceRelease = new Promise((resolve) => { releaseStaleSendFence = resolve; });
+  const staleSendFencePersisted = new Promise((resolve) => { signalStaleSendFencePersisted = resolve; });
+  const deliveryAdapter = createResendDeliveryAdapter({
+    from: "Bébé Bonjour <delivery@example.test>",
+    clock: () => now,
+    resend: {
+      emails: {
+        async send() {
+          sendCalls += 1;
+          return { data: { id: "email_fenced_001" }, error: null };
+        },
+      },
+    },
+  });
+  const externalHandlers = createExternalEffectStageHandlers({
+    publicationAdapter: fakePublicationAdapter(),
+    deliveryAdapter,
+    resolveDeliveryTarget: async () => ({
+      targetRef: "synthetic-recipient-001",
+      email: "delivered@resend.dev",
+    }),
+  });
+  const retryPolicy = {
+    leaseMsByStage: Object.fromEntries([
+      "prepare_review", "generate_tts", "render_approved", "publish", "deliver",
+    ].map((stage) => [stage, 1_000])),
+    maxAttemptsByStage: Object.fromEntries([
+      "prepare_review", "generate_tts", "render_approved", "publish", "deliver",
+    ].map((stage) => [stage, 2])),
+    backoffMsByStage: Object.fromEntries([
+      "prepare_review", "generate_tts", "render_approved", "publish", "deliver",
+    ].map((stage) => [stage, [1_000]])),
+  };
+  const { orchestrator } = await fixture(t, {
+    clock: () => now,
+    decorateStore(persistedStore) {
+      return {
+        ...persistedStore,
+        async fenceExternalEffect(jobId, command, at) {
+          const aggregate = await persistedStore.fenceExternalEffect(jobId, command, at);
+          if (command.effectMayBeIssued === true) {
+            signalStaleSendFencePersisted();
+            await staleSendFenceRelease;
+          }
+          return aggregate;
+        },
+      };
+    },
+    handlers: externalHandlers,
+    retryPolicy,
+  });
+  await reachPublishReady(orchestrator);
+  await orchestrator.runNext("job_synthetic_001");
+  await orchestrator.queueDelivery("job_synthetic_001", { commandId: "queue-fenced-delivery" });
+
+  const staleRun = orchestrator.runNext("job_synthetic_001");
+  await staleSendFencePersisted;
+  try {
+    now = "2026-08-11T00:00:01.000Z";
+    await orchestrator.runNext("job_synthetic_001");
+    now = "2026-08-11T00:00:02.000Z";
+    const recovered = await orchestrator.runNext("job_synthetic_001");
+    assert.equal(recovered.state, "reconciliation_required");
+    assert.equal(sendCalls, 0);
+  } finally {
+    releaseStaleSendFence();
+    await staleRun.catch(() => undefined);
+  }
+  assert.equal(sendCalls, 0);
 });
 
 test("caller-asserted delivery completion is rejected without a trusted verifier", async (t) => {

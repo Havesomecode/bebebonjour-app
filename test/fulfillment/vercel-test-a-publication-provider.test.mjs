@@ -1400,7 +1400,7 @@ test("local artifact resolution rejects stale persisted manifest and non-canary 
   assert.equal(calls.length, 0);
 });
 
-test("lease expiry during Vercel deployment creation creates one deployment and one stable alias", async (t) => {
+test("a stale Vercel worker cannot invoke its alias callback after its persisted fence loses ownership", async (t) => {
   const value = await fixture(t);
   const sortedFiles = [...value.request.artifactSet.files].sort((left, right) => left.path.localeCompare(right.path));
   const manifestBytes = Buffer.from(`${JSON.stringify({
@@ -1419,20 +1419,31 @@ test("lease expiry during Vercel deployment creation creates one deployment and 
       files: sortedFiles,
     },
   };
-  const store = createLocalTestFulfillmentStore({ filePath: path.join(value.rootPath, "fulfillment.json") });
+  const persistedStore = createLocalTestFulfillmentStore({ filePath: path.join(value.rootPath, "fulfillment.json") });
+  let issuedFenceCount = 0;
+  let releaseStaleAliasFence;
+  let signalStaleAliasFencePersisted;
+  const staleAliasFenceRelease = new Promise((resolve) => { releaseStaleAliasFence = resolve; });
+  const staleAliasFencePersisted = new Promise((resolve) => { signalStaleAliasFencePersisted = resolve; });
+  const store = {
+    ...persistedStore,
+    async fenceExternalEffect(jobId, command, at) {
+      const aggregate = await persistedStore.fenceExternalEffect(jobId, command, at);
+      if (command.effectMayBeIssued === true && (issuedFenceCount += 1) === 2) {
+        signalStaleAliasFencePersisted();
+        await staleAliasFenceRelease;
+      }
+      return aggregate;
+    },
+  };
   const baseResolver = createLocalArtifactResolver({ rootPath: value.rootPath });
   const uploadedBodies = [];
   const deployments = [];
   let activeRequest;
   let publicationManifest;
   let aliasDeploymentId = null;
-  let deploymentListCalls = 0;
   let deploymentCreates = 0;
   let aliasMutations = 0;
-  let releaseFirstReconciliation;
-  let signalFirstReconciliationStarted;
-  const firstReconciliationRelease = new Promise((resolve) => { releaseFirstReconciliation = resolve; });
-  const firstReconciliationStarted = new Promise((resolve) => { signalFirstReconciliationStarted = resolve; });
 
   const provider = createVercelTestAPublicationProvider({
     token: "vercel_test_token",
@@ -1451,11 +1462,6 @@ test("lease expiry during Vercel deployment creation creates one deployment and 
     fetch: async (url, init = {}) => {
       const parsed = new URL(url);
       if (parsed.pathname === "/v7/deployments") {
-        deploymentListCalls += 1;
-        if (deploymentListCalls === 1) {
-          signalFirstReconciliationStarted();
-          await firstReconciliationRelease;
-        }
         return jsonResponse({
           deployments: deployments.map((deployment) => ({
             uid: deployment.id,
@@ -1618,9 +1624,9 @@ test("lease expiry during Vercel deployment creation creates one deployment and 
 
   const firstRun = firstWorker.runNext(JOB_ID);
   await Promise.race([
-    firstReconciliationStarted,
+    staleAliasFencePersisted,
     firstRun.then((status) => {
-      throw new Error(`publication returned before provider reconciliation: ${JSON.stringify(status)}`);
+      throw new Error(`publication returned before the alias fence pause: ${JSON.stringify(status)}`);
     }),
   ]);
   now = "2026-08-26T12:00:01.000Z";
@@ -1632,7 +1638,7 @@ test("lease expiry during Vercel deployment creation creates one deployment and 
     assert.equal(deploymentCreates, 1);
     assert.equal(aliasMutations, 1);
   } finally {
-    releaseFirstReconciliation();
+    releaseStaleAliasFence();
     await firstRun.catch(() => undefined);
   }
   assert.equal(deploymentCreates, 1);

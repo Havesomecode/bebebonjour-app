@@ -193,7 +193,7 @@ export function createFulfillmentOrchestrator(options) {
             if (typeof providerMutation !== "function") {
               throw new Error("External-effect fencing requires the exact provider mutation callback.");
             }
-            aggregate = await store.fenceExternalEffect(jobId, {
+            await store.fenceExternalEffect(jobId, {
               commandId: `effect-fence:${attempt.attemptId}:${effectFenceNumber += 1}`,
               stage,
               attemptId: attempt.attemptId,
@@ -201,9 +201,18 @@ export function createFulfillmentOrchestrator(options) {
               leaseMs,
               effectMayBeIssued,
             }, clock());
-            const fencedAttempt = aggregate.stageAttempts.find(
+            aggregate = await store.getJob(jobId);
+            const fencedAttempt = aggregate?.stageAttempts.find(
               (entry) => entry.attemptId === attempt.attemptId,
             );
+            const checkedAt = clock();
+            if (
+              fencedAttempt?.status !== "running"
+              || fencedAttempt.leaseToken !== leaseToken
+              || Date.parse(checkedAt) >= Date.parse(fencedAttempt.leaseExpiresAt)
+            ) {
+              throw new Error("Provider mutation requires current unexpired stage ownership.");
+            }
             attempt.leaseExpiresAt = fencedAttempt.leaseExpiresAt;
             attempt.effectStartedAt = fencedAttempt.effectStartedAt;
             return providerMutation();
