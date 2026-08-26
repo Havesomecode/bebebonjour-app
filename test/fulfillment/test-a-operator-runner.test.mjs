@@ -118,11 +118,12 @@ test("private TEST-A operator runner persists review before exact publication an
       TEST_A_PUBLICATION_ORIGIN: "https://announcements.example.test",
     },
     publicationProvider: {
-      async reconcile() {
+      async reconcile(request) {
+        publicationCalls.push({ method: "reconcile", request });
         return null;
       },
       async publish(request) {
-        publicationCalls.push(request);
+        publicationCalls.push({ method: "publish", request });
         return {
           provider: "vercel",
           providerReceiptId: "deployment_test_001",
@@ -202,8 +203,12 @@ test("private TEST-A operator runner persists review before exact publication an
   await runner.queueDelivery(jobInput().jobId);
   assert.equal((await runner.runNext(jobInput().jobId)).state, "sent");
 
-  assert.equal(publicationCalls.length, 1);
-  assert.equal(publicationCalls[0].artifactManifestDigest, digests.assetManifestDigest);
+  assert.equal(publicationCalls.length, 2);
+  assert.deepEqual(publicationCalls.map(({ method }) => method), ["reconcile", "publish"]);
+  assert.ok(publicationCalls.every(({ request }) => (
+    request.reconciliationCursor === Date.parse("2026-08-25T08:04:00.000Z")
+  )));
+  assert.equal(publicationCalls[0].request.artifactManifestDigest, digests.assetManifestDigest);
   assert.equal(resendCalls.length, 1);
   assert.equal(resendCalls[0].payload.to, "delivered@resend.dev");
 });

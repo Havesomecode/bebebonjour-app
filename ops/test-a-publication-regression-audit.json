@@ -1,27 +1,47 @@
 {
   "schemaVersion": "1.0",
-  "auditId": "test-a-publication-regression-audit-v6",
-  "baselineCommit": "413bd608d9a227d2d57a8135a0cfebae9404cb92",
+  "auditId": "test-a-publication-regression-audit-v7",
+  "baselineCommit": "5b30ade9612337e92b304e1f16e3367c96ed347e",
   "candidateBoundary": {
     "pathAllowlist": [
       "ops/test-a-production-audit.mjs",
       "ops/test-a-publication-regression-audit.json",
+      "src/fulfillment/exact-revision-publication-adapter.mjs",
+      "src/fulfillment/external-effect-stage-handlers.mjs",
+      "src/fulfillment/job-orchestrator.mjs",
       "src/fulfillment/vercel-test-a-publication-provider.mjs",
+      "test/fulfillment/test-a-operator-runner.test.mjs",
       "test/fulfillment/vercel-test-a-publication-provider.test.mjs"
     ],
     "reviewedFileDigests": [
       {
+        "path": "src/fulfillment/exact-revision-publication-adapter.mjs",
+        "sha256": "335b2ca984309dc3834c365d3c6382587c8ca26e7110fe724501b93f9a2257fc"
+      },
+      {
+        "path": "src/fulfillment/external-effect-stage-handlers.mjs",
+        "sha256": "3d721ec90a76b0c010caf85e96b6ff10430c2c19aa29be94278de4ba573c524e"
+      },
+      {
+        "path": "src/fulfillment/job-orchestrator.mjs",
+        "sha256": "0197f93fae3434dcccb58aacf94fdd72d3d12074648c5c66a48e4c33bd669a7a"
+      },
+      {
         "path": "src/fulfillment/vercel-test-a-publication-provider.mjs",
-        "sha256": "dee0ed9bc8727515e0042b1d85e13e9f8e530d0842735cefc02acf5c99d6ba63"
+        "sha256": "8010c7416554a0f47ec678d3b5f34f88771698399b8ae70961ebc9c0c8dca7c5"
+      },
+      {
+        "path": "test/fulfillment/test-a-operator-runner.test.mjs",
+        "sha256": "686d88a9e6599f92e7bbd0d8b96cccb3e5393ce3f0057d7e868380da5ece3c58"
       },
       {
         "path": "test/fulfillment/vercel-test-a-publication-provider.test.mjs",
-        "sha256": "bd4a3b60e67581aaccf063d58f06e6cf65500fbd8a508155e74be747a2021be0"
+        "sha256": "320b93dc2a7bd90473a45bbe545fe319ff838ab938c04346a6b72a9d47dc9b35"
       }
     ]
   },
   "auditScript": "ops/test-a-production-audit.mjs",
-  "scope": "Offline production-readiness evidence for exact TEST-A artifact binding, raw publication-manifest byte equality, provider-authoritative READY deployment configuration and exact file inventory, immutable public byte verification before alias mutation, documented successful alias-response parsing, provider-authoritative alias read-back before stable-public verification, and Vercel deployment reconciliation. No provider mutation or live data is used.",
+  "scope": "Offline production-readiness evidence for exact TEST-A artifact binding, raw publication-manifest byte equality, provider-authoritative READY deployment configuration and exact file inventory, immutable public byte verification before alias mutation, documented successful alias-response parsing, provider-authoritative alias read-back before stable-public verification, and retry-safe Vercel deployment reconciliation from the persisted attempt cursor. No provider mutation or live data is used.",
   "controls": [
     {
       "id": "nested-artifact-set-binding",
@@ -124,6 +144,21 @@
         "test/fulfillment/vercel-test-a-publication-provider.test.mjs: Vercel TEST-A reconciliation rejects repeated, cyclic, and non-monotonic cursors"
       ],
       "failureMode": "Retryable provider-unavailable rejection before alias mutation or stable read-back"
+    },
+    {
+      "id": "interrupted-publication-reconciliation",
+      "requirement": "Every TEST-A publication attempt must derive a non-negative safe Vercel until cursor from its persisted attempt start time, start reconciliation at that exact cursor, and recover an already-created exact deployment before any duplicate upload or deployment creation.",
+      "implementation": [
+        "src/fulfillment/job-orchestrator.mjs",
+        "src/fulfillment/external-effect-stage-handlers.mjs",
+        "src/fulfillment/exact-revision-publication-adapter.mjs",
+        "src/fulfillment/vercel-test-a-publication-provider.mjs"
+      ],
+      "proofs": [
+        "test/fulfillment/test-a-operator-runner.test.mjs: private TEST-A operator runner persists review before exact publication and one sink delivery",
+        "test/fulfillment/vercel-test-a-publication-provider.test.mjs: Vercel TEST-A publication retry starts reconciliation at the supplied cursor after an interrupted deployment"
+      ],
+      "failureMode": "Invalid persisted cursor fails before provider mutation; retry recovery reuses the first exact deployment and performs only one upload sequence, one deployment creation, and one alias mutation"
     }
   ],
   "verification": [
@@ -132,8 +167,8 @@
       "requiredResult": "deterministic PASS with no provider mutation"
     },
     {
-      "command": "node --test test/fulfillment/exact-revision-publication-adapter.test.mjs test/fulfillment/vercel-test-a-publication-provider.test.mjs",
-      "requiredResult": "52 passed, 0 failed"
+      "command": "node --test test/fulfillment/exact-revision-publication-adapter.test.mjs test/fulfillment/test-a-operator-runner.test.mjs test/fulfillment/vercel-test-a-publication-provider.test.mjs",
+      "requiredResult": "56 passed, 0 failed"
     },
     {
       "command": "npm run test",
@@ -156,7 +191,7 @@
       "requiredResult": "exit 0 with 0 vulnerabilities"
     },
     {
-      "command": "git diff --check 413bd608d9a227d2d57a8135a0cfebae9404cb92",
+      "command": "git diff --check 5b30ade9612337e92b304e1f16e3367c96ed347e",
       "requiredResult": "exit 0"
     }
   ],

@@ -5,9 +5,10 @@ import { fileURLToPath } from "node:url";
 
 const rootPath = fileURLToPath(new URL("..", import.meta.url));
 const evidencePath = fileURLToPath(new URL("./test-a-publication-regression-audit.json", import.meta.url));
-const expectedBaselineCommit = "413bd608d9a227d2d57a8135a0cfebae9404cb92";
+const expectedBaselineCommit = "5b30ade9612337e92b304e1f16e3367c96ed347e";
 const testFiles = [
   "test/fulfillment/exact-revision-publication-adapter.test.mjs",
+  "test/fulfillment/test-a-operator-runner.test.mjs",
   "test/fulfillment/vercel-test-a-publication-provider.test.mjs",
 ];
 const expectedControls = [
@@ -19,11 +20,16 @@ const expectedControls = [
   "provider-alias-readback",
   "global-exact-deployment-uniqueness",
   "deployment-pagination-progress",
+  "interrupted-publication-reconciliation",
 ];
 const expectedPathAllowlist = [
   "ops/test-a-production-audit.mjs",
   "ops/test-a-publication-regression-audit.json",
+  "src/fulfillment/exact-revision-publication-adapter.mjs",
+  "src/fulfillment/external-effect-stage-handlers.mjs",
+  "src/fulfillment/job-orchestrator.mjs",
   "src/fulfillment/vercel-test-a-publication-provider.mjs",
+  "test/fulfillment/test-a-operator-runner.test.mjs",
   "test/fulfillment/vercel-test-a-publication-provider.test.mjs",
 ];
 const expectedReviewedFiles = expectedPathAllowlist.slice(2);

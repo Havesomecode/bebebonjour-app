@@ -88,7 +88,7 @@ export function createVercelTestAPublicationProvider(options = {}) {
   }
 
   async function findExactDeployment(request) {
-    let until;
+    let until = reconciliationCursor(request);
     let exactDeployment = null;
     const seenCursors = new Set();
     for (let page = 0; page < 100; page += 1) {
@@ -425,6 +425,15 @@ function assertCanaryRequest(request, canaryJobId, canaryRevisionId) {
   ) {
     throw providerError("Publication artifact set id does not match the exact persisted operation.", false);
   }
+}
+
+function reconciliationCursor(request) {
+  const cursor = request?.reconciliationCursor;
+  if (cursor === undefined) return undefined;
+  if (!Number.isSafeInteger(cursor) || cursor < 0) {
+    throw providerError("Vercel deployment reconciliation cursor is invalid.", false);
+  }
+  return String(cursor);
 }
 
 function metadataFor(request) {

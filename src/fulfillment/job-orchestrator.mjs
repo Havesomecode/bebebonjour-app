@@ -184,6 +184,7 @@ export function createFulfillmentOrchestrator(options) {
           stage,
           attemptId: attempt.attemptId,
           attemptNumber: attempt.attemptNumber,
+          attemptStartedAt: attempt.startedAt,
           idempotencyKey: attempt.idempotencyKey,
           leaseToken,
           operation: stage === "publish" || stage === "deliver"
