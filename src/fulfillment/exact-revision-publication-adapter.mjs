@@ -32,6 +32,12 @@ function normalizeRequest(request) {
   requireIdentifier(exact.revisionId, "publication revision id");
   requireIdentifier(exact.artifactSetId, "publication artifact set id");
   requireIdempotencyKey(exact.idempotencyKey);
+  if (
+    exact.reconciliationCursor !== undefined
+    && (!Number.isSafeInteger(exact.reconciliationCursor) || exact.reconciliationCursor < 0)
+  ) {
+    throw publicationError("Publication reconciliation cursor is invalid.");
+  }
   assertDigest(exact.artifactManifestDigest, "publication artifact manifest digest");
   const artifactSet = exact.artifactSet;
   if (

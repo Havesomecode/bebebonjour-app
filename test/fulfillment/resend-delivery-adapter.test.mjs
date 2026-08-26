@@ -42,7 +42,7 @@ test("Resend delivery adapter sends the approved publication with the persisted 
     targetDigest: request.targetDigest,
     idempotencyKey: request.idempotencyKey,
   });
-  assert.equal(calls[0].payload.to, request.target.email);
+  assert.equal(calls[0].payload.to, "delivered@resend.dev");
   assert.equal(calls[0].options.idempotencyKey, request.idempotencyKey);
   assert.match(calls[0].payload.html, /https:\/\/preview\.example\.test\/announcements\/job_test_001/);
 });
@@ -73,6 +73,39 @@ test("Resend delivery adapter maps the provider message status without resending
     retryable: false,
     reasonCode: null,
   });
+});
+
+test("Resend delivery adapter rejects every non-canonical test sink before sending", async () => {
+  let sends = 0;
+  const adapter = createResendDeliveryAdapter({
+    resend: {
+      emails: {
+        async send() {
+          sends += 1;
+          return { data: { id: "unexpected" }, error: null };
+        },
+      },
+    },
+    from: "Bébé Bonjour <delivery@example.test>",
+    clock: () => "2026-08-18T10:05:00.000Z",
+  });
+  const invalidTargets = [
+    { targetRef: request.target.targetRef, email: " delivered@resend.dev " },
+    { targetRef: request.target.targetRef, email: "DELIVERED@RESEND.DEV" },
+    { targetRef: request.target.targetRef, email: ["delivered@resend.dev"] },
+    { targetRef: request.target.targetRef, email: "delivered@resend.dev,parent@example.test" },
+    { targetRef: request.target.targetRef },
+    { targetRef: request.target.targetRef, email: "" },
+    { targetRef: request.target.targetRef, email: "parent@example.test" },
+  ];
+
+  for (const target of invalidTargets) {
+    await assert.rejects(
+      adapter.send({ ...request, target }),
+      /delivery email|required|test sink/i,
+    );
+    assert.equal(sends, 0);
+  }
 });
 
 test("Resend delivery adapter rejects non-sink recipients and expired idempotency windows", async () => {

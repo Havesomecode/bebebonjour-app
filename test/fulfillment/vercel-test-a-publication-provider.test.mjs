@@ -1169,11 +1169,165 @@ test("Vercel TEST-A reconciliation returns no match only after exhausting deploy
   assert.equal(calls.length, 2);
 });
 
-test("Vercel TEST-A reconciliation rejects repeated, cyclic, and non-monotonic cursors", async (t) => {
+test("Vercel TEST-A deployment discovery rejects malformed list responses before mutation", async (t) => {
+  const cases = [
+    { name: "missing deployments", result: { pagination: { next: null } } },
+    { name: "non-array deployments", result: { deployments: {}, pagination: { next: null } } },
+    { name: "missing pagination", result: { deployments: [] } },
+    { name: "non-object pagination", result: { deployments: [], pagination: "invalid" } },
+    { name: "missing pagination next", result: { deployments: [], pagination: { count: 0 } } },
+  ];
+
+  for (const method of ["reconcile", "publish"]) {
+    for (const malformedCase of cases) {
+      await t.test(`${method}: ${malformedCase.name}`, async (subtest) => {
+        const value = await fixture(subtest);
+        const calls = [];
+        const provider = createProvider({
+          calls,
+          fixtureValue: value,
+          async fetchImpl(url, init) {
+            if (new URL(url).pathname === "/v7/deployments") {
+              return jsonResponse(malformedCase.result);
+            }
+            throw new Error(`Malformed deployment discovery reached mutation: ${init.method || "GET"} ${url}`);
+          },
+        });
+        const request = method === "publish"
+          ? { ...value.request, reconciliationCursor: 200 }
+          : value.request;
+
+        await assert.rejects(provider[method](request), (error) => {
+          assert.match(error.message, /malformed deployment list response/i);
+          assert.equal(error.retryable, false);
+          return true;
+        });
+        assert.equal(calls.length, 1);
+        assert.equal(new URL(calls[0].url).pathname, "/v7/deployments");
+      });
+    }
+  }
+});
+
+test("Vercel TEST-A publication retry starts reconciliation at the supplied cursor after an interrupted deployment", async (t) => {
+  const value = await fixture(t);
+  const calls = [];
+  const publicManifest = publicManifestFor(value);
+  const listingCursors = [];
+  let deploymentPosts = 0;
+  let deploymentDetailReads = 0;
+  let selectedDeploymentId;
+  const newerDeployments = Array.from({ length: 100 }, (_, index) => ({
+    uid: `dpl_newer_${index}`,
+    projectId: "prj_test_a_announcements",
+    readyState: "READY",
+    meta: { bbIdempotencyKey: `bb_${String(index).padStart(64, "0")}` },
+  }));
+  const provider = createProvider({
+    calls,
+    fixtureValue: value,
+    async fetchImpl(url, init) {
+      const parsed = new URL(url);
+      if (parsed.pathname === "/v7/deployments") {
+        const cursor = parsed.searchParams.get("until");
+        listingCursors.push(cursor);
+        if (cursor === "200" && deploymentPosts === 1) {
+          return jsonResponse({
+            deployments: [{
+              uid: "dpl_retry_created_1",
+              url: "dpl-retry-created-1.vercel.app",
+              projectId: "prj_test_a_announcements",
+              readyState: "READY",
+              meta: {
+                bbCanaryJobId: JOB_ID,
+                bbRevisionId: REVISION_ID,
+                bbArtifactSetId: value.request.artifactSetId,
+                bbArtifactManifestDigest: value.request.artifactManifestDigest,
+                bbIdempotencyKey: IDEMPOTENCY_KEY,
+              },
+            }],
+            pagination: { next: null },
+          });
+        }
+        return jsonResponse({
+          deployments: cursor === null ? newerDeployments : [],
+          pagination: { next: null },
+        });
+      }
+      if (parsed.pathname === "/v2/files") return jsonResponse({});
+      if (parsed.pathname === "/v13/deployments" && init.method === "POST") {
+        deploymentPosts += 1;
+        return jsonResponse({
+          id: `dpl_retry_created_${deploymentPosts}`,
+          url: `dpl-retry-created-${deploymentPosts}.vercel.app`,
+          projectId: "prj_test_a_announcements",
+          readyState: "READY",
+        });
+      }
+      const deploymentId = parsed.pathname.match(
+        /^\/v(?:13|6|8)\/deployments\/(dpl_retry_created_[12])(?:\/|$)/,
+      )?.[1];
+      if (deploymentId) {
+        if (parsed.pathname === `/v13/deployments/${deploymentId}`) {
+          deploymentDetailReads += 1;
+          if (deploymentDetailReads === 1) return jsonResponse({ error: "interrupted" }, 503);
+          selectedDeploymentId = deploymentId;
+        }
+        const suffix = deploymentId.at(-1);
+        const evidenceResponse = deploymentEvidenceResponse(url, value, publicManifest, {
+          uid: deploymentId,
+          origin: `https://dpl-retry-created-${suffix}.vercel.app`,
+        });
+        if (evidenceResponse) return evidenceResponse;
+      }
+      for (const suffix of ["1", "2"]) {
+        const immutableResponse = publicationReadbackResponse(
+          url,
+          value,
+          publicManifest,
+          `https://dpl-retry-created-${suffix}.vercel.app`,
+        );
+        if (immutableResponse) return immutableResponse;
+      }
+      if (parsed.pathname.match(/^\/v2\/deployments\/dpl_retry_created_[12]\/aliases$/)) {
+        return jsonResponse(aliasMutationResponse());
+      }
+      if (parsed.pathname.startsWith("/v4/aliases/")) {
+        return aliasEvidenceResponse(url, selectedDeploymentId);
+      }
+      const stableResponse = publicationReadbackResponse(
+        url,
+        value,
+        publicManifest,
+        STABLE_ORIGIN,
+      );
+      if (stableResponse) return stableResponse;
+      throw new Error(`Unexpected fetch: ${init.method || "GET"} ${url}`);
+    },
+  });
+
+  await assert.rejects(
+    provider.publish({ ...value.request, reconciliationCursor: 100 }),
+    (error) => error.retryable === true,
+  );
+  const receipt = await provider.publish({ ...value.request, reconciliationCursor: 200 });
+
+  assert.equal(receipt.providerReceiptId, "dpl_retry_created_1");
+  assert.deepEqual(listingCursors, ["100", "200"]);
+  assert.equal(deploymentPosts, 1);
+  assert.equal(calls.filter(({ url }) => new URL(url).pathname === "/v2/files").length, 4);
+  assert.equal(calls.filter(({ url, init }) => (
+    new URL(url).pathname.match(/^\/v2\/deployments\/dpl_retry_created_[12]\/aliases$/)
+    && init.method === "POST"
+  )).length, 1);
+});
+
+test("Vercel TEST-A reconciliation rejects invalid deployment pagination cursors", async (t) => {
   const cases = [
     { name: "repeated", cursors: [200, 200] },
     { name: "cyclic", cursors: [200, 100, 200] },
     { name: "non-monotonic", cursors: [100, 200] },
+    { name: "non-cursor type", cursors: [true], expectedCalls: 1 },
   ];
 
   for (const cursorCase of cases) {
@@ -1194,6 +1348,7 @@ test("Vercel TEST-A reconciliation rejects repeated, cyclic, and non-monotonic c
 
       await assert.rejects(provider.reconcile(value.request), /pagination cursor/i);
       assert.equal(calls.some(({ url }) => url.includes("/aliases")), false);
+      if (cursorCase.expectedCalls) assert.equal(calls.length, cursorCase.expectedCalls);
     });
   }
 });

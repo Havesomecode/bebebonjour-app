@@ -21,6 +21,10 @@ export function createExternalEffectStageHandlers(options = {}) {
 
     async publish(context) {
       const operation = requireOperation(context, "publish");
+      const reconciliationCursor = Date.parse(context.attemptStartedAt);
+      if (!Number.isSafeInteger(reconciliationCursor) || reconciliationCursor < 0) {
+        throw new Error("Publication reconciliation requires the persisted attempt start time.");
+      }
       const request = Object.freeze({
         jobId: operation.jobId,
         environment: operation.environment,
@@ -29,6 +33,7 @@ export function createExternalEffectStageHandlers(options = {}) {
         artifactSetId: operation.artifactSetId,
         artifactManifestDigest: operation.artifactManifestDigest,
         artifactSet: structuredClone(operation.artifactSet),
+        reconciliationCursor,
         idempotencyKey: requireIdempotencyKey(context),
       });
       const reconciled = await publicationAdapter.reconcile(request);

@@ -5,37 +5,55 @@ import { fileURLToPath } from "node:url";
 
 const rootPath = fileURLToPath(new URL("..", import.meta.url));
 const evidencePath = fileURLToPath(new URL("./test-a-publication-regression-audit.json", import.meta.url));
-const expectedBaselineCommit = "413bd608d9a227d2d57a8135a0cfebae9404cb92";
+const expectedBaselineCommit = "956c62ddee38d876be984285a9fcc953c361b942";
 const testFiles = [
   "test/fulfillment/exact-revision-publication-adapter.test.mjs",
   "test/fulfillment/job-orchestration.test.mjs",
+  "test/fulfillment/resend-delivery-adapter.test.mjs",
+  "test/fulfillment/test-a-operator-runner.test.mjs",
   "test/fulfillment/vercel-test-a-publication-provider.test.mjs",
 ];
 const expectedControls = [
   "durable-external-effect-fencing",
+  "canonical-resend-test-sink",
   "nested-artifact-set-binding",
   "exact-publication-manifest-bytes",
   "provider-ready-deployment-evidence",
   "provider-exact-file-inventory",
   "immutable-deployment-pre-alias-verification",
   "provider-alias-readback",
+  "deployment-list-response-validation",
   "global-exact-deployment-uniqueness",
   "deployment-pagination-progress",
+  "interrupted-publication-reconciliation",
 ];
 const expectedPathAllowlist = [
   "ops/test-a-production-audit.mjs",
   "ops/test-a-publication-regression-audit.json",
+  "src/fulfillment/exact-revision-publication-adapter.mjs",
+  "src/fulfillment/external-effect-stage-handlers.mjs",
+  "src/fulfillment/job-orchestrator.mjs",
+  "src/fulfillment/resend-delivery-adapter.mjs",
+  "src/fulfillment/vercel-test-a-publication-provider.mjs",
+  "test/fulfillment/resend-delivery-adapter.test.mjs",
+  "test/fulfillment/test-a-operator-runner.test.mjs",
+  "test/fulfillment/vercel-test-a-publication-provider.test.mjs",
+];
+const expectedReviewedFiles = [
   "schemas/fulfillment-job-store.schema.json",
+  "src/fulfillment/exact-revision-publication-adapter.mjs",
   "src/fulfillment/external-effect-stage-handlers.mjs",
   "src/fulfillment/job-machine.mjs",
   "src/fulfillment/job-orchestrator.mjs",
+  "src/fulfillment/resend-delivery-adapter.mjs",
   "src/fulfillment/vercel-test-a-publication-provider.mjs",
   "src/persistence/convex-fulfillment-store.mjs",
   "src/persistence/local-test-fulfillment-store.mjs",
   "test/fulfillment/job-orchestration.test.mjs",
+  "test/fulfillment/resend-delivery-adapter.test.mjs",
+  "test/fulfillment/test-a-operator-runner.test.mjs",
   "test/fulfillment/vercel-test-a-publication-provider.test.mjs",
 ];
-const expectedReviewedFiles = expectedPathAllowlist.slice(2);
 
 const evidence = JSON.parse(await readFile(evidencePath, "utf8"));
 const controlIds = evidence.controls?.map(({ id }) => id);

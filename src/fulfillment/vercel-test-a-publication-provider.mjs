@@ -93,7 +93,7 @@ export function createVercelTestAPublicationProvider(options = {}) {
   }
 
   async function findExactDeployment(request) {
-    let until;
+    let until = reconciliationCursor(request);
     let exactDeployment = null;
     const seenCursors = new Set();
     for (let page = 0; page < 100; page += 1) {
@@ -102,19 +102,35 @@ export function createVercelTestAPublicationProvider(options = {}) {
         `/v7/deployments?projectId=${encodeURIComponent(projectId)}&limit=100${cursorQuery}&${teamQuery}`,
         { method: "GET" },
       );
-      const matches = (Array.isArray(result?.deployments) ? result.deployments : []).filter((deployment) => (
+      if (
+        !result
+        || typeof result !== "object"
+        || Array.isArray(result)
+        || !Array.isArray(result.deployments)
+        || !result.pagination
+        || typeof result.pagination !== "object"
+        || Array.isArray(result.pagination)
+        || !Object.hasOwn(result.pagination, "next")
+      ) {
+        throw providerError("Vercel returned a malformed deployment list response.", false);
+      }
+      const matches = result.deployments.filter((deployment) => (
         deployment?.projectId === projectId && metadataMatches(deployment.meta, request)
       ));
       if (matches.length > 1 || (matches.length === 1 && exactDeployment)) {
         throw providerError("Vercel returned multiple deployments for one exact TEST-A publication operation.", false);
       }
       if (matches.length === 1) exactDeployment = matches[0];
-      const next = result?.pagination?.next;
-      if (next === null || next === undefined) return exactDeployment;
+      const next = result.pagination.next;
+      if (next === null) return exactDeployment;
       const nextNumber = Number(next);
       const nextCursor = String(next);
       if (
-        !Number.isSafeInteger(nextNumber)
+        !(
+          (typeof next === "number" && Number.isSafeInteger(next))
+          || (typeof next === "string" && /^(?:0|[1-9]\d*)$/u.test(next))
+        )
+        || !Number.isSafeInteger(nextNumber)
         || nextNumber < 0
         || seenCursors.has(nextCursor)
         || (until !== undefined && nextNumber >= Number(until))
@@ -445,6 +461,15 @@ function assertCanaryRequest(request, canaryJobId, canaryRevisionId) {
   ) {
     throw providerError("Publication artifact set id does not match the exact persisted operation.", false);
   }
+}
+
+function reconciliationCursor(request) {
+  const cursor = request?.reconciliationCursor;
+  if (cursor === undefined) return undefined;
+  if (!Number.isSafeInteger(cursor) || cursor < 0) {
+    throw providerError("Vercel deployment reconciliation cursor is invalid.", false);
+  }
+  return String(cursor);
 }
 
 function metadataFor(request) {
