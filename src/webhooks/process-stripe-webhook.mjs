@@ -25,7 +25,7 @@ export async function processStripeWebhook({ rawBody, signature, config, store }
 
   let normalized;
   try {
-    normalized = normalizeStripePaymentEvent(rawEvent, config.normalization);
+    normalized = normalizeStripePaymentEvent(rawEvent);
   } catch (error) {
     return store.recordRejectedProviderEvent({
       provider: "stripe",

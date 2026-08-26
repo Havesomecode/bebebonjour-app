@@ -22,6 +22,11 @@
     "src/fulfillment/operator-runner-test-a.mjs",
     "src/fulfillment/persisted-review-decision.mjs",
     "src/fulfillment/vercel-test-a-publication-provider.mjs",
-    "src/persistence/convex-fulfillment-store.mjs"
+    "src/persistence/convex-fulfillment-store.mjs",
+    "src/webhooks/process-stripe-webhook.mjs",
+    "test/integration/fulfillment-database.test.mjs",
+    "test/integration/fulfillment-end-to-end.test.mjs",
+    "test/integration/postgres-container-startup.test.mjs",
+    "test/support/postgres-test-container.mjs"
   ]
 }

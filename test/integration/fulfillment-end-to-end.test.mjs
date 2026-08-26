@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { execFileSync, spawnSync } from "node:child_process";
+import { spawnSync } from "node:child_process";
 import { createHmac, randomUUID } from "node:crypto";
 import { readdir, readFile } from "node:fs/promises";
 import { Readable } from "node:stream";
@@ -10,6 +10,7 @@ import {
   createStripeWebhookHandler,
   createTallyWebhookHandler,
 } from "../../src/http/webhook-handlers.mjs";
+import { startPostgresTestContainer } from "../support/postgres-test-container.mjs";
 
 const runDatabaseTests = process.env.RUN_DB_TESTS === "1";
 const postgresTestImage = process.env.POSTGRES_TEST_IMAGE || "quay.io/debezium/postgres:16";
@@ -30,7 +31,9 @@ async function waitForPostgres(containerName) {
       { encoding: "utf8" },
     );
     if (result.status === 0) return;
-    await new Promise((resolve) => setTimeout(resolve, 500));
+    await new Promise((resolve) => {
+      setTimeout(resolve, 500);
+    });
   }
   throw new Error("PostgreSQL test container did not become ready.");
 }
@@ -98,9 +101,7 @@ function createDatabaseStore(psql) {
 
 function request(rawBody, headers) {
   const stream = Readable.from([rawBody]);
-  stream.method = "POST";
-  stream.headers = headers;
-  return stream;
+  return Object.assign(stream, { headers, method: "POST" });
 }
 
 function response() {
@@ -140,22 +141,7 @@ test(
     );
     const containerName = `bebebonjour-e2e-${process.pid}-${randomUUID().slice(0, 8)}`;
 
-    execFileSync(
-      "docker",
-      [
-        "run",
-        "--rm",
-        "--detach",
-        "--name",
-        containerName,
-        "--env",
-        "POSTGRES_PASSWORD=test",
-        "--env",
-        "POSTGRES_DB=bebebonjour",
-        postgresTestImage,
-      ],
-      { stdio: "ignore" },
-    );
+    startPostgresTestContainer({ containerName, image: postgresTestImage });
     t.after(() => spawnSync("docker", ["rm", "--force", containerName], { stdio: "ignore" }));
     await waitForPostgres(containerName);
 

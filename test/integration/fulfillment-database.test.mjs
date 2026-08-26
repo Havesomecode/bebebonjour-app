@@ -1,7 +1,9 @@
 import assert from "node:assert/strict";
-import { execFileSync, spawn, spawnSync } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 import { readdir, readFile } from "node:fs/promises";
 import test from "node:test";
+
+import { startPostgresTestContainer } from "../support/postgres-test-container.mjs";
 
 const runDatabaseTests = process.env.RUN_DB_TESTS === "1";
 const postgresTestImage = process.env.POSTGRES_TEST_IMAGE || "quay.io/debezium/postgres:16";
@@ -118,22 +120,7 @@ test(
     const migrations = await readMigrations();
     const containerName = `bebebonjour-postgres-cycle-test-${process.pid}`;
 
-    execFileSync(
-      "docker",
-      [
-        "run",
-        "--rm",
-        "--detach",
-        "--name",
-        containerName,
-        "--env",
-        "POSTGRES_PASSWORD=test",
-        "--env",
-        "POSTGRES_DB=bebebonjour",
-        postgresTestImage,
-      ],
-      { stdio: "ignore" },
-    );
+    startPostgresTestContainer({ containerName, image: postgresTestImage });
     t.after(() => {
       spawnSync("docker", ["rm", "--force", containerName], { stdio: "ignore" });
     });
@@ -442,22 +429,7 @@ test(
     const migrations = await readMigrations();
     const containerName = `bebebonjour-postgres-test-${process.pid}`;
 
-    execFileSync(
-      "docker",
-      [
-        "run",
-        "--rm",
-        "--detach",
-        "--name",
-        containerName,
-        "--env",
-        "POSTGRES_PASSWORD=test",
-        "--env",
-        "POSTGRES_DB=bebebonjour",
-        postgresTestImage,
-      ],
-      { stdio: "ignore" },
-    );
+    startPostgresTestContainer({ containerName, image: postgresTestImage });
     t.after(() => {
       spawnSync("docker", ["rm", "--force", containerName], { stdio: "ignore" });
     });

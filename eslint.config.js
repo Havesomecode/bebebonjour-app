@@ -4,12 +4,14 @@ const releaseBoundaryFiles = [
   "ops/test-a-production-audit.mjs",
   "src/fulfillment/{exact-revision-publication-adapter,job-machine,local-artifact-resolver,operator-runner-test-a,persisted-review-decision,vercel-test-a-publication-provider}.mjs",
   "src/persistence/convex-fulfillment-store.mjs",
+  "src/webhooks/process-stripe-webhook.mjs",
   "test/config/hosted-provider-artifacts.test.mjs",
   "test/convex/customer-flow.test.mjs",
   "test/fulfillment/{exact-revision-publication-adapter,persisted-review-decision,test-a-operator-runner,vercel-test-a-publication-provider}.test.mjs",
-  "test/integration/fulfillment-database.test.mjs",
+  "test/integration/{fulfillment-database,fulfillment-end-to-end,postgres-container-startup}.test.mjs",
   "test/persistence/convex-fulfillment-store.test.mjs",
   "test/static-analysis-config.test.mjs",
+  "test/support/postgres-test-container.mjs",
   "fixtures/static-analysis/invalid-lint.mjs",
 ];
 
