@@ -1,18 +1,28 @@
 {
   "schemaVersion": "1.0",
-  "auditId": "test-a-publication-regression-audit-v6",
+  "auditId": "test-a-publication-regression-audit-v7",
   "baselineCommit": "413bd608d9a227d2d57a8135a0cfebae9404cb92",
   "candidateBoundary": {
     "pathAllowlist": [
       "ops/test-a-production-audit.mjs",
       "ops/test-a-publication-regression-audit.json",
+      "src/fulfillment/resend-delivery-adapter.mjs",
       "src/fulfillment/vercel-test-a-publication-provider.mjs",
+      "test/fulfillment/resend-delivery-adapter.test.mjs",
       "test/fulfillment/vercel-test-a-publication-provider.test.mjs"
     ],
     "reviewedFileDigests": [
       {
+        "path": "src/fulfillment/resend-delivery-adapter.mjs",
+        "sha256": "a9c7b3ec54832461d1fa80b535312df5c74d55b91cbf8ba17a4b91e5694ed74b"
+      },
+      {
         "path": "src/fulfillment/vercel-test-a-publication-provider.mjs",
         "sha256": "dee0ed9bc8727515e0042b1d85e13e9f8e530d0842735cefc02acf5c99d6ba63"
+      },
+      {
+        "path": "test/fulfillment/resend-delivery-adapter.test.mjs",
+        "sha256": "aaace631a08f4902a3116d26cf2d9f4c61c03e62416aba5428f4775720b089e5"
       },
       {
         "path": "test/fulfillment/vercel-test-a-publication-provider.test.mjs",
@@ -21,8 +31,20 @@
     ]
   },
   "auditScript": "ops/test-a-production-audit.mjs",
-  "scope": "Offline production-readiness evidence for exact TEST-A artifact binding, raw publication-manifest byte equality, provider-authoritative READY deployment configuration and exact file inventory, immutable public byte verification before alias mutation, documented successful alias-response parsing, provider-authoritative alias read-back before stable-public verification, and Vercel deployment reconciliation. No provider mutation or live data is used.",
+  "scope": "Offline production-readiness evidence for the exact canonical Resend test sink, exact TEST-A artifact binding, raw publication-manifest byte equality, provider-authoritative READY deployment configuration and exact file inventory, immutable public byte verification before alias mutation, documented successful alias-response parsing, provider-authoritative alias read-back before stable-public verification, and Vercel deployment reconciliation. No provider mutation or live data is used.",
   "controls": [
+    {
+      "id": "canonical-resend-test-sink",
+      "requirement": "Resend delivery must accept and send only the exact delivered@resend.dev test sink; malformed, case-variant, composite, missing, empty, and alternate recipients must fail before provider invocation.",
+      "implementation": [
+        "src/fulfillment/resend-delivery-adapter.mjs"
+      ],
+      "proofs": [
+        "test/fulfillment/resend-delivery-adapter.test.mjs: Resend delivery adapter sends the approved publication with the persisted idempotency key",
+        "test/fulfillment/resend-delivery-adapter.test.mjs: Resend delivery adapter rejects every non-canonical test sink before sending"
+      ],
+      "failureMode": "Immediate rejection with zero provider calls"
+    },
     {
       "id": "nested-artifact-set-binding",
       "requirement": "The top-level publication artifactSetId must equal a valid artifactSet.artifactSetId before adapter or provider I/O and remain bound in provider metadata, stable read-back, and receipts.",
@@ -132,8 +154,8 @@
       "requiredResult": "deterministic PASS with no provider mutation"
     },
     {
-      "command": "node --test test/fulfillment/exact-revision-publication-adapter.test.mjs test/fulfillment/vercel-test-a-publication-provider.test.mjs",
-      "requiredResult": "52 passed, 0 failed"
+      "command": "node --test test/fulfillment/exact-revision-publication-adapter.test.mjs test/fulfillment/resend-delivery-adapter.test.mjs test/fulfillment/vercel-test-a-publication-provider.test.mjs",
+      "requiredResult": "56 passed, 0 failed"
     },
     {
       "command": "npm run test",

@@ -8,9 +8,11 @@ const evidencePath = fileURLToPath(new URL("./test-a-publication-regression-audi
 const expectedBaselineCommit = "413bd608d9a227d2d57a8135a0cfebae9404cb92";
 const testFiles = [
   "test/fulfillment/exact-revision-publication-adapter.test.mjs",
+  "test/fulfillment/resend-delivery-adapter.test.mjs",
   "test/fulfillment/vercel-test-a-publication-provider.test.mjs",
 ];
 const expectedControls = [
+  "canonical-resend-test-sink",
   "nested-artifact-set-binding",
   "exact-publication-manifest-bytes",
   "provider-ready-deployment-evidence",
@@ -23,7 +25,9 @@ const expectedControls = [
 const expectedPathAllowlist = [
   "ops/test-a-production-audit.mjs",
   "ops/test-a-publication-regression-audit.json",
+  "src/fulfillment/resend-delivery-adapter.mjs",
   "src/fulfillment/vercel-test-a-publication-provider.mjs",
+  "test/fulfillment/resend-delivery-adapter.test.mjs",
   "test/fulfillment/vercel-test-a-publication-provider.test.mjs",
 ];
 const expectedReviewedFiles = expectedPathAllowlist.slice(2);

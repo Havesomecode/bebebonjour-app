@@ -19,7 +19,7 @@ export function createResendDeliveryAdapter(options = {}) {
       assertTestDeliveryRequest(request, clock());
       const { data, error } = await resend.emails.send({
         from,
-        to: request.target.email,
+        to: RESEND_TEST_SINK,
         subject: "Votre annonce Bébé Bonjour est prête",
         html: deliveryHtml(request.publication.stableUrl),
       }, {
@@ -85,7 +85,7 @@ function assertTestDeliveryRequest(request, now) {
   if (!request || request.environment !== "test") {
     throw new Error("Resend delivery is restricted to operator-approved test jobs.");
   }
-  if (requireNonEmptyString(request.target?.email, "delivery email").toLowerCase() !== RESEND_TEST_SINK) {
+  if (request.target?.email !== RESEND_TEST_SINK) {
     throw new Error("Resend TEST-A delivery must use the documented test sink.");
   }
   requireNonEmptyString(request.idempotencyKey, "delivery idempotency key");
