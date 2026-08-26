@@ -85,6 +85,9 @@ async function fixture(t) {
       files,
     },
     idempotencyKey: IDEMPOTENCY_KEY,
+    async fenceExternalEffect(_fence, providerMutation) {
+      return providerMutation();
+    },
   };
   return { asset, index, manifestPath, preparedRoot, request, rootPath };
 }
@@ -304,6 +307,11 @@ test("Vercel TEST-A provider resolves exact source bytes before one scoped alias
   const calls = [];
   let publicationManifest;
   const uploadedBodies = [];
+  const providerMutationFences = [];
+  value.request.fenceExternalEffect = async (fence, providerMutation) => {
+    providerMutationFences.push(fence);
+    return providerMutation();
+  };
   const provider = createProvider({
     calls,
     fixtureValue: value,
@@ -314,6 +322,8 @@ test("Vercel TEST-A provider resolves exact source bytes before one scoped alias
         return jsonResponse({});
       }
       if (url.includes("/v13/deployments") && init.method === "POST") {
+        assert.deepEqual(providerMutationFences.at(-1), { effectMayBeIssued: true });
+        assert.equal(providerMutationFences.filter(({ effectMayBeIssued }) => effectMayBeIssued).length, 1);
         const payload = JSON.parse(init.body);
         publicationManifest = JSON.parse(
           uploadedBodies.find((body) => body.includes(Buffer.from("artifactManifestDigest"))).toString("utf8"),
@@ -350,6 +360,8 @@ test("Vercel TEST-A provider resolves exact source bytes before one scoped alias
       );
       if (immutableResponse) return immutableResponse;
       if (url.includes("/v2/deployments/dpl_test_a_001/aliases")) {
+        assert.deepEqual(providerMutationFences.at(-1), { effectMayBeIssued: true });
+        assert.equal(providerMutationFences.filter(({ effectMayBeIssued }) => effectMayBeIssued).length, 2);
         assert.deepEqual(JSON.parse(init.body), { alias: "test-a-announcements.example.test" });
         return jsonResponse(aliasMutationResponse());
       }
@@ -414,6 +426,8 @@ test("Vercel TEST-A provider resolves exact source bytes before one scoped alias
   assert.ok(aliasMutationIndex < aliasEvidenceIndex);
   assert.ok(aliasEvidenceIndex < stableReadIndex);
   assert.equal(calls.filter(({ url }) => url.includes("/v2/deployments/dpl_test_a_001/aliases")).length, 1);
+  assert.equal(providerMutationFences.filter(({ effectMayBeIssued }) => !effectMayBeIssued).length, 4);
+  assert.equal(providerMutationFences.filter(({ effectMayBeIssued }) => effectMayBeIssued).length, 2);
 });
 
 test("Vercel TEST-A provider reconciles a fully aliased deployment without provider mutation", async (t) => {
@@ -1386,7 +1400,7 @@ test("local artifact resolution rejects stale persisted manifest and non-canary 
   assert.equal(calls.length, 0);
 });
 
-test("expired publication overlap creates one deployment and one stable alias through the real adapter", async (t) => {
+test("lease expiry during Vercel deployment creation creates one deployment and one stable alias", async (t) => {
   const value = await fixture(t);
   const sortedFiles = [...value.request.artifactSet.files].sort((left, right) => left.path.localeCompare(right.path));
   const manifestBytes = Buffer.from(`${JSON.stringify({
@@ -1412,12 +1426,13 @@ test("expired publication overlap creates one deployment and one stable alias th
   let activeRequest;
   let publicationManifest;
   let aliasDeploymentId = null;
+  let deploymentListCalls = 0;
   let deploymentCreates = 0;
   let aliasMutations = 0;
-  let releaseFirstDeployment;
-  let signalFirstDeploymentStarted;
-  const firstDeploymentRelease = new Promise((resolve) => { releaseFirstDeployment = resolve; });
-  const firstDeploymentStarted = new Promise((resolve) => { signalFirstDeploymentStarted = resolve; });
+  let releaseFirstReconciliation;
+  let signalFirstReconciliationStarted;
+  const firstReconciliationRelease = new Promise((resolve) => { releaseFirstReconciliation = resolve; });
+  const firstReconciliationStarted = new Promise((resolve) => { signalFirstReconciliationStarted = resolve; });
 
   const provider = createVercelTestAPublicationProvider({
     token: "vercel_test_token",
@@ -1429,13 +1444,18 @@ test("expired publication overlap creates one deployment and one stable alias th
     canaryRevisionId: REVISION_ID,
     artifactResolver: {
       async resolve(request) {
-        activeRequest = structuredClone(request);
+        activeRequest = { ...request };
         return baseResolver.resolve(request);
       },
     },
     fetch: async (url, init = {}) => {
       const parsed = new URL(url);
       if (parsed.pathname === "/v7/deployments") {
+        deploymentListCalls += 1;
+        if (deploymentListCalls === 1) {
+          signalFirstReconciliationStarted();
+          await firstReconciliationRelease;
+        }
         return jsonResponse({
           deployments: deployments.map((deployment) => ({
             uid: deployment.id,
@@ -1454,10 +1474,6 @@ test("expired publication overlap creates one deployment and one stable alias th
       if (parsed.pathname === "/v13/deployments" && init.method === "POST") {
         deploymentCreates += 1;
         const deploymentNumber = deploymentCreates;
-        if (deploymentNumber === 1) {
-          signalFirstDeploymentStarted();
-          await firstDeploymentRelease;
-        }
         publicationManifest = JSON.parse(
           uploadedBodies.find((body) => body.includes(Buffer.from("artifactManifestDigest"))).toString("utf8"),
         );
@@ -1602,23 +1618,23 @@ test("expired publication overlap creates one deployment and one stable alias th
 
   const firstRun = firstWorker.runNext(JOB_ID);
   await Promise.race([
-    firstDeploymentStarted,
+    firstReconciliationStarted,
     firstRun.then((status) => {
-      throw new Error(`publication returned before deployment creation: ${JSON.stringify(status)}`);
+      throw new Error(`publication returned before provider reconciliation: ${JSON.stringify(status)}`);
     }),
   ]);
   now = "2026-08-26T12:00:01.000Z";
   await recoveryWorker.runNext(JOB_ID);
   now = "2026-08-26T12:00:02.000Z";
-  let recovered = await recoveryWorker.runNext(JOB_ID);
-  releaseFirstDeployment();
-  await firstRun.catch(() => undefined);
-  if (recovered.state === "retry_wait") {
-    now = "2026-08-26T12:00:03.000Z";
-    recovered = await recoveryWorker.runNext(JOB_ID);
+  try {
+    const recovered = await recoveryWorker.runNext(JOB_ID);
+    assert.equal(recovered.state, "published");
+    assert.equal(deploymentCreates, 1);
+    assert.equal(aliasMutations, 1);
+  } finally {
+    releaseFirstReconciliation();
+    await firstRun.catch(() => undefined);
   }
-
-  assert.equal(recovered.state, "published");
   assert.equal(deploymentCreates, 1);
   assert.equal(aliasMutations, 1);
 });

@@ -14,13 +14,18 @@ const request = {
   idempotencyKey: `bb_${"c".repeat(64)}`,
   attemptStartedAt: "2026-08-18T10:00:00.000Z",
   target: { targetRef: "customer:job_test_001", email: "delivered@resend.dev" },
+  async fenceExternalEffect(_fence, providerMutation) {
+    return providerMutation();
+  },
 };
 
 test("Resend delivery adapter sends the approved publication with the persisted idempotency key", async () => {
   const calls = [];
+  const providerMutationFences = [];
   const resend = {
     emails: {
       async send(payload, options) {
+        assert.deepEqual(providerMutationFences, [{ effectMayBeIssued: true }]);
         calls.push({ payload, options });
         return { data: { id: "email_test_001" }, error: null };
       },
@@ -32,7 +37,13 @@ test("Resend delivery adapter sends the approved publication with the persisted 
     clock: () => "2026-08-18T10:05:00.000Z",
   });
 
-  const receipt = await adapter.send(request);
+  const receipt = await adapter.send({
+    ...request,
+    async fenceExternalEffect(fence, providerMutation) {
+      providerMutationFences.push(fence);
+      return providerMutation();
+    },
+  });
 
   assert.deepEqual(receipt, {
     provider: "resend",

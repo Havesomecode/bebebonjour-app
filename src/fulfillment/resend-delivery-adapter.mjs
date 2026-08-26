@@ -17,14 +17,14 @@ export function createResendDeliveryAdapter(options = {}) {
 
     async send(request) {
       assertTestDeliveryRequest(request, clock());
-      const { data, error } = await resend.emails.send({
+      const { data, error } = await fencedProviderMutation(request, () => resend.emails.send({
         from,
         to: RESEND_TEST_SINK,
         subject: "Votre annonce Bébé Bonjour est prête",
         html: deliveryHtml(request.publication.stableUrl),
       }, {
         idempotencyKey: request.idempotencyKey,
-      });
+      }));
       if (error || !data?.id) {
         const failure = new Error("Resend did not accept the delivery request.", { cause: error });
         failure.reasonCode = "resend_send_failed";
@@ -59,6 +59,13 @@ export function createResendDeliveryAdapter(options = {}) {
       return deliveryOutcome(providerMessageId, data.last_event, clock());
     },
   };
+}
+
+async function fencedProviderMutation(request, providerMutation) {
+  if (typeof request?.fenceExternalEffect !== "function") {
+    throw new Error("Resend delivery requires a persisted provider-mutation lease fence.");
+  }
+  return request.fenceExternalEffect({ effectMayBeIssued: true }, providerMutation);
 }
 
 function deliveryOutcome(providerMessageId, event, recordedAt) {

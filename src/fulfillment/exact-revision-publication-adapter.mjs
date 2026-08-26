@@ -27,7 +27,14 @@ function normalizeRequest(request) {
   if (!request || request.environment !== "test" || request.product !== "announcement-page") {
     throw publicationError("Publication is restricted to the TEST-A announcement product.");
   }
-  const exact = structuredClone(request);
+  const { fenceExternalEffect, ...serializableRequest } = request;
+  const exact = structuredClone(serializableRequest);
+  if (fenceExternalEffect !== undefined) {
+    if (typeof fenceExternalEffect !== "function") {
+      throw publicationError("Publication external-effect fence is invalid.");
+    }
+    exact.fenceExternalEffect = fenceExternalEffect;
+  }
   requireIdentifier(exact.jobId, "publication job id");
   requireIdentifier(exact.revisionId, "publication revision id");
   requireIdentifier(exact.artifactSetId, "publication artifact set id");

@@ -172,15 +172,6 @@ export function createFulfillmentOrchestrator(options) {
           && typeof entry.effectStartedAt === "string",
       );
 
-      if (externalEffectStage) {
-        aggregate = await store.markExternalEffectStarted(jobId, {
-          commandId: `effect-started:${attempt.attemptId}`,
-          stage,
-          attemptId: attempt.attemptId,
-          leaseToken,
-        }, clock());
-      }
-
       const failAttempt = async (error, at = clock()) => {
         const classification = hasLeaseExpired(attempt, at)
           ? { retryable: true, reasonCode: "lease_expired" }
@@ -196,6 +187,28 @@ export function createFulfillmentOrchestrator(options) {
 
       let result;
       try {
+        let effectFenceNumber = 0;
+        const fenceExternalEffect = externalEffectStage
+          ? async ({ effectMayBeIssued = false } = {}, providerMutation) => {
+            if (typeof providerMutation !== "function") {
+              throw new Error("External-effect fencing requires the exact provider mutation callback.");
+            }
+            aggregate = await store.fenceExternalEffect(jobId, {
+              commandId: `effect-fence:${attempt.attemptId}:${effectFenceNumber += 1}`,
+              stage,
+              attemptId: attempt.attemptId,
+              leaseToken,
+              leaseMs,
+              effectMayBeIssued,
+            }, clock());
+            const fencedAttempt = aggregate.stageAttempts.find(
+              (entry) => entry.attemptId === attempt.attemptId,
+            );
+            attempt.leaseExpiresAt = fencedAttempt.leaseExpiresAt;
+            attempt.effectStartedAt = fencedAttempt.effectStartedAt;
+            return providerMutation();
+          }
+          : null;
         result = await handler(Object.freeze({
           job: statusFromAggregate(aggregate),
           stage,
@@ -204,6 +217,7 @@ export function createFulfillmentOrchestrator(options) {
           attemptStartedAt: attempt.startedAt,
           idempotencyKey: attempt.idempotencyKey,
           reconciliationOnly,
+          fenceExternalEffect,
           leaseToken,
           operation: externalEffectStage
             ? externalEffectInputFromAggregate(aggregate, stage)

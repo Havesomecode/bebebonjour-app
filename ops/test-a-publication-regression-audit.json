@@ -1,16 +1,21 @@
 {
   "schemaVersion": "1.0",
-  "auditId": "test-a-publication-regression-audit-v10",
+  "auditId": "test-a-publication-regression-audit-v11",
   "baselineCommit": "956c62ddee38d876be984285a9fcc953c361b942",
   "candidateBoundary": {
     "pathAllowlist": [
       "ops/test-a-production-audit.mjs",
       "ops/test-a-publication-regression-audit.json",
+      "schemas/fulfillment-job-store.schema.json",
       "src/fulfillment/exact-revision-publication-adapter.mjs",
       "src/fulfillment/external-effect-stage-handlers.mjs",
+      "src/fulfillment/job-machine.mjs",
       "src/fulfillment/job-orchestrator.mjs",
       "src/fulfillment/resend-delivery-adapter.mjs",
       "src/fulfillment/vercel-test-a-publication-provider.mjs",
+      "src/persistence/convex-fulfillment-store.mjs",
+      "src/persistence/local-test-fulfillment-store.mjs",
+      "test/fulfillment/job-orchestration.test.mjs",
       "test/fulfillment/resend-delivery-adapter.test.mjs",
       "test/fulfillment/test-a-operator-runner.test.mjs",
       "test/fulfillment/vercel-test-a-publication-provider.test.mjs"
@@ -18,47 +23,47 @@
     "reviewedFileDigests": [
       {
         "path": "schemas/fulfillment-job-store.schema.json",
-        "sha256": "9efb50f788c7b086ff541f1ac998fe96b1dacc460b85cb000a525decd2f23311"
+        "sha256": "826342b8055e22d4caf1b2ee07251ae7961e358dd5c06cffbd5ffad04219d50c"
       },
       {
         "path": "src/fulfillment/exact-revision-publication-adapter.mjs",
-        "sha256": "335b2ca984309dc3834c365d3c6382587c8ca26e7110fe724501b93f9a2257fc"
+        "sha256": "266d0dc29aaf4dbf262e777e65ebda2a3ba52e7adb254f4649ceebae4e5d5fd3"
       },
       {
         "path": "src/fulfillment/external-effect-stage-handlers.mjs",
-        "sha256": "bb03f2c99c4ec3da6a9630ebd26e343aa0f9b5e7badafa123b488e91e3f9f7ea"
+        "sha256": "c62047c271e6979dc8a861c88948ccb9c36ec39d71d931f1deeda6a38b55af0e"
       },
       {
         "path": "src/fulfillment/job-machine.mjs",
-        "sha256": "5b926816dbf03d89c8edadaf9fc0b42b37a5522b06811532bfdd1ddc1987cc88"
+        "sha256": "6c1110fdd99ed1e39a47c6c09cf7d1df2f9489b6faf65ae6726d13f21ab6d9f0"
       },
       {
         "path": "src/fulfillment/job-orchestrator.mjs",
-        "sha256": "852fbdfcf3344e7c8e828fe2331e9f17d837fc485581a6010c62c54d1af08e2d"
+        "sha256": "6dc513674b14ca7457887e1d3ec8201bc9dae959d48af5f258c4bfa30ac763f3"
       },
       {
         "path": "src/fulfillment/resend-delivery-adapter.mjs",
-        "sha256": "a9c7b3ec54832461d1fa80b535312df5c74d55b91cbf8ba17a4b91e5694ed74b"
+        "sha256": "035823af368bab8fa4bf4c377e8fcb1c6f207ea82f3bff47554058ea473f9659"
       },
       {
         "path": "src/fulfillment/vercel-test-a-publication-provider.mjs",
-        "sha256": "2472db7388a100cb45dd32f68d045df87786c045ec508c12816219553f114e77"
+        "sha256": "07671f6a015b8868ba185c936554f6cbacdfee11413add933e19c0999788e888"
       },
       {
         "path": "src/persistence/convex-fulfillment-store.mjs",
-        "sha256": "ba85d94fbbee1dc3e20b13c1b906fe548110294c219e4d4b28abdb41772cab3e"
+        "sha256": "89076cf188966992d8e9394681645938a167603ecf22c9b262dcc6b059507999"
       },
       {
         "path": "src/persistence/local-test-fulfillment-store.mjs",
-        "sha256": "d596cb9eb1af8b73993d32a41c62b277c9d606d3e753215922449692831af65b"
+        "sha256": "1e00fb400d0f00e283255c3175aada8f429a9b8d4d55b275e0b8867fb649409e"
       },
       {
         "path": "test/fulfillment/job-orchestration.test.mjs",
-        "sha256": "e662cfce6f1d6047e00ea25992b3352a28b1cba8c81ecca09be1687c16cb4ed4"
+        "sha256": "1e3bd709fb1865b76ea0fae2a8f915b84d9fa2f28ef9a503082ce393de7fe3ed"
       },
       {
         "path": "test/fulfillment/resend-delivery-adapter.test.mjs",
-        "sha256": "aaace631a08f4902a3116d26cf2d9f4c61c03e62416aba5428f4775720b089e5"
+        "sha256": "44313ba390e1b177eaea6beef2821d6519658d439aa5c42f3f7a5f3a8e2268a0"
       },
       {
         "path": "test/fulfillment/test-a-operator-runner.test.mjs",
@@ -66,16 +71,16 @@
       },
       {
         "path": "test/fulfillment/vercel-test-a-publication-provider.test.mjs",
-        "sha256": "d993b2155eea4e52c01ef1f8cc70e4cfd0daeff48faaa8d05ce9b0b5ce4c5525"
+        "sha256": "3d8a780cc1d8b6d9a26825e6127c2c337aea6f8d0a5d02b9e772ed70ff5cf3a2"
       }
     ]
   },
   "auditScript": "ops/test-a-production-audit.mjs",
-  "scope": "Offline consolidated production-readiness evidence for durable external-effect fencing, canonical Resend TEST-A sink enforcement, exact TEST-A artifact binding, provider-authoritative deployment and alias evidence, strict deployment-list validation, and retry-safe read-only Vercel reconciliation from the persisted attempt cursor. No provider mutation or live data is used.",
+  "scope": "Offline consolidated production-readiness evidence for lease-aware provider-boundary fencing, durable ambiguous-effect preservation, canonical Resend TEST-A sink enforcement, exact TEST-A artifact binding, provider-authoritative deployment and alias evidence, strict deployment-list validation, and retry-safe Vercel reconciliation from the persisted attempt cursor. No provider mutation or live data is used.",
   "controls": [
     {
       "id": "durable-external-effect-fencing",
-      "requirement": "Publication and delivery persist an exact-attempt effect_started marker before provider I/O. Any retry or expired-lease reclaim for the same logical operation is reconciliation-only and cannot create a deployment, mutate the stable alias, retarget a recipient, or resend.",
+      "requirement": "Publication and delivery validate and renew the exact attempt lease, then invoke each provider mutation inside the same fence callback, persisting effect_started before an externally visible effect may be issued. Expired workers cannot create a deployment, mutate the stable alias, or send through Resend; issued but unrecorded effects remain reconciliation-only and nonterminal after bounded retries or later lease expiry.",
       "implementation": [
         "schemas/fulfillment-job-store.schema.json",
         "src/fulfillment/external-effect-stage-handlers.mjs",
@@ -88,9 +93,10 @@
       "proofs": [
         "test/fulfillment/job-orchestration.test.mjs: an external effect marker cannot be rebound to another attempt",
         "test/fulfillment/job-orchestration.test.mjs: delivery retries reconcile only and never retarget or resend",
-        "test/fulfillment/vercel-test-a-publication-provider.test.mjs: expired publication overlap creates one deployment and one stable alias through the real adapter"
+        "test/fulfillment/job-orchestration.test.mjs: an expired delivery worker is fenced before the real Resend send boundary",
+        "test/fulfillment/vercel-test-a-publication-provider.test.mjs: lease expiry during Vercel deployment creation creates one deployment and one stable alias"
       ],
-      "failureMode": "Retryable provider_outcome_unknown without a second external mutation; bounded terminal failure after the configured reconciliation attempts are exhausted"
+      "failureMode": "Retryable provider_outcome_unknown without a second external mutation; reconciliation_required rather than terminal failure after bounded reconciliation attempts are exhausted"
     },
     {
       "id": "canonical-resend-test-sink",
