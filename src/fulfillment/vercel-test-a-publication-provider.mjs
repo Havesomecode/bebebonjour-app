@@ -324,12 +324,23 @@ export function createVercelTestAPublicationProvider(options = {}) {
       !alias
       || typeof alias !== "object"
       || Array.isArray(alias)
+      || typeof alias.uid !== "string"
+      || !/^[A-Za-z0-9_-]{1,160}$/.test(alias.uid)
+      || !isRfc3339DateTime(alias.created)
       || alias.alias !== stableHostname
-      || alias.deploymentId !== deploymentId
-      || alias.projectId !== projectId
+      || (Object.hasOwn(alias, "deploymentId") && alias.deploymentId !== deploymentId)
+      || (Object.hasOwn(alias, "projectId") && alias.projectId !== projectId)
+      || (
+        Object.hasOwn(alias, "oldDeploymentId")
+        && alias.oldDeploymentId !== null
+        && (
+          typeof alias.oldDeploymentId !== "string"
+          || !/^[A-Za-z0-9_-]{1,160}$/.test(alias.oldDeploymentId)
+        )
+      )
     ) {
       throw providerError(
-        "Vercel alias assignment does not match the exact TEST-A hostname, deployment, and project.",
+        "Vercel alias assignment does not match the documented TEST-A alias response.",
         false,
       );
     }
@@ -595,6 +606,29 @@ function requireProjectName(value) {
     throw new Error("Vercel TEST-A project name is invalid.");
   }
   return normalized;
+}
+
+function isRfc3339DateTime(value) {
+  if (typeof value !== "string") return false;
+  const match = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.\d+)?(?:Z|[+-](\d{2}):(\d{2}))$/i.exec(value);
+  if (!match) return false;
+  const [, yearText, monthText, dayText, hourText, minuteText, secondText, offsetHourText, offsetMinuteText] = match;
+  const year = Number(yearText);
+  const month = Number(monthText);
+  const day = Number(dayText);
+  const leapYear = year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0);
+  const daysInMonth = [31, leapYear ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+  return (
+    month >= 1
+    && month <= 12
+    && day >= 1
+    && day <= daysInMonth[month - 1]
+    && Number(hourText) <= 23
+    && Number(minuteText) <= 59
+    && Number(secondText) <= 59
+    && Number(offsetHourText || 0) <= 23
+    && Number(offsetMinuteText || 0) <= 59
+  );
 }
 
 function nonNegativeInteger(value, fallback) {

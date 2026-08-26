@@ -93,6 +93,15 @@ function jsonResponse(body, status = 200) {
   });
 }
 
+function aliasMutationResponse(overrides = {}) {
+  return {
+    uid: "alias_created",
+    alias: new URL(STABLE_ORIGIN).hostname,
+    created: "2026-08-26T14:00:00.000Z",
+    ...overrides,
+  };
+}
+
 function publicationJsonResponse(body) {
   return new Response(JSON.stringify(body), {
     status: 200,
@@ -338,12 +347,7 @@ test("Vercel TEST-A provider resolves exact source bytes before one scoped alias
       if (immutableResponse) return immutableResponse;
       if (url.includes("/v2/deployments/dpl_test_a_001/aliases")) {
         assert.deepEqual(JSON.parse(init.body), { alias: "test-a-announcements.example.test" });
-        return jsonResponse({
-          uid: "alias_created",
-          alias: new URL(STABLE_ORIGIN).hostname,
-          deploymentId: "dpl_test_a_001",
-          projectId: "prj_test_a_announcements",
-        });
+        return jsonResponse(aliasMutationResponse());
       }
       const aliasEvidence = aliasEvidenceResponse(url, "dpl_test_a_001");
       if (aliasEvidence) return aliasEvidence;
@@ -437,12 +441,7 @@ test("Vercel TEST-A provider reconciles the exact deployment metadata without cr
       });
       if (evidenceResponse) return evidenceResponse;
       if (url.includes("/v2/deployments/dpl_test_a_existing/aliases")) {
-        return jsonResponse({
-          uid: "alias_existing",
-          alias: new URL(STABLE_ORIGIN).hostname,
-          deploymentId: "dpl_test_a_existing",
-          projectId: "prj_test_a_announcements",
-        });
+        return jsonResponse(aliasMutationResponse({ uid: "alias_existing" }));
       }
       const aliasEvidence = aliasEvidenceResponse(url, "dpl_test_a_existing");
       if (aliasEvidence) return aliasEvidence;
@@ -495,25 +494,27 @@ test("Vercel TEST-A provider reconciles the exact deployment metadata without cr
 });
 
 test("Vercel TEST-A provider rejects undocumented or unbound alias responses before read-back", async (t) => {
-  const exactAlias = {
-    alias: new URL(STABLE_ORIGIN).hostname,
-    deploymentId: "dpl_test_a_existing",
-    projectId: "prj_test_a_announcements",
-  };
+  const exactAlias = aliasMutationResponse({ uid: "alias_existing" });
   const cases = [
     { name: "undocumented 201", response: () => jsonResponse(exactAlias, 201), error: /HTTP 201/ },
     {
       name: "409 alias conflict",
-      response: () => jsonResponse({ ...exactAlias, deploymentId: "dpl_other" }, 409),
+      response: () => jsonResponse(exactAlias, 409),
       error: /HTTP 409/,
     },
     { name: "missing body", response: () => new Response(null, { status: 200 }), error: /malformed response/ },
     { name: "malformed body", response: () => new Response("{", { status: 200 }), error: /malformed response/ },
-    { name: "missing ownership", response: () => jsonResponse({ alias: exactAlias.alias }), error: /does not match/ },
+    { name: "missing uid", response: () => jsonResponse({ ...exactAlias, uid: undefined }), error: /does not match/ },
+    { name: "missing alias", response: () => jsonResponse({ ...exactAlias, alias: undefined }), error: /does not match/ },
+    { name: "missing created", response: () => jsonResponse({ ...exactAlias, created: undefined }), error: /does not match/ },
     { name: "mismatched alias", response: () => jsonResponse({ ...exactAlias, alias: "other.example.test" }), error: /does not match/ },
     { name: "mismatched deployment", response: () => jsonResponse({ ...exactAlias, deploymentId: "dpl_other" }), error: /does not match/ },
     { name: "mismatched project", response: () => jsonResponse({ ...exactAlias, projectId: "prj_other" }), error: /does not match/ },
-    { name: "ambiguous deployment", response: () => jsonResponse({ ...exactAlias, deploymentId: [exactAlias.deploymentId, "dpl_other"] }), error: /does not match/ },
+    { name: "invalid uid", response: () => jsonResponse({ ...exactAlias, uid: [exactAlias.uid, "alias_other"] }), error: /does not match/ },
+    { name: "invalid created", response: () => jsonResponse({ ...exactAlias, created: "not-a-date" }), error: /does not match/ },
+    { name: "invalid calendar date", response: () => jsonResponse({ ...exactAlias, created: "2026-02-30T14:00:00.000Z" }), error: /does not match/ },
+    { name: "invalid old deployment", response: () => jsonResponse({ ...exactAlias, oldDeploymentId: ["dpl_old"] }), error: /does not match/ },
+    { name: "ambiguous response", response: () => jsonResponse([exactAlias, exactAlias]), error: /does not match/ },
   ];
 
   for (const aliasCase of cases) {
@@ -648,12 +649,7 @@ test("Vercel TEST-A provider alias evidence fails closed when malformed, mismatc
           );
           if (immutableResponse) return immutableResponse;
           if (url.includes(`/v2/deployments/${deployment.uid}/aliases`)) {
-            return jsonResponse({
-              uid: "alias_existing",
-              alias: new URL(STABLE_ORIGIN).hostname,
-              deploymentId: deployment.uid,
-              projectId: "prj_test_a_announcements",
-            });
+            return jsonResponse(aliasMutationResponse({ uid: "alias_existing" }));
           }
           if (new URL(url).pathname.startsWith("/v4/aliases/") && aliasCase.response) {
             return aliasCase.response();
@@ -1123,12 +1119,7 @@ test("Vercel TEST-A reconciliation selects one exact deployment found only on a 
       });
       if (evidenceResponse) return evidenceResponse;
       if (url.includes("/v2/deployments/dpl_match_later/aliases")) {
-        return jsonResponse({
-          uid: "alias_created",
-          alias: new URL(STABLE_ORIGIN).hostname,
-          deploymentId: "dpl_match_later",
-          projectId: "prj_test_a_announcements",
-        });
+        return jsonResponse(aliasMutationResponse());
       }
       const aliasEvidence = aliasEvidenceResponse(url, "dpl_match_later");
       if (aliasEvidence) return aliasEvidence;

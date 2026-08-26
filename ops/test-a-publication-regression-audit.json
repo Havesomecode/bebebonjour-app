@@ -1,6 +1,6 @@
 {
   "schemaVersion": "1.0",
-  "auditId": "test-a-publication-regression-audit-v5",
+  "auditId": "test-a-publication-regression-audit-v6",
   "baselineCommit": "413bd608d9a227d2d57a8135a0cfebae9404cb92",
   "candidateBoundary": {
     "pathAllowlist": [
@@ -12,16 +12,16 @@
     "reviewedFileDigests": [
       {
         "path": "src/fulfillment/vercel-test-a-publication-provider.mjs",
-        "sha256": "5ec4a008bac2b3d5426c0b66e516e2ae537a7e0ced0e9850970c707bf993fd08"
+        "sha256": "dee0ed9bc8727515e0042b1d85e13e9f8e530d0842735cefc02acf5c99d6ba63"
       },
       {
         "path": "test/fulfillment/vercel-test-a-publication-provider.test.mjs",
-        "sha256": "3609d43efc81f6baacd7d36e8f45a5902cdebfd77a5861f5f11b712664fdc130"
+        "sha256": "bd4a3b60e67581aaccf063d58f06e6cf65500fbd8a508155e74be747a2021be0"
       }
     ]
   },
   "auditScript": "ops/test-a-production-audit.mjs",
-  "scope": "Offline production-readiness evidence for exact TEST-A artifact binding, raw publication-manifest byte equality, provider-authoritative READY deployment configuration and exact file inventory, immutable public byte verification before alias mutation, exact successful alias-response binding, provider-authoritative alias read-back before stable-public verification, and Vercel deployment reconciliation. No provider mutation or live data is used.",
+  "scope": "Offline production-readiness evidence for exact TEST-A artifact binding, raw publication-manifest byte equality, provider-authoritative READY deployment configuration and exact file inventory, immutable public byte verification before alias mutation, documented successful alias-response parsing, provider-authoritative alias read-back before stable-public verification, and Vercel deployment reconciliation. No provider mutation or live data is used.",
   "controls": [
     {
       "id": "nested-artifact-set-binding",
@@ -89,7 +89,7 @@
     },
     {
       "id": "provider-alias-readback",
-      "requirement": "Only a documented HTTP 200 alias-assignment response whose body names the exact hostname, selected deployment id, and configured project id may advance to provider-authoritative alias read-back and stable-public verification.",
+      "requirement": "Only a documented HTTP 200 alias-assignment response with the exact hostname, a valid uid, and an RFC 3339 created timestamp may advance. Any optional deployment or project field must match the request boundary; exact ownership is established only by provider-authoritative alias read-back before stable-public verification.",
       "implementation": [
         "src/fulfillment/vercel-test-a-publication-provider.mjs"
       ],
@@ -133,7 +133,7 @@
     },
     {
       "command": "node --test test/fulfillment/exact-revision-publication-adapter.test.mjs test/fulfillment/vercel-test-a-publication-provider.test.mjs",
-      "requiredResult": "36 passed, 0 failed"
+      "requiredResult": "52 passed, 0 failed"
     },
     {
       "command": "npm run test",
