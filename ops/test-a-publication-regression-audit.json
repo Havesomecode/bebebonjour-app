@@ -1,6 +1,6 @@
 {
   "schemaVersion": "1.0",
-  "auditId": "test-a-publication-regression-audit-v4",
+  "auditId": "test-a-publication-regression-audit-v5",
   "baselineCommit": "413bd608d9a227d2d57a8135a0cfebae9404cb92",
   "candidateBoundary": {
     "pathAllowlist": [
@@ -12,16 +12,16 @@
     "reviewedFileDigests": [
       {
         "path": "src/fulfillment/vercel-test-a-publication-provider.mjs",
-        "sha256": "ebd0686c4ad3d3b1013a40f4d69bf92c2fbdc1947b2e9a67db96e3e0e588fbef"
+        "sha256": "5ec4a008bac2b3d5426c0b66e516e2ae537a7e0ced0e9850970c707bf993fd08"
       },
       {
         "path": "test/fulfillment/vercel-test-a-publication-provider.test.mjs",
-        "sha256": "06561545163262a7a13c3b13295ef0a67fe0d2f7a1b9b868198411d0ecd18a84"
+        "sha256": "3609d43efc81f6baacd7d36e8f45a5902cdebfd77a5861f5f11b712664fdc130"
       }
     ]
   },
   "auditScript": "ops/test-a-production-audit.mjs",
-  "scope": "Offline production-readiness evidence for exact TEST-A artifact binding, raw publication-manifest byte equality, provider-authoritative READY deployment configuration and exact file inventory, immutable public byte verification before alias mutation, provider-authoritative alias read-back before stable-public verification, and Vercel deployment reconciliation. No provider mutation or live data is used.",
+  "scope": "Offline production-readiness evidence for exact TEST-A artifact binding, raw publication-manifest byte equality, provider-authoritative READY deployment configuration and exact file inventory, immutable public byte verification before alias mutation, exact successful alias-response binding, provider-authoritative alias read-back before stable-public verification, and Vercel deployment reconciliation. No provider mutation or live data is used.",
   "controls": [
     {
       "id": "nested-artifact-set-binding",
@@ -89,16 +89,17 @@
     },
     {
       "id": "provider-alias-readback",
-      "requirement": "After every accepted Vercel alias-assignment response (HTTP 200, 201, or idempotent 409) and before stable-public verification, the provider-authoritative alias endpoint must prove the exact hostname, selected deployment id, and configured project id.",
+      "requirement": "Only a documented HTTP 200 alias-assignment response whose body names the exact hostname, selected deployment id, and configured project id may advance to provider-authoritative alias read-back and stable-public verification.",
       "implementation": [
         "src/fulfillment/vercel-test-a-publication-provider.mjs"
       ],
       "proofs": [
         "test/fulfillment/vercel-test-a-publication-provider.test.mjs: Vercel TEST-A provider resolves exact source bytes before one scoped alias mutation",
         "test/fulfillment/vercel-test-a-publication-provider.test.mjs: Vercel TEST-A provider reconciles the exact deployment metadata without creating another deployment",
+        "test/fulfillment/vercel-test-a-publication-provider.test.mjs: Vercel TEST-A provider rejects undocumented or unbound alias responses before read-back",
         "test/fulfillment/vercel-test-a-publication-provider.test.mjs: Vercel TEST-A provider alias evidence fails closed when malformed, mismatched, or unavailable"
       ],
-      "failureMode": "Non-retryable rejection for malformed, incomplete, or mismatched alias evidence; retryable rejection for provider-unavailable evidence; stable-public verification is not attempted"
+      "failureMode": "Non-retryable rejection for undocumented status, malformed or unbound assignment response, or malformed, incomplete, or mismatched alias evidence; retryable rejection for provider-unavailable evidence; stable-public verification is not attempted"
     },
     {
       "id": "global-exact-deployment-uniqueness",

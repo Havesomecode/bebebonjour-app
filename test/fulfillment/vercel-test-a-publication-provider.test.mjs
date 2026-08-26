@@ -338,11 +338,12 @@ test("Vercel TEST-A provider resolves exact source bytes before one scoped alias
       if (immutableResponse) return immutableResponse;
       if (url.includes("/v2/deployments/dpl_test_a_001/aliases")) {
         assert.deepEqual(JSON.parse(init.body), { alias: "test-a-announcements.example.test" });
-        return new Response(new ReadableStream({
-          start(controller) {
-            controller.error(new Error("alias response body unavailable"));
-          },
-        }), { status: 200 });
+        return jsonResponse({
+          uid: "alias_created",
+          alias: new URL(STABLE_ORIGIN).hostname,
+          deploymentId: "dpl_test_a_001",
+          projectId: "prj_test_a_announcements",
+        });
       }
       const aliasEvidence = aliasEvidenceResponse(url, "dpl_test_a_001");
       if (aliasEvidence) return aliasEvidence;
@@ -436,7 +437,12 @@ test("Vercel TEST-A provider reconciles the exact deployment metadata without cr
       });
       if (evidenceResponse) return evidenceResponse;
       if (url.includes("/v2/deployments/dpl_test_a_existing/aliases")) {
-        return jsonResponse({ uid: "alias_existing" }, 409);
+        return jsonResponse({
+          uid: "alias_existing",
+          alias: new URL(STABLE_ORIGIN).hostname,
+          deploymentId: "dpl_test_a_existing",
+          projectId: "prj_test_a_announcements",
+        });
       }
       const aliasEvidence = aliasEvidenceResponse(url, "dpl_test_a_existing");
       if (aliasEvidence) return aliasEvidence;
@@ -484,8 +490,93 @@ test("Vercel TEST-A provider reconciles the exact deployment metadata without cr
   const stableReadIndex = calls.findIndex(({ url }) => url.startsWith(STABLE_ORIGIN));
   assert.ok(immutableReadIndexes.length >= 5, "the selected deployment manifest, redirect, and files must be read back");
   assert.ok(immutableReadIndexes.every((index) => index < aliasMutationIndex), "all immutable deployment verification must precede aliasing");
-  assert.ok(aliasMutationIndex < aliasEvidenceIndex, "409 alias assignment must still be read back from Vercel");
+  assert.ok(aliasMutationIndex < aliasEvidenceIndex, "exact alias assignment must be read back from Vercel");
   assert.ok(stableReadIndex > aliasEvidenceIndex, "stable publication verification must follow provider alias evidence");
+});
+
+test("Vercel TEST-A provider rejects undocumented or unbound alias responses before read-back", async (t) => {
+  const exactAlias = {
+    alias: new URL(STABLE_ORIGIN).hostname,
+    deploymentId: "dpl_test_a_existing",
+    projectId: "prj_test_a_announcements",
+  };
+  const cases = [
+    { name: "undocumented 201", response: () => jsonResponse(exactAlias, 201), error: /HTTP 201/ },
+    {
+      name: "409 alias conflict",
+      response: () => jsonResponse({ ...exactAlias, deploymentId: "dpl_other" }, 409),
+      error: /HTTP 409/,
+    },
+    { name: "missing body", response: () => new Response(null, { status: 200 }), error: /malformed response/ },
+    { name: "malformed body", response: () => new Response("{", { status: 200 }), error: /malformed response/ },
+    { name: "missing ownership", response: () => jsonResponse({ alias: exactAlias.alias }), error: /does not match/ },
+    { name: "mismatched alias", response: () => jsonResponse({ ...exactAlias, alias: "other.example.test" }), error: /does not match/ },
+    { name: "mismatched deployment", response: () => jsonResponse({ ...exactAlias, deploymentId: "dpl_other" }), error: /does not match/ },
+    { name: "mismatched project", response: () => jsonResponse({ ...exactAlias, projectId: "prj_other" }), error: /does not match/ },
+    { name: "ambiguous deployment", response: () => jsonResponse({ ...exactAlias, deploymentId: [exactAlias.deploymentId, "dpl_other"] }), error: /does not match/ },
+  ];
+
+  for (const aliasCase of cases) {
+    await t.test(aliasCase.name, async (subtest) => {
+      const value = await fixture(subtest);
+      const calls = [];
+      const publicManifest = publicManifestFor(value);
+      const deployment = {
+        uid: "dpl_test_a_existing",
+        origin: EXISTING_DEPLOYMENT_ORIGIN,
+      };
+      const provider = createProvider({
+        calls,
+        fixtureValue: value,
+        async fetchImpl(url, init) {
+          if (url.includes("/v7/deployments")) {
+            return jsonResponse({
+              deployments: [{
+                uid: deployment.uid,
+                url: new URL(deployment.origin).hostname,
+                projectId: "prj_test_a_announcements",
+                readyState: "READY",
+                meta: {
+                  bbCanaryJobId: JOB_ID,
+                  bbRevisionId: REVISION_ID,
+                  bbArtifactSetId: value.request.artifactSetId,
+                  bbArtifactManifestDigest: value.request.artifactManifestDigest,
+                  bbIdempotencyKey: IDEMPOTENCY_KEY,
+                },
+              }],
+              pagination: { next: null },
+            });
+          }
+          const providerEvidence = deploymentEvidenceResponse(
+            url,
+            value,
+            publicManifest,
+            deployment,
+          );
+          if (providerEvidence) return providerEvidence;
+          const immutableResponse = publicationReadbackResponse(
+            url,
+            value,
+            publicManifest,
+            deployment.origin,
+          );
+          if (immutableResponse) return immutableResponse;
+          if (url.includes(`/v2/deployments/${deployment.uid}/aliases`)) {
+            return aliasCase.response();
+          }
+          throw new Error(`Unexpected fetch after alias assignment: ${init.method || "GET"} ${url}`);
+        },
+      });
+
+      await assert.rejects(provider.reconcile(value.request), (error) => {
+        assert.match(error.message, aliasCase.error);
+        assert.equal(error.retryable, false);
+        return true;
+      });
+      assert.equal(calls.some(({ url }) => url.includes("/v4/aliases/")), false);
+      assert.equal(calls.some(({ url }) => url.startsWith(STABLE_ORIGIN)), false);
+    });
+  }
 });
 
 test("Vercel TEST-A provider alias evidence fails closed when malformed, mismatched, or unavailable", async (t) => {
@@ -557,7 +648,12 @@ test("Vercel TEST-A provider alias evidence fails closed when malformed, mismatc
           );
           if (immutableResponse) return immutableResponse;
           if (url.includes(`/v2/deployments/${deployment.uid}/aliases`)) {
-            return jsonResponse({ uid: "alias_existing" });
+            return jsonResponse({
+              uid: "alias_existing",
+              alias: new URL(STABLE_ORIGIN).hostname,
+              deploymentId: deployment.uid,
+              projectId: "prj_test_a_announcements",
+            });
           }
           if (new URL(url).pathname.startsWith("/v4/aliases/") && aliasCase.response) {
             return aliasCase.response();
@@ -1027,7 +1123,12 @@ test("Vercel TEST-A reconciliation selects one exact deployment found only on a 
       });
       if (evidenceResponse) return evidenceResponse;
       if (url.includes("/v2/deployments/dpl_match_later/aliases")) {
-        return jsonResponse({ uid: "alias_created" }, 201);
+        return jsonResponse({
+          uid: "alias_created",
+          alias: new URL(STABLE_ORIGIN).hostname,
+          deploymentId: "dpl_match_later",
+          projectId: "prj_test_a_announcements",
+        });
       }
       const aliasEvidence = aliasEvidenceResponse(url, "dpl_match_later");
       if (aliasEvidence) return aliasEvidence;
@@ -1052,7 +1153,7 @@ test("Vercel TEST-A reconciliation selects one exact deployment found only on a 
     url.includes("/v2/deployments/dpl_match_later/aliases")
   ));
   const aliasEvidenceIndex = calls.findIndex(({ url }) => url.includes("/v4/aliases/"));
-  assert.ok(aliasMutationIndex < aliasEvidenceIndex, "201 alias assignment must be read back from Vercel");
+  assert.ok(aliasMutationIndex < aliasEvidenceIndex, "exact alias assignment must be read back from Vercel");
 });
 
 test("Vercel TEST-A reconciliation returns no match only after exhausting deployment pages", async (t) => {

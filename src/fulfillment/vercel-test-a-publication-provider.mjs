@@ -142,8 +142,9 @@ export function createVercelTestAPublicationProvider(options = {}) {
         method: "POST",
         body: JSON.stringify({ alias: stableHostname }),
       },
-      new Set([200, 201, 409]),
+      new Set([200]),
     );
+    await verifyAliasMutationResponse(aliasResponse, deploymentId);
     await verifyProviderAliasEvidence(deploymentId);
     await verifyPublication(stableUrl, request, resolved, {
       label: "Stable TEST-A publication",
@@ -307,6 +308,28 @@ export function createVercelTestAPublicationProvider(options = {}) {
     ) {
       throw providerError(
         "Vercel provider alias evidence does not match the exact TEST-A hostname, deployment, and project.",
+        false,
+      );
+    }
+  }
+
+  async function verifyAliasMutationResponse(response, deploymentId) {
+    let alias;
+    try {
+      alias = await response.json();
+    } catch (error) {
+      throw providerError("Vercel alias assignment returned a malformed response.", false, error);
+    }
+    if (
+      !alias
+      || typeof alias !== "object"
+      || Array.isArray(alias)
+      || alias.alias !== stableHostname
+      || alias.deploymentId !== deploymentId
+      || alias.projectId !== projectId
+    ) {
+      throw providerError(
+        "Vercel alias assignment does not match the exact TEST-A hostname, deployment, and project.",
         false,
       );
     }
