@@ -249,7 +249,7 @@
       },
       {
         "path": "ops/test-a-consolidated-candidate-evidence.json",
-        "sha256": "17c8740ee13ecab598f3f892acc0833657ac38dbb2f44e681ba660d8a96df0ea"
+        "sha256": "ccbc52a1f6779fb5fc564723d5e42a417ab748bfb811c165df633a9c98f2629e"
       },
       {
         "path": "ops/test-a-hosted-provider-manifest.json",
@@ -361,7 +361,7 @@
       },
       {
         "path": "src/fulfillment/operator-runner-test-a.mjs",
-        "sha256": "1dff57ca33a289b2cfc20060172a724ffeec3097f70b3caa7869ac9bf8b7898c"
+        "sha256": "8be72b1530c4d6172a2ae3d8c81e835003db5c3b5c2a9db451081c0f8d8abbb2"
       },
       {
         "path": "src/fulfillment/persisted-review-decision.mjs",
@@ -473,7 +473,7 @@
       },
       {
         "path": "test/fulfillment/test-a-operator-runner.test.mjs",
-        "sha256": "a2156cec32a0b03b31ee1a85b3961bed9e1957c767a9f1c0353492c3d1e28d6f"
+        "sha256": "f771cc8080045e6359433e95cdb01077a09c3c96827136814ed41988d2df29f9"
       },
       {
         "path": "test/fulfillment/test-a-operator-startup.test.mjs",

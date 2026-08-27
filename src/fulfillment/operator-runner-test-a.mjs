@@ -26,8 +26,8 @@ export function createTestAOperatorStatusRunner(options = {}) {
   const orchestrator = createFulfillmentOrchestrator({
     store,
     handlers: {},
-    clock: options.clock,
-    tokenFactory: options.tokenFactory,
+    clock: options.clock || (() => new Date().toISOString()),
+    tokenFactory: options.tokenFactory || (() => `operator_${randomUUID()}`),
     retryPolicy: options.retryPolicy || TEST_A_RETRY_POLICY,
   });
   return Object.freeze({

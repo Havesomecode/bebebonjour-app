@@ -9,6 +9,7 @@ import { signPersistedReviewApproval } from "../../src/fulfillment/persisted-rev
 import {
   createTestAOperatorReviewRunner,
   createTestAOperatorRunner,
+  createTestAOperatorStatusRunner,
 } from "../../src/fulfillment/operator-runner-test-a.mjs";
 import { createLocalTestFulfillmentStore } from "../../src/persistence/local-test-fulfillment-store.mjs";
 
@@ -75,6 +76,19 @@ function decision() {
     reasons: ["Synthetic TEST-A revision reviewed."],
   };
 }
+
+test("status-only runner supplies safe local clock and token defaults", () => {
+  const runner = createTestAOperatorStatusRunner({
+    store: {
+      async getJob() {
+        return null;
+      },
+    },
+  });
+
+  assert.equal(typeof runner.status, "function");
+});
+
 
 test("review-only runner rejects malformed approval bytes before store I/O", async () => {
   let storeIo = 0;
