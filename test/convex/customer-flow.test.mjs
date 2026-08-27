@@ -13,6 +13,9 @@ const readProviderEvent = makeFunctionReference("customerFlow:readProviderEvent"
 const recordProviderEvent = makeFunctionReference("customerFlow:recordProviderEvent");
 const claimProviderEvent = makeFunctionReference("customerFlow:claimProviderEvent");
 const completeProviderEvent = makeFunctionReference("customerFlow:completeProviderEvent");
+const claimWorkItems = makeFunctionReference("customerFlow:claimWorkItems");
+const completeWorkItem = makeFunctionReference("customerFlow:completeWorkItem");
+const releaseWorkItem = makeFunctionReference("customerFlow:releaseWorkItem");
 const createFulfillmentJob = makeFunctionReference("fulfillment:createJob");
 const getFulfillmentJob = makeFunctionReference("fulfillment:getJob");
 const replaceFulfillmentJob = makeFunctionReference("fulfillment:replaceJob");
@@ -23,6 +26,7 @@ const job = {
   jobId: "job_test_001",
   version: 1,
   status: "payment_pending",
+  createdAt: "2026-08-27T10:29:59.000Z",
   intake: { customer: { email: "convex@example.test" } },
 };
 const response = {
@@ -49,6 +53,7 @@ test("Convex creates a job and its idempotency response atomically", async () =>
     requestDigest: "a".repeat(64),
     job,
     response,
+    enqueueWorkItem: true,
   });
   const replay = await convex.mutation(createJob, {
     backendToken,
@@ -71,6 +76,92 @@ test("Convex creates a job and its idempotency response atomically", async () =>
   const documents = await convex.run(async (context) => context.db.query("customerFlowJobs").collect());
   assert.equal(documents.length, 1);
   assert.equal(documents[0].job.jobId, job.jobId);
+  const workItems = await convex.run(async (context) => context.db.query("customerFlowWorkItems").collect());
+  assert.equal(workItems.length, 1);
+  assert.deepEqual({
+    jobId: workItems[0].jobId,
+    source: workItems[0].source,
+    state: workItems[0].state,
+    createdAt: workItems[0].createdAt,
+    updatedAt: workItems[0].updatedAt,
+    attempts: workItems[0].attempts,
+    claim: workItems[0].claim,
+    kanbanTaskId: workItems[0].kanbanTaskId,
+    lastFailureReason: workItems[0].lastFailureReason,
+  }, {
+    jobId: job.jobId,
+    source: "customer-intake",
+    state: "pending",
+    createdAt: "2026-08-27T10:29:59.000Z",
+    updatedAt: "2026-08-27T10:29:59.000Z",
+    attempts: 0,
+    claim: null,
+    kanbanTaskId: null,
+    lastFailureReason: null,
+  });
+});
+
+test("Convex work queue claims, releases, and completes PII-free intake references idempotently", async () => {
+  const convex = fixture();
+  await convex.mutation(createJob, {
+    backendToken,
+    idempotencyKey: "intake:queue-001",
+    requestDigest: "a".repeat(64),
+    job,
+    response,
+    enqueueWorkItem: true,
+  });
+
+  const firstClaim = await convex.mutation(claimWorkItems, {
+    backendToken,
+    workerId: "bridge_test_worker",
+    limit: 10,
+    nowMs: 1_788_000_000_000,
+    leaseMs: 120_000,
+  });
+  assert.equal(firstClaim.length, 1);
+  assert.deepEqual(Object.keys(firstClaim[0]).sort(), ["attempts", "createdAt", "jobId", "source"]);
+  assert.equal(JSON.stringify(firstClaim).includes("convex@example.test"), false);
+
+  assert.deepEqual(await convex.mutation(releaseWorkItem, {
+    backendToken,
+    jobId: job.jobId,
+    workerId: "bridge_test_worker",
+    reasonCode: "kanban_create_failed",
+    nowMs: 1_788_000_000_100,
+  }), { released: true });
+
+  const secondClaim = await convex.mutation(claimWorkItems, {
+    backendToken,
+    workerId: "bridge_test_worker",
+    limit: 1,
+    nowMs: 1_788_000_000_200,
+    leaseMs: 120_000,
+  });
+  assert.equal(secondClaim[0].attempts, 2);
+
+  assert.deepEqual(await convex.mutation(completeWorkItem, {
+    backendToken,
+    jobId: job.jobId,
+    workerId: "bridge_test_worker",
+    kanbanTaskId: "t_bridge_001",
+    nowMs: 1_788_000_000_300,
+  }), { completed: true, kanbanTaskId: "t_bridge_001" });
+  assert.deepEqual(await convex.mutation(completeWorkItem, {
+    backendToken,
+    jobId: job.jobId,
+    workerId: "bridge_test_worker",
+    kanbanTaskId: "t_bridge_001",
+    nowMs: 1_788_000_000_400,
+  }), { completed: false, kanbanTaskId: "t_bridge_001" });
+
+  assert.deepEqual(await convex.mutation(claimWorkItems, {
+    backendToken,
+    workerId: "bridge_other_worker",
+    limit: 10,
+    nowMs: 1_788_000_000_500,
+    leaseMs: 120_000,
+  }), []);
 });
 
 test("Convex rejects an idempotency response bound to another customer job", async () => {

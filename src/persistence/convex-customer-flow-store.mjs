@@ -8,6 +8,9 @@ const DEFAULT_FUNCTIONS = Object.freeze({
   recordProviderEvent: "customerFlow:recordProviderEvent",
   claimProviderEvent: "customerFlow:claimProviderEvent",
   completeProviderEvent: "customerFlow:completeProviderEvent",
+  claimWorkItems: "customerFlow:claimWorkItems",
+  completeWorkItem: "customerFlow:completeWorkItem",
+  releaseWorkItem: "customerFlow:releaseWorkItem",
 });
 
 export function createConvexCustomerFlowStore(options = {}) {
@@ -23,7 +26,7 @@ export function createConvexCustomerFlowStore(options = {}) {
   }
 
   return {
-    async createJob(job, idempotencyKey, response, requestDigest) {
+    async createJob(job, idempotencyKey, response, requestDigest, options = {}) {
       if (!tokenEncryptionKey) {
         throw new Error("A 32-byte customer-flow token encryption key is required.");
       }
@@ -33,6 +36,7 @@ export function createConvexCustomerFlowStore(options = {}) {
         idempotencyKey: idempotencyKey || null,
         response: sealResponse(response, tokenEncryptionKey),
         requestDigest,
+        enqueueWorkItem: options.enqueueWorkItem === true,
       });
       if (result.conflict) return result;
       return { ...result, response: openResponse(result.response, tokenEncryptionKey) };
@@ -87,6 +91,27 @@ export function createConvexCustomerFlowStore(options = {}) {
         backendToken,
         providerEventId,
         event,
+      });
+    },
+
+    claimWorkItems(request) {
+      return client.mutation(functions.claimWorkItems, {
+        backendToken,
+        ...request,
+      });
+    },
+
+    completeWorkItem(request) {
+      return client.mutation(functions.completeWorkItem, {
+        backendToken,
+        ...request,
+      });
+    },
+
+    releaseWorkItem(request) {
+      return client.mutation(functions.releaseWorkItem, {
+        backendToken,
+        ...request,
       });
     },
   };

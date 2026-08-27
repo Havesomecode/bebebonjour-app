@@ -15,6 +15,19 @@ export default defineSchema({
     providerEventId: v.string(),
     event: v.any(),
   }).index("by_provider_event_id", ["providerEventId"]),
+  customerFlowWorkItems: defineTable({
+    jobId: v.string(),
+    source: v.string(),
+    state: v.string(),
+    createdAt: v.string(),
+    updatedAt: v.string(),
+    attempts: v.number(),
+    claim: v.union(v.any(), v.null()),
+    kanbanTaskId: v.union(v.string(), v.null()),
+    lastFailureReason: v.union(v.string(), v.null()),
+  })
+    .index("by_job_id", ["jobId"])
+    .index("by_state_and_updated_at", ["state", "updatedAt"]),
   fulfillmentJobs: defineTable({
     jobId: v.string(),
     aggregate: v.any(),

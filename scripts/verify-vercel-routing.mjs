@@ -9,6 +9,7 @@ import { inspectGeneratedPublicArtifact } from "../src/config/test-a-operator-is
 
 const EXPECTED_VERCEL_VERSION = "52.2.0";
 const FUNCTION_DESTINATION = "/api/customer-flow/[...route]";
+const TALLY_FUNCTION_DESTINATION = "/api/webhooks/tally";
 const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const vercelCli = path.join(
   projectRoot,
@@ -87,7 +88,7 @@ try {
     "--output", outputRoot,
   ], { environment });
 
-  const [manifest, outputConfig, functionConfig] = await Promise.all([
+  const [manifest, outputConfig, functionConfig, tallyFunctionConfig] = await Promise.all([
     readFile(path.join(buildRoot, "ops", "test-a-hosted-provider-manifest.json"), "utf8").then(JSON.parse),
     readFile(path.join(outputRoot, "config.json"), "utf8").then(JSON.parse),
     readFile(
@@ -101,10 +102,15 @@ try {
       ),
       "utf8",
     ).then(JSON.parse),
+    readFile(
+      path.join(outputRoot, "functions", "api", "webhooks", "tally.func", ".vc-config.json"),
+      "utf8",
+    ).then(JSON.parse),
   ]);
 
   assert.equal(outputConfig.version, 3);
   assert.match(functionConfig.runtime, /^nodejs22\.x$/);
+  assert.match(tallyFunctionConfig.runtime, /^nodejs22\.x$/);
   assert.ok(Array.isArray(outputConfig.routes), "Vercel output must contain generated routes");
   assert.ok(Array.isArray(manifest.vercelApi.routes), "provider manifest must declare Vercel routes");
 
@@ -113,17 +119,17 @@ try {
     assert.ok(pathname, `invalid provider manifest route: ${manifestRoute}`);
     const probePath = pathname.replaceAll(/:[A-Za-z][A-Za-z0-9_]*/g, "job_route_probe");
     const resolved = resolveGeneratedRoute(outputConfig.routes, probePath);
-    assert.equal(
-      resolved?.destination,
-      FUNCTION_DESTINATION,
-      `${manifestRoute} resolved to ${JSON.stringify(resolved)} instead of the packaged customer-flow handler; generated routes: ${JSON.stringify(outputConfig.routes)}`,
-    );
+    const expectedDestination = pathname === "/api/webhooks/tally"
+      ? TALLY_FUNCTION_DESTINATION
+      : FUNCTION_DESTINATION;
+    assert.equal(resolved?.destination, expectedDestination,
+      `${manifestRoute} resolved to ${JSON.stringify(resolved)} instead of ${expectedDestination}; generated routes: ${JSON.stringify(outputConfig.routes)}`);
   }
 
   const artifactInventory = await inspectGeneratedPublicArtifact(outputRoot);
 
   console.log(
-    `PASS: Vercel CLI ${EXPECTED_VERCEL_VERSION} packages ${FUNCTION_DESTINATION} and routes all ${manifest.vercelApi.routes.length} manifest paths to it.`,
+    `PASS: Vercel CLI ${EXPECTED_VERCEL_VERSION} packages ${FUNCTION_DESTINATION} and ${TALLY_FUNCTION_DESTINATION}; all ${manifest.vercelApi.routes.length} manifest routes resolve to their reviewed handlers.`,
   );
   console.log(`HERMES_VERIFY_RESULT=${JSON.stringify({
     status: "PASS",

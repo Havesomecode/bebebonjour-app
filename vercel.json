@@ -1,9 +1,14 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
+  "outputDirectory": "public",
   "rewrites": [
     {
       "source": "/api/customer-flow/:route*",
       "destination": "/api/customer-flow/[...route]"
+    },
+    {
+      "source": "/api/webhooks/tally",
+      "destination": "/api/webhooks/tally"
     }
   ]
 }

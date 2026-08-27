@@ -58,6 +58,7 @@ function harness(options = {}) {
     },
 
     fulfillmentOrchestrator: options.fulfillmentOrchestrator,
+    enqueueWorkItem: options.enqueueWorkItem,
   });
   return { checkoutCalls, service, store };
 }
@@ -122,6 +123,28 @@ test("synthetic intake creates a canonical private job and reusable test checkou
   });
   assert.deepEqual(checkoutCalls[0].paymentIntentMetadata, checkoutCalls[0].metadata);
   assert.equal(first.checkoutUrl.includes(syntheticIntake.customer.email), false);
+});
+
+test("only an explicitly operational intake enqueues Kanban work", async () => {
+  const syntheticHarness = harness();
+  await createJob(syntheticHarness.service);
+  assert.deepEqual(await syntheticHarness.store.claimWorkItems({
+    workerId: "bridge_test_worker",
+    limit: 10,
+    nowMs: 1_788_000_000_000,
+    leaseMs: 120_000,
+  }), []);
+
+  const operationalHarness = harness({ enqueueWorkItem: true });
+  const submission = await createJob(operationalHarness.service);
+  const claimed = await operationalHarness.store.claimWorkItems({
+    workerId: "bridge_test_worker",
+    limit: 10,
+    nowMs: 1_788_000_000_000,
+    leaseMs: 120_000,
+  });
+  assert.equal(claimed.length, 1);
+  assert.equal(claimed[0].jobId, submission.jobId);
 });
 
 test("explicit intake idempotency replays only the same request and rejects conflicts", async () => {

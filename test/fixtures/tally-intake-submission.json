@@ -1,0 +1,75 @@
+{
+  "eventId": "evt_tally_intake_001",
+  "eventType": "FORM_RESPONSE",
+  "createdAt": "2026-08-27T10:30:00.000Z",
+  "data": {
+    "responseId": "submission_001",
+    "submissionId": "submission_001",
+    "respondentId": "respondent_001",
+    "formId": "form_intake_001",
+    "formName": "Bébé Bonjour — Votre histoire",
+    "createdAt": "2026-08-27T10:29:59.000Z",
+    "fields": [
+      {
+        "key": "question_email",
+        "label": "Adresse mail",
+        "type": "INPUT_EMAIL",
+        "value": "parent@example.com"
+      },
+      {
+        "key": "question_consent",
+        "label": "Consentement",
+        "type": "CHECKBOXES",
+        "value": ["option_consent_yes"]
+      },
+      {
+        "key": "question_languages",
+        "label": "Langues",
+        "type": "CHECKBOXES",
+        "value": ["option_fr", "option_ar"]
+      },
+      {
+        "key": "question_voice",
+        "label": "Voix",
+        "type": "MULTIPLE_CHOICE",
+        "value": ["option_voice_female"]
+      },
+      {
+        "key": "question_first_name",
+        "label": "Prénom",
+        "type": "INPUT_TEXT",
+        "value": "Amal"
+      },
+      {
+        "key": "question_arabic_name",
+        "label": "Prénom en arabe",
+        "type": "INPUT_TEXT",
+        "value": "أمل"
+      },
+      {
+        "key": "question_birth_date",
+        "label": "Date de naissance",
+        "type": "INPUT_DATE",
+        "value": "2026-08-20"
+      },
+      {
+        "key": "question_baby_gender",
+        "label": "Genre grammatical",
+        "type": "MULTIPLE_CHOICE",
+        "value": ["option_baby_girl"]
+      },
+      {
+        "key": "question_context",
+        "label": "Contexte",
+        "type": "MULTIPLE_CHOICE",
+        "value": ["option_context_islam"]
+      },
+      {
+        "key": "question_extra_request",
+        "label": "Demande particulière",
+        "type": "TEXTAREA",
+        "value": "Une annonce douce et spirituelle."
+      }
+    ]
+  }
+}

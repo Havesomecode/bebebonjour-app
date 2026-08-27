@@ -28,6 +28,7 @@ export function createCustomerFlowService({
   paymentGateway,
   fulfillmentOrchestrator = null,
   syntheticOnly = true,
+  enqueueWorkItem = false,
   now = () => new Date().toISOString(),
   createId = defaultCreateId,
 }) {
@@ -71,7 +72,7 @@ export function createCustomerFlowService({
       intakeDigest,
       intakeTokenDigest: digestText(intakeToken),
       payment: { status: "pending", checkout: null, acceptedEventId: null },
-    }, idempotencyKey, response, intakeDigest);
+    }, idempotencyKey, response, intakeDigest, { enqueueWorkItem });
     if (result.conflict) {
       throw flowError(409, "idempotency_conflict", "Idempotency key was already used for another request.");
     }

@@ -1,5 +1,7 @@
 {
   "email": "question_email",
+  "consent": "question_consent",
+  "consentOption": "option_consent_yes",
   "languages": "question_languages",
   "languageOptions": {
     "option_fr": "fr",
@@ -12,6 +14,7 @@
   },
   "firstName": "question_first_name",
   "arabicName": "question_arabic_name",
+  "birthDate": "question_birth_date",
   "babyGender": "question_baby_gender",
   "babyGenderOptions": {
     "option_baby_girl": "girl",
@@ -23,11 +26,5 @@
     "option_context_general": "general",
     "option_context_islam": "islam"
   },
-  "extraRequest": "question_extra_request",
-  "payment": {
-    "price": "question_payment_price",
-    "currency": "question_payment_currency",
-    "email": "question_payment_email",
-    "link": "question_payment_link"
-  }
+  "extraRequest": "question_extra_request"
 }
