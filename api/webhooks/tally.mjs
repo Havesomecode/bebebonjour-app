@@ -1,3 +1,3 @@
-import { createLazyProductionWebhookHandler } from "../../src/http/production-webhooks.mjs";
+import { createLazyTallyIntakeHandler } from "../../src/http/tally-intake-handler.mjs";
 
-export default createLazyProductionWebhookHandler("tally");
+export default createLazyTallyIntakeHandler();

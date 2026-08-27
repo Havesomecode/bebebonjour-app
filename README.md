@@ -5,33 +5,26 @@ Bébé Bonjour is an operator-controlled birth-announcement workflow with a priv
 The repository currently contains three connected but deliberately separated parts:
 
 - a structured CLI workflow for composing, rendering, narrating, and deploying reviewed announcement pages;
-- signed Tally and Stripe webhook ingress that durably reconciles a paid order in Supabase/Postgres.
-- a TEST-A first-party customer-flow contract for synthetic local validation.
+- a signed, intake-only Tally bridge into the canonical Convex customer flow;
+- a leased Convex outbox dispatcher that creates idempotent, PII-free Hermes Kanban work; and
+- a TEST-A first-party Stripe checkout contract for synthetic payment validation.
 
 ## Safety boundary
 
-The fulfillment ingress stops after persisting a durable `review_required` job
-and queuing one inert generation run for the exact canonical intake digest. It
-does **not** automatically compose content, generate narration, upload a preview,
-publish a page, email a customer, issue a refund, or deliver an order.
+Tally is an intake surface only. A signed form response creates an unpaid
+customer-flow job, its canonical fulfillment aggregate, and one PII-free work
+item in the same Convex transaction. The work item contains only a private job
+reference. A local bridge claims that item
+under a bounded lease and creates one Hermes Kanban card with a deterministic
+idempotency key. Customer and baby data stay in Convex and must never be copied
+into Kanban comments or worker logs.
 
-Each open review job represents one continuous eligibility cycle. Provider
-replays reuse that cycle; an eligibility regression or canonical-intake change
-closes it, and a later eligible state receives a fresh review-job/run identity.
-Terminal generation runs remain immutable history and are never restarted by
-reconciliation.
-
-Internal claim, complete, and fail RPCs define bounded leases, immutable
-generator-material identities, eligibility rechecks, and digest-bound private
-artifact metadata. The RPC adapter exists, but no worker or private artifact
-upload path is deployed; the queued run is therefore inert. The adapter requires
-an injected client with an `rpc` method. It neither creates that client nor can
-it introspect the client's credentials or database role. PostgreSQL function
-grants are the authorization boundary: the dedicated
-`fulfillment_generation_worker` role may call the generation RPCs, while calls
-made as `service_role` fail at the database boundary. The claim RPC also
-allowlists generation fields instead of returning the customer email or any
-future intake fields by default.
+Intake does **not** prove payment and does not authorize generation,
+publication, delivery, a refund, or any provider spend. Payment remains a
+separate Stripe checkout/webhook transition. Generation must re-read canonical
+payment state, and publication and delivery remain behind the exact human review
+gates described below. Tally payment blocks and payment fields are deliberately
+unsupported.
 
 The local review tracer can validate a synthetic intake, apply the catalog-backed
 name policy, produce a deterministic private preview, and record an explicit
@@ -45,7 +38,7 @@ Stripe `payment_intent.succeeded` is the authoritative payment signal. The econo
 
 - Node.js 22
 - npm
-- Docker Desktop for PostgreSQL integration tests
+
 
 ## Install and verify
 
@@ -54,7 +47,8 @@ npm ci
 npm run verify
 ```
 
-The verification command runs the unit suite, Docker-backed PostgreSQL integration tests, and the production dependency audit.
+The verification command runs the complete unit and synthetic workflow suites,
+the consolidated production-boundary audit, and the production dependency audit.
 
 ## Synthetic fulfillment tracer
 
@@ -288,18 +282,21 @@ without requiring a public URL. Neither mode sends email or marks a job delivere
 
 ## Repository map
 
-- `api/webhooks/` — Vercel Node webhook entrypoints
-- `src/webhooks/` — signature verification and provider normalization
-- `src/persistence/` — Supabase RPC boundary
-- `supabase/migrations/` — durable reconciliation and generation leases, RLS, and RPC permissions
+- `api/webhooks/` — the intake-only Tally Vercel entrypoint
+- `convex/` — canonical customer-flow, work-outbox, and fulfillment persistence
+- `src/customer-flow/` — intake, checkout, and signed-provider normalization
+- `src/operations/` — leased PII-free Hermes Kanban dispatch
+- `src/persistence/` — Convex persistence adapters
 - `schemas/` — intake, page, job, transcript, and narration contracts
 - `bin/` and `scripts/` — operator CLI
 - `template/` — deterministic announcement-page runtime
-- `test/` — unit and PostgreSQL integration coverage
+- `test/` — unit, Convex, and synthetic workflow coverage
 - `openspec/` — design history and behavioral specifications
 
 ## Configuration and operations
 
-Copy `.env.example` to `.env.local` for local configuration. Never commit provider credentials, Supabase service-role keys, customer submissions, live customer URLs, or local provider-link metadata.
+Copy `.env.example` to `.env.local` for local configuration. Never commit provider
+credentials, customer submissions, live customer URLs, Convex snapshots, or local
+provider-link metadata.
 
 See [`LIVE_SETUP.md`](./LIVE_SETUP.md) for the controlled provider and infrastructure workflow. Production identifiers and secrets must remain in the approved secret stores, not in this repository.

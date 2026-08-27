@@ -1,5 +1,7 @@
 import { createHash, randomBytes, randomUUID, timingSafeEqual } from "node:crypto";
 
+import { createJobAggregate } from "../fulfillment/job-machine.mjs";
+
 const PRICE_MINOR = 3900;
 const CURRENCY = "EUR";
 const CHECKOUT_METADATA = Object.freeze({
@@ -28,6 +30,8 @@ export function createCustomerFlowService({
   paymentGateway,
   fulfillmentOrchestrator = null,
   syntheticOnly = true,
+  enqueueWorkItem = false,
+  atomicFulfillment = false,
   now = () => new Date().toISOString(),
   createId = defaultCreateId,
 }) {
@@ -37,6 +41,9 @@ export function createCustomerFlowService({
     (method) => typeof fulfillmentOrchestrator[method] !== "function",
   )) {
     throw new Error("The canonical fulfillment orchestrator contract is incomplete.");
+  }
+  if (atomicFulfillment && !fulfillmentOrchestrator) {
+    throw new Error("Atomic fulfillment requires the canonical fulfillment orchestrator.");
   }
 
   const pendingCheckouts = new Map();
@@ -61,7 +68,7 @@ export function createCustomerFlowService({
       submittedAt,
     };
     const response = { jobId, intakeToken, status: "payment_pending" };
-    const result = await store.createJob({
+    const customerJob = {
       schemaVersion: "1.0",
       jobId,
       version: 1,
@@ -71,11 +78,21 @@ export function createCustomerFlowService({
       intakeDigest,
       intakeTokenDigest: digestText(intakeToken),
       payment: { status: "pending", checkout: null, acceptedEventId: null },
-    }, idempotencyKey, response, intakeDigest);
+    };
+    const fulfillmentAggregate = atomicFulfillment
+      ? createJobAggregate(canonicalJobInput(customerJob), {
+        commandId: `customer-intake:${jobId}`,
+        at: submittedAt,
+      })
+      : undefined;
+    const result = await store.createJob(customerJob, idempotencyKey, response, intakeDigest, {
+      enqueueWorkItem,
+      fulfillmentAggregate,
+    });
     if (result.conflict) {
       throw flowError(409, "idempotency_conflict", "Idempotency key was already used for another request.");
     }
-    if (fulfillmentOrchestrator) {
+    if (fulfillmentOrchestrator && !atomicFulfillment) {
       const persistedJob = await store.readJob(result.response.jobId);
       await fulfillmentOrchestrator.createJob(canonicalJobInput(persistedJob), {
         commandId: `customer-intake:${persistedJob.jobId}`,

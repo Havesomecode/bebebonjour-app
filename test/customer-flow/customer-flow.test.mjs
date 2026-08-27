@@ -37,7 +37,7 @@ function harness(options = {}) {
     ],
     event: ["event_test_001", "event_test_002"],
   };
-  const store = createInMemoryCustomerFlowStore();
+  const store = options.store || createInMemoryCustomerFlowStore();
   const service = createCustomerFlowService({
     store,
     now: () => "2026-08-11T00:00:00.000Z",
@@ -58,6 +58,8 @@ function harness(options = {}) {
     },
 
     fulfillmentOrchestrator: options.fulfillmentOrchestrator,
+    enqueueWorkItem: options.enqueueWorkItem,
+    atomicFulfillment: options.atomicFulfillment,
   });
   return { checkoutCalls, service, store };
 }
@@ -122,6 +124,55 @@ test("synthetic intake creates a canonical private job and reusable test checkou
   });
   assert.deepEqual(checkoutCalls[0].paymentIntentMetadata, checkoutCalls[0].metadata);
   assert.equal(first.checkoutUrl.includes(syntheticIntake.customer.email), false);
+});
+
+test("only an explicitly operational intake enqueues Kanban work", async () => {
+  const syntheticHarness = harness();
+  await createJob(syntheticHarness.service);
+  assert.deepEqual(await syntheticHarness.store.claimWorkItems({
+    workerId: "bridge_test_worker",
+    limit: 10,
+    nowMs: 1_788_000_000_000,
+    leaseMs: 120_000,
+  }), []);
+
+  const backingStore = createInMemoryCustomerFlowStore();
+  let createOptions;
+  let nonAtomicCreateCalls = 0;
+  const operationalStore = {
+    ...backingStore,
+    async createJob(...args) {
+      createOptions = structuredClone(args[4]);
+      return backingStore.createJob(...args);
+    },
+  };
+  const operationalHarness = harness({
+    store: operationalStore,
+    enqueueWorkItem: true,
+    atomicFulfillment: true,
+    fulfillmentOrchestrator: {
+      async createJob() {
+        nonAtomicCreateCalls += 1;
+      },
+      async recordPayment() {},
+      async status() {},
+    },
+  });
+  const submission = await createJob(operationalHarness.service);
+  assert.equal(createOptions.enqueueWorkItem, true);
+  assert.equal(createOptions.fulfillmentAggregate.jobId, submission.jobId);
+  assert.equal(createOptions.fulfillmentAggregate.product, "announcement-page");
+  assert.equal(createOptions.fulfillmentAggregate.paymentCorrelation.product, "announcement-page");
+  assert.equal(createOptions.fulfillmentAggregate.state, "awaiting_payment");
+  assert.equal(nonAtomicCreateCalls, 0);
+  const claimed = await operationalHarness.store.claimWorkItems({
+    workerId: "bridge_test_worker",
+    limit: 10,
+    nowMs: 1_788_000_000_000,
+    leaseMs: 120_000,
+  });
+  assert.equal(claimed.length, 1);
+  assert.equal(claimed[0].jobId, submission.jobId);
 });
 
 test("explicit intake idempotency replays only the same request and rejects conflicts", async () => {

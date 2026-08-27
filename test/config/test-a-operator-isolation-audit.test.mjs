@@ -18,7 +18,9 @@ test("successor consolidated audit binds the complete reviewed source boundary",
   assert.equal(result.baselineCommit, "c7abbb7338282b7bfba2616693f2a8d75285d8d3");
   assert.ok(result.changedPathCount > 0);
   assert.ok(result.pathAllowlistCount > 20);
-  assert.ok(result.reviewInputCount > result.pathAllowlistCount);
+  assert.equal(result.pathAllowlistCount, result.changedPathCount);
+  assert.ok(result.reviewInputCount > 20);
+  assert.ok(result.reviewInputCount <= result.pathAllowlistCount);
   assert.equal(result.controlCount, 5);
   assert.equal(result.focusedTestFileCount, 8);
   assert.match(result.reviewedManifestSha256, /^[a-f0-9]{64}$/u);

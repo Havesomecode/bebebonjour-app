@@ -30,13 +30,22 @@ test("Convex customer-flow store creates intake and idempotency record in one mu
     functions: { createJob: "customerFlow:createJob" },
   });
   const response = { jobId: job.jobId, intakeToken: "private-token", status: "payment_pending" };
+  const fulfillmentAggregate = { jobId: job.jobId, state: "awaiting_payment", version: 1 };
 
-  const result = await store.createJob(job, "intake_test_001", response, job.intakeDigest);
+  const result = await store.createJob(
+    job,
+    "intake_test_001",
+    response,
+    job.intakeDigest,
+    { enqueueWorkItem: true, fulfillmentAggregate },
+  );
 
   assert.deepEqual(result, { conflict: false, created: true, response });
   assert.equal(calls[0].reference, "customerFlow:createJob");
   assert.equal(calls[0].args.response.jobId, job.jobId);
   assert.equal(calls[0].args.response.status, "payment_pending");
+  assert.equal(calls[0].args.enqueueWorkItem, true);
+  assert.deepEqual(calls[0].args.fulfillmentAggregate, fulfillmentAggregate);
   assert.equal(calls[0].args.response.intakeToken, undefined);
   assert.match(calls[0].args.response.intakeTokenCiphertext, /^v1\./);
   assert.equal(JSON.stringify(calls).includes("private-token"), false);
@@ -184,4 +193,55 @@ test("Convex customer-flow store claims event identity before completing its res
   assert.equal(claim.event.result, null);
   assert.deepEqual(completed.event.result, { jobId: job.jobId });
   assert.equal(calls.length, 2);
+});
+
+test("Convex customer-flow store exposes only bounded work-queue mutations", async () => {
+  const calls = [];
+  const client = {
+    async mutation(reference, args) {
+      calls.push({ reference, args });
+      if (reference === "customerFlow:claimWorkItems") {
+        return [{
+          jobId: "job_test_001",
+          source: "customer-intake",
+          createdAt: "2026-08-27T10:29:59.000Z",
+          attempts: 1,
+        }];
+      }
+      if (reference === "customerFlow:completeWorkItem") {
+        return { completed: true, kanbanTaskId: "t_bridge_001" };
+      }
+      return { released: true };
+    },
+  };
+  const store = createConvexCustomerFlowStore({
+    client,
+    backendToken: "backend-token-at-least-32-characters",
+  });
+
+  assert.equal((await store.claimWorkItems({
+    workerId: "bridge_test_worker",
+    limit: 10,
+    nowMs: 1_788_000_000_000,
+    leaseMs: 120_000,
+  }))[0].jobId, "job_test_001");
+  assert.deepEqual(await store.completeWorkItem({
+    jobId: "job_test_001",
+    workerId: "bridge_test_worker",
+    kanbanTaskId: "t_bridge_001",
+    nowMs: 1_788_000_000_100,
+  }), { completed: true, kanbanTaskId: "t_bridge_001" });
+  assert.deepEqual(await store.releaseWorkItem({
+    jobId: "job_test_002",
+    workerId: "bridge_test_worker",
+    reasonCode: "kanban_create_failed",
+    nowMs: 1_788_000_000_200,
+  }), { released: true });
+
+  assert.deepEqual(calls.map(({ reference }) => reference), [
+    "customerFlow:claimWorkItems",
+    "customerFlow:completeWorkItem",
+    "customerFlow:releaseWorkItem",
+  ]);
+  assert.equal(JSON.stringify(calls).includes("customer@example.test"), false);
 });

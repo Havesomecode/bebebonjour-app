@@ -1,6 +1,6 @@
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { readFile, writeFile } from "node:fs/promises";
+import { access, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -13,13 +13,26 @@ const evidencePath = path.join(rootPath, EVIDENCE_RELATIVE_PATH);
 
 const isolation = await createTestAOperatorIsolationInventory({ rootPath });
 const changedPaths = changedPathsFromBaseline();
-const reviewInputs = [...new Set([
+const candidateReviewInputs = [...new Set([
   ...isolation.reviewInputs,
   ...changedPaths,
 ])]
   .filter((filePath) => filePath !== EVIDENCE_RELATIVE_PATH)
   .sort();
-const pathAllowlist = [...reviewInputs, EVIDENCE_RELATIVE_PATH].sort();
+const reviewInputs = [];
+for (const filePath of candidateReviewInputs) {
+  try {
+    await access(path.join(rootPath, filePath));
+    reviewInputs.push(filePath);
+  } catch {
+    // Deleted paths remain in changedPaths/pathAllowlist but have no bytes to hash.
+  }
+}
+const pathAllowlist = [...new Set([
+  ...changedPaths,
+  ...reviewInputs,
+  EVIDENCE_RELATIVE_PATH,
+])].sort();
 const reviewedFileDigests = await Promise.all(reviewInputs.map(async (filePath) => ({
   path: filePath,
   sha256: createHash("sha256").update(await readFile(path.join(rootPath, filePath))).digest("hex"),

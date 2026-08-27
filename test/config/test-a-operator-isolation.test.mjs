@@ -18,7 +18,6 @@ test("operator isolation inventory traces one status/review-only invocation outs
 
   assert.deepEqual(inventory.publicEntrypoints, [
     "api/customer-flow/[...route].mjs",
-    "api/webhooks/stripe.mjs",
     "api/webhooks/tally.mjs",
   ]);
   assert.equal(inventory.privateInvocation, "ops/run-test-a-operator.mjs");

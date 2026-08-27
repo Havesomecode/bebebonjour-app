@@ -5,15 +5,34 @@
   "candidateBoundary": {
     "changedPaths": [
       ".env.example",
+      "LIVE_SETUP.md",
+      "README.md",
+      "api/webhooks/stripe.mjs",
+      "api/webhooks/tally.mjs",
+      "convex/customerFlow.js",
+      "convex/schema.js",
       "ops/run-test-a-operator.mjs",
       "ops/test-a-consolidated-candidate-audit.mjs",
       "ops/test-a-consolidated-candidate-evidence.json",
       "ops/test-a-hosted-provider-manifest.json",
+      "ops/test-a-operator-isolation-audit.mjs",
+      "ops/test-a-operator-isolation-review-evidence.json",
       "package-lock.json",
       "package.json",
+      "public/404.html",
       "schemas/fulfillment-job-store.schema.json",
+      "scripts/dispatch-intakes-from-hermes-secrets.sh",
+      "scripts/dispatch-intakes-to-kanban.mjs",
+      "scripts/private-intake-status-from-hermes-secrets.sh",
       "scripts/verify-vercel-routing.mjs",
+      "src/config/fulfillment-config.mjs",
+      "src/config/hosted-customer-flow-config.mjs",
       "src/config/test-a-hosted-provider-manifest.mjs",
+      "src/customer-flow/hosted-tally-intake.mjs",
+      "src/customer-flow/memory-store.mjs",
+      "src/customer-flow/service.mjs",
+      "src/customer-flow/tally-intake-webhook.mjs",
+      "src/customer-flow/tally-intake.mjs",
       "src/fulfillment/exact-revision-publication-adapter.mjs",
       "src/fulfillment/external-effect-stage-handlers.mjs",
       "src/fulfillment/job-machine.mjs",
@@ -24,30 +43,96 @@
       "src/fulfillment/test-a-operator-runtime-identity.mjs",
       "src/fulfillment/test-a-operator-startup.mjs",
       "src/fulfillment/vercel-test-a-publication-provider.mjs",
+      "src/http/production-webhooks.mjs",
+      "src/http/tally-intake-handler.mjs",
+      "src/http/webhook-handlers.mjs",
+      "src/operations/hermes-kanban-client.mjs",
+      "src/operations/kanban-intake-dispatcher.mjs",
+      "src/persistence/convex-customer-flow-store.mjs",
       "src/persistence/convex-fulfillment-store.mjs",
       "src/persistence/local-test-fulfillment-store.mjs",
+      "src/persistence/supabase-fulfillment-store.mjs",
+      "src/persistence/supabase-generation-store.mjs",
+      "src/webhooks/errors.mjs",
+      "src/webhooks/evidence.mjs",
+      "src/webhooks/process-stripe-webhook.mjs",
+      "src/webhooks/process-tally-webhook.mjs",
+      "src/webhooks/stripe.mjs",
+      "src/webhooks/tally.mjs",
+      "supabase/migrations/20260802130000_fulfillment_ingress.sql",
+      "supabase/migrations/20260802153500_lock_down_fulfillment_rpcs.sql",
+      "supabase/migrations/20260802193704_fix_pgcrypto_schema.sql",
+      "supabase/migrations/20260802201000_guard_duplicate_payment_claims.sql",
+      "supabase/migrations/20260802213000_harden_webhook_audit_boundary.sql",
+      "supabase/migrations/20260804120000_add_generation_run_lifecycle.sql",
+      "test/api/webhook-entrypoints.test.mjs",
+      "test/config/fulfillment-config.test.mjs",
       "test/config/hosted-provider-artifacts.test.mjs",
+      "test/config/no-supabase-runtime.test.mjs",
+      "test/config/tally-intake-config.test.mjs",
       "test/config/test-a-hosted-provider-manifest-policy.test.mjs",
       "test/config/test-a-operator-isolation-audit.test.mjs",
       "test/config/test-a-operator-isolation.test.mjs",
+      "test/convex/customer-flow.test.mjs",
+      "test/customer-flow/customer-flow.test.mjs",
+      "test/customer-flow/tally-intake-webhook.test.mjs",
+      "test/customer-flow/tally-intake.test.mjs",
+      "test/fixtures/tally-intake-field-map.json",
+      "test/fixtures/tally-intake-submission.json",
+      "test/fixtures/tally-paid-submission.json",
       "test/fulfillment/exact-revision-publication-adapter.test.mjs",
       "test/fulfillment/job-orchestration.test.mjs",
       "test/fulfillment/resend-delivery-adapter.test.mjs",
       "test/fulfillment/test-a-operator-runner.test.mjs",
       "test/fulfillment/test-a-operator-startup.test.mjs",
-      "test/fulfillment/vercel-test-a-publication-provider.test.mjs"
+      "test/fulfillment/vercel-test-a-publication-provider.test.mjs",
+      "test/http/tally-intake-handler.test.mjs",
+      "test/http/webhook-handlers.test.mjs",
+      "test/integration/fulfillment-database.test.mjs",
+      "test/integration/fulfillment-end-to-end.test.mjs",
+      "test/operations/hermes-kanban-client.test.mjs",
+      "test/operations/kanban-intake-dispatcher.test.mjs",
+      "test/persistence/convex-customer-flow-store.test.mjs",
+      "test/persistence/supabase-fulfillment-store.test.mjs",
+      "test/persistence/supabase-generation-store.test.mjs",
+      "test/webhooks/process-stripe-webhook.test.mjs",
+      "test/webhooks/process-tally-webhook.test.mjs",
+      "test/webhooks/stripe-normalization.test.mjs",
+      "test/webhooks/stripe-signature.test.mjs",
+      "test/webhooks/tally-normalization.test.mjs",
+      "test/webhooks/tally-signature.test.mjs",
+      "vercel.json"
     ],
     "pathAllowlist": [
       ".env.example",
+      "LIVE_SETUP.md",
+      "README.md",
+      "api/webhooks/stripe.mjs",
+      "api/webhooks/tally.mjs",
+      "convex/customerFlow.js",
+      "convex/schema.js",
       "ops/run-test-a-operator.mjs",
       "ops/test-a-consolidated-candidate-audit.mjs",
       "ops/test-a-consolidated-candidate-evidence.json",
       "ops/test-a-hosted-provider-manifest.json",
+      "ops/test-a-operator-isolation-audit.mjs",
+      "ops/test-a-operator-isolation-review-evidence.json",
       "package-lock.json",
       "package.json",
+      "public/404.html",
       "schemas/fulfillment-job-store.schema.json",
+      "scripts/dispatch-intakes-from-hermes-secrets.sh",
+      "scripts/dispatch-intakes-to-kanban.mjs",
+      "scripts/private-intake-status-from-hermes-secrets.sh",
       "scripts/verify-vercel-routing.mjs",
+      "src/config/fulfillment-config.mjs",
+      "src/config/hosted-customer-flow-config.mjs",
       "src/config/test-a-hosted-provider-manifest.mjs",
+      "src/customer-flow/hosted-tally-intake.mjs",
+      "src/customer-flow/memory-store.mjs",
+      "src/customer-flow/service.mjs",
+      "src/customer-flow/tally-intake-webhook.mjs",
+      "src/customer-flow/tally-intake.mjs",
       "src/fulfillment/exact-revision-publication-adapter.mjs",
       "src/fulfillment/external-effect-stage-handlers.mjs",
       "src/fulfillment/job-machine.mjs",
@@ -58,35 +143,94 @@
       "src/fulfillment/test-a-operator-runtime-identity.mjs",
       "src/fulfillment/test-a-operator-startup.mjs",
       "src/fulfillment/vercel-test-a-publication-provider.mjs",
+      "src/http/production-webhooks.mjs",
+      "src/http/tally-intake-handler.mjs",
+      "src/http/webhook-handlers.mjs",
+      "src/operations/hermes-kanban-client.mjs",
+      "src/operations/kanban-intake-dispatcher.mjs",
+      "src/persistence/convex-customer-flow-store.mjs",
       "src/persistence/convex-fulfillment-store.mjs",
       "src/persistence/local-test-fulfillment-store.mjs",
+      "src/persistence/supabase-fulfillment-store.mjs",
+      "src/persistence/supabase-generation-store.mjs",
+      "src/webhooks/errors.mjs",
+      "src/webhooks/evidence.mjs",
+      "src/webhooks/process-stripe-webhook.mjs",
+      "src/webhooks/process-tally-webhook.mjs",
+      "src/webhooks/stripe.mjs",
+      "src/webhooks/tally.mjs",
+      "supabase/migrations/20260802130000_fulfillment_ingress.sql",
+      "supabase/migrations/20260802153500_lock_down_fulfillment_rpcs.sql",
+      "supabase/migrations/20260802193704_fix_pgcrypto_schema.sql",
+      "supabase/migrations/20260802201000_guard_duplicate_payment_claims.sql",
+      "supabase/migrations/20260802213000_harden_webhook_audit_boundary.sql",
+      "supabase/migrations/20260804120000_add_generation_run_lifecycle.sql",
+      "test/api/webhook-entrypoints.test.mjs",
+      "test/config/fulfillment-config.test.mjs",
       "test/config/hosted-provider-artifacts.test.mjs",
+      "test/config/no-supabase-runtime.test.mjs",
+      "test/config/tally-intake-config.test.mjs",
       "test/config/test-a-hosted-provider-manifest-policy.test.mjs",
       "test/config/test-a-operator-isolation-audit.test.mjs",
       "test/config/test-a-operator-isolation.test.mjs",
+      "test/convex/customer-flow.test.mjs",
+      "test/customer-flow/customer-flow.test.mjs",
+      "test/customer-flow/tally-intake-webhook.test.mjs",
+      "test/customer-flow/tally-intake.test.mjs",
+      "test/fixtures/tally-intake-field-map.json",
+      "test/fixtures/tally-intake-submission.json",
+      "test/fixtures/tally-paid-submission.json",
       "test/fulfillment/exact-revision-publication-adapter.test.mjs",
       "test/fulfillment/job-orchestration.test.mjs",
       "test/fulfillment/resend-delivery-adapter.test.mjs",
       "test/fulfillment/test-a-operator-runner.test.mjs",
       "test/fulfillment/test-a-operator-startup.test.mjs",
-      "test/fulfillment/vercel-test-a-publication-provider.test.mjs"
+      "test/fulfillment/vercel-test-a-publication-provider.test.mjs",
+      "test/http/tally-intake-handler.test.mjs",
+      "test/http/webhook-handlers.test.mjs",
+      "test/integration/fulfillment-database.test.mjs",
+      "test/integration/fulfillment-end-to-end.test.mjs",
+      "test/operations/hermes-kanban-client.test.mjs",
+      "test/operations/kanban-intake-dispatcher.test.mjs",
+      "test/persistence/convex-customer-flow-store.test.mjs",
+      "test/persistence/supabase-fulfillment-store.test.mjs",
+      "test/persistence/supabase-generation-store.test.mjs",
+      "test/webhooks/process-stripe-webhook.test.mjs",
+      "test/webhooks/process-tally-webhook.test.mjs",
+      "test/webhooks/stripe-normalization.test.mjs",
+      "test/webhooks/stripe-signature.test.mjs",
+      "test/webhooks/tally-normalization.test.mjs",
+      "test/webhooks/tally-signature.test.mjs",
+      "vercel.json"
     ],
     "reviewedFileDigests": [
       {
         "path": ".env.example",
-        "sha256": "f3be38ea890805c6695e74fb994c61dd26456fd0566bad68827d766dc0e790c6"
+        "sha256": "7f169a5f7f161fa48be03b8dc0d3162105bf83898742a2261d134582a638fc04"
+      },
+      {
+        "path": "LIVE_SETUP.md",
+        "sha256": "40eb44db50e09ffdde984c04e9e9ac85f00dae94e2709e1175992230261de36d"
+      },
+      {
+        "path": "README.md",
+        "sha256": "72cba54d10efc1e8801e73186d09493b38093202d4ff84148180cf9c61463e17"
       },
       {
         "path": "api/customer-flow/[...route].mjs",
         "sha256": "c02c032e2ac35fe0201d9cf3750eb5acfbbc326c27c473a4ffe3fc3dd4a93531"
       },
       {
-        "path": "api/webhooks/stripe.mjs",
-        "sha256": "a0280b9d7bfb821d1c79e03cbac7f944744cf5e875fb661b4c8ee10d557ba7c0"
+        "path": "api/webhooks/tally.mjs",
+        "sha256": "17b3458ba697b19814ad2ca22ed5ec7cf090d3f4cf027020a2712cb2f068aad0"
       },
       {
-        "path": "api/webhooks/tally.mjs",
-        "sha256": "abcffc084bf1300a8d121a5e9614cf8804aa3bb90db4dfcae63617b60e775524"
+        "path": "convex/customerFlow.js",
+        "sha256": "5d938fabeb12fb5fbdcb8d87df73db0284633a713577864502d8b8b93a94c993"
+      },
+      {
+        "path": "convex/schema.js",
+        "sha256": "695544986fa848d8a8a557be43912fa270ea8ee707890e3ec44affef2eb40a51"
       },
       {
         "path": "ops/run-test-a-operator.mjs",
@@ -98,43 +242,51 @@
       },
       {
         "path": "ops/test-a-hosted-provider-manifest.json",
-        "sha256": "d7be297c94f86d7e5a58532d6efcc177f9c542c6111d659980d81609c6bdcbf1"
+        "sha256": "70ccc739189d76e7f68b10261d3d21b1ef84e7a026f7a42aadb57c8ab9f8cdb6"
+      },
+      {
+        "path": "ops/test-a-operator-isolation-audit.mjs",
+        "sha256": "ba70552a307ab1590a19b9fcb1c6cecdca828775968e41ef74a733f0c70a09a1"
       },
       {
         "path": "package-lock.json",
-        "sha256": "7b4e896cf894741b0fe68a634fd1c5ca5b60577dc206c0f66217d8b2cf78bad1"
+        "sha256": "0bb01ef68b47fe611f2fdfb24dad376074bbf99334206950aa6f18e11a27fdbf"
       },
       {
         "path": "package.json",
-        "sha256": "377fc3da08455125a721f6e544ae8447d1df8be78b7632d69b56465ae1289464"
+        "sha256": "d59af5135adf4ebd0c7ca7d924f6a64dc7625e06896cc88a304355f32fc3b51b"
+      },
+      {
+        "path": "public/404.html",
+        "sha256": "b3a4404f1316bc0ee93a62cec3b932c6b7d0343e207db59907dcea57508282e0"
       },
       {
         "path": "schemas/fulfillment-job-store.schema.json",
         "sha256": "826342b8055e22d4caf1b2ee07251ae7961e358dd5c06cffbd5ffad04219d50c"
       },
       {
-        "path": "scripts/lib/common.mjs",
-        "sha256": "a80c25d7c33d578f4d9a0e6cc1b4c7f81e90b484da99d2c1fe0bc66b57f69949"
+        "path": "scripts/dispatch-intakes-from-hermes-secrets.sh",
+        "sha256": "533bfadbaf718166b34412d44cb81b05a5fcaebfff1e53a3f5dad71913979596"
       },
       {
-        "path": "scripts/lib/validators.mjs",
-        "sha256": "26e05efd57bc079e76e57a89ae070e6bc27b38ff8cc84bdb6878a8c08ffec164"
+        "path": "scripts/dispatch-intakes-to-kanban.mjs",
+        "sha256": "22916abde9f03510edd0e3780ccfa3e2b775973296fa4110751b0afacb281e47"
+      },
+      {
+        "path": "scripts/private-intake-status-from-hermes-secrets.sh",
+        "sha256": "c573cd4c11731e79a7dc8492a0b9d3e19ebf2799cc77bb8cdcbde32f70d8b61f"
       },
       {
         "path": "scripts/verify-vercel-routing.mjs",
-        "sha256": "32934fc2e8ba917a91ca0c8d8f82754c2d7be727563a3721d4df5644685621cf"
-      },
-      {
-        "path": "src/config/fulfillment-config.mjs",
-        "sha256": "cdccf071d916a470a30ae7fc21b4abb53febcc20b41a695068ab524ec115e4fc"
+        "sha256": "c3270abb618282e255fad7bf728881638babd876ccf50f2d598b539553772117"
       },
       {
         "path": "src/config/hosted-customer-flow-config.mjs",
-        "sha256": "c7d8939847f27c37b287ba137ef9db55ebd4c30ebf9d64470a1089dd630bcc67"
+        "sha256": "40413c97bbea4f4d70857e95b70a2f8c0c8f8ab4879471c441e73d4232b06c2a"
       },
       {
         "path": "src/config/test-a-hosted-provider-manifest.mjs",
-        "sha256": "35ef51d43eb731790c3328661c4a129b0ee368cfecd5c967bf4ad3bd6815a17b"
+        "sha256": "b5750c9e632cc7c1a743bab6aecedaefbfe3c9e537cc7243d73485c92e89e9c8"
       },
       {
         "path": "src/customer-flow/hosted-http-api.mjs",
@@ -145,12 +297,20 @@
         "sha256": "e74de33c39743c8642f6ea3473b9c8e72ab3d16d00d6aaf46a8ccd1c92ed31a5"
       },
       {
+        "path": "src/customer-flow/hosted-tally-intake.mjs",
+        "sha256": "cc59087e701b1be644ca67b8fc44911ea6537a1cbc4da8520405dab03f8107ac"
+      },
+      {
         "path": "src/customer-flow/http-api.mjs",
         "sha256": "0b964e06886486e34007104f7a26765f4680ba2e0613cec1c424ceb803de6624"
       },
       {
+        "path": "src/customer-flow/memory-store.mjs",
+        "sha256": "6def5c2e530746ed04c7d3288fca2cfc647e4b200a4652c8c0dfdec5b31849cd"
+      },
+      {
         "path": "src/customer-flow/service.mjs",
-        "sha256": "1249fd4dd69eb0b3a08ae701fdd4c08949f42cc17239c7bb0bad520d1b51dc77"
+        "sha256": "55e743c8fb351d5b448d2345779085549eef34c9eb93b7b6a9e48e9a283be998"
       },
       {
         "path": "src/customer-flow/stripe-checkout-webhook.mjs",
@@ -159,6 +319,14 @@
       {
         "path": "src/customer-flow/stripe-test-gateway.mjs",
         "sha256": "18b68686d01259725a5da943b81116c5a8e1ab810ed8cf4dae0cb6b798d44183"
+      },
+      {
+        "path": "src/customer-flow/tally-intake-webhook.mjs",
+        "sha256": "f58bc64b4162cec95635fbe4dd4bbbc0d0a9d398b58373323c35ef7bce51d0f5"
+      },
+      {
+        "path": "src/customer-flow/tally-intake.mjs",
+        "sha256": "406bab264b5b68f812ad9e1acdd95d5f76db8effd1ec6e13538b5cd8e9ab6469"
       },
       {
         "path": "src/fulfillment/exact-revision-publication-adapter.mjs",
@@ -201,16 +369,20 @@
         "sha256": "530c25270301c2faedf01052a17aba6e5e1d6b50a0ff787fa02d365966ee6f27"
       },
       {
-        "path": "src/http/production-webhooks.mjs",
-        "sha256": "49e2fd00389b49643afd246efe9711d9f5bf6a9dc9bc7c7e3d5461552f072663"
+        "path": "src/http/tally-intake-handler.mjs",
+        "sha256": "e72cb33a4de0290944adcb6bb58ee50ab0ed282a7b4420ddcf487023909e788c"
       },
       {
-        "path": "src/http/webhook-handlers.mjs",
-        "sha256": "cc5e36571897b8459cab4480b0bd8fa83bf07a8419f5f6b4835b467d30c112be"
+        "path": "src/operations/hermes-kanban-client.mjs",
+        "sha256": "a0e3e1fe8c6030f72663b434f363ca45cd9f449eda5d2e8de932964a180fd291"
+      },
+      {
+        "path": "src/operations/kanban-intake-dispatcher.mjs",
+        "sha256": "899017583454a98445b32e4515609dfc01b5a10018bca440d5eb7919a5fc7ddf"
       },
       {
         "path": "src/persistence/convex-customer-flow-store.mjs",
-        "sha256": "8d4d2c93060c9a436e38ef62ab3942d9d3485d5a3c910a7d75e7dbe9295b7c9b"
+        "sha256": "849d86eaa2dc796b795aa7bb8ac205dfc0695adb9dd74645c8cd1537e913d551"
       },
       {
         "path": "src/persistence/convex-fulfillment-store.mjs",
@@ -221,36 +393,20 @@
         "sha256": "1e00fb400d0f00e283255c3175aada8f429a9b8d4d55b275e0b8867fb649409e"
       },
       {
-        "path": "src/persistence/supabase-fulfillment-store.mjs",
-        "sha256": "d3b0851635858149b24fc061d065ff959185e752c15233dd8a59f57961756c4e"
-      },
-      {
-        "path": "src/webhooks/errors.mjs",
-        "sha256": "ec97f17dc9c469ef172ca786f632d19dff3743418b1b0fc0ce76cf3a57785a70"
-      },
-      {
-        "path": "src/webhooks/evidence.mjs",
-        "sha256": "9b85f2d057066a7cdb45c8bcfb624e3d3470b00d78af9453379133e5a6b00b17"
-      },
-      {
-        "path": "src/webhooks/process-stripe-webhook.mjs",
-        "sha256": "0934f0fa9f5ebffaebc32d43ccfb1b6a3451c1856331cfa93fb01507e01e6887"
-      },
-      {
-        "path": "src/webhooks/process-tally-webhook.mjs",
-        "sha256": "d75d0060ded8a964b430e0b9e983fed71722e8ba3c206b8d22f6602a974744cd"
-      },
-      {
-        "path": "src/webhooks/stripe.mjs",
-        "sha256": "d9e6b2df610f213a1711a74351d2be16fe7adb6b5cd83481d1fd31b3a7db9770"
-      },
-      {
-        "path": "src/webhooks/tally.mjs",
-        "sha256": "16bc6422e15e2571137bc71b97659061f1bfa8a7557393d5717460d8ac5aeeb4"
+        "path": "test/api/webhook-entrypoints.test.mjs",
+        "sha256": "7120c0d87cb09b7addcca58f9f07e377b950a3048d126fbd7d6d41baf2f0a0a6"
       },
       {
         "path": "test/config/hosted-provider-artifacts.test.mjs",
-        "sha256": "ef4831c4a41b0d5aecae9f3eed6d12ce4f24902becc22529163af38f46a0394b"
+        "sha256": "33ad18da19a9ff52716b288e550dff00549d3b59730370148d3734a8cc264663"
+      },
+      {
+        "path": "test/config/no-supabase-runtime.test.mjs",
+        "sha256": "74519e9b8f1950743eab7ccd27bd8ae2374385ac9e0ee53f8947d067caf93a0f"
+      },
+      {
+        "path": "test/config/tally-intake-config.test.mjs",
+        "sha256": "a49979d13540f0aa7784251ca3f9a1c385ab239bea455c8e0b02dc16be615e7b"
       },
       {
         "path": "test/config/test-a-hosted-provider-manifest-policy.test.mjs",
@@ -258,11 +414,35 @@
       },
       {
         "path": "test/config/test-a-operator-isolation-audit.test.mjs",
-        "sha256": "a906ccbb8285caadf1e4bfb4e52348f617d36ae98b9af91ebcc0787fc889fa53"
+        "sha256": "71d2001c3bd30068101244b5e2caba655b7d4bcc43a28d9b7e3fd5647e5a33a7"
       },
       {
         "path": "test/config/test-a-operator-isolation.test.mjs",
-        "sha256": "9fc2c3d1239bcb25accd4df896c4c792ed42b9117c2464a4217fc6ede8e4cfb2"
+        "sha256": "76b8e636d26194d2a6bc7edd613f9c97d2bd79599e2a705b84e940fc712dc328"
+      },
+      {
+        "path": "test/convex/customer-flow.test.mjs",
+        "sha256": "6520d4632f41140eff4aebb9edd7dd6331e29417707dde72279832d5c3afc44e"
+      },
+      {
+        "path": "test/customer-flow/customer-flow.test.mjs",
+        "sha256": "12488b99241e69387001e15fb17b7db05fa7b54965f95e10e681f182f5ff8cb7"
+      },
+      {
+        "path": "test/customer-flow/tally-intake-webhook.test.mjs",
+        "sha256": "39a21050191fa159f38e84f48cdb89043b90e0c72fb645a1cdfced4772e155b0"
+      },
+      {
+        "path": "test/customer-flow/tally-intake.test.mjs",
+        "sha256": "9fb20c25ffefc0cbd15526c21f9f869e0fea6cc1df00f749a0b5423e4c63817e"
+      },
+      {
+        "path": "test/fixtures/tally-intake-field-map.json",
+        "sha256": "6fd45aa749d2dd2a16972477272170276954271c81e95d088fa875b5f569b406"
+      },
+      {
+        "path": "test/fixtures/tally-intake-submission.json",
+        "sha256": "e71b48ff4a33ac76dccbc64c6ef61ce1e38996fb123c133c6472d02a17338332"
       },
       {
         "path": "test/fulfillment/exact-revision-publication-adapter.test.mjs",
@@ -289,14 +469,30 @@
         "sha256": "471cbfed2a13f73d3156453fb1ae1030986ae06a934a51483b2d30b35ad7c956"
       },
       {
+        "path": "test/http/tally-intake-handler.test.mjs",
+        "sha256": "8c45ab69ceb5e3634f8a08d54a50a77165653ed2ad612f45675be152081b0e28"
+      },
+      {
+        "path": "test/operations/hermes-kanban-client.test.mjs",
+        "sha256": "6365a7c2f324f8b4fd5bc65622495363eb36d7cc8ed0e8006b6a0814ed0c7365"
+      },
+      {
+        "path": "test/operations/kanban-intake-dispatcher.test.mjs",
+        "sha256": "cc384bf462bcc82bc55c302199222bb7ff7179a48bdc419c2c10479fe8ba13a1"
+      },
+      {
+        "path": "test/persistence/convex-customer-flow-store.test.mjs",
+        "sha256": "b152b4557968284cea7f19080924453b4cf2bc6be410396993585469253d8401"
+      },
+      {
         "path": "vercel.json",
-        "sha256": "be564ba1b2ff5c27eab497c33bef83b8912c17ce93e5c67deec56af03f7c0ec6"
+        "sha256": "f96a1746744ed6a26d1916d960b1615c4e1ea5df6fb93ed02ba1af1a6b5585a3"
       }
     ]
   },
   "reviewedManifest": {
     "path": "ops/test-a-hosted-provider-manifest.json",
-    "sha256": "d7be297c94f86d7e5a58532d6efcc177f9c542c6111d659980d81609c6bdcbf1"
+    "sha256": "70ccc739189d76e7f68b10261d3d21b1ef84e7a026f7a42aadb57c8ab9f8cdb6"
   },
   "controls": [
     {
@@ -348,36 +544,26 @@
     "privateInvocation": "ops/run-test-a-operator.mjs",
     "publicEntrypoints": [
       "api/customer-flow/[...route].mjs",
-      "api/webhooks/stripe.mjs",
       "api/webhooks/tally.mjs"
     ],
     "publicModuleGraph": [
       "api/customer-flow/[...route].mjs",
-      "api/webhooks/stripe.mjs",
       "api/webhooks/tally.mjs",
-      "scripts/lib/common.mjs",
-      "scripts/lib/validators.mjs",
-      "src/config/fulfillment-config.mjs",
       "src/config/hosted-customer-flow-config.mjs",
       "src/customer-flow/hosted-http-api.mjs",
       "src/customer-flow/hosted-runtime.mjs",
+      "src/customer-flow/hosted-tally-intake.mjs",
       "src/customer-flow/http-api.mjs",
       "src/customer-flow/service.mjs",
       "src/customer-flow/stripe-checkout-webhook.mjs",
       "src/customer-flow/stripe-test-gateway.mjs",
+      "src/customer-flow/tally-intake-webhook.mjs",
+      "src/customer-flow/tally-intake.mjs",
       "src/fulfillment/job-machine.mjs",
       "src/fulfillment/job-orchestrator.mjs",
-      "src/http/production-webhooks.mjs",
-      "src/http/webhook-handlers.mjs",
+      "src/http/tally-intake-handler.mjs",
       "src/persistence/convex-customer-flow-store.mjs",
-      "src/persistence/convex-fulfillment-store.mjs",
-      "src/persistence/supabase-fulfillment-store.mjs",
-      "src/webhooks/errors.mjs",
-      "src/webhooks/evidence.mjs",
-      "src/webhooks/process-stripe-webhook.mjs",
-      "src/webhooks/process-tally-webhook.mjs",
-      "src/webhooks/stripe.mjs",
-      "src/webhooks/tally.mjs"
+      "src/persistence/convex-fulfillment-store.mjs"
     ],
     "privateCapabilityModules": [
       "ops/run-test-a-operator.mjs",

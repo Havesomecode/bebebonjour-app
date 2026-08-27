@@ -13,6 +13,8 @@ const [
   packageJson,
   hostedRuntime,
   vercelRoutingVerifier,
+  vercelConfig,
+  staticNotFound,
 ] = await Promise.all([
   readFile(new URL("../../.env.example", import.meta.url), "utf8"),
   readFile(new URL("../../ops/test-a-hosted-provider-manifest.json", import.meta.url), "utf8").then(JSON.parse),
@@ -23,6 +25,8 @@ const [
   readFile(new URL("../../package.json", import.meta.url), "utf8").then(JSON.parse),
   readFile(new URL("../../src/customer-flow/hosted-runtime.mjs", import.meta.url), "utf8"),
   readFile(new URL("../../scripts/verify-vercel-routing.mjs", import.meta.url), "utf8"),
+  readFile(new URL("../../vercel.json", import.meta.url), "utf8").then(JSON.parse),
+  readFile(new URL("../../public/404.html", import.meta.url), "utf8"),
 ]);
 
 function environmentValue(name) {
@@ -73,9 +77,9 @@ test("provider manifest binds one executable least-privilege hosted candidate", 
   assert.deepEqual(providerManifest.convex.identity, {
     teamSlug: "havesomecode",
     projectSlug: "bebebonjour-test-a",
-    deploymentReference: "preview/test-a-t_3f375e12",
-    deploymentType: "preview",
-    expiration: "in 7 days",
+    deploymentReference: "prod",
+    deploymentName: "tacit-antelope-577",
+    deploymentType: "production",
   });
   assert.deepEqual(providerManifest.vercelApi.identity, {
     scopeSlug: "zacaria-chtatars-projects",
@@ -104,7 +108,7 @@ test("provider manifest binds one executable least-privilege hosted candidate", 
 
   assert.deepEqual(providerManifest.operations.map(({ id }) => id), [
     "freeze-signed-candidates",
-    "provision-convex-preview",
+    "select-convex-production",
     "install-convex-backend-token",
     "deploy-convex-functions",
     "install-vercel-bootstrap-environment",
@@ -150,7 +154,15 @@ test("provider manifest binds one executable least-privilege hosted candidate", 
   assert.deepEqual(providerManifest.secretStores.landingBuild.allowed, []);
   assert.ok(providerManifest.secretStores.landingBuild.forbidden.includes("CUSTOMER_FLOW_TEST_ACCESS_TOKEN"));
   assert.ok(providerManifest.secretStores.vercelProduction.forbidden.includes("RESEND_API_KEY"));
-  assert.ok(providerManifest.secretStores.convexPreview.forbidden.includes("STRIPE_SECRET_KEY"));
+  assert.ok(providerManifest.secretStores.convexProduction.forbidden.includes("STRIPE_SECRET_KEY"));
+  assert.ok(providerManifest.convex.tables.includes("customerFlowWorkItems"));
+  assert.equal(providerManifest.tallyIntake.mode, "intake-only");
+  assert.ok(providerManifest.vercelApi.routes.includes("POST /api/webhooks/tally"));
+  for (const name of [
+    "TALLY_INTAKE_SIGNING_SECRET",
+    "TALLY_INTAKE_FORM_ID",
+    "TALLY_INTAKE_FIELD_MAP",
+  ]) assert.ok(providerManifest.secretStores.vercelProduction.allowed.includes(name));
   assert.ok(providerManifest.secretStores.resendOperator.forbidden.includes("STRIPE_SECRET_KEY"));
   assert.deepEqual(providerManifest.secretStores.resendOperator.allowed, [
     "CONVEX_URL",
@@ -194,7 +206,7 @@ test("production build syntax-checks every private TEST-A operator module", () =
   );
   assert.equal(
     packageJson.scripts["test:integration"],
-    "RUN_DB_TESTS=1 node --test --test-concurrency=1 'test/*.test.mjs' 'test/**/*.test.mjs'",
+    "node --test --test-concurrency=1 test/integration/fulfillment-workflow-tracer.test.mjs",
   );
   assert.equal(
     packageJson.scripts["test:operator-isolation"],
@@ -217,4 +229,10 @@ test("TEST-A operator runner is absent from public HTTP and package command surf
   assert.match(vercelRoutingVerifier, /node_modules.*\.bin.*vercel/s);
   assert.match(vercelRoutingVerifier, /52\.2\.0/);
   assert.doesNotMatch(vercelRoutingVerifier, /process\.env\.VERCEL_CLI/);
+});
+
+test("function deployment emits only a bounded static 404 directory", () => {
+  assert.equal(vercelConfig.outputDirectory, "public");
+  assert.match(staticNotFound, /<meta name="robots" content="noindex">/u);
+  assert.equal(staticNotFound.includes("CUSTOMER_FLOW"), false);
 });

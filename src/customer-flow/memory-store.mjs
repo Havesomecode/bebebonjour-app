@@ -2,9 +2,11 @@ export function createInMemoryCustomerFlowStore() {
   const jobs = new Map();
   const submissions = new Map();
   const providerEvents = new Map();
+  const workItems = new Map();
+  const fulfillmentJobs = new Map();
 
   return {
-    async createJob(job, idempotencyKey, response, requestDigest) {
+    async createJob(job, idempotencyKey, response, requestDigest, options = {}) {
       const existing = idempotencyKey ? submissions.get(idempotencyKey) : null;
       if (existing) {
         if (existing.requestDigest !== requestDigest) {
@@ -13,8 +15,33 @@ export function createInMemoryCustomerFlowStore() {
         return { conflict: false, created: false, response: clone(existing.response) };
       }
       if (jobs.has(job.jobId)) throw new Error("Duplicate customer-flow job id.");
+      if (options.enqueueWorkItem === true && !options.fulfillmentAggregate) {
+        throw new Error("Kanban work requires an initialized fulfillment aggregate.");
+      }
+      if (options.fulfillmentAggregate) {
+        if (options.fulfillmentAggregate.jobId !== job.jobId) {
+          throw new Error("Fulfillment aggregate must preserve the canonical job id.");
+        }
+        if (fulfillmentJobs.has(job.jobId)) throw new Error("Duplicate fulfillment job id.");
+      }
 
       jobs.set(job.jobId, clone(job));
+      if (options.fulfillmentAggregate) {
+        fulfillmentJobs.set(job.jobId, clone(options.fulfillmentAggregate));
+      }
+      if (options.enqueueWorkItem === true) {
+        workItems.set(job.jobId, {
+          jobId: job.jobId,
+          source: "customer-intake",
+          state: "pending",
+          createdAt: job.createdAt,
+          updatedAt: job.createdAt,
+          attempts: 0,
+          claim: null,
+          kanbanTaskId: null,
+          lastFailureReason: null,
+        });
+      }
       if (idempotencyKey) {
         submissions.set(idempotencyKey, clone({ requestDigest, response }));
       }
@@ -68,7 +95,59 @@ export function createInMemoryCustomerFlowStore() {
       providerEvents.set(providerEventId, clone(event));
       return { created: true, event: clone(event) };
     },
+
+    async claimWorkItems({ workerId, limit, nowMs, leaseMs }) {
+      const available = [...workItems.values()]
+        .filter((item) => item.state === "pending"
+          || (item.state === "claimed" && item.claim.leaseExpiresAtMs <= nowMs))
+        .slice(0, limit);
+      return available.map((item) => {
+        item.state = "claimed";
+        item.updatedAt = new Date(nowMs).toISOString();
+        item.attempts += 1;
+        item.claim = { workerId, claimedAtMs: nowMs, leaseExpiresAtMs: nowMs + leaseMs };
+        item.lastFailureReason = null;
+        return clone({
+          jobId: item.jobId,
+          source: item.source,
+          createdAt: item.createdAt,
+          attempts: item.attempts,
+        });
+      });
+    },
+
+    async completeWorkItem({ jobId, workerId, kanbanTaskId, nowMs }) {
+      const item = workItems.get(jobId);
+      if (!item || item.state === "completed") {
+        return { completed: false, kanbanTaskId: item?.kanbanTaskId || null };
+      }
+      assertClaim(item, workerId, nowMs);
+      item.state = "completed";
+      item.updatedAt = new Date(nowMs).toISOString();
+      item.claim = null;
+      item.kanbanTaskId = kanbanTaskId;
+      item.lastFailureReason = null;
+      return { completed: true, kanbanTaskId };
+    },
+
+    async releaseWorkItem({ jobId, workerId, reasonCode, nowMs }) {
+      const item = workItems.get(jobId);
+      if (!item || item.state === "completed") return { released: false };
+      assertClaim(item, workerId, nowMs);
+      item.state = "pending";
+      item.updatedAt = new Date(nowMs).toISOString();
+      item.claim = null;
+      item.lastFailureReason = reasonCode;
+      return { released: true };
+    },
   };
+}
+
+function assertClaim(item, workerId, nowMs) {
+  if (item.state !== "claimed" || item.claim?.workerId !== workerId
+      || item.claim.leaseExpiresAtMs < nowMs) {
+    throw new Error("Work item claim is not active for this worker.");
+  }
 }
 
 function clone(value) {

@@ -1,4 +1,5 @@
 export function loadHostedCustomerFlowConfig(environment = {}) {
+  const convex = loadCustomerFlowConvexConfig(environment);
   const allowedOrigins = requiredJsonArray(environment, "CUSTOMER_FLOW_ALLOWED_ORIGINS");
   for (const origin of allowedOrigins) assertHttpsOrigin(origin, "CUSTOMER_FLOW_ALLOWED_ORIGINS");
   if (new Set(allowedOrigins).size !== allowedOrigins.length) {
@@ -14,17 +15,8 @@ export function loadHostedCustomerFlowConfig(environment = {}) {
     throw new Error("STRIPE_CUSTOMER_FLOW_WEBHOOK_SECRET must be a Stripe webhook signing secret.");
   }
 
-  const backendToken = requiredString(environment, "CUSTOMER_FLOW_BACKEND_TOKEN");
-  if (backendToken.length < 32) {
-    throw new Error("CUSTOMER_FLOW_BACKEND_TOKEN must contain at least 32 characters.");
-  }
-
   return {
-    convex: {
-      url: assertHttpsUrl(requiredString(environment, "CONVEX_URL"), "CONVEX_URL"),
-      backendToken,
-      tokenEncryptionKey: requiredBase64Key(environment, "CUSTOMER_FLOW_TOKEN_ENCRYPTION_KEY"),
-    },
+    convex,
     testAccessToken: requiredSecret(environment, "CUSTOMER_FLOW_TEST_ACCESS_TOKEN", 32),
     allowedOrigins,
     stripe: {
@@ -42,11 +34,45 @@ export function loadHostedCustomerFlowConfig(environment = {}) {
   };
 }
 
+export function loadCustomerFlowConvexConfig(environment = {}) {
+  const backendToken = requiredString(environment, "CUSTOMER_FLOW_BACKEND_TOKEN");
+  if (backendToken.length < 32) {
+    throw new Error("CUSTOMER_FLOW_BACKEND_TOKEN must contain at least 32 characters.");
+  }
+  return {
+    url: assertHttpsUrl(requiredString(environment, "CONVEX_URL"), "CONVEX_URL"),
+    backendToken,
+    tokenEncryptionKey: requiredBase64Key(environment, "CUSTOMER_FLOW_TOKEN_ENCRYPTION_KEY"),
+  };
+}
+
 export function loadResendDeliveryConfig(environment = {}) {
   return {
     apiKey: requiredPrefix(environment, "RESEND_API_KEY", "re_"),
     from: requiredString(environment, "RESEND_FROM"),
   };
+}
+
+export function loadTallyIntakeConfig(environment = {}) {
+  const signingSecret = requiredSecret(environment, "TALLY_INTAKE_SIGNING_SECRET", 32);
+  const expectedFormId = requiredString(environment, "TALLY_INTAKE_FORM_ID");
+  if (!/^[A-Za-z0-9_-]{3,128}$/.test(expectedFormId)) {
+    throw new Error("TALLY_INTAKE_FORM_ID has an invalid format.");
+  }
+  const serializedFieldMap = requiredString(environment, "TALLY_INTAKE_FIELD_MAP");
+  if (Buffer.byteLength(serializedFieldMap, "utf8") > 12_000) {
+    throw new Error("TALLY_INTAKE_FIELD_MAP is too large.");
+  }
+  let fieldMap;
+  try {
+    fieldMap = JSON.parse(serializedFieldMap);
+  } catch (error) {
+    throw new Error("TALLY_INTAKE_FIELD_MAP must contain JSON.", { cause: error });
+  }
+  if (!fieldMap || typeof fieldMap !== "object" || Array.isArray(fieldMap)) {
+    throw new Error("TALLY_INTAKE_FIELD_MAP must contain a JSON object.");
+  }
+  return { signingSecret, expectedFormId, fieldMap };
 }
 
 function requiredString(environment, name) {
