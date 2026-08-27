@@ -4,82 +4,11 @@ import test from "node:test";
 
 import { runTestAOperatorCommand } from "../../src/fulfillment/test-a-operator-startup.mjs";
 
-const validEnvironment = Object.freeze({
-  BEBEBONJOUR_APPROVAL_HMAC_KEY: "operator-review-key-with-at-least-thirty-two-bytes",
-  CONVEX_URL: "https://test-a.convex.cloud",
-  CUSTOMER_FLOW_BACKEND_TOKEN: "backend-token-at-least-32-characters",
-  RESEND_API_KEY: "re_test_operator_runner",
-  RESEND_FROM: "Bébé Bonjour <onboarding@resend.dev>",
-  TEST_A_PUBLICATION_ORIGIN: "https://announcements.example.test",
-  TEST_A_PUBLICATION_VERCEL_TEAM_ID: "team_test_a",
-  TEST_A_PUBLICATION_VERCEL_PROJECT_ID: "prj_test_a_announcements",
-  TEST_A_PUBLICATION_VERCEL_PROJECT_NAME: "bebebonjour-test-a-announcements",
-  TEST_A_PUBLICATION_CANARY_JOB_ID: "job_test_001",
-  TEST_A_PUBLICATION_CANARY_REVISION_ID: "r1",
-  TEST_A_ARTIFACT_ROOT: "/tmp/bebebonjour-test-a-artifacts",
-  VERCEL_TOKEN: "vercel_test_token",
-});
-
 const statusEnvironment = Object.freeze({
   CONVEX_URL: "https://test-a.convex.cloud",
   CUSTOMER_FLOW_BACKEND_TOKEN: "backend-token-at-least-32-characters",
 });
 
-test("private operator startup rejects invalid cold-start configuration before runner or provider I/O", async () => {
-  let runnerConstructions = 0;
-  let providerIo = 0;
-  const createRunner = () => {
-    runnerConstructions += 1;
-    return {
-      async status() {
-        providerIo += 1;
-      },
-    };
-  };
-  const invalidEnvironments = [
-    {},
-    { ...validEnvironment, RESEND_API_KEY: "invalid" },
-    { ...validEnvironment, RESEND_FROM: "Other <other@example.test>" },
-    { ...validEnvironment, TEST_A_PUBLICATION_VERCEL_PROJECT_NAME: "bebebonjour-fulfillment" },
-    { ...validEnvironment, CONVEX_URL: "http://test-a.convex.cloud" },
-    { ...validEnvironment, STRIPE_SECRET_KEY: "sk_test_forbidden_operator_value" },
-  ];
-
-  for (const environment of invalidEnvironments) {
-    await assert.rejects(
-      runTestAOperatorCommand({
-        argv: ["run-next", "job_test_001"],
-        createRunner,
-        environment,
-      }),
-    );
-  }
-  assert.equal(runnerConstructions, 0);
-  assert.equal(providerIo, 0);
-});
-
-test("private operator startup invokes one reviewed provider-capable command without an HTTP listener", async () => {
-  const invocations = [];
-  const result = await runTestAOperatorCommand({
-    argv: ["run-next", "job_test_001"],
-    environment: validEnvironment,
-    createRunner(options) {
-      invocations.push({ kind: "construct", options });
-      return {
-        async runNext(jobId) {
-          invocations.push({ kind: "run-next", jobId });
-          return { jobId, state: "publish_ready" };
-        },
-      };
-    },
-  });
-
-  assert.deepEqual(result, { jobId: "job_test_001", state: "publish_ready" });
-  assert.deepEqual(invocations, [
-    { kind: "construct", options: { environment: validEnvironment } },
-    { kind: "run-next", jobId: "job_test_001" },
-  ]);
-});
 
 test("status uses the delivery-disabled runner without requiring publication or delivery credentials", async () => {
   const invocations = [];
@@ -107,6 +36,89 @@ test("status uses the delivery-disabled runner without requiring publication or 
   ]);
 });
 
+test("persist-approval passes exact stdin bytes to the fixed review-only runner", async () => {
+  const approvalInput = Buffer.from('{"approvalId":"approval_0123456789abcdef01234567"}\n', "utf8");
+  const invocations = [];
+  const result = await runTestAOperatorCommand({
+    argv: ["persist-approval", "job_test_001"],
+    approvalInput,
+    environment: {
+      ...statusEnvironment,
+      BEBEBONJOUR_APPROVAL_HMAC_KEY: "operator-review-key-with-at-least-thirty-two-bytes",
+    },
+    createRunner() {
+      throw new Error("provider-capable runner must not be constructed");
+    },
+    createReviewRunner(options) {
+      invocations.push({ kind: "construct-review", options });
+      return {
+        async persistAndRecordReview(jobId, input) {
+          invocations.push({ kind: "persist-approval", jobId, input });
+          return { jobId, state: "render_queued" };
+        },
+      };
+    },
+  });
+
+  assert.deepEqual(result, { jobId: "job_test_001", state: "render_queued" });
+  assert.equal(invocations[0].kind, "construct-review");
+  assert.equal(invocations[1].kind, "persist-approval");
+  assert.equal(invocations[1].jobId, "job_test_001");
+  assert.equal(invocations[1].input, approvalInput);
+});
+
+test("persist-approval rejects JSON argv instead of treating shell text as authenticated input", async () => {
+  await assert.rejects(
+    runTestAOperatorCommand({
+      argv: ["persist-approval", "job_test_001", '{"approvalId":"approval_0123456789abcdef01234567"}'],
+      approvalInput: Buffer.from("{}\n"),
+      environment: {},
+    }),
+    /Usage:/,
+  );
+});
+
+test("real persist-approval entrypoint reads stdin and rejects malformed bytes before hosted I/O", () => {
+  const result = spawnSync(process.execPath, [
+    "ops/run-test-a-operator.mjs",
+    "persist-approval",
+    "job_test_001",
+  ], {
+    cwd: new URL("../..", import.meta.url),
+    encoding: "utf8",
+    input: Buffer.from("not-json\n", "utf8"),
+    env: {
+      PATH: process.env.PATH,
+      ...statusEnvironment,
+      BEBEBONJOUR_APPROVAL_HMAC_KEY: "operator-review-key-with-at-least-thirty-two-bytes",
+    },
+    timeout: 5_000,
+  });
+
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /approval input is not valid JSON/i);
+  assert.doesNotMatch(result.stderr, /VERCEL_TOKEN|RESEND_API_KEY|ECONNREFUSED/);
+  assert.equal(result.stdout, "");
+});
+
+test("provider-capable commands fail closed with remediation before secrets, runners, or provider I/O", async () => {
+  let runnerConstructions = 0;
+  for (const command of ["run-next", "queue-delivery", "reconcile-delivery"]) {
+    await assert.rejects(
+      runTestAOperatorCommand({
+        argv: [command, "job_test_001"],
+        environment: {},
+        createRunner() {
+          runnerConstructions += 1;
+          return {};
+        },
+      }),
+      new RegExp(`${command} is disabled.*status or persist-approval.*authoritative Vercel.*patched local Vercel CLI`, "is"),
+    );
+  }
+  assert.equal(runnerConstructions, 0);
+});
+
 test("real provider-capable operator entrypoint fails closed on a credential-free cold start", () => {
   const result = spawnSync(process.execPath, [
     "ops/run-test-a-operator.mjs",
@@ -119,7 +131,7 @@ test("real provider-capable operator entrypoint fails closed on a credential-fre
   });
 
   assert.equal(result.status, 1);
-  assert.match(result.stderr, /required by the reviewed TEST-A operator secret-store policy/);
+  assert.match(result.stderr, /run-next is disabled.*status or persist-approval.*authoritative Vercel/is);
   assert.equal(result.stdout, "");
 });
 

@@ -14,23 +14,30 @@ test("reviewed TEST-A operator policy is loaded from the exact pinned manifest b
   const {
     REVIEWED_TEST_A_OPERATOR_POLICY,
     loadReviewedTestAOperatorPolicy,
+    requireReviewedTestAOperatorEnvironment,
   } = await import("../../src/config/test-a-hosted-provider-manifest.mjs");
 
   assert.equal(REVIEWED_TEST_A_OPERATOR_POLICY.manifestSha256, sha256(manifestBytes));
   assert.deepEqual(loadReviewedTestAOperatorPolicy(manifestBytes), REVIEWED_TEST_A_OPERATOR_POLICY);
-  assert.deepEqual(REVIEWED_TEST_A_OPERATOR_POLICY.identity, {
-    resendFrom: "Bébé Bonjour <onboarding@resend.dev>",
-    testSink: "delivered@resend.dev",
-    publication: {
-      stableOrigin: "https://announcements.example.test",
-      teamId: "team_test_a",
-      projectId: "prj_test_a_announcements",
-      projectName: "bebebonjour-test-a-announcements",
-    },
-  });
+  assert.deepEqual(REVIEWED_TEST_A_OPERATOR_POLICY.capabilities, ["status", "persist-approval"]);
+  assert.equal(Object.hasOwn(REVIEWED_TEST_A_OPERATOR_POLICY, "identity"), false);
   assert.deepEqual(
     REVIEWED_TEST_A_OPERATOR_POLICY.allowedEnvironmentVariables,
     REVIEWED_TEST_A_OPERATOR_POLICY.runtimeEnvironmentVariables,
+  );
+  assert.deepEqual(REVIEWED_TEST_A_OPERATOR_POLICY.allowedEnvironmentVariables, [
+    "CONVEX_URL",
+    "CUSTOMER_FLOW_BACKEND_TOKEN",
+    "BEBEBONJOUR_APPROVAL_HMAC_KEY",
+  ]);
+  assert.throws(
+    () => requireReviewedTestAOperatorEnvironment({
+      CONVEX_URL: "https://test-a.convex.cloud",
+      CUSTOMER_FLOW_BACKEND_TOKEN: "backend-token-at-least-32-characters",
+      BEBEBONJOUR_APPROVAL_HMAC_KEY: "operator-review-key-with-at-least-thirty-two-bytes",
+      VERCEL_TOKEN: "raw-env-is-not-provider-proof",
+    }, { providerCapable: true }),
+    /VERCEL_TOKEN is forbidden/,
   );
 });
 
@@ -41,17 +48,14 @@ test("reviewed TEST-A operator policy rejects tampered bytes and contradictory s
     "../../src/config/test-a-hosted-provider-manifest.mjs"
   );
 
-  const tamperedIdentity = Buffer.from(JSON.stringify({
+  const tamperedRuntime = Buffer.from(JSON.stringify({
     ...manifest,
     resendOperatorRuntime: {
       ...manifest.resendOperatorRuntime,
-      identity: {
-        ...manifest.resendOperatorRuntime.identity,
-        testSink: "other@example.test",
-      },
+      capabilities: ["status", "persist-approval", "run-next"],
     },
   }));
-  assert.throws(() => loadReviewedTestAOperatorPolicy(tamperedIdentity), /manifest digest/i);
+  assert.throws(() => loadReviewedTestAOperatorPolicy(tamperedRuntime), /manifest digest/i);
 
   const contradictoryPolicy = structuredClone(manifest);
   contradictoryPolicy.secretStores.resendOperator.allowed = [

@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 
 export const EXPECTED_TEST_A_HOSTED_PROVIDER_MANIFEST_SHA256 =
-  "1ceebd23fa6bb4c2aa43ecbf63199f2fb689806d899e4eed2f5b39c0f9154a71";
+  "d7be297c94f86d7e5a58532d6efcc177f9c542c6111d659980d81609c6bdcbf1";
 
 const manifestUrl = new URL("../../ops/test-a-hosted-provider-manifest.json", import.meta.url);
 
@@ -26,15 +26,26 @@ export function loadReviewedTestAOperatorPolicy(
     throw new Error("TEST-A hosted provider manifest schema version is not supported.");
   }
 
-  const identity = requireRecord(manifest.resendOperatorRuntime?.identity, "operator runtime identity");
-  requireExactKeys(identity, ["from", "publication", "testSink"], "operator runtime identity");
-  const publication = requireRecord(identity.publication, "operator publication identity");
-  requireExactKeys(
-    publication,
-    ["projectId", "projectName", "stableOrigin", "teamId"],
-    "operator publication identity",
-  );
-  const stableOrigin = requireExactHttpsOrigin(publication.stableOrigin, "operator publication stable origin");
+  const runtime = requireRecord(manifest.resendOperatorRuntime, "operator runtime policy");
+  requireExactKeys(runtime, [
+    "capabilities",
+    "environmentVariables",
+    "futurePublicationIdentityAuthority",
+    "providerOperationsEnabled",
+    "publicApiAccess",
+    "requiresPersistedHumanApproval",
+  ], "operator runtime policy");
+  const capabilities = requireUniqueStringArray(runtime.capabilities, "operator capabilities");
+  if (JSON.stringify(capabilities) !== JSON.stringify(["status", "persist-approval"])) {
+    throw new Error("TEST-A operator capabilities must remain status and persist-approval only.");
+  }
+  if (runtime.providerOperationsEnabled !== false || runtime.publicApiAccess !== false) {
+    throw new Error("TEST-A operator provider operations and public API access must remain disabled.");
+  }
+  if (runtime.requiresPersistedHumanApproval !== true) {
+    throw new Error("TEST-A operator must require persisted human approval.");
+  }
+  requireString(runtime.futurePublicationIdentityAuthority, "future publication identity authority");
   const secretStore = requireRecord(manifest.secretStores?.resendOperator, "operator secret-store policy");
   const allowedEnvironmentVariables = requireUniqueStringArray(
     secretStore.allowed,
@@ -45,7 +56,7 @@ export function loadReviewedTestAOperatorPolicy(
     "operator forbidden environment variables",
   );
   const runtimeEnvironmentVariables = requireUniqueStringArray(
-    manifest.resendOperatorRuntime?.environmentVariables,
+    runtime.environmentVariables,
     "operator runtime environment variables",
   );
   if (JSON.stringify(allowedEnvironmentVariables) !== JSON.stringify(runtimeEnvironmentVariables)) {
@@ -57,17 +68,8 @@ export function loadReviewedTestAOperatorPolicy(
 
   return deepFreeze({
     allowedEnvironmentVariables,
+    capabilities,
     forbiddenEnvironmentVariables,
-    identity: {
-      resendFrom: requireString(identity.from, "operator Resend sender"),
-      testSink: requireString(identity.testSink, "operator test sink"),
-      publication: {
-        projectId: requireString(publication.projectId, "operator Vercel project id"),
-        projectName: requireString(publication.projectName, "operator Vercel project name"),
-        stableOrigin,
-        teamId: requireString(publication.teamId, "operator Vercel team id"),
-      },
-    },
     manifestSha256,
     runtimeEnvironmentVariables,
   });

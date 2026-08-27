@@ -1,14 +1,12 @@
-import path from "node:path";
-
 import { requireReviewedTestAOperatorEnvironment } from "../config/test-a-hosted-provider-manifest.mjs";
 import {
-  createTestAOperatorRunner,
+  createTestAOperatorReviewRunner,
   createTestAOperatorStatusRunner,
 } from "./operator-runner-test-a.mjs";
-import { requireReviewedTestAOperatorIdentity } from "./test-a-operator-runtime-identity.mjs";
 
 const COMMANDS = Object.freeze({
   status: "status",
+  "persist-approval": "persistAndRecordReview",
   "run-next": "runNext",
   "queue-delivery": "queueDelivery",
   "reconcile-delivery": "reconcileDelivery",
@@ -20,37 +18,39 @@ export async function runTestAOperatorCommand(options = {}) {
   const method = COMMANDS[command];
   if (!method || !/^job_[A-Za-z0-9][A-Za-z0-9_-]{2,127}$/u.test(jobId || "") || extra.length > 0) {
     throw new Error(
-      "Usage: node ops/run-test-a-operator.mjs <status|run-next|queue-delivery|reconcile-delivery> <job_id>",
+      "Usage: node ops/run-test-a-operator.mjs <status|persist-approval|run-next|queue-delivery|reconcile-delivery> <job_id>",
+    );
+  }
+
+  if (command === "run-next" || command === "queue-delivery" || command === "reconcile-delivery") {
+    throw new Error(
+      `${command} is disabled: this private TEST-A operator is status/review-only. `
+      + "Use status or persist-approval. Re-enable provider commands only after authoritative Vercel "
+      + "deployment inspection and the patched local Vercel CLI are pinned and reviewed; no Vercel or Resend I/O was attempted.",
     );
   }
 
   const environment = options.environment || process.env;
-  const providerCapable = command !== "status";
-  requireColdStartConfiguration(environment, { providerCapable });
-  const createRunner = providerCapable
-    ? options.createRunner || createTestAOperatorRunner
+  const reviewOnly = command === "persist-approval";
+  requireColdStartConfiguration(environment);
+  if (reviewOnly) requiredSecret(environment, "BEBEBONJOUR_APPROVAL_HMAC_KEY", 32);
+  const createRunner = reviewOnly
+    ? options.createReviewRunner || createTestAOperatorReviewRunner
     : options.createStatusRunner || createTestAOperatorStatusRunner;
+  if (typeof createRunner !== "function") {
+    throw new Error("The private TEST-A review-only runner is unavailable.");
+  }
   const runner = createRunner({ environment });
   if (typeof runner?.[method] !== "function") {
     throw new Error(`The private TEST-A operator runner does not implement ${method}().`);
   }
-  return runner[method](jobId);
+  return runner[method](jobId, reviewOnly ? options.approvalInput : undefined);
 }
 
-function requireColdStartConfiguration(environment, { providerCapable }) {
-  requireReviewedTestAOperatorEnvironment(environment, { providerCapable });
-  if (providerCapable) requiredSecret(environment, "BEBEBONJOUR_APPROVAL_HMAC_KEY", 32);
+function requireColdStartConfiguration(environment) {
+  requireReviewedTestAOperatorEnvironment(environment, { providerCapable: false });
   requiredHttpsOrigin(environment, "CONVEX_URL");
   requiredSecret(environment, "CUSTOMER_FLOW_BACKEND_TOKEN", 32);
-  if (!providerCapable) return;
-  const resendApiKey = requiredString(environment, "RESEND_API_KEY");
-  if (!resendApiKey.startsWith("re_")) throw new Error("RESEND_API_KEY must be a Resend API key.");
-  requireReviewedTestAOperatorIdentity(environment);
-  requiredString(environment, "VERCEL_TOKEN");
-  requiredString(environment, "TEST_A_PUBLICATION_CANARY_JOB_ID");
-  requiredString(environment, "TEST_A_PUBLICATION_CANARY_REVISION_ID");
-  const artifactRoot = requiredString(environment, "TEST_A_ARTIFACT_ROOT");
-  if (!path.isAbsolute(artifactRoot)) throw new Error("TEST_A_ARTIFACT_ROOT must be an absolute path.");
 }
 
 function requiredString(environment, name) {

@@ -4,16 +4,57 @@ const VERCEL_API_ORIGIN = "https://api.vercel.com";
 const PUBLICATION_CACHE_CONTROL = "private, no-store, max-age=0";
 const PENDING_STATES = new Set(["QUEUED", "INITIALIZING", "BUILDING"]);
 const TERMINAL_FAILURE_STATES = new Set(["ERROR", "CANCELED", "DELETED", "BLOCKED"]);
+const parsedBuildInspections = new WeakSet();
+
+export function parseAuthoritativeVercelBuildInspection(input) {
+  if (!Buffer.isBuffer(input) || input.length === 0 || input.length > 65_536) {
+    throw new Error("Authoritative Vercel inspection input must be 1-65536 exact bytes.");
+  }
+  let value;
+  try {
+    value = JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(input));
+  } catch (error) {
+    throw new Error("Authoritative Vercel inspection input is not valid UTF-8 JSON.", { cause: error });
+  }
+  requireExactKeys(value, [
+    "schemaVersion",
+    "source",
+    "deploymentId",
+    "buildId",
+    "teamId",
+    "projectId",
+    "projectName",
+    "revisionId",
+  ], "authoritative Vercel inspection");
+  if (value.schemaVersion !== "1.0" || value.source !== "vercel inspect --format=json") {
+    throw new Error("Authoritative Vercel inspection schema or source is invalid.");
+  }
+  const inspectedIdentity = Object.freeze({
+    deploymentId: requireIdentifier(value.deploymentId, "inspected Vercel deployment id"),
+    buildId: requireIdentifier(value.buildId, "inspected Vercel build id"),
+    teamId: requireIdentifier(value.teamId, "inspected Vercel team id"),
+    projectId: requireIdentifier(value.projectId, "inspected Vercel project id"),
+    projectName: requireProjectName(value.projectName),
+    revisionId: requireIdentifier(value.revisionId, "inspected TEST-A revision id"),
+  });
+  parsedBuildInspections.add(inspectedIdentity);
+  return inspectedIdentity;
+}
 
 export function createVercelTestAPublicationProvider(options = {}) {
   const token = requireString(options.token, "Vercel TEST-A publication token");
-  const teamId = requireIdentifier(options.teamId, "Vercel TEST-A team id");
-  const projectId = requireIdentifier(options.projectId, "Vercel TEST-A project id");
-  const projectName = requireProjectName(options.projectName);
+  const inspectedIdentity = requireAuthoritativeVercelBuildInspection(options.buildInspection);
+  const teamId = inspectedIdentity.teamId;
+  const projectId = inspectedIdentity.projectId;
+  const projectName = inspectedIdentity.projectName;
+  assertExpectedIdentity(options.teamId, teamId, "Vercel TEST-A team id");
+  assertExpectedIdentity(options.projectId, projectId, "Vercel TEST-A project id");
+  assertExpectedIdentity(options.projectName, projectName, "Vercel TEST-A project name");
   const stableOrigin = exactHttpsOrigin(options.stableOrigin);
   const stableHostname = new URL(stableOrigin).hostname;
   const canaryJobId = requireIdentifier(options.canaryJobId, "TEST-A canary job id");
-  const canaryRevisionId = requireIdentifier(options.canaryRevisionId, "TEST-A canary revision id");
+  const canaryRevisionId = inspectedIdentity.revisionId;
+  assertExpectedIdentity(options.canaryRevisionId, canaryRevisionId, "TEST-A canary revision id");
   const artifactResolver = options.artifactResolver;
   if (typeof artifactResolver?.resolve !== "function") {
     throw new Error("A TEST-A publication artifact resolver is required.");
@@ -699,6 +740,38 @@ function requireProjectName(value) {
     throw new Error("Vercel TEST-A project name is invalid.");
   }
   return normalized;
+}
+
+function requireAuthoritativeVercelBuildInspection(value) {
+  if (!value) {
+    throw new Error("Authoritative Vercel build inspection is required before publication can be enabled.");
+  }
+  if (typeof value !== "object" || Array.isArray(value) || !parsedBuildInspections.has(value)) {
+    throw new Error("Publication requires parsed authoritative Vercel inspection bytes.");
+  }
+  return value;
+}
+
+function requireExactKeys(value, expectedKeys, label) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    throw new Error(`${label} must be an object.`);
+  }
+  const keys = Object.keys(value).sort();
+  if (JSON.stringify(keys) !== JSON.stringify([...expectedKeys].sort())) {
+    const missing = expectedKeys.find((key) => !Object.hasOwn(value, key));
+    if (missing) throw new Error(`${label} ${fieldLabel(missing)} is required.`);
+    throw new Error(`${label} contains unexpected fields.`);
+  }
+}
+
+function fieldLabel(value) {
+  return value.replace(/([A-Z])/g, " $1").toLowerCase();
+}
+
+function assertExpectedIdentity(expected, actual, label) {
+  if (expected !== undefined && expected !== actual) {
+    throw new Error(`${label} expected-value assertion does not match authoritative Vercel build inspection.`);
+  }
 }
 
 function isRfc3339DateTime(value) {

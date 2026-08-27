@@ -7,10 +7,15 @@ import { fileURLToPath } from "node:url";
 
 import { inspectGeneratedPublicArtifact } from "../src/config/test-a-operator-isolation.mjs";
 
-const EXPECTED_VERCEL_VERSION = "50.39.0";
+const EXPECTED_VERCEL_VERSION = "52.2.0";
 const FUNCTION_DESTINATION = "/api/customer-flow/[...route]";
 const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const vercelCli = process.env.VERCEL_CLI || "vercel";
+const vercelCli = path.join(
+  projectRoot,
+  "node_modules",
+  ".bin",
+  process.platform === "win32" ? "vercel.cmd" : "vercel",
+);
 const scratchRoot = await mkdtemp(path.join(tmpdir(), "bebebonjour-vercel-routing-"));
 const requestedRevision = process.env.VERCEL_ROUTING_REVISION || "";
 const sourceRoot = requestedRevision

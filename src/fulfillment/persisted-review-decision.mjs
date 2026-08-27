@@ -30,6 +30,11 @@ export function signPersistedReviewApproval({ hmacKey, job, decision }) {
   };
 }
 
+export function authenticatePersistedReviewApproval(approval, hmacKey) {
+  verifyApprovalSignature(approval, reviewKey(hmacKey));
+  return structuredClone(approval);
+}
+
 export function createPersistedReviewDecisionVerifier({ hmacKey, approvalStore, fulfillmentStore }) {
   const key = reviewKey(hmacKey);
   if (typeof approvalStore?.getReviewApproval !== "function") {

@@ -13,7 +13,7 @@ import {
 
 const rootPath = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 
-test("operator isolation inventory traces one private invocation outside every public route graph", async () => {
+test("operator isolation inventory traces one status/review-only invocation outside every public route graph", async () => {
   const inventory = await createTestAOperatorIsolationInventory({ rootPath });
 
   assert.deepEqual(inventory.publicEntrypoints, [
@@ -24,7 +24,7 @@ test("operator isolation inventory traces one private invocation outside every p
   assert.equal(inventory.privateInvocation, "ops/run-test-a-operator.mjs");
   assert.ok(inventory.privateModuleGraph.includes("src/fulfillment/operator-runner-test-a.mjs"));
   assert.ok(inventory.privateModuleGraph.includes("src/fulfillment/test-a-operator-startup.mjs"));
-  assert.ok(inventory.privateModuleGraph.includes("src/fulfillment/test-a-operator-runtime-identity.mjs"));
+  assert.equal(inventory.privateModuleGraph.includes("src/fulfillment/test-a-operator-runtime-identity.mjs"), false);
   assert.ok(inventory.reviewInputs.includes("package-lock.json"));
   assert.ok(inventory.reviewInputs.includes("package.json"));
   assert.ok(inventory.reviewInputs.includes("vercel.json"));

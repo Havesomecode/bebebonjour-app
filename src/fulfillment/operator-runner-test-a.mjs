@@ -2,20 +2,12 @@ import { ConvexHttpClient } from "convex/browser";
 import { randomUUID } from "node:crypto";
 import { isDeepStrictEqual } from "node:util";
 
-import { createExactRevisionPublicationAdapter } from "./exact-revision-publication-adapter.mjs";
-import { createExternalEffectStageHandlers } from "./external-effect-stage-handlers.mjs";
 import { recordReviewDecisionTransition } from "./job-machine.mjs";
 import { createFulfillmentOrchestrator } from "./job-orchestrator.mjs";
 import {
+  authenticatePersistedReviewApproval,
   createPersistedReviewDecisionVerifier,
 } from "./persisted-review-decision.mjs";
-import { createLocalArtifactResolver } from "./local-artifact-resolver.mjs";
-import { createResendDeliveryAdapter } from "./resend-delivery-adapter.mjs";
-import {
-  requireReviewedTestAOperatorIdentity,
-  REVIEWED_TEST_A_OPERATOR_IDENTITY,
-} from "./test-a-operator-runtime-identity.mjs";
-import { createVercelTestAPublicationProvider } from "./vercel-test-a-publication-provider.mjs";
 import { createConvexFulfillmentStore } from "../persistence/convex-fulfillment-store.mjs";
 
 const STAGES = Object.freeze(["prepare_review", "render_approved", "generate_tts", "publish", "deliver"]);
@@ -45,14 +37,9 @@ export function createTestAOperatorStatusRunner(options = {}) {
   });
 }
 
-export function createTestAOperatorRunner(options = {}) {
+export function createTestAOperatorReviewRunner(options = {}) {
   const environment = options.environment || process.env;
   const hmacKey = requiredSecret(environment, "BEBEBONJOUR_APPROVAL_HMAC_KEY", 32);
-  const resendApiKey = requiredString(environment, "RESEND_API_KEY");
-  if (!resendApiKey.startsWith("re_")) throw new Error("RESEND_API_KEY must be a Resend API key.");
-  const runtimeIdentity = requireReviewedTestAOperatorIdentity(environment);
-  const resendFrom = runtimeIdentity.resendFrom;
-  const publicationOrigin = runtimeIdentity.publication.stableOrigin;
   const clock = options.clock || (() => new Date().toISOString());
   const tokenFactory = options.tokenFactory || (() => `operator_${randomUUID()}`);
   const store = options.store || createHostedStore(options, environment);
@@ -61,54 +48,27 @@ export function createTestAOperatorRunner(options = {}) {
       throw new Error(`The TEST-A fulfillment store must implement ${method}().`);
     }
   }
-
-  const publicationProvider = options.publicationProvider || createHostedPublicationProvider(environment);
-  const publicationAdapter = createExactRevisionPublicationAdapter({
-    provider: publicationProvider,
-    stableOrigin: publicationOrigin,
-  });
-  const deliveryAdapter = createResendDeliveryAdapter({
-    apiKey: resendApiKey,
-    from: resendFrom,
-    resend: options.resend,
-    clock,
-  });
-  const externalHandlers = createExternalEffectStageHandlers({
-    publicationAdapter,
-    deliveryAdapter,
-    resolveDeliveryTarget: async () => ({
-      targetRef: "resend:test-a-sink",
-      email: REVIEWED_TEST_A_OPERATOR_IDENTITY.testSink,
-    }),
-  });
   const verifyPersistedReview = createPersistedReviewDecisionVerifier({
     approvalStore: store,
     fulfillmentStore: store,
     hmacKey,
   });
-  const handlers = {
-    ...(options.stageHandlers || {}),
-    ...externalHandlers,
-    verify_review_decision: verifyPersistedReview,
-  };
   const orchestrator = createFulfillmentOrchestrator({
     store,
-    handlers,
+    handlers: { verify_review_decision: verifyPersistedReview },
     clock,
     tokenFactory,
     retryPolicy: options.retryPolicy || TEST_A_RETRY_POLICY,
   });
-
   return Object.freeze({
-    status(jobId) {
-      return orchestrator.status(jobId);
-    },
-
-    async persistAndRecordReview(jobId, approval) {
-      const job = await orchestrator.status(jobId);
+    async persistAndRecordReview(jobId, approvalInput) {
+      const approval = parseApprovalInput(approvalInput);
       if (!approval?.approvalId || !approval?.signature || !approval?.decision) {
         throw new Error("A signed persisted review approval is required.");
       }
+      authenticatePersistedReviewApproval(approval, hmacKey);
+      requireCanonicalApprovalInput(approvalInput, approval);
+      const job = await orchestrator.status(jobId);
       const verifyCandidate = createPersistedReviewDecisionVerifier({
         hmacKey,
         fulfillmentStore: store,
@@ -130,27 +90,13 @@ export function createTestAOperatorRunner(options = {}) {
       }
       return orchestrator.recordReviewDecision(jobId, { approvalId: approval.approvalId });
     },
-
-    runNext(jobId) {
-      return orchestrator.runNext(jobId);
-    },
-
-    async queueDelivery(jobId) {
-      const job = await orchestrator.status(jobId);
-      if (job.environment !== "test" || job.product !== "announcement-page") {
-        throw new Error("TEST-A delivery is restricted to the test announcement product.");
-      }
-      return orchestrator.queueDelivery(jobId, {
-        commandId: `operator:queue-delivery:${jobId}:${job.currentRevisionId}`,
-      });
-    },
-
-    reconcileDelivery(jobId) {
-      return orchestrator.reconcileDelivery(jobId, {
-        commandId: `operator:reconcile-delivery:${jobId}`,
-      });
-    },
   });
+}
+
+export function createTestAOperatorRunner() {
+  throw new Error(
+    "The private TEST-A operator is status/review-only; publication and delivery are disabled until authoritative provider inspection is implemented.",
+  );
 }
 
 function createHostedStore(options, environment) {
@@ -158,22 +104,6 @@ function createHostedStore(options, environment) {
   const backendToken = requiredSecret(environment, "CUSTOMER_FLOW_BACKEND_TOKEN", 32);
   const client = options.convexClient || new ConvexHttpClient(convexUrl);
   return createConvexFulfillmentStore({ client, backendToken });
-}
-
-function createHostedPublicationProvider(environment) {
-  const { publication } = requireReviewedTestAOperatorIdentity(environment);
-  return createVercelTestAPublicationProvider({
-    token: requiredString(environment, "VERCEL_TOKEN"),
-    teamId: publication.teamId,
-    projectId: publication.projectId,
-    projectName: publication.projectName,
-    stableOrigin: publication.stableOrigin,
-    canaryJobId: requiredString(environment, "TEST_A_PUBLICATION_CANARY_JOB_ID"),
-    canaryRevisionId: requiredString(environment, "TEST_A_PUBLICATION_CANARY_REVISION_ID"),
-    artifactResolver: createLocalArtifactResolver({
-      rootPath: requiredString(environment, "TEST_A_ARTIFACT_ROOT"),
-    }),
-  });
 }
 
 function requiredString(environment, name) {
@@ -197,4 +127,28 @@ function requiredHttpsOrigin(environment, name) {
     throw new Error(`${name} must be an exact HTTPS origin.`);
   }
   return url.origin;
+}
+
+function parseApprovalInput(input) {
+  if (!Buffer.isBuffer(input) || input.length === 0 || input.length > 65_536) {
+    throw new Error("Persisted review approval input must be 1-65536 exact stdin bytes.");
+  }
+  let text;
+  try {
+    text = new TextDecoder("utf-8", { fatal: true }).decode(input);
+  } catch (error) {
+    throw new Error("Persisted review approval input must be valid UTF-8.", { cause: error });
+  }
+  try {
+    return JSON.parse(text);
+  } catch (error) {
+    throw new Error("Persisted review approval input is not valid JSON.", { cause: error });
+  }
+}
+
+function requireCanonicalApprovalInput(input, approval) {
+  const canonicalInput = Buffer.from(`${JSON.stringify(approval)}\n`, "utf8");
+  if (!input.equals(canonicalInput)) {
+    throw new Error("Persisted review approval input must use canonical exact approval bytes.");
+  }
 }

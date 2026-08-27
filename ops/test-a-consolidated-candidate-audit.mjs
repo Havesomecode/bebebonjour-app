@@ -29,10 +29,11 @@ const focusedTestFiles = [
 const controls = Object.freeze([
   {
     id: "fail-closed-private-operator-startup",
-    requirement: "Provider-capable commands validate the reviewed secret-store policy before construction, while status uses a delivery-disabled runner that cannot construct Vercel or Resend adapters.",
+    requirement: "The fixed private entrypoint exposes only status and exact signed-approval persistence; publication and delivery commands fail before runner construction or provider I/O.",
     proofs: [
       "test/fulfillment/test-a-operator-startup.test.mjs: status uses the delivery-disabled runner without requiring publication or delivery credentials",
-      "test/fulfillment/test-a-operator-startup.test.mjs: real status entrypoint reaches hosted-store construction and fails closed without provider credentials",
+      "test/fulfillment/test-a-operator-startup.test.mjs: provider-capable commands fail before runner construction or provider I/O",
+      "test/fulfillment/test-a-operator-startup.test.mjs: fixed private approval entrypoint forwards exact stdin bytes without loading provider credentials",
     ],
   },
   {
@@ -62,10 +63,11 @@ const controls = Object.freeze([
   },
   {
     id: "private-runtime-and-provider-identity-corrections",
-    requirement: "The private operator remains absent from public entrypoints; exact deployment, project, alias, immutable bytes, canonical sink, and reviewed runtime identity are provider-authoritatively verified.",
+    requirement: "The private operator remains absent from public entrypoints and provider-disabled; any future publication path requires parsed exact deployment, revision, build, team, and project inspection bytes.",
     proofs: [
-      "test/config/test-a-operator-isolation.test.mjs: operator isolation inventory traces one private invocation outside every public route graph",
-      "test/fulfillment/vercel-test-a-publication-provider.test.mjs: Vercel TEST-A provider evidence fails closed when missing, malformed, or unavailable",
+      "test/config/test-a-operator-isolation.test.mjs: operator isolation inventory traces one status/review-only invocation outside every public route graph",
+      "test/fulfillment/vercel-test-a-publication-provider.test.mjs: Vercel TEST-A provider parses exact deployment, revision, build, and project inspection bytes",
+      "test/fulfillment/vercel-test-a-publication-provider.test.mjs: Vercel TEST-A provider rejects unparsed or incomplete inspection assertions",
       "test/fulfillment/resend-delivery-adapter.test.mjs: Resend delivery adapter rejects every non-canonical test sink before sending",
     ],
   },

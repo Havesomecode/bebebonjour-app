@@ -6,7 +6,10 @@ import test from "node:test";
 
 import { createFulfillmentOrchestrator } from "../../src/fulfillment/job-orchestrator.mjs";
 import { signPersistedReviewApproval } from "../../src/fulfillment/persisted-review-decision.mjs";
-import { createTestAOperatorRunner } from "../../src/fulfillment/operator-runner-test-a.mjs";
+import {
+  createTestAOperatorReviewRunner,
+  createTestAOperatorRunner,
+} from "../../src/fulfillment/operator-runner-test-a.mjs";
 import { createLocalTestFulfillmentStore } from "../../src/persistence/local-test-fulfillment-store.mjs";
 
 const digests = Object.freeze({
@@ -33,19 +36,6 @@ const retryPolicy = Object.freeze({
   )),
 });
 
-const reviewedOperatorEnvironment = Object.freeze({
-  BEBEBONJOUR_APPROVAL_HMAC_KEY: "operator-review-key-with-at-least-thirty-two-bytes",
-  RESEND_API_KEY: "re_test_operator_runner",
-  RESEND_FROM: "Bébé Bonjour <onboarding@resend.dev>",
-  TEST_A_PUBLICATION_ORIGIN: "https://announcements.example.test",
-  TEST_A_PUBLICATION_VERCEL_TEAM_ID: "team_test_a",
-  TEST_A_PUBLICATION_VERCEL_PROJECT_ID: "prj_test_a_announcements",
-  TEST_A_PUBLICATION_VERCEL_PROJECT_NAME: "bebebonjour-test-a-announcements",
-});
-
-function operatorEnvironment(overrides = {}) {
-  return { ...reviewedOperatorEnvironment, ...overrides };
-}
 
 function jobInput() {
   return {
@@ -86,17 +76,39 @@ function decision() {
   };
 }
 
-test("private TEST-A operator runner persists review before exact publication and one sink delivery", async (t) => {
-  const root = await mkdtemp(path.join(os.tmpdir(), "bebebonjour-test-a-runner-"));
+test("review-only runner rejects malformed approval bytes before store I/O", async () => {
+  let storeIo = 0;
+  const runner = createTestAOperatorReviewRunner({
+    environment: {
+      BEBEBONJOUR_APPROVAL_HMAC_KEY: "operator-review-key-with-at-least-thirty-two-bytes",
+    },
+    store: {
+      async getJob() { storeIo += 1; },
+      async getReviewApproval() { storeIo += 1; },
+      async saveReviewApproval() { storeIo += 1; },
+    },
+  });
+
+  await assert.rejects(
+    runner.persistAndRecordReview("job_test_001", Buffer.from("not-json\n", "utf8")),
+    /approval input is not valid JSON/i,
+  );
+  assert.equal(storeIo, 0);
+});
+
+async function createReviewFixture(t) {
+  const root = await mkdtemp(path.join(os.tmpdir(), "bebebonjour-test-a-review-runner-"));
   t.after(() => rm(root, { recursive: true, force: true }));
   const store = createLocalTestFulfillmentStore({ filePath: path.join(root, "store.json") });
   const approvals = new Map();
+  let saves = 0;
   store.getReviewApproval = async (approvalId) => structuredClone(approvals.get(approvalId) || null);
   store.saveReviewApproval = async (approval) => {
+    saves += 1;
     if (!approvals.has(approval.approvalId)) approvals.set(approval.approvalId, structuredClone(approval));
     return structuredClone(approvals.get(approval.approvalId));
   };
-  let now = "2026-08-25T08:00:00.000Z";
+  const now = "2026-08-25T08:03:00.000Z";
   const seed = createFulfillmentOrchestrator({
     store,
     handlers: {
@@ -107,7 +119,7 @@ test("private TEST-A operator runner persists review before exact publication an
         };
       },
     },
-    clock: () => now,
+    clock: () => "2026-08-25T08:00:00.000Z",
     tokenFactory: (label) => `seed:${label}`,
     retryPolicy,
   });
@@ -117,188 +129,132 @@ test("private TEST-A operator runner persists review before exact publication an
     providerEventId: "evt_test_001",
     providerPaymentId: "pi_test_001",
     correlation: jobInput().paymentCorrelation,
-    recordedAt: now,
+    recordedAt: "2026-08-25T08:00:00.000Z",
   });
   await seed.runNext(jobInput().jobId);
-
-  const publicationCalls = [];
-  const resendCalls = [];
-  const runner = createTestAOperatorRunner({
+  const runner = createTestAOperatorReviewRunner({
     store,
-    environment: operatorEnvironment(),
-    publicationProvider: {
-      async reconcile(request) {
-        publicationCalls.push({ method: "reconcile", request });
-        return null;
-      },
-      async publish(request) {
-        publicationCalls.push({ method: "publish", request });
-        return {
-          provider: "vercel",
-          providerReceiptId: "deployment_test_001",
-          stableUrl: "https://announcements.example.test/announcements/job_test_001",
-          revisionId: request.revisionId,
-          artifactSetId: request.artifactSetId,
-          artifactManifestDigest: request.artifactManifestDigest,
-          idempotencyKey: request.idempotencyKey,
-        };
-      },
-    },
-    resend: {
-      emails: {
-        async send(payload, options) {
-          resendCalls.push({ payload, options });
-          return { data: { id: "email_test_001" }, error: null };
-        },
-        async get() {
-          return { data: { last_event: "delivered" }, error: null };
-        },
-      },
-    },
-    stageHandlers: {
-      async render_approved() {
-        return { artifactSet: { kind: "prepared_bundle", revisionId: "r1", ...digests } };
-      },
+    environment: {
+      BEBEBONJOUR_APPROVAL_HMAC_KEY: "operator-review-key-with-at-least-thirty-two-bytes",
     },
     clock: () => now,
-    tokenFactory: (label) => `runner:${label}`,
+    tokenFactory: (label) => `review:${label}`,
     retryPolicy,
   });
+  return { approvals, runner, saves: () => saves, store };
+}
 
-  now = "2026-08-25T08:03:00.000Z";
-  const reviewStatus = await runner.status(jobInput().jobId);
+test("review-only runner rejects an unsigned approval without persistence or provider I/O", async (t) => {
+  const fixture = await createReviewFixture(t);
+
   await assert.rejects(
-    runner.persistAndRecordReview(jobInput().jobId, decision()),
+    fixture.runner.persistAndRecordReview(jobInput().jobId, Buffer.from(JSON.stringify(decision()))),
     /signed persisted review approval/i,
   );
-  const wrongManifestApproval = signPersistedReviewApproval({
-    hmacKey: "operator-review-key-with-at-least-thirty-two-bytes",
-    job: reviewStatus,
-    decision: {
-      ...decision(),
-      artifactDigests: {
-        ...decision().artifactDigests,
-        assetManifestDigest: "9".repeat(64),
-      },
-    },
-  });
-  await assert.rejects(
-    runner.persistAndRecordReview(jobInput().jobId, wrongManifestApproval),
-    /exact persisted artifact manifest/i,
-  );
-  assert.equal(approvals.size, 0);
-  const invalidOutcomeApproval = signPersistedReviewApproval({
-    hmacKey: "operator-review-key-with-at-least-thirty-two-bytes",
-    job: reviewStatus,
-    decision: { ...decision(), outcome: "forged" },
-  });
-  await assert.rejects(
-    runner.persistAndRecordReview(jobInput().jobId, invalidOutcomeApproval),
-    /outcome is invalid/i,
-  );
-  assert.equal(approvals.size, 0);
+  assert.equal(fixture.saves(), 0);
+  assert.equal(fixture.approvals.size, 0);
+});
+
+test("review-only runner rejects a forged approval without persistence or provider I/O", async (t) => {
+  const fixture = await createReviewFixture(t);
+  const job = await fixture.store.getJob(jobInput().jobId);
   const approval = signPersistedReviewApproval({
     hmacKey: "operator-review-key-with-at-least-thirty-two-bytes",
-    job: reviewStatus,
+    job,
     decision: decision(),
   });
-  const reviewed = await runner.persistAndRecordReview(jobInput().jobId, approval);
-  assert.equal(reviewed.state, "render_queued");
-  assert.equal((await store.getReviewApproval(reviewed.contentDecision.approvalId)).binding.jobId, jobInput().jobId);
+  approval.signature = "0".repeat(64);
 
-  now = "2026-08-25T08:04:00.000Z";
-  assert.equal((await runner.runNext(jobInput().jobId)).state, "publish_ready");
-  assert.equal((await runner.runNext(jobInput().jobId)).state, "published");
-  await runner.queueDelivery(jobInput().jobId);
-  assert.equal((await runner.runNext(jobInput().jobId)).state, "sent");
-
-  assert.equal(publicationCalls.length, 2);
-  assert.deepEqual(publicationCalls.map(({ method }) => method), ["reconcile", "publish"]);
-  assert.ok(publicationCalls.every(({ request }) => (
-    request.reconciliationCursor === Date.parse("2026-08-25T08:04:00.000Z")
-  )));
-  assert.equal(publicationCalls[0].request.artifactManifestDigest, digests.assetManifestDigest);
-  assert.equal(resendCalls.length, 1);
-  assert.equal(resendCalls[0].payload.to, "delivered@resend.dev");
+  await assert.rejects(
+    fixture.runner.persistAndRecordReview(jobInput().jobId, Buffer.from(JSON.stringify(approval))),
+    /signature verification failed/i,
+  );
+  assert.equal(fixture.saves(), 0);
+  assert.equal(fixture.approvals.size, 0);
 });
 
-test("private TEST-A operator runner fails closed when runtime secrets or exact origin are missing", () => {
-  assert.throws(() => createTestAOperatorRunner({ environment: {} }),
-    /BEBEBONJOUR_APPROVAL_HMAC_KEY is required/);
-  assert.throws(() => createTestAOperatorRunner({
-    environment: {
-      BEBEBONJOUR_APPROVAL_HMAC_KEY: "operator-review-key-with-at-least-thirty-two-bytes",
-    },
-  }), /RESEND_API_KEY is required/);
-  assert.throws(() => createTestAOperatorRunner({
-    environment: {
-      BEBEBONJOUR_APPROVAL_HMAC_KEY: "operator-review-key-with-at-least-thirty-two-bytes",
-      RESEND_API_KEY: "re_private_canary_value",
-      RESEND_FROM: "Bébé Bonjour <onboarding@resend.dev>",
-      TEST_A_PUBLICATION_ORIGIN: "http://announcements.example.test",
-    },
-  }), /exact HTTPS origin/);
-});
-
-test("private TEST-A operator runner rejects every non-reviewed provider identity before provider I/O", () => {
-  let providerIo = 0;
-  const publicationProvider = {
-    async reconcile() { providerIo += 1; },
-    async publish() { providerIo += 1; },
-  };
-  const resend = {
-    emails: {
-      async send() { providerIo += 1; },
-      async get() { providerIo += 1; },
-    },
-  };
-  const mismatches = [
-    { RESEND_FROM: "Contradictory Sender <other@example.test>" },
-    { RESEND_FROM: " Bébé Bonjour <onboarding@resend.dev> " },
-    { TEST_A_PUBLICATION_ORIGIN: "https://bebebonjour-fulfillment.vercel.app" },
-    { TEST_A_PUBLICATION_ORIGIN: "https://announcements.example.test:443" },
-    { TEST_A_PUBLICATION_VERCEL_TEAM_ID: "team_hosted_customer_flow" },
-    { TEST_A_PUBLICATION_VERCEL_TEAM_ID: " team_test_a " },
-    { TEST_A_PUBLICATION_VERCEL_PROJECT_ID: "prj_XJrkufo77hXAdvMuYjPn6F6AVZjn" },
-    { TEST_A_PUBLICATION_VERCEL_PROJECT_NAME: "bebebonjour-fulfillment" },
-  ];
-
-  for (const mismatch of mismatches) {
-    assert.throws(
-      () => createTestAOperatorRunner({
-        environment: operatorEnvironment(mismatch),
-        store: {},
-        publicationProvider,
-        resend,
-      }),
-      /does not match the reviewed TEST-A operator identity/,
-    );
-  }
-  assert.equal(providerIo, 0);
-});
-
-test("private TEST-A operator runner wires production-safe provider, clock, and token defaults", () => {
-  const store = {
-    async getJob() {
-      return null;
-    },
-    async getReviewApproval() {
-      return null;
-    },
-    async saveReviewApproval() {
-      return null;
-    },
-  };
-  const runner = createTestAOperatorRunner({
-    store,
-    environment: operatorEnvironment({
-      VERCEL_TOKEN: "vercel_test_token",
-      TEST_A_PUBLICATION_CANARY_JOB_ID: "job_test_001",
-      TEST_A_PUBLICATION_CANARY_REVISION_ID: "r1",
-      TEST_A_ARTIFACT_ROOT: "/tmp/bebebonjour-test-a-artifacts",
-    }),
-    resend: { emails: { send: async () => null, get: async () => null } },
+test("review-only runner rejects a signed approval bound to a different job", async (t) => {
+  const fixture = await createReviewFixture(t);
+  const currentJob = await fixture.store.getJob(jobInput().jobId);
+  const approval = signPersistedReviewApproval({
+    hmacKey: "operator-review-key-with-at-least-thirty-two-bytes",
+    job: { ...currentJob, jobId: "job_other_001" },
+    decision: decision(),
   });
 
-  assert.equal(typeof runner.runNext, "function");
+  await assert.rejects(
+    fixture.runner.persistAndRecordReview(jobInput().jobId, Buffer.from(`${JSON.stringify(approval)}\n`)),
+    /does not bind the current job run and manifest/i,
+  );
+  assert.equal(fixture.saves(), 0);
+  assert.equal(fixture.approvals.size, 0);
+});
+
+test("review-only runner rejects a stale signed artifact manifest before persistence", async (t) => {
+  const fixture = await createReviewFixture(t);
+  const currentJob = await fixture.store.getJob(jobInput().jobId);
+  const staleDecision = decision();
+  staleDecision.artifactDigests.assetManifestDigest = "f".repeat(64);
+  const approval = signPersistedReviewApproval({
+    hmacKey: "operator-review-key-with-at-least-thirty-two-bytes",
+    job: currentJob,
+    decision: staleDecision,
+  });
+
+  await assert.rejects(
+    fixture.runner.persistAndRecordReview(jobInput().jobId, Buffer.from(`${JSON.stringify(approval)}\n`)),
+    /does not match the exact persisted artifact manifest/i,
+  );
+  assert.equal(fixture.saves(), 0);
+  assert.equal(fixture.approvals.size, 0);
+});
+
+test("review-only runner rejects non-canonical approval transport bytes before persistence", async (t) => {
+  const fixture = await createReviewFixture(t);
+  const currentJob = await fixture.store.getJob(jobInput().jobId);
+  const approval = signPersistedReviewApproval({
+    hmacKey: "operator-review-key-with-at-least-thirty-two-bytes",
+    job: currentJob,
+    decision: decision(),
+  });
+
+  await assert.rejects(
+    fixture.runner.persistAndRecordReview(
+      jobInput().jobId,
+      Buffer.from(`${JSON.stringify(approval, null, 2)}\n`, "utf8"),
+    ),
+    /canonical exact approval bytes/i,
+  );
+  assert.equal(fixture.saves(), 0);
+  assert.equal(fixture.approvals.size, 0);
+});
+
+test("review-only runner persists the exact authenticated approval and records review", async (t) => {
+  const fixture = await createReviewFixture(t);
+  const currentJob = await fixture.store.getJob(jobInput().jobId);
+  const approval = signPersistedReviewApproval({
+    hmacKey: "operator-review-key-with-at-least-thirty-two-bytes",
+    job: currentJob,
+    decision: decision(),
+  });
+  const exactInput = Buffer.from(`${JSON.stringify(approval)}\n`, "utf8");
+
+  const reviewed = await fixture.runner.persistAndRecordReview(jobInput().jobId, exactInput);
+
+  assert.equal(reviewed.state, "render_queued");
+  assert.deepEqual(fixture.approvals.get(approval.approvalId), approval);
+  assert.deepEqual(Buffer.from(`${JSON.stringify(fixture.approvals.get(approval.approvalId))}\n`), exactInput);
+  assert.equal(fixture.saves(), 1);
+});
+
+test("legacy provider-capable runner fails closed before provider construction", () => {
+  let providerConstructions = 0;
+  assert.throws(
+    () => createTestAOperatorRunner({
+      publicationProvider: () => { providerConstructions += 1; },
+      resend: () => { providerConstructions += 1; },
+    }),
+    /status\/review-only.*publication and delivery are disabled/i,
+  );
+  assert.equal(providerConstructions, 0);
 });

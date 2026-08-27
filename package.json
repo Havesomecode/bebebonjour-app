@@ -34,6 +34,7 @@
   },
   "devDependencies": {
     "convex-test": "0.0.41",
-    "typescript": "5.9.3"
+    "typescript": "5.9.3",
+    "vercel": "52.2.0"
   }
 }

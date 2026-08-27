@@ -31,18 +31,21 @@ function environmentValue(name) {
   return matches[0][1];
 }
 
+function assertEnvironmentValueAbsent(name) {
+  assert.equal(new RegExp(`^${name}=`, "m").test(environmentExample), false, `${name} must be absent`);
+}
+
 test("hosted TEST-A artifacts pin CORS and checkout callbacks to the active landing origin", () => {
   assert.equal(environmentValue("CUSTOMER_FLOW_ALLOWED_ORIGINS"), JSON.stringify([landingOrigin]));
   assert.equal(environmentValue("STRIPE_CHECKOUT_SUCCESS_URL"), successUrl);
   assert.equal(environmentValue("STRIPE_CHECKOUT_CANCEL_URL"), cancelUrl);
-  assert.equal(environmentValue("RESEND_FROM"), "Bébé Bonjour <onboarding@resend.dev>");
-  assert.equal(environmentValue("TEST_A_PUBLICATION_ORIGIN"), "https://announcements.example.test");
-  assert.equal(environmentValue("TEST_A_PUBLICATION_VERCEL_TEAM_ID"), "team_test_a");
-  assert.equal(environmentValue("TEST_A_PUBLICATION_VERCEL_PROJECT_ID"), "prj_test_a_announcements");
-  assert.equal(
-    environmentValue("TEST_A_PUBLICATION_VERCEL_PROJECT_NAME"),
-    "bebebonjour-test-a-announcements",
-  );
+  for (const name of [
+    "RESEND_FROM",
+    "TEST_A_PUBLICATION_ORIGIN",
+    "TEST_A_PUBLICATION_VERCEL_TEAM_ID",
+    "TEST_A_PUBLICATION_VERCEL_PROJECT_ID",
+    "TEST_A_PUBLICATION_VERCEL_PROJECT_NAME",
+  ]) assertEnvironmentValueAbsent(name);
 
   assert.deepEqual(providerManifest.vercelApi.allowedOrigins, [landingOrigin]);
   assert.deepEqual(providerManifest.stripe.checkoutCallbacks, {
@@ -91,16 +94,13 @@ test("provider manifest binds one executable least-privilege hosted candidate", 
     preAliasTarget: "vercelFinalDeploymentUrl",
     providerIdEvidence: "required-after-creation",
   });
-  assert.deepEqual(providerManifest.resendOperatorRuntime.identity, {
-    from: "Bébé Bonjour <onboarding@resend.dev>",
-    testSink: "delivered@resend.dev",
-    publication: {
-      stableOrigin: "https://announcements.example.test",
-      teamId: "team_test_a",
-      projectId: "prj_test_a_announcements",
-      projectName: "bebebonjour-test-a-announcements",
-    },
-  });
+  assert.deepEqual(providerManifest.resendOperatorRuntime.capabilities, ["status", "persist-approval"]);
+  assert.equal(providerManifest.resendOperatorRuntime.providerOperationsEnabled, false);
+  assert.equal(Object.hasOwn(providerManifest.resendOperatorRuntime, "identity"), false);
+  assert.equal(
+    providerManifest.resendOperatorRuntime.futurePublicationIdentityAuthority,
+    "parsed exact Vercel inspection bytes for deploymentId, revisionId, buildId, teamId, projectId, and projectName; environment values may only assert expected values",
+  );
 
   assert.deepEqual(providerManifest.operations.map(({ id }) => id), [
     "freeze-signed-candidates",
@@ -120,8 +120,7 @@ test("provider manifest binds one executable least-privilege hosted candidate", 
     "run-synthetic-provider-proof",
     "install-operator-runtime-secrets",
     "persist-human-approval",
-    "publish-approved-test-artifact",
-    "send-resend-test-sink",
+    "keep-provider-effects-disabled",
   ]);
   assert.ok(providerManifest.operations.every(({ requiredEvidence }) => requiredEvidence.length > 0));
   assert.ok(providerManifest.convex.tables.includes("fulfillmentReviewApprovals"));
@@ -139,15 +138,12 @@ test("provider manifest binds one executable least-privilege hosted candidate", 
     ],
   );
   assert.deepEqual(
-    providerManifest.operations.find(({ id }) => id === "publish-approved-test-artifact").requiredEvidence,
+    providerManifest.operations.find(({ id }) => id === "keep-provider-effects-disabled").requiredEvidence,
     [
-      "jobId",
-      "revisionDigest",
-      "artifactManifestDigest",
-      "approvalId",
-      "publicationId",
-      "publicationUrl",
-      "publishedAt",
+      "disabledCommandProof",
+      "providerCredentialsAbsent",
+      "authoritativeInspectionRequirement",
+      "localCliVersion",
     ],
   );
 
@@ -160,17 +156,10 @@ test("provider manifest binds one executable least-privilege hosted candidate", 
     "CONVEX_URL",
     "CUSTOMER_FLOW_BACKEND_TOKEN",
     "BEBEBONJOUR_APPROVAL_HMAC_KEY",
-    "VERCEL_TOKEN",
-    "RESEND_API_KEY",
-    "RESEND_FROM",
-    "TEST_A_PUBLICATION_ORIGIN",
-    "TEST_A_PUBLICATION_VERCEL_TEAM_ID",
-    "TEST_A_PUBLICATION_VERCEL_PROJECT_ID",
-    "TEST_A_PUBLICATION_VERCEL_PROJECT_NAME",
-    "TEST_A_PUBLICATION_CANARY_JOB_ID",
-    "TEST_A_PUBLICATION_CANARY_REVISION_ID",
-    "TEST_A_ARTIFACT_ROOT",
   ]);
+  for (const name of ["VERCEL_TOKEN", "RESEND_API_KEY", "RESEND_FROM", "TEST_A_PUBLICATION_ORIGIN"]) {
+    assert.ok(providerManifest.secretStores.resendOperator.forbidden.includes(name));
+  }
   assert.deepEqual(providerManifest.resendOperatorRuntime.environmentVariables,
     providerManifest.secretStores.resendOperator.allowed);
   assert.equal(providerManifest.rollback.mode, "configuration-only");
@@ -224,4 +213,8 @@ test("TEST-A operator runner is absent from public HTTP and package command surf
   assert.equal(providerManifest.resendOperatorRuntime.publicApiAccess, false);
   assert.match(vercelRoutingVerifier, /inspectGeneratedPublicArtifact\(outputRoot\)/);
   assert.match(vercelRoutingVerifier, /HERMES_VERIFY_RESULT/);
+  assert.equal(packageJson.devDependencies.vercel, "52.2.0");
+  assert.match(vercelRoutingVerifier, /node_modules.*\.bin.*vercel/s);
+  assert.match(vercelRoutingVerifier, /52\.2\.0/);
+  assert.doesNotMatch(vercelRoutingVerifier, /process\.env\.VERCEL_CLI/);
 });

@@ -8,7 +8,10 @@ import test from "node:test";
 import { createExternalEffectStageHandlers } from "../../src/fulfillment/external-effect-stage-handlers.mjs";
 import { createFulfillmentOrchestrator } from "../../src/fulfillment/job-orchestrator.mjs";
 import { createLocalArtifactResolver } from "../../src/fulfillment/local-artifact-resolver.mjs";
-import { createVercelTestAPublicationProvider } from "../../src/fulfillment/vercel-test-a-publication-provider.mjs";
+import {
+  createVercelTestAPublicationProvider,
+  parseAuthoritativeVercelBuildInspection,
+} from "../../src/fulfillment/vercel-test-a-publication-provider.mjs";
 import { createLocalTestFulfillmentStore } from "../../src/persistence/local-test-fulfillment-store.mjs";
 
 const JOB_ID = "job_test_001";
@@ -144,9 +147,24 @@ function vercelConfigurationBytes() {
   }, null, 2)}\n`, "utf8");
 }
 
+function authoritativeBuildInspection(overrides = {}) {
+  return parseAuthoritativeVercelBuildInspection(Buffer.from(`${JSON.stringify({
+    schemaVersion: "1.0",
+    source: "vercel inspect --format=json",
+    deploymentId: "dpl_test_a_001",
+    buildId: "bld_test_a_001",
+    teamId: "team_test_a",
+    projectId: "prj_test_a_announcements",
+    projectName: "bebebonjour-test-a-announcements",
+    revisionId: REVISION_ID,
+    ...overrides,
+  })}\n`, "utf8"));
+}
+
 function createProvider({ calls, fixtureValue, fetchImpl }) {
   return createVercelTestAPublicationProvider({
     token: "vercel_test_token",
+    buildInspection: authoritativeBuildInspection(),
     teamId: "team_test_a",
     projectId: "prj_test_a_announcements",
     projectName: "bebebonjour-test-a-announcements",
@@ -162,6 +180,79 @@ function createProvider({ calls, fixtureValue, fetchImpl }) {
     maxPollAttempts: 3,
   });
 }
+
+test("Vercel TEST-A provider rejects raw configured identity without authoritative build inspection", async (t) => {
+  await fixture(t);
+  assert.throws(
+    () => createVercelTestAPublicationProvider({
+      token: "vercel_test_token",
+      teamId: "team_test_a",
+      projectId: "prj_test_a_announcements",
+      projectName: "bebebonjour-test-a-announcements",
+      canaryRevisionId: REVISION_ID,
+    }),
+    /authoritative Vercel build inspection is required/i,
+  );
+});
+
+test("Vercel TEST-A provider parses exact deployment, revision, build, and project inspection bytes", () => {
+  const inspection = authoritativeBuildInspection();
+
+  assert.deepEqual({ ...inspection }, {
+    deploymentId: "dpl_test_a_001",
+    buildId: "bld_test_a_001",
+    teamId: "team_test_a",
+    projectId: "prj_test_a_announcements",
+    projectName: "bebebonjour-test-a-announcements",
+    revisionId: REVISION_ID,
+  });
+  assert.equal(Object.isFrozen(inspection), true);
+});
+
+test("Vercel TEST-A provider rejects unparsed or incomplete inspection assertions", () => {
+  assert.throws(
+    () => createVercelTestAPublicationProvider({
+      token: "vercel_test_token",
+      buildInspection: {
+        source: "vercel inspect --format=json",
+        deploymentId: "dpl_test_a_001",
+        buildId: "bld_test_a_001",
+        teamId: "team_test_a",
+        projectId: "prj_test_a_announcements",
+        projectName: "bebebonjour-test-a-announcements",
+        revisionId: REVISION_ID,
+      },
+    }),
+    /parsed authoritative Vercel inspection bytes/i,
+  );
+  assert.throws(
+    () => parseAuthoritativeVercelBuildInspection(Buffer.from(JSON.stringify({
+      schemaVersion: "1.0",
+      source: "vercel inspect --format=json",
+      buildId: "bld_test_a_001",
+      teamId: "team_test_a",
+      projectId: "prj_test_a_announcements",
+      projectName: "bebebonjour-test-a-announcements",
+      revisionId: REVISION_ID,
+    }))),
+    /deployment id is required/i,
+  );
+});
+
+test("Vercel TEST-A provider treats configured identity only as expected-value assertions", () => {
+  assert.throws(
+    () => createVercelTestAPublicationProvider({
+      token: "vercel_test_token",
+      buildInspection: authoritativeBuildInspection({
+        teamId: "team_authoritative",
+        projectId: "prj_authoritative",
+        projectName: "authoritative-project",
+      }),
+      teamId: "team_raw_environment",
+    }),
+    /expected-value assertion does not match authoritative Vercel build inspection/i,
+  );
+});
 
 function publicManifestFor(value) {
   const configurationBytes = vercelConfigurationBytes();
@@ -1520,6 +1611,7 @@ test("a stale Vercel worker cannot invoke its alias callback after its persisted
 
   const provider = createVercelTestAPublicationProvider({
     token: "vercel_test_token",
+    buildInspection: authoritativeBuildInspection(),
     teamId: "team_test_a",
     projectId: "prj_test_a_announcements",
     projectName: "bebebonjour-test-a-announcements",
