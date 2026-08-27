@@ -51,6 +51,8 @@ export function normalizeTallyIntake(event, { expectedFormId, fieldMap }) {
     fieldMap.extraRequest,
     fieldMap.arabicName,
     fieldMap.birthDate,
+    `${fieldMap.consent}_${fieldMap.consentOption}`,
+    ...Object.keys(fieldMap.languageOptions).map((option) => `${fieldMap.languages}_${option}`),
   ].filter(Boolean));
   if (event.data.fields.some((field) => !field || !approvedFieldKeys.has(field.key))) {
     throw invalid("unexpected_tally_field");
@@ -59,14 +61,37 @@ export function normalizeTallyIntake(event, { expectedFormId, fieldMap }) {
   if (fields.size !== event.data.fields.length) {
     throw invalid("duplicate_tally_field");
   }
+  validateFieldTypes(fields, [
+    [fieldMap.email, "INPUT_EMAIL", true],
+    [fieldMap.consent, "CHECKBOXES", false],
+    [fieldMap.languages, "CHECKBOXES", true],
+    [fieldMap.voice, "MULTIPLE_CHOICE", true],
+    [fieldMap.firstName, "INPUT_TEXT", true],
+    [fieldMap.arabicName, "INPUT_TEXT", false],
+    [fieldMap.birthDate, "INPUT_DATE", false],
+    [fieldMap.babyGender, "MULTIPLE_CHOICE", true],
+    [fieldMap.context, "MULTIPLE_CHOICE", true],
+    [fieldMap.extraRequest, "TEXTAREA", false],
+  ]);
   const email = requiredText(fields, fieldMap.email, 254).toLowerCase();
   const consent = requiredSelections(fields, fieldMap.consent, "consent_required");
+  validateCheckboxExpansions(fields, fieldMap.consent, [fieldMap.consentOption], consent);
   if (!consent.includes(fieldMap.consentOption)) {
     throw invalid("consent_required");
   }
+  if (consent.length !== 1) {
+    throw invalid("invalid_tally_consent");
+  }
 
+  const languageSelections = requiredSelections(fields, fieldMap.languages);
+  validateCheckboxExpansions(
+    fields,
+    fieldMap.languages,
+    Object.keys(fieldMap.languageOptions),
+    languageSelections,
+  );
   const languages = mapSelections(
-    requiredSelections(fields, fieldMap.languages),
+    languageSelections,
     fieldMap.languageOptions,
     "languages",
   );
@@ -164,6 +189,32 @@ function requiredSelections(fields, key, errorCode = "invalid_tally_fields") {
   return value;
 }
 
+function validateFieldTypes(fields, expectedFields) {
+  for (const [key, expectedType, required] of expectedFields) {
+    if (!key) continue;
+    const field = fields.get(key);
+    if (field === undefined) {
+      if (required) throw invalid("invalid_tally_fields");
+      continue;
+    }
+    if (field.type !== expectedType) {
+      throw invalid("invalid_tally_field_type");
+    }
+  }
+}
+
+function validateCheckboxExpansions(fields, parentKey, optionIds, selections) {
+  for (const optionId of optionIds) {
+    const expansion = fields.get(`${parentKey}_${optionId}`);
+    if (expansion === undefined) continue;
+    if (expansion.type !== "CHECKBOXES"
+        || typeof expansion.value !== "boolean"
+        || expansion.value !== selections.includes(optionId)) {
+      throw invalid("invalid_tally_checkbox_expansion");
+    }
+  }
+}
+
 function singleMappedSelection(fields, key, options, label) {
   const selections = requiredSelections(fields, key);
   if (selections.length !== 1) throw invalid(`invalid_tally_${label}`);
@@ -171,8 +222,11 @@ function singleMappedSelection(fields, key, options, label) {
 }
 
 function mapSelections(selections, options, label) {
+  if (selections.some((selection) => !Object.hasOwn(options, selection))) {
+    throw invalid(`invalid_tally_${label}`);
+  }
   const values = selections.map((selection) => options[selection]);
-  if (values.some((value) => !value) || new Set(values).size !== values.length) {
+  if (new Set(values).size !== values.length) {
     throw invalid(`invalid_tally_${label}`);
   }
   return values;

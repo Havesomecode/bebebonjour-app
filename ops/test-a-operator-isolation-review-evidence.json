@@ -249,7 +249,7 @@
       },
       {
         "path": "ops/test-a-consolidated-candidate-evidence.json",
-        "sha256": "ef676aec2ae1df03277f7bb6b944637fc222d6564cc4ffe91c271384acb5caa0"
+        "sha256": "17c8740ee13ecab598f3f892acc0833657ac38dbb2f44e681ba660d8a96df0ea"
       },
       {
         "path": "ops/test-a-hosted-provider-manifest.json",
@@ -341,7 +341,7 @@
       },
       {
         "path": "src/customer-flow/tally-intake.mjs",
-        "sha256": "406bab264b5b68f812ad9e1acdd95d5f76db8effd1ec6e13538b5cd8e9ab6469"
+        "sha256": "de73db43e20d51c232e3aa301a55b4452fa780aed1939275492084ccac063030"
       },
       {
         "path": "src/fulfillment/exact-revision-publication-adapter.mjs",
@@ -449,7 +449,7 @@
       },
       {
         "path": "test/customer-flow/tally-intake.test.mjs",
-        "sha256": "9fb20c25ffefc0cbd15526c21f9f869e0fea6cc1df00f749a0b5423e4c63817e"
+        "sha256": "77f0e8b7ec7e8b5b5052c73b1a65b618faf4bd29c1973cad38f6d30ae795402a"
       },
       {
         "path": "test/fixtures/tally-intake-field-map.json",

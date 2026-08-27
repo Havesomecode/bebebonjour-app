@@ -49,6 +49,99 @@ test("Tally intake normalizes to the canonical unpaid customer-flow contract", (
   assert.equal(JSON.stringify(result).includes("payment"), false);
 });
 
+test("Tally intake accepts exact provider checkbox expansion rows", () => {
+  const expanded = structuredClone(fixture);
+  expanded.data.fields.find(({ key }) => key === "question_languages").value = ["option_fr"];
+  expanded.data.fields.push(
+    {
+      key: "question_consent_option_consent_yes",
+      label: "Consentement (Oui)",
+      type: "CHECKBOXES",
+      value: true,
+    },
+    {
+      key: "question_languages_option_fr",
+      label: "Langues (Français)",
+      type: "CHECKBOXES",
+      value: true,
+    },
+    {
+      key: "question_languages_option_ar",
+      label: "Langues (Arabe)",
+      type: "CHECKBOXES",
+      value: false,
+    },
+  );
+
+  const result = normalizeTallyIntake(expanded, {
+    expectedFormId: "form_intake_001",
+    fieldMap,
+  });
+
+  assert.deepEqual(result.intake.languages, ["fr"]);
+  assert.equal(result.intake.customer.consent, true);
+});
+
+test("Tally intake rejects inconsistent provider checkbox expansion rows", () => {
+  const inconsistent = structuredClone(fixture);
+  inconsistent.data.fields.push({
+    key: "question_languages_option_fr",
+    label: "Langues (Français)",
+    type: "CHECKBOXES",
+    value: false,
+  });
+
+  assert.throws(
+    () => normalizeTallyIntake(inconsistent, {
+      expectedFormId: "form_intake_001",
+      fieldMap,
+    }),
+    (error) => error?.code === "invalid_tally_checkbox_expansion",
+  );
+});
+
+test("Tally intake rejects unknown consent selections", () => {
+  const unknownConsent = structuredClone(fixture);
+  unknownConsent.data.fields.find(({ key }) => key === "question_consent").value = [
+    "option_consent_yes",
+    "rogue",
+  ];
+
+  assert.throws(
+    () => normalizeTallyIntake(unknownConsent, {
+      expectedFormId: "form_intake_001",
+      fieldMap,
+    }),
+    (error) => error?.code === "invalid_tally_consent",
+  );
+});
+
+test("Tally intake rejects inherited option names", () => {
+  const inheritedOption = structuredClone(fixture);
+  inheritedOption.data.fields.find(({ key }) => key === "question_languages").value = ["toString"];
+
+  assert.throws(
+    () => normalizeTallyIntake(inheritedOption, {
+      expectedFormId: "form_intake_001",
+      fieldMap,
+    }),
+    (error) => error?.code === "invalid_tally_languages",
+  );
+});
+
+test("Tally intake rejects payment-typed approved parent fields", () => {
+  const paymentParent = structuredClone(fixture);
+  paymentParent.data.fields.find(({ key }) => key === "question_languages").type = "PAYMENT";
+
+  assert.throws(
+    () => normalizeTallyIntake(paymentParent, {
+      expectedFormId: "form_intake_001",
+      fieldMap,
+    }),
+    (error) => error?.code === "invalid_tally_field_type",
+  );
+});
+
 test("Tally intake requires explicit consent and rejects unmapped fields", () => {
   const withoutConsent = structuredClone(fixture);
   withoutConsent.data.fields.find(({ key }) => key === "question_consent").value = [];
