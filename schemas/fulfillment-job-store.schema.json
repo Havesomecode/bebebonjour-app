@@ -122,6 +122,7 @@
       ],
       "properties": {
         "artifact_set_id": { "type": "string", "pattern": "^artifacts_[a-f0-9]{24}$" },
+        "operations_command_id": { "type": "string", "pattern": "^command_[A-Za-z0-9][A-Za-z0-9_-]{7,127}$" },
         "kind": { "enum": ["private_review", "prepared_bundle", "narration_review"] },
         "revision_id": { "$ref": "#/$defs/revision_id" },
         "page_digest": { "$ref": "#/$defs/digest" },
@@ -167,6 +168,7 @@
       "properties": {
         "decision_id": { "type": "string", "pattern": "^review_[a-f0-9]{24}$" },
         "approval_id": { "type": "string", "pattern": "^approval_[a-f0-9]{24}$" },
+        "operations_command_id": { "type": "string", "pattern": "^command_[A-Za-z0-9][A-Za-z0-9_-]{7,127}$" },
         "decision_type": { "enum": ["content", "narration"] },
         "revision_id": { "$ref": "#/$defs/revision_id" },
         "outcome": { "enum": ["approved", "request_changes", "rejected"] },
@@ -226,6 +228,7 @@
         "attempt_number": { "type": "integer", "minimum": 1 },
         "operation_number": { "type": "integer", "minimum": 1 },
         "idempotency_key": { "type": "string", "pattern": "^bb_[a-f0-9]{64}$" },
+        "operations_command_id": { "type": "string", "pattern": "^command_[A-Za-z0-9][A-Za-z0-9_-]{7,127}$" },
         "operation_binding": {
           "oneOf": [
             { "$ref": "#/$defs/operation_binding" },
@@ -279,6 +282,7 @@
         "stable_url": { "type": "string", "minLength": 1 },
         "artifact_manifest_digest": { "$ref": "#/$defs/digest" },
         "provider_receipt_id": { "type": "string", "minLength": 1 },
+        "operations_command_id": { "type": "string", "pattern": "^command_[A-Za-z0-9][A-Za-z0-9_-]{7,127}$" },
         "idempotency_key": { "type": "string", "pattern": "^bb_[a-f0-9]{64}$" },
         "status": { "const": "published" }
       }
@@ -300,6 +304,7 @@
         "provider": { "type": "string", "minLength": 1 },
         "revision_id": { "$ref": "#/$defs/revision_id" },
         "provider_message_id": { "type": "string", "minLength": 1 },
+        "operations_command_id": { "type": "string", "pattern": "^command_[A-Za-z0-9][A-Za-z0-9_-]{7,127}$" },
         "idempotency_key": { "type": "string", "pattern": "^bb_[a-f0-9]{64}$" },
         "target_ref": { "type": "string", "minLength": 1 },
         "status": { "enum": ["sent", "delivered"] },

@@ -1,0 +1,79 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://bebebonjour.local/schemas/job-scoped-editorial-approval.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "approvalType",
+    "jobId",
+    "policy",
+    "sourceEvidence",
+    "sourceDigest"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "const": "1.0"
+    },
+    "approvalType": {
+      "const": "job_scoped_editorial_policy"
+    },
+    "jobId": {
+      "type": "string",
+      "pattern": "^job_[A-Za-z0-9][A-Za-z0-9_-]{2,127}$"
+    },
+    "policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "preserveSubmittedName",
+        "meaningAllowed",
+        "scripturalNameAssociationAllowed",
+        "genericBlessingsAllowed",
+        "maxStage"
+      ],
+      "properties": {
+        "id": {
+          "const": "unknown_name_general_wishes"
+        },
+        "preserveSubmittedName": {
+          "const": true
+        },
+        "meaningAllowed": {
+          "const": false
+        },
+        "scripturalNameAssociationAllowed": {
+          "const": false
+        },
+        "genericBlessingsAllowed": {
+          "const": true
+        },
+        "maxStage": {
+          "const": "content_review_required"
+        }
+      }
+    },
+    "sourceEvidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "reference"
+      ],
+      "properties": {
+        "kind": {
+          "const": "kanban_human_decision"
+        },
+        "reference": {
+          "type": "string",
+          "pattern": "^kanban:t_[A-Za-z0-9_-]{3,128}$"
+        }
+      }
+    },
+    "sourceDigest": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    }
+  }
+}

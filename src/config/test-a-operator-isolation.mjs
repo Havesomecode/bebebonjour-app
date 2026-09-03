@@ -4,12 +4,20 @@ import path from "node:path";
 
 const PUBLIC_CAPABILITY_MARKERS = Object.freeze([
   "operator-runner-test-a",
+  "run-test-a-generation",
+  "test-a-generation-runner",
+  "test-a-generation-startup",
   "test-a-operator-startup",
   "test-a-operator-runtime-identity",
 ]);
 const PRIVATE_CAPABILITY_MODULES = Object.freeze([
   "ops/run-test-a-operator.mjs",
+  "ops/run-test-a-generation.mjs",
+  "src/fulfillment/job-scoped-generation-approval.mjs",
+  "src/fulfillment/local-prepare-review-stage-handler.mjs",
   "src/fulfillment/operator-runner-test-a.mjs",
+  "src/fulfillment/test-a-generation-runner.mjs",
+  "src/fulfillment/test-a-generation-startup.mjs",
   "src/fulfillment/test-a-operator-runtime-identity.mjs",
   "src/fulfillment/test-a-operator-startup.mjs",
 ]);
@@ -31,6 +39,8 @@ export async function createTestAOperatorIsolationInventory(options) {
   const publicModuleGraph = await traceLocalModuleGraph(rootPath, publicEntrypoints);
   const privateInvocation = PRIVATE_CAPABILITY_MODULES[0];
   const privateModuleGraph = await traceLocalModuleGraph(rootPath, [privateInvocation]);
+  const generationInvocation = "ops/run-test-a-generation.mjs";
+  const generationModuleGraph = await traceLocalModuleGraph(rootPath, [generationInvocation]);
 
   for (const privateModule of PRIVATE_CAPABILITY_MODULES) {
     if (publicModuleGraph.includes(privateModule)) {
@@ -51,7 +61,10 @@ export async function createTestAOperatorIsolationInventory(options) {
   }
 
   const packageJson = JSON.parse(await readFile(path.join(rootPath, "package.json"), "utf8"));
-  const packageCommandReferences = findPrivateInvocationPackageCommands(packageJson, privateInvocation);
+  const packageCommandReferences = [
+    ...findPrivateInvocationPackageCommands(packageJson, privateInvocation),
+    ...findPrivateInvocationPackageCommands(packageJson, generationInvocation),
+  ];
   if (packageCommandReferences.length > 0) {
     throw new Error("Package command surface exposes the private TEST-A operator invocation.");
   }
@@ -74,8 +87,26 @@ export async function createTestAOperatorIsolationInventory(options) {
   if (startupImporters.length !== 1 || startupImporters[0] !== privateInvocation) {
     throw new Error("Private TEST-A operator startup must have exactly one non-test invocation.");
   }
+  const generationStartupImporters = [];
+  for (const filePath of nonTestModules) {
+    const source = await readFile(filePath, "utf8");
+    if (
+      staticImportSpecifiers(source)
+        .some((specifier) => specifier.endsWith("/test-a-generation-startup.mjs"))
+    ) {
+      generationStartupImporters.push(relativePath(rootPath, filePath));
+    }
+  }
+  if (
+    generationStartupImporters.length !== 1
+    || generationStartupImporters[0] !== generationInvocation
+  ) {
+    throw new Error("Private TEST-A generation startup must have exactly one non-test invocation.");
+  }
 
   return Object.freeze({
+    generationInvocation,
+    generationModuleGraph,
     packageCommandReferences,
     privateCapabilityModules: [...PRIVATE_CAPABILITY_MODULES],
     privateInvocation,
@@ -87,6 +118,7 @@ export async function createTestAOperatorIsolationInventory(options) {
       ...REVIEW_ROOT_INPUTS,
       ...publicModuleGraph,
       ...privateModuleGraph,
+      ...generationModuleGraph,
     ])].sort(),
   });
 }

@@ -8,6 +8,7 @@ import { createTestAOperatorIsolationInventory } from "../src/config/test-a-oper
 
 const BASELINE_COMMIT = "9c8721d3a3c10657fbcca4eb6020aca5e4b2888f";
 const EVIDENCE_RELATIVE_PATH = "ops/test-a-operator-isolation-review-evidence.json";
+const EXCLUDED_WORKTREE_PATHS = new Set(["ops/.tmp-hermes-simulate-test-payment.mjs"]);
 const rootPath = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const evidencePath = path.join(rootPath, EVIDENCE_RELATIVE_PATH);
 
@@ -46,6 +47,8 @@ const generatedEvidence = {
     reviewedFileDigests,
   },
   isolation: {
+    generationInvocation: isolation.generationInvocation,
+    generationModuleGraph: isolation.generationModuleGraph,
     privateInvocation: isolation.privateInvocation,
     publicEntrypoints: isolation.publicEntrypoints,
     publicModuleGraph: isolation.publicModuleGraph,
@@ -83,7 +86,7 @@ function changedPathsFromBaseline() {
     ...lines(diffPaths),
     ...lines(untrackedPaths),
     EVIDENCE_RELATIVE_PATH,
-  ])].sort();
+  ])].filter((filePath) => !EXCLUDED_WORKTREE_PATHS.has(filePath)).sort();
 }
 
 function git(args) {

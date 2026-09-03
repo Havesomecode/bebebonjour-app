@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 
 export const EXPECTED_TEST_A_HOSTED_PROVIDER_MANIFEST_SHA256 =
-  "70ccc739189d76e7f68b10261d3d21b1ef84e7a026f7a42aadb57c8ab9f8cdb6";
+  "6f96a597e2741f79a2050e4ad62cfb27a5f3d497a4974b1aad62c5f46786f31d";
 
 const manifestUrl = new URL("../../ops/test-a-hosted-provider-manifest.json", import.meta.url);
 
@@ -76,6 +76,101 @@ export function loadReviewedTestAOperatorPolicy(
 }
 
 export const REVIEWED_TEST_A_OPERATOR_POLICY = loadReviewedTestAOperatorPolicy(
+  readFileSync(manifestUrl),
+);
+
+export function loadReviewedTestAGenerationPolicy(
+  manifestBytes,
+  { expectedDigest = EXPECTED_TEST_A_HOSTED_PROVIDER_MANIFEST_SHA256 } = {},
+) {
+  const bytes = Buffer.isBuffer(manifestBytes) ? manifestBytes : Buffer.from(manifestBytes);
+  const manifestSha256 = createHash("sha256").update(bytes).digest("hex");
+  if (manifestSha256 !== expectedDigest) {
+    throw new Error("TEST-A hosted provider manifest digest does not match generation authority.");
+  }
+  let manifest;
+  try {
+    manifest = JSON.parse(bytes);
+  } catch (error) {
+    throw new Error("TEST-A hosted provider manifest is not valid JSON.", { cause: error });
+  }
+  if (manifest?.schemaVersion !== "2.0") {
+    throw new Error("TEST-A hosted provider manifest schema version is not supported.");
+  }
+
+  const runtime = requireRecord(manifest.generationOperatorRuntime, "generation operator runtime policy");
+  requireExactKeys(runtime, [
+    "authorityInputs",
+    "capabilities",
+    "environmentVariables",
+    "localConfiguration",
+    "providerOperationsEnabled",
+    "publicApiAccess",
+    "stages",
+  ], "generation operator runtime policy");
+  const authorityInputs = requireUniqueStringArray(
+    runtime.authorityInputs,
+    "generation operator authority inputs",
+  );
+  const capabilities = requireUniqueStringArray(runtime.capabilities, "generation operator capabilities");
+  const runtimeEnvironmentVariables = requireUniqueStringArray(
+    runtime.environmentVariables,
+    "generation operator runtime environment variables",
+  );
+  const localConfiguration = requireUniqueStringArray(
+    runtime.localConfiguration,
+    "generation operator local configuration",
+  );
+  const stages = requireUniqueStringArray(runtime.stages, "generation operator stages");
+  if (
+    JSON.stringify(authorityInputs) !== JSON.stringify([
+      "jobId",
+      "privateArtifactRoot",
+      "jobScopedEditorialApprovalRecord",
+    ])
+    || JSON.stringify(capabilities) !== JSON.stringify(["prepare-review"])
+    || JSON.stringify(runtimeEnvironmentVariables) !== JSON.stringify([
+      "CONVEX_URL",
+      "CUSTOMER_FLOW_BACKEND_TOKEN",
+    ])
+    || JSON.stringify(localConfiguration) !== JSON.stringify(["privateArtifactRoot"])
+    || JSON.stringify(stages) !== JSON.stringify(["prepare_review"])
+    || runtime.providerOperationsEnabled !== false
+    || runtime.publicApiAccess !== false
+  ) {
+    throw new Error("TEST-A generation authority must remain isolated to prepare_review.");
+  }
+  const secretStore = requireRecord(
+    manifest.secretStores?.generationOperator,
+    "generation operator secret-store policy",
+  );
+  const allowedEnvironmentVariables = requireUniqueStringArray(
+    secretStore.allowed,
+    "generation operator allowed environment variables",
+  );
+  const forbiddenEnvironmentVariables = requireUniqueStringArray(
+    secretStore.forbidden,
+    "generation operator forbidden environment variables",
+  );
+  if (
+    JSON.stringify(allowedEnvironmentVariables) !== JSON.stringify(runtimeEnvironmentVariables)
+    || allowedEnvironmentVariables.some((name) => forbiddenEnvironmentVariables.includes(name))
+  ) {
+    throw new Error("TEST-A generation environment does not match its isolated secret-store policy.");
+  }
+  return deepFreeze({
+    allowedEnvironmentVariables,
+    authorityInputs,
+    capabilities,
+    forbiddenEnvironmentVariables,
+    localConfiguration,
+    manifestSha256,
+    runtimeEnvironmentVariables,
+    stages,
+  });
+}
+
+export const REVIEWED_TEST_A_GENERATION_POLICY = loadReviewedTestAGenerationPolicy(
   readFileSync(manifestUrl),
 );
 

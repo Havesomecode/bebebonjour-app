@@ -18,6 +18,7 @@ import {
   reconcileDeliveryTransition,
   recordPaymentTransition,
   recordReviewDecisionTransition,
+  recoverFailedPrepareReviewTransition,
   resumeRetryTransition,
 } from "../fulfillment/job-machine.mjs";
 
@@ -210,6 +211,10 @@ export function createLocalTestFulfillmentStore({ filePath }) {
 
     failStage(jobId, failure, policy, at) {
       return change(jobId, (aggregate) => failStageTransition(aggregate, failure, policy, at));
+    },
+
+    recoverFailedPrepareReview(jobId, recovery, at) {
+      return change(jobId, (aggregate) => recoverFailedPrepareReviewTransition(aggregate, recovery, at));
     },
 
     resumeRetry(jobId, command, at) {

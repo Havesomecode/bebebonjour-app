@@ -25,7 +25,11 @@ export class CustomerFlowError extends Error {
   }
 }
 
-export function createCustomerFlowService({
+export function createCustomerFlowService(options) {
+  return createCustomerFlowRuntime(options).customerService;
+}
+
+export function createCustomerFlowRuntime({
   store,
   paymentGateway,
   fulfillmentOrchestrator = null,
@@ -48,12 +52,17 @@ export function createCustomerFlowService({
 
   const pendingCheckouts = new Map();
 
-  return {
-    submitIntake,
-    getStatus,
-    createCheckout,
-    recordPaymentSucceeded,
-  };
+  return Object.freeze({
+    customerService: Object.freeze({
+      submitIntake,
+      getStatus,
+      createCheckout,
+      recordPaymentSucceeded,
+    }),
+    operationsCheckout: Object.freeze({
+      createCheckout: createCheckoutAsOperator,
+    }),
+  });
 
   async function submitIntake(input, options = {}) {
     const intake = normalizeIntake(input, syntheticOnly);
@@ -111,15 +120,28 @@ export function createCustomerFlowService({
 
   async function createCheckout(jobId, intakeToken) {
     const job = await authenticatedJob(jobId, intakeToken);
-    if (job.payment.checkout) return checkoutResponse(job);
-    if (pendingCheckouts.has(jobId)) return pendingCheckouts.get(jobId);
+    return startCheckout(job, null);
+  }
 
-    const operation = createCheckoutForJob(job).finally(() => pendingCheckouts.delete(jobId));
-    pendingCheckouts.set(jobId, operation);
+  async function createCheckoutAsOperator(jobId, operationsCommandId) {
+    const normalizedCommandId = normalizeOperationsCommandId(operationsCommandId);
+    if (!isNonEmptyString(jobId)) throw notFound();
+    const job = await store.readJob(jobId);
+    if (!job) throw notFound();
+    return startCheckout(job, normalizedCommandId);
+  }
+
+  function startCheckout(job, operationsCommandId) {
+    if (job.payment.checkout) return checkoutResponse(job);
+    if (pendingCheckouts.has(job.jobId)) return pendingCheckouts.get(job.jobId);
+
+    const operation = createCheckoutForJob(job, operationsCommandId)
+      .finally(() => pendingCheckouts.delete(job.jobId));
+    pendingCheckouts.set(job.jobId, operation);
     return operation;
   }
 
-  async function createCheckoutForJob(job) {
+  async function createCheckoutForJob(job, operationsCommandId) {
     const metadata = paymentMetadata(job);
     const session = await paymentGateway.createCheckoutSession({
       amountMinor: PRICE_MINOR,
@@ -142,6 +164,7 @@ export function createCustomerFlowService({
         mode: "test",
         metadata,
         createdAt: now(),
+        ...(operationsCommandId ? { operationsCommandId } : {}),
       };
       current.updatedAt = now();
       return current;
@@ -468,6 +491,16 @@ function isIsoDate(value) {
   if (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
   const date = new Date(`${value}T00:00:00.000Z`);
   return !Number.isNaN(date.valueOf()) && date.toISOString().startsWith(value);
+}
+
+const OPERATIONS_COMMAND_ID_PATTERN = /^command_[A-Za-z0-9][A-Za-z0-9_-]{7,127}$/u;
+
+function normalizeOperationsCommandId(value) {
+  if (value === undefined || value === null) return null;
+  if (typeof value !== "string" || !OPERATIONS_COMMAND_ID_PATTERN.test(value)) {
+    throw new CustomerFlowError(400, "invalid_operations_command", "Operations command provenance is invalid.");
+  }
+  return value;
 }
 
 function isNonEmptyString(value) {

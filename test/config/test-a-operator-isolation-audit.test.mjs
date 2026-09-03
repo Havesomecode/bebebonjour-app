@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
+import { readFileSync } from "node:fs";
 import test from "node:test";
 
 const audit = spawnSync(process.execPath, ["ops/test-a-consolidated-candidate-audit.mjs"], {
@@ -21,8 +22,16 @@ test("successor consolidated audit binds the complete reviewed source boundary",
   assert.equal(result.pathAllowlistCount, result.changedPathCount);
   assert.ok(result.reviewInputCount > 20);
   assert.ok(result.reviewInputCount <= result.pathAllowlistCount);
-  assert.equal(result.controlCount, 5);
-  assert.equal(result.focusedTestFileCount, 8);
+  assert.equal(result.controlCount, 6);
+  assert.equal(result.focusedTestFileCount, 14);
   assert.match(result.reviewedManifestSha256, /^[a-f0-9]{64}$/u);
   assert.equal(result.providerMutation, "none");
+  const evidence = JSON.parse(readFileSync(
+    new URL("../../ops/test-a-consolidated-candidate-evidence.json", import.meta.url),
+    "utf8",
+  ));
+  assert.equal(
+    evidence.candidateBoundary.changedPaths.includes("ops/.tmp-hermes-simulate-test-payment.mjs"),
+    false,
+  );
 });

@@ -190,6 +190,74 @@ async function reachPublishReady(orchestrator) {
   await orchestrator.runNext("job_synthetic_001");
 }
 
+test("operations command provenance survives every canonical stage boundary", async (t) => {
+  const { orchestrator, store, calls } = await fixture(t);
+  await orchestrator.createJob(syntheticJob(), { commandId: "create-job-provenance" });
+  await orchestrator.recordPayment("job_synthetic_001", {
+    commandId: "payment-provenance",
+    providerEventId: "evt_test_provenance_001",
+    providerPaymentId: "pi_test_provenance_001",
+    correlation: syntheticJob().paymentCorrelation,
+    recordedAt: "2026-08-11T00:01:00.000Z",
+  });
+
+  const generateCommandId = "command_ops_generate_000001";
+  let operationBoundaries = 0;
+  await orchestrator.runExpectedStage("job_synthetic_001", "prepare_review", {
+    operationsCommandId: generateCommandId,
+    operationsEffectBoundary: async ({ operationsCommandId, stage }, invokeStage) => {
+      const running = await store.getJob("job_synthetic_001");
+      assert.equal(running.state, "generating");
+      assert.equal(running.stageAttempts.at(-1).operationsCommandId, generateCommandId);
+      assert.equal(operationsCommandId, generateCommandId);
+      assert.equal(stage, "prepare_review");
+      operationBoundaries += 1;
+      return invokeStage();
+    },
+  });
+  assert.equal(operationBoundaries, 1);
+  let aggregate = await store.getJob("job_synthetic_001");
+  assert.equal(aggregate.stageAttempts.at(-1).operationsCommandId, generateCommandId);
+  assert.equal(aggregate.artifactSets.at(-1).operationsCommandId, generateCommandId);
+  assert.equal(calls.at(-1).stage, "prepare_review");
+
+  const reviewCommandId = "command_ops_review_000001";
+  await orchestrator.recordReviewDecision("job_synthetic_001", {
+    ...approvedContentDecision(),
+    commandId: reviewCommandId,
+    operationsCommandId: reviewCommandId,
+  });
+  aggregate = await store.getJob("job_synthetic_001");
+  assert.equal(aggregate.reviewDecisions.at(-1).operationsCommandId, reviewCommandId);
+
+  const renderCommandId = "command_ops_render_000001";
+  await orchestrator.runExpectedStage("job_synthetic_001", "render_approved", {
+    operationsCommandId: renderCommandId,
+  });
+  aggregate = await store.getJob("job_synthetic_001");
+  assert.equal(aggregate.artifactSets.at(-1).operationsCommandId, renderCommandId);
+
+  const publishCommandId = "command_ops_publish_000001";
+  await orchestrator.runExpectedStage("job_synthetic_001", "publish", {
+    operationsCommandId: publishCommandId,
+  });
+  aggregate = await store.getJob("job_synthetic_001");
+  assert.equal(aggregate.publication.operationsCommandId, publishCommandId);
+
+  const queueCommandId = "command_ops_queue_delivery_000001";
+  await orchestrator.queueDelivery("job_synthetic_001", { commandId: queueCommandId });
+  aggregate = await store.getJob("job_synthetic_001");
+  assert.equal(aggregate.events.at(-1).commandId, queueCommandId);
+  assert.equal(aggregate.events.at(-1).type, "delivery_queued");
+
+  const deliverCommandId = "command_ops_deliver_000001";
+  await orchestrator.runExpectedStage("job_synthetic_001", "deliver", {
+    operationsCommandId: deliverCommandId,
+  });
+  aggregate = await store.getJob("job_synthetic_001");
+  assert.equal(aggregate.deliveryAttempts.at(-1).operationsCommandId, deliverCommandId);
+});
+
 test("review decisions require a trusted verifier before the state transition", async (t) => {
   const { orchestrator } = await fixture(t, {
     handlers: { verify_review_decision: undefined },

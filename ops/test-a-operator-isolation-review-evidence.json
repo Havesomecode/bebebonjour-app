@@ -10,6 +10,7 @@
       "api/webhooks/tally.mjs",
       "convex/customerFlow.js",
       "convex/schema.js",
+      "ops/run-test-a-generation.mjs",
       "ops/run-test-a-operator.mjs",
       "ops/test-a-consolidated-candidate-audit.mjs",
       "ops/test-a-consolidated-candidate-evidence.json",
@@ -20,8 +21,14 @@
       "package.json",
       "public/404.html",
       "schemas/fulfillment-job-store.schema.json",
+      "schemas/job-scoped-editorial-approval.schema.json",
+      "schemas/review-dossier.schema.json",
       "scripts/dispatch-intakes-from-hermes-secrets.sh",
       "scripts/dispatch-intakes-to-kanban.mjs",
+      "scripts/lib/commands.mjs",
+      "scripts/lib/name-resolution.mjs",
+      "scripts/lib/schema-validation.mjs",
+      "scripts/private-generate-intake-from-hermes-secrets.sh",
       "scripts/private-intake-status-from-hermes-secrets.sh",
       "scripts/verify-vercel-routing.mjs",
       "src/config/fulfillment-config.mjs",
@@ -37,9 +44,14 @@
       "src/fulfillment/external-effect-stage-handlers.mjs",
       "src/fulfillment/job-machine.mjs",
       "src/fulfillment/job-orchestrator.mjs",
+      "src/fulfillment/job-scoped-generation-approval.mjs",
+      "src/fulfillment/local-generation-workspace.mjs",
+      "src/fulfillment/local-prepare-review-stage-handler.mjs",
       "src/fulfillment/operator-runner-test-a.mjs",
       "src/fulfillment/persisted-review-decision.mjs",
       "src/fulfillment/resend-delivery-adapter.mjs",
+      "src/fulfillment/test-a-generation-runner.mjs",
+      "src/fulfillment/test-a-generation-startup.mjs",
       "src/fulfillment/test-a-operator-runtime-identity.mjs",
       "src/fulfillment/test-a-operator-startup.mjs",
       "src/fulfillment/vercel-test-a-publication-provider.mjs",
@@ -83,6 +95,8 @@
       "test/fulfillment/exact-revision-publication-adapter.test.mjs",
       "test/fulfillment/job-orchestration.test.mjs",
       "test/fulfillment/resend-delivery-adapter.test.mjs",
+      "test/fulfillment/test-a-generation-runner.test.mjs",
+      "test/fulfillment/test-a-generation-startup.test.mjs",
       "test/fulfillment/test-a-operator-runner.test.mjs",
       "test/fulfillment/test-a-operator-startup.test.mjs",
       "test/fulfillment/vercel-test-a-publication-provider.test.mjs",
@@ -90,11 +104,13 @@
       "test/http/webhook-handlers.test.mjs",
       "test/integration/fulfillment-database.test.mjs",
       "test/integration/fulfillment-end-to-end.test.mjs",
+      "test/name-resolution.test.mjs",
       "test/operations/hermes-kanban-client.test.mjs",
       "test/operations/kanban-intake-dispatcher.test.mjs",
       "test/persistence/convex-customer-flow-store.test.mjs",
       "test/persistence/supabase-fulfillment-store.test.mjs",
       "test/persistence/supabase-generation-store.test.mjs",
+      "test/private-review.test.mjs",
       "test/webhooks/process-stripe-webhook.test.mjs",
       "test/webhooks/process-tally-webhook.test.mjs",
       "test/webhooks/stripe-normalization.test.mjs",
@@ -112,6 +128,7 @@
       "api/webhooks/tally.mjs",
       "convex/customerFlow.js",
       "convex/schema.js",
+      "ops/run-test-a-generation.mjs",
       "ops/run-test-a-operator.mjs",
       "ops/test-a-consolidated-candidate-audit.mjs",
       "ops/test-a-consolidated-candidate-evidence.json",
@@ -122,8 +139,17 @@
       "package.json",
       "public/404.html",
       "schemas/fulfillment-job-store.schema.json",
+      "schemas/job-scoped-editorial-approval.schema.json",
+      "schemas/review-dossier.schema.json",
       "scripts/dispatch-intakes-from-hermes-secrets.sh",
       "scripts/dispatch-intakes-to-kanban.mjs",
+      "scripts/lib/commands.mjs",
+      "scripts/lib/common.mjs",
+      "scripts/lib/name-resolution.mjs",
+      "scripts/lib/render-html.mjs",
+      "scripts/lib/schema-validation.mjs",
+      "scripts/lib/validators.mjs",
+      "scripts/private-generate-intake-from-hermes-secrets.sh",
       "scripts/private-intake-status-from-hermes-secrets.sh",
       "scripts/verify-vercel-routing.mjs",
       "src/config/fulfillment-config.mjs",
@@ -144,9 +170,14 @@
       "src/fulfillment/external-effect-stage-handlers.mjs",
       "src/fulfillment/job-machine.mjs",
       "src/fulfillment/job-orchestrator.mjs",
+      "src/fulfillment/job-scoped-generation-approval.mjs",
+      "src/fulfillment/local-generation-workspace.mjs",
+      "src/fulfillment/local-prepare-review-stage-handler.mjs",
       "src/fulfillment/operator-runner-test-a.mjs",
       "src/fulfillment/persisted-review-decision.mjs",
       "src/fulfillment/resend-delivery-adapter.mjs",
+      "src/fulfillment/test-a-generation-runner.mjs",
+      "src/fulfillment/test-a-generation-startup.mjs",
       "src/fulfillment/test-a-operator-runtime-identity.mjs",
       "src/fulfillment/test-a-operator-startup.mjs",
       "src/fulfillment/vercel-test-a-publication-provider.mjs",
@@ -190,6 +221,8 @@
       "test/fulfillment/exact-revision-publication-adapter.test.mjs",
       "test/fulfillment/job-orchestration.test.mjs",
       "test/fulfillment/resend-delivery-adapter.test.mjs",
+      "test/fulfillment/test-a-generation-runner.test.mjs",
+      "test/fulfillment/test-a-generation-startup.test.mjs",
       "test/fulfillment/test-a-operator-runner.test.mjs",
       "test/fulfillment/test-a-operator-startup.test.mjs",
       "test/fulfillment/vercel-test-a-publication-provider.test.mjs",
@@ -197,11 +230,13 @@
       "test/http/webhook-handlers.test.mjs",
       "test/integration/fulfillment-database.test.mjs",
       "test/integration/fulfillment-end-to-end.test.mjs",
+      "test/name-resolution.test.mjs",
       "test/operations/hermes-kanban-client.test.mjs",
       "test/operations/kanban-intake-dispatcher.test.mjs",
       "test/persistence/convex-customer-flow-store.test.mjs",
       "test/persistence/supabase-fulfillment-store.test.mjs",
       "test/persistence/supabase-generation-store.test.mjs",
+      "test/private-review.test.mjs",
       "test/webhooks/process-stripe-webhook.test.mjs",
       "test/webhooks/process-tally-webhook.test.mjs",
       "test/webhooks/stripe-normalization.test.mjs",
@@ -217,7 +252,7 @@
       },
       {
         "path": "LIVE_SETUP.md",
-        "sha256": "40eb44db50e09ffdde984c04e9e9ac85f00dae94e2709e1175992230261de36d"
+        "sha256": "ede31e930212653b4341286f1e274418c96bc0a6083488033ee76da1c0e57cfa"
       },
       {
         "path": "README.md",
@@ -240,24 +275,28 @@
         "sha256": "695544986fa848d8a8a557be43912fa270ea8ee707890e3ec44affef2eb40a51"
       },
       {
+        "path": "ops/run-test-a-generation.mjs",
+        "sha256": "df359a0b94a9b2220c47b7c863820ccad7364abb9978f712ddeda423461f31a0"
+      },
+      {
         "path": "ops/run-test-a-operator.mjs",
         "sha256": "f5fee619982b10e38df9fbd6a0257d4a51eb13c939b3b09042510e7ce196e107"
       },
       {
         "path": "ops/test-a-consolidated-candidate-audit.mjs",
-        "sha256": "3ec54e9600ea3b58bcb3cd4f521b7f010cad84d71c9f77fcbf3fb743d366fa7b"
+        "sha256": "3accc8a3ef75558a9ceb6fcff0274838134502ff28bb6ca15e074c71e5ab071b"
       },
       {
         "path": "ops/test-a-consolidated-candidate-evidence.json",
-        "sha256": "ccbc52a1f6779fb5fc564723d5e42a417ab748bfb811c165df633a9c98f2629e"
+        "sha256": "03e12e4cdc949557ac6b3b411bc96427f887bc67f1a06857b26818f8e37bc97f"
       },
       {
         "path": "ops/test-a-hosted-provider-manifest.json",
-        "sha256": "70ccc739189d76e7f68b10261d3d21b1ef84e7a026f7a42aadb57c8ab9f8cdb6"
+        "sha256": "6f96a597e2741f79a2050e4ad62cfb27a5f3d497a4974b1aad62c5f46786f31d"
       },
       {
         "path": "ops/test-a-operator-isolation-audit.mjs",
-        "sha256": "ba70552a307ab1590a19b9fcb1c6cecdca828775968e41ef74a733f0c70a09a1"
+        "sha256": "4622f457483d65a0bc4e704131ce2d5c7f035f818eed48e7601ed8ed2c8e8b8e"
       },
       {
         "path": "package-lock.json",
@@ -265,7 +304,7 @@
       },
       {
         "path": "package.json",
-        "sha256": "d59af5135adf4ebd0c7ca7d924f6a64dc7625e06896cc88a304355f32fc3b51b"
+        "sha256": "9551683bb87a0d85e62ca6ed065638d67bc193ae5329a77f27c2079d5542f637"
       },
       {
         "path": "public/404.html",
@@ -276,12 +315,48 @@
         "sha256": "826342b8055e22d4caf1b2ee07251ae7961e358dd5c06cffbd5ffad04219d50c"
       },
       {
+        "path": "schemas/job-scoped-editorial-approval.schema.json",
+        "sha256": "434f258df0f44e5cc628eaeb21659c565f5151e42101e180fe819027c5a5d448"
+      },
+      {
+        "path": "schemas/review-dossier.schema.json",
+        "sha256": "57dfa63a345350bda66b456ae66143f4ec46945e1c749e9d434d04d39cdfe9f7"
+      },
+      {
         "path": "scripts/dispatch-intakes-from-hermes-secrets.sh",
         "sha256": "533bfadbaf718166b34412d44cb81b05a5fcaebfff1e53a3f5dad71913979596"
       },
       {
         "path": "scripts/dispatch-intakes-to-kanban.mjs",
         "sha256": "22916abde9f03510edd0e3780ccfa3e2b775973296fa4110751b0afacb281e47"
+      },
+      {
+        "path": "scripts/lib/commands.mjs",
+        "sha256": "327908b86a88a92c7dcafe4b057dbabe3cb892d802e219967a4f6205dd21ec33"
+      },
+      {
+        "path": "scripts/lib/common.mjs",
+        "sha256": "a80c25d7c33d578f4d9a0e6cc1b4c7f81e90b484da99d2c1fe0bc66b57f69949"
+      },
+      {
+        "path": "scripts/lib/name-resolution.mjs",
+        "sha256": "b4406c74a7606ab4d9d0194b6468c7f65de41423df5f9c7a1308800533f9fd76"
+      },
+      {
+        "path": "scripts/lib/render-html.mjs",
+        "sha256": "268c791daff55eb8b4f7244307531d14c69ea4c379aff85f9ae2c289d01e26aa"
+      },
+      {
+        "path": "scripts/lib/schema-validation.mjs",
+        "sha256": "4d3a6fa7e95050be49e319db00ab4f6ee88747cfdfbab4e00d4ebe8cbf2f7167"
+      },
+      {
+        "path": "scripts/lib/validators.mjs",
+        "sha256": "26e05efd57bc079e76e57a89ae070e6bc27b38ff8cc84bdb6878a8c08ffec164"
+      },
+      {
+        "path": "scripts/private-generate-intake-from-hermes-secrets.sh",
+        "sha256": "7fa201e6dc77e02abbcd5bae0ecd56104cf8ab72514d9ae3069794dc5c1b5319"
       },
       {
         "path": "scripts/private-intake-status-from-hermes-secrets.sh",
@@ -297,11 +372,11 @@
       },
       {
         "path": "src/config/test-a-hosted-provider-manifest.mjs",
-        "sha256": "b5750c9e632cc7c1a743bab6aecedaefbfe3c9e537cc7243d73485c92e89e9c8"
+        "sha256": "863f3c61e69cf3b6a2bb9172ed7a21993d0aec1b9414e36a8af6344e36ec0e2b"
       },
       {
         "path": "src/config/test-a-operator-isolation.mjs",
-        "sha256": "74f63f6f88af39f6e239f3330e7cce5188d5dff47b8dee533e29b3c446e32741"
+        "sha256": "8d186986f77a2343163784ea64afa6fc75bb8036c6068e3116dc5a1ce3a97007"
       },
       {
         "path": "src/customer-flow/hosted-http-api.mjs",
@@ -357,7 +432,19 @@
       },
       {
         "path": "src/fulfillment/job-orchestrator.mjs",
-        "sha256": "baa3e6ccfbe4df53ca5f4fa8ca281ef74adb6e27cc0a020d9a2755ef49a2bf55"
+        "sha256": "66f375c763e293f396e8bbee11e916c625751231d348cb25ed7277cec7690702"
+      },
+      {
+        "path": "src/fulfillment/job-scoped-generation-approval.mjs",
+        "sha256": "5d6d9f2eb1f25d2287dca8a04e62ee6c18ba7ecf09447c79206a8f380b3e2281"
+      },
+      {
+        "path": "src/fulfillment/local-generation-workspace.mjs",
+        "sha256": "a8fa7117eb62d025965288cfb6e39114d9cc35e9b7be8283141da5e7b98046eb"
+      },
+      {
+        "path": "src/fulfillment/local-prepare-review-stage-handler.mjs",
+        "sha256": "e16e97fd447122023b54759f3edc8e0fbc3d3a7d3c3b3182f35f373770491f49"
       },
       {
         "path": "src/fulfillment/operator-runner-test-a.mjs",
@@ -370,6 +457,14 @@
       {
         "path": "src/fulfillment/resend-delivery-adapter.mjs",
         "sha256": "035823af368bab8fa4bf4c377e8fcb1c6f207ea82f3bff47554058ea473f9659"
+      },
+      {
+        "path": "src/fulfillment/test-a-generation-runner.mjs",
+        "sha256": "9e7c7975a2b7ad233f7a77f13f718d0afec9d6b86db9fbf1f9fa11d001a25e31"
+      },
+      {
+        "path": "src/fulfillment/test-a-generation-startup.mjs",
+        "sha256": "79096affdcada013f7c7111a40a86cb22d6b4aa7bf661e58e76c6f5e6defa380"
       },
       {
         "path": "src/fulfillment/test-a-operator-runtime-identity.mjs",
@@ -425,15 +520,15 @@
       },
       {
         "path": "test/config/test-a-hosted-provider-manifest-policy.test.mjs",
-        "sha256": "4ebbc8304cf85af04ce4f60fe6d74df1d565213ac718be52d1a3b9260e636d08"
+        "sha256": "3c6364ffaa2dbf4c6d87a6f8f9647e5804ab9ab81ef3a6c7e9e83e1defdec980"
       },
       {
         "path": "test/config/test-a-operator-isolation-audit.test.mjs",
-        "sha256": "71d2001c3bd30068101244b5e2caba655b7d4bcc43a28d9b7e3fd5647e5a33a7"
+        "sha256": "41c178c553e275034d46a76d3f8e6e12c3fdf6aa9b72e8b3671d4af4da200e6d"
       },
       {
         "path": "test/config/test-a-operator-isolation.test.mjs",
-        "sha256": "76b8e636d26194d2a6bc7edd613f9c97d2bd79599e2a705b84e940fc712dc328"
+        "sha256": "986b0c019f815bbb50734e922c7c63eecc5be5ce881befc5d2fcf5cc7b258a10"
       },
       {
         "path": "test/convex/customer-flow.test.mjs",
@@ -472,6 +567,14 @@
         "sha256": "44313ba390e1b177eaea6beef2821d6519658d439aa5c42f3f7a5f3a8e2268a0"
       },
       {
+        "path": "test/fulfillment/test-a-generation-runner.test.mjs",
+        "sha256": "8ba2d0d83e9fad9d84ac28e93d5cb8605b1e8c617e704b5418b1cfeed163e489"
+      },
+      {
+        "path": "test/fulfillment/test-a-generation-startup.test.mjs",
+        "sha256": "86662083f80fa7160388a703f73f62143963013d1f48bd48d73171ce8043149d"
+      },
+      {
         "path": "test/fulfillment/test-a-operator-runner.test.mjs",
         "sha256": "f771cc8080045e6359433e95cdb01077a09c3c96827136814ed41988d2df29f9"
       },
@@ -488,6 +591,10 @@
         "sha256": "8c45ab69ceb5e3634f8a08d54a50a77165653ed2ad612f45675be152081b0e28"
       },
       {
+        "path": "test/name-resolution.test.mjs",
+        "sha256": "b86f804876c5f24cf3ce045b4d44ab6f32376f36d4cde9bca0bc328879afbe1d"
+      },
+      {
         "path": "test/operations/hermes-kanban-client.test.mjs",
         "sha256": "6365a7c2f324f8b4fd5bc65622495363eb36d7cc8ed0e8006b6a0814ed0c7365"
       },
@@ -500,12 +607,35 @@
         "sha256": "b152b4557968284cea7f19080924453b4cf2bc6be410396993585469253d8401"
       },
       {
+        "path": "test/private-review.test.mjs",
+        "sha256": "591b37836d38d7e6a6e9df2c13c70ddbfa0eea506f7d7766edfa03813f8f6752"
+      },
+      {
         "path": "vercel.json",
         "sha256": "f96a1746744ed6a26d1916d960b1615c4e1ea5df6fb93ed02ba1af1a6b5585a3"
       }
     ]
   },
   "isolation": {
+    "generationInvocation": "ops/run-test-a-generation.mjs",
+    "generationModuleGraph": [
+      "ops/run-test-a-generation.mjs",
+      "scripts/lib/commands.mjs",
+      "scripts/lib/common.mjs",
+      "scripts/lib/name-resolution.mjs",
+      "scripts/lib/render-html.mjs",
+      "scripts/lib/schema-validation.mjs",
+      "scripts/lib/validators.mjs",
+      "src/config/test-a-hosted-provider-manifest.mjs",
+      "src/fulfillment/job-machine.mjs",
+      "src/fulfillment/job-orchestrator.mjs",
+      "src/fulfillment/job-scoped-generation-approval.mjs",
+      "src/fulfillment/local-generation-workspace.mjs",
+      "src/fulfillment/local-prepare-review-stage-handler.mjs",
+      "src/fulfillment/test-a-generation-runner.mjs",
+      "src/fulfillment/test-a-generation-startup.mjs",
+      "src/persistence/convex-fulfillment-store.mjs"
+    ],
     "privateInvocation": "ops/run-test-a-operator.mjs",
     "publicEntrypoints": [
       "api/customer-flow/[...route].mjs",
@@ -532,7 +662,12 @@
     ],
     "privateCapabilityModules": [
       "ops/run-test-a-operator.mjs",
+      "ops/run-test-a-generation.mjs",
+      "src/fulfillment/job-scoped-generation-approval.mjs",
+      "src/fulfillment/local-prepare-review-stage-handler.mjs",
       "src/fulfillment/operator-runner-test-a.mjs",
+      "src/fulfillment/test-a-generation-runner.mjs",
+      "src/fulfillment/test-a-generation-startup.mjs",
       "src/fulfillment/test-a-operator-runtime-identity.mjs",
       "src/fulfillment/test-a-operator-startup.mjs"
     ],

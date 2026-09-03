@@ -2,6 +2,17 @@ import { createHash } from "node:crypto";
 import { isDeepStrictEqual } from "node:util";
 
 export const EDITORIAL_POLICY_VERSION = "bebebonjour-editorial-v1";
+export const RECOVERABLE_FAILED_PREPARE_REVIEW_JOB_ID =
+  "job_c633aa4c-0039-4257-8913-eaa6f6197d0c";
+
+const FAILED_PREPARE_REVIEW_EDITORIAL_POLICY = Object.freeze({
+  id: "unknown_name_general_wishes",
+  preserveSubmittedName: true,
+  meaningAllowed: false,
+  scripturalNameAssociationAllowed: false,
+  genericBlessingsAllowed: true,
+  maxStage: "content_review_required",
+});
 
 const STAGES_BY_STATE = Object.freeze({
   generation_queued: "prepare_review",
@@ -125,6 +136,7 @@ export function claimStageTransition(aggregate, claim, at) {
         && attempt.status === "completed",
     ).length + 1;
     const operationBinding = normalizeOperationBinding(claim.stage, claim.operationBinding);
+    const operationsCommandId = normalizeOperationsCommandId(claim.operationsCommandId);
     next.stageAttempts.push({
       attemptId,
       stage: claim.stage,
@@ -133,6 +145,7 @@ export function claimStageTransition(aggregate, claim, at) {
       operationNumber,
       idempotencyKey: stageIdempotencyKey(next.jobId, revisionId, claim.stage, operationNumber),
       operationBinding,
+      ...(operationsCommandId ? { operationsCommandId } : {}),
       status: "running",
       leaseToken: claim.leaseToken,
       leaseExpiresAt: new Date(Date.parse(at) + claim.leaseMs).toISOString(),
@@ -149,6 +162,7 @@ export function claimStageTransition(aggregate, claim, at) {
     leaseMs: claim.leaseMs,
     maxAttempts: claim.maxAttempts,
     operationBinding: claim.operationBinding || null,
+    operationsCommandId: claim.operationsCommandId || null,
   });
 }
 
@@ -209,16 +223,16 @@ export function completeStageTransition(aggregate, completion, at) {
     }
     switch (completion.stage) {
       case "prepare_review":
-        completePreparedReview(next, completion.result);
+        completePreparedReview(next, completion.result, attempt);
         break;
       case "render_approved":
-        completeApprovedRender(next, completion.result);
+        completeApprovedRender(next, completion.result, attempt);
         break;
       case "generate_tts":
-        completeNarrationGeneration(next, completion.result);
+        completeNarrationGeneration(next, completion.result, attempt);
         break;
       case "publish":
-        completePublication(next, completion.result, attempt.idempotencyKey);
+        completePublication(next, completion.result, attempt);
         break;
       case "deliver":
         completeDeliverySend(next, completion.result, attempt);
@@ -283,6 +297,97 @@ export function failStageTransition(aggregate, failure, policy, at) {
   });
 }
 
+export function recoverFailedPrepareReviewTransition(aggregate, recovery, at) {
+  return withCommand(aggregate, recovery, "failed_prepare_review_recovered", at, (next) => {
+    const attempt = next.stageAttempts?.at(-1);
+    const expectedCorrelation = {
+      project: "bebebonjour",
+      product: "announcement-page",
+      environment: "test",
+      jobId: RECOVERABLE_FAILED_PREPARE_REVIEW_JOB_ID,
+      intakeDigest: next.intakeDigest,
+    };
+    const expectedApproval = {
+      approvalType: "job_scoped_editorial_policy",
+      jobId: RECOVERABLE_FAILED_PREPARE_REVIEW_JOB_ID,
+      policy: FAILED_PREPARE_REVIEW_EDITORIAL_POLICY,
+      record: recovery?.editorialApproval?.record,
+      recordDigest: recovery?.editorialApproval?.recordDigest,
+      sourceDigest: recovery?.editorialApproval?.sourceDigest,
+      intakeDigest: next.intakeDigest,
+    };
+    const eligible =
+      hasExactKeys(recovery, [
+        "commandId",
+        "editorialApproval",
+        "failedAttemptId",
+        "intakeDigest",
+        "jobId",
+        "paymentCorrelation",
+      ])
+      && hasExactKeys(recovery?.editorialApproval, [
+        "approvalType",
+        "intakeDigest",
+        "jobId",
+        "policy",
+        "record",
+        "recordDigest",
+        "sourceDigest",
+      ])
+      && next.jobId === RECOVERABLE_FAILED_PREPARE_REVIEW_JOB_ID
+      && recovery.jobId === RECOVERABLE_FAILED_PREPARE_REVIEW_JOB_ID
+      && next.environment === "test"
+      && next.product === "announcement-page"
+      && next.state === "failed"
+      && next.currentRevisionId === null
+      && next.publishedRevisionId === null
+      && next.retry === null
+      && next.intakeDigest === recovery.intakeDigest
+      && isDeepStrictEqual(next.paymentCorrelation, expectedCorrelation)
+      && isDeepStrictEqual(recovery.paymentCorrelation, expectedCorrelation)
+      && isDeepStrictEqual(next.payment?.correlation, expectedCorrelation)
+      && typeof next.payment?.providerEventId === "string"
+      && next.payment.providerEventId.length > 0
+      && typeof next.payment?.providerPaymentId === "string"
+      && next.payment.providerPaymentId.length > 0
+      && Array.isArray(next.stageAttempts)
+      && next.stageAttempts.length === 1
+      && attempt?.attemptId === recovery.failedAttemptId
+      && attempt?.stage === "prepare_review"
+      && attempt?.revisionId === null
+      && attempt?.attemptNumber === 1
+      && attempt?.operationNumber === 1
+      && attempt?.operationBinding === null
+      && attempt?.status === "failed"
+      && attempt?.effectStartedAt === null
+      && attempt?.leaseToken === null
+      && attempt?.leaseExpiresAt === null
+      && typeof attempt?.completedAt === "string"
+      && isDeepStrictEqual(attempt?.failure, { retryable: false, reasonCode: "stage_error" })
+      && Array.isArray(next.revisions)
+      && next.revisions.length === 0
+      && Array.isArray(next.artifactSets)
+      && next.artifactSets.length === 0
+      && Array.isArray(next.reviewDecisions)
+      && next.reviewDecisions.length === 0
+      && next.publication === null
+      && Array.isArray(next.deliveryAttempts)
+      && next.deliveryAttempts.length === 0
+      && DIGEST_PATTERN.test(recovery.editorialApproval.recordDigest || "")
+      && DIGEST_PATTERN.test(recovery.editorialApproval.sourceDigest || "")
+      && isValidFailedPrepareReviewApproval(recovery.editorialApproval.record)
+      && recovery.editorialApproval.recordDigest === createHash("sha256")
+        .update(`${JSON.stringify(recovery.editorialApproval.record, null, 2)}\n`)
+        .digest("hex")
+      && recovery.editorialApproval.sourceDigest === recovery.editorialApproval.record.sourceDigest
+      && isDeepStrictEqual(recovery.editorialApproval, expectedApproval);
+    if (!eligible) {
+      throw new Error("Failed prepare-review recovery rejected.");
+    }
+    next.state = "generation_queued";
+  });
+}
+
 export function resumeRetryTransition(aggregate, command, at) {
   return withCommand(aggregate, command, "retry_resumed", at, (next) => {
     requireState(next, "retry_wait", "resume retry");
@@ -306,6 +411,7 @@ export function recordReviewDecisionTransition(aggregate, decision, at) {
     assertNonEmptyString(decision.rubricVersion, "rubricVersion");
     assertTimestamp(decision.decidedAt, "review decidedAt");
     assertReviewer(decision.reviewer);
+    const operationsCommandId = normalizeOperationsCommandId(decision.operationsCommandId);
     const reasons = normalizeReviewReasons(decision.reasons);
     if (decision.revisionId !== next.currentRevisionId) {
       throw new Error("Review decision must bind the exact current revision.");
@@ -332,6 +438,7 @@ export function recordReviewDecisionTransition(aggregate, decision, at) {
         decision.reviewer.id,
       ),
       ...(decision.approvalId ? { approvalId: reviewApprovalId(decision.approvalId) } : {}),
+      ...(operationsCommandId ? { operationsCommandId } : {}),
       decisionType: decision.decisionType,
       revisionId: decision.revisionId,
       outcome: decision.outcome,
@@ -535,7 +642,7 @@ export function stageIdempotencyKey(jobId, revisionId, stage, operationNumber = 
   ].join("\0"))}`;
 }
 
-function completePreparedReview(next, result) {
+function completePreparedReview(next, result, attempt) {
   if (next.state !== "generating") throw new Error("Prepared review completion is out of sequence.");
   assertRevision(result?.revision, next);
   const currentRevision = next.revisions.find(
@@ -551,14 +658,14 @@ function completePreparedReview(next, result) {
   }
   next.revisions.push(clone(result.revision));
   next.currentRevisionId = result.revision.revisionId;
-  addArtifactSet(next, result.artifactSet, "private_review");
+  addArtifactSet(next, result.artifactSet, "private_review", attempt.operationsCommandId);
   next.state = "content_review_required";
 }
 
-function completeApprovedRender(next, result) {
+function completeApprovedRender(next, result, attempt) {
   if (next.state !== "rendering") throw new Error("Approved render completion is out of sequence.");
   const contentDecision = assertApprovedContent(next);
-  addArtifactSet(next, result?.artifactSet, "prepared_bundle");
+  addArtifactSet(next, result?.artifactSet, "prepared_bundle", attempt.operationsCommandId);
   const preparedBundle = latestArtifactSet(next, "prepared_bundle", next.currentRevisionId);
   if (!next.narrationRequired && !isDeepStrictEqual(
     contentDecision.artifactDigests,
@@ -569,14 +676,14 @@ function completeApprovedRender(next, result) {
   next.state = next.narrationRequired ? "tts_queued" : "publish_ready";
 }
 
-function completeNarrationGeneration(next, result) {
+function completeNarrationGeneration(next, result, attempt) {
   if (next.state !== "tts_generating") throw new Error("Narration completion is out of sequence.");
   assertApprovedContent(next);
-  addArtifactSet(next, result?.artifactSet, "narration_review");
+  addArtifactSet(next, result?.artifactSet, "narration_review", attempt.operationsCommandId);
   next.state = "narration_review_required";
 }
 
-function completePublication(next, result, idempotencyKey) {
+function completePublication(next, result, attempt) {
   if (next.state !== "publishing") throw new Error("Publication completion is out of sequence.");
   assertReleaseEligible(next);
   const publication = result?.publication;
@@ -597,7 +704,8 @@ function completePublication(next, result, idempotencyKey) {
     stableUrl: publication.stableUrl,
     artifactManifestDigest: publication.artifactManifestDigest,
     providerReceiptId: publication.providerReceiptId,
-    idempotencyKey,
+    idempotencyKey: attempt.idempotencyKey,
+    ...(attempt.operationsCommandId ? { operationsCommandId: attempt.operationsCommandId } : {}),
     status: "published",
   });
   next.publishedRevisionId = next.currentRevisionId;
@@ -621,6 +729,7 @@ function completeDeliverySend(next, result, attempt) {
     revisionId: delivery.revisionId,
     providerMessageId: delivery.providerMessageId,
     idempotencyKey: attempt.idempotencyKey,
+    ...(attempt.operationsCommandId ? { operationsCommandId: attempt.operationsCommandId } : {}),
     targetRef: attempt.operationBinding.targetRef,
     status: "sent",
     deliveredAt: null,
@@ -629,7 +738,7 @@ function completeDeliverySend(next, result, attempt) {
   next.state = "sent";
 }
 
-function addArtifactSet(next, artifactSet, expectedKind) {
+function addArtifactSet(next, artifactSet, expectedKind, operationsCommandId = null) {
   if (artifactSet?.kind !== expectedKind || artifactSet.revisionId !== next.currentRevisionId) {
     throw new Error(`${expectedKind} artifacts must bind the exact current revision.`);
   }
@@ -645,6 +754,7 @@ function addArtifactSet(next, artifactSet, expectedKind) {
     ),
     kind: artifactSet.kind,
     revisionId: artifactSet.revisionId,
+    ...(operationsCommandId ? { operationsCommandId } : {}),
     ...pickDigests(artifactSet),
     ...references,
   });
@@ -667,6 +777,16 @@ function assertStageClaimEligible(aggregate, stage) {
       throw new Error("Delivery requires the published exact revision.");
     }
   }
+}
+
+const OPERATIONS_COMMAND_ID_PATTERN = /^command_[A-Za-z0-9][A-Za-z0-9_-]{7,127}$/u;
+
+function normalizeOperationsCommandId(value) {
+  if (value === undefined || value === null) return null;
+  if (typeof value !== "string" || !OPERATIONS_COMMAND_ID_PATTERN.test(value)) {
+    throw new Error("operationsCommandId must be a valid immutable operations command identifier.");
+  }
+  return value;
 }
 
 function normalizeOperationBinding(stage, binding) {
@@ -823,6 +943,41 @@ function assertRevision(revision, aggregate) {
   if (revision.inputDigest !== aggregate.intakeDigest) {
     throw new Error("Revision input digest must remain bound to the job intake.");
   }
+}
+
+const DIGEST_PATTERN = /^[a-f0-9]{64}$/;
+
+function hasExactKeys(value, expectedKeys) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+  const actualKeys = Object.keys(value).sort();
+  const sortedExpectedKeys = [...expectedKeys].sort();
+  return actualKeys.length === sortedExpectedKeys.length
+    && sortedExpectedKeys.every((key, index) => actualKeys[index] === key);
+}
+
+function isValidFailedPrepareReviewApproval(record) {
+  if (
+    !hasExactKeys(record, [
+      "approvalType",
+      "jobId",
+      "policy",
+      "schemaVersion",
+      "sourceDigest",
+      "sourceEvidence",
+    ])
+    || !hasExactKeys(record?.sourceEvidence, ["kind", "reference"])
+    || record.schemaVersion !== "1.0"
+    || record.approvalType !== "job_scoped_editorial_policy"
+    || record.jobId !== RECOVERABLE_FAILED_PREPARE_REVIEW_JOB_ID
+    || !isDeepStrictEqual(record.policy, FAILED_PREPARE_REVIEW_EDITORIAL_POLICY)
+    || record.sourceEvidence.kind !== "kanban_human_decision"
+    || !/^kanban:t_[A-Za-z0-9_-]{3,128}$/.test(record.sourceEvidence.reference || "")
+  ) {
+    return false;
+  }
+  return record.sourceDigest === createHash("sha256")
+    .update(JSON.stringify(record.sourceEvidence))
+    .digest("hex");
 }
 
 function assertPaymentCorrelation(correlation, input) {

@@ -384,7 +384,12 @@ async function buildInWorkspace(persona, outputRoot, workspaceRoot) {
   }
   timeline.push(await snapshot(flow, orchestrator, submitted, "review"));
   const renderedPaths = await workspace.resolveJobPaths(await orchestrator.status(jobId));
-  await copyAnnouncement(renderedPaths.preparedRoot, persona.key, outputRoot);
+  const preparedPage = JSON.parse(await readFile(
+    path.join(renderedPaths.preparedRoot, "artifacts", "current", "page.json"),
+    "utf8",
+  ));
+  const slug = assertGeneratedSlug(preparedPage.slug);
+  await copyAnnouncement(renderedPaths.preparedRoot, slug, outputRoot);
 
   now = "2026-08-18T08:05:00.000Z";
   const publicationStatus = await silenceConsole(() => orchestrator.runNext(jobId));
@@ -407,12 +412,12 @@ async function buildInWorkspace(persona, outputRoot, workspaceRoot) {
     outcome: "delivered",
     recordedAt: now,
   });
-  const finalPath = `announcements/${persona.key}/${persona.languages[0]}`;
+  const finalPath = `announcements/${slug}/${persona.languages[0]}`;
   timeline.push(await snapshot(flow, orchestrator, submitted, "delivery", finalPath));
 
   return {
     key: persona.key,
-    slug: persona.key,
+    slug,
     simulated: true,
     path: finalPath,
     intake,
@@ -441,6 +446,13 @@ async function snapshot(flow, orchestrator, submitted, key, stableUrl = undefine
     simulated: true,
     ...(stableUrl ? { canonicalStableUrl: projected.stableUrl, stableUrl } : {}),
   };
+}
+
+function assertGeneratedSlug(value) {
+  if (typeof value !== "string" || !/^announcement-[a-f0-9]{16}$/u.test(value)) {
+    throw new Error("Synthetic demo generation returned an invalid opaque announcement slug.");
+  }
+  return value;
 }
 
 async function copyAnnouncement(preparedRoot, slug, outputRoot) {

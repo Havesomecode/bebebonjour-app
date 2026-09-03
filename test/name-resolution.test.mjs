@@ -5,7 +5,10 @@ import path from "node:path";
 import test from "node:test";
 
 import { commandCompose } from "../scripts/lib/commands.mjs";
-import { resolveName } from "../scripts/lib/name-resolution.mjs";
+import {
+  resolveName,
+  resolveNameWithJobScopedEditorialPolicy,
+} from "../scripts/lib/name-resolution.mjs";
 
 const catalog = JSON.parse(
   await readFile(new URL("../data/reference-catalog.json", import.meta.url), "utf8"),
@@ -16,6 +19,14 @@ const evidenceSchema = JSON.parse(
 const baseIntake = JSON.parse(
   await readFile(new URL("../data/examples/bayane/intake.json", import.meta.url), "utf8"),
 );
+const unknownNameGeneralWishesPolicy = Object.freeze({
+  id: "unknown_name_general_wishes",
+  preserveSubmittedName: true,
+  meaningAllowed: false,
+  scripturalNameAssociationAllowed: false,
+  genericBlessingsAllowed: true,
+  maxStage: "content_review_required",
+});
 
 function intakeFor(firstName, nameArabic = undefined) {
   const intake = structuredClone(baseIntake);
@@ -179,6 +190,59 @@ test("unknown religious names compose a neutral review draft without invented cl
   assert.doesNotMatch(serialized, /une belle signification/i);
   assert.doesNotMatch(serialized, /قال تعالى/);
   assert.doesNotMatch(serialized, /Aélio-Z[^.]{0,80}(signifie|meaning|معنى)/i);
+});
+
+test("job-scoped unknown-name policy preserves submitted spelling and forces the general fallback", () => {
+  const intake = intakeFor("Aélio-Z", "أيليو");
+  intake.context = { religion: "islam" };
+
+  const resolution = resolveNameWithJobScopedEditorialPolicy(
+    intake,
+    catalog,
+    unknownNameGeneralWishesPolicy,
+  );
+
+  assert.equal(resolution.status, "fallback");
+  assert.equal(resolution.match.kind, "unknown");
+  assert.equal(resolution.display.latin, "Aélio-Z");
+  assert.equal(resolution.display.arabic, "أيليو");
+  assert.deepEqual(resolution.claimPolicy, {
+    meaningAllowed: false,
+    scripturalNameAssociationAllowed: false,
+    genericBlessingsAllowed: true,
+  });
+  assert.deepEqual(resolution.suggestions.map(({ id, basis }) => ({ id, basis })), [
+    { id: "general-fallback", basis: "general" },
+  ]);
+});
+
+test("job-scoped unknown-name policy rejects every non-unknown resolver outcome", () => {
+  const ambiguousCatalog = structuredClone(catalog);
+  ambiguousCatalog.names.bayane.aliases = { latin: ["Bayan"], arabic: [] };
+  ambiguousCatalog.names.amal.aliases = { latin: ["Bayan"], arabic: [] };
+  const cases = [
+    ["exact", intakeFor("Bayane", "بَيَان"), catalog],
+    ["alias", intakeFor("Bayâne", "بَيَان"), catalog],
+    ["ambiguous", intakeFor("Bayan"), ambiguousCatalog],
+    ["cross_script_conflict", intakeFor("Bayane", "أمل"), catalog],
+    ["invalid_orthography", intakeFor("Bayane", "ـ"), catalog],
+  ];
+
+  for (const [kind, intake, candidateCatalog] of cases) {
+    const resolution = resolveNameWithJobScopedEditorialPolicy(
+      intake,
+      candidateCatalog,
+      unknownNameGeneralWishesPolicy,
+    );
+    assert.equal(resolution.status, "review_required", kind);
+    assert.equal(resolution.match.kind, kind);
+    assert.deepEqual(
+      resolution.reviewReasons,
+      ["job_scoped_unknown_name_policy_not_applicable"],
+      kind,
+    );
+    assert.deepEqual(resolution.suggestions, [], kind);
+  }
 });
 
 test("compose cannot render scripture items after their source evidence is removed", async (t) => {

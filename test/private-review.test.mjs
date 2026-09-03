@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 import { mkdir, mkdtemp, readFile, rm, symlink, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
@@ -22,7 +23,19 @@ import {
 const baseIntake = JSON.parse(
   await readFile(new URL("../data/examples/bayane/intake.json", import.meta.url), "utf8"),
 );
+function slugForIntake(intake) {
+  return `announcement-${createHash("sha256").update(intake.requestId).digest("hex").slice(0, 16)}`;
+}
+const BASE_SLUG = slugForIntake(baseIntake);
 const amalFixtureRoot = fileURLToPath(new URL("../data/examples/amal/", import.meta.url));
+const editorialPolicy = Object.freeze({
+  id: "unknown_name_general_wishes",
+  preserveSubmittedName: true,
+  meaningAllowed: false,
+  scripturalNameAssociationAllowed: false,
+  genericBlessingsAllowed: true,
+  maxStage: "content_review_required",
+});
 
 async function captureConsole(action) {
   const original = console.log;
@@ -56,6 +69,7 @@ test("prepare-review autonomously creates a private review bundle without a depl
   intake.requestId = "req_private_review_unknown_001";
   intake.baby.firstName = "Aélio-Z";
   intake.baby.nameArabic = "أيليو";
+  const slug = slugForIntake(intake);
   await writeFile(intakePath, `${JSON.stringify(intake, null, 2)}\n`, "utf8");
 
   const lines = await captureConsole(() => commandPrepareReview({
@@ -65,20 +79,20 @@ test("prepare-review autonomously creates a private review bundle without a depl
 
   const dossier = JSON.parse(await readFile(path.join(outputRoot, "review.json"), "utf8"));
   const privatePage = JSON.parse(
-    await readFile(path.join(outputRoot, "private-preview", "aelio-z", "page.json"), "utf8"),
+    await readFile(path.join(outputRoot, "private-preview", slug, "page.json"), "utf8"),
   );
   const canonicalPage = JSON.parse(
     await readFile(path.join(outputRoot, "artifacts", "current", "page.json"), "utf8"),
   );
   const privateHtml = await readFile(
-    path.join(outputRoot, "private-preview", "aelio-z", "fr", "index.html"),
+    path.join(outputRoot, "private-preview", slug, "fr", "index.html"),
     "utf8",
   );
   const privateRuntime = await readFile(
     path.join(
       outputRoot,
       "private-preview",
-      "aelio-z",
+      slug,
       "_assets",
       canonicalPage.buildId,
       "app.js",
@@ -89,7 +103,7 @@ test("prepare-review autonomously creates a private review bundle without a depl
     path.join(
       outputRoot,
       "private-preview",
-      "aelio-z",
+      slug,
       "_assets",
       canonicalPage.buildId,
       "phrase-progress.mjs",
@@ -111,7 +125,7 @@ test("prepare-review autonomously creates a private review bundle without a depl
   assert.match(dossier.generationMaterials.catalogDigest, /^[a-f0-9]{64}$/);
   assert.match(dossier.generationMaterials.templateDigest, /^[a-f0-9]{64}$/);
   assert.match(dossier.generationMaterials.rendererDigest, /^[a-f0-9]{64}$/);
-  assert.equal(dossier.artifacts.privatePreviewRoot, "private-preview/aelio-z");
+  assert.equal(dossier.artifacts.privatePreviewRoot, `private-preview/${slug}`);
   assert.equal(dossier.evidence.nameResolution.status, "fallback");
   assert.deepEqual(dossier.review.requiredReasons, ["name_not_in_catalog"]);
   assert.deepEqual(dossier.operatorContext.specificDemands, {
@@ -149,6 +163,125 @@ test("prepare-review autonomously creates a private review bundle without a depl
   );
 });
 
+test("job-scoped editorial approval is bound into an exact neutral private-review dossier", async (t) => {
+  const directory = await mkdtemp(path.join(os.tmpdir(), "bebebonjour-approved-unknown-name-"));
+  t.after(() => rm(directory, { recursive: true, force: true }));
+  const intakePath = path.join(directory, "intake.json");
+  const outputRoot = path.join(directory, "review");
+  const intake = structuredClone(baseIntake);
+  intake.requestId = "req_approved_unknown_name_001";
+  intake.baby.firstName = "Aélio-Z";
+  intake.baby.nameArabic = "أيليو";
+  intake.context.religion = "islam";
+  const sourceEvidence = {
+    kind: "kanban_human_decision",
+    reference: "kanban:t_synthetic_authority",
+  };
+  const sourceDigest = createHash("sha256")
+    .update(JSON.stringify(sourceEvidence))
+    .digest("hex");
+  const editorialApprovalRecord = {
+    schemaVersion: "1.0",
+    approvalType: "job_scoped_editorial_policy",
+    jobId: "job_approved_unknown_name_001",
+    policy: editorialPolicy,
+    sourceEvidence,
+    sourceDigest,
+  };
+  const editorialApproval = {
+    record: editorialApprovalRecord,
+    recordDigest: createHash("sha256")
+      .update(`${JSON.stringify(editorialApprovalRecord, null, 2)}\n`)
+      .digest("hex"),
+  };
+  await writeFile(intakePath, `${JSON.stringify(intake, null, 2)}\n`, "utf8");
+
+  await captureConsole(() => commandPrepareReview(
+    { input: intakePath, output: outputRoot },
+    { editorialApproval, silent: true },
+  ));
+
+  const dossierPath = path.join(outputRoot, "review.json");
+  const dossierRaw = await readFile(dossierPath, "utf8");
+  const dossier = JSON.parse(dossierRaw);
+  const page = JSON.parse(
+    await readFile(path.join(outputRoot, "artifacts", "current", "page.json"), "utf8"),
+  );
+  assert.deepEqual(dossier.generationMaterials.editorialApproval, {
+    approvalType: "job_scoped_editorial_policy",
+    jobId: "job_approved_unknown_name_001",
+    policy: editorialPolicy,
+    recordDigest: editorialApproval.recordDigest,
+    sourceDigest,
+  });
+  assert.equal(
+    dossier.materialDigest,
+    createHash("sha256")
+      .update(JSON.stringify(dossier.generationMaterials))
+      .digest("hex"),
+  );
+  assert.equal(page.identity.nameLatin, "Aélio-Z");
+  assert.equal(page.identity.nameArabic, "أيليو");
+  assert.equal(page.provenance.nameResolution.match.kind, "unknown");
+  assert.deepEqual(page.provenance.nameResolution.claimPolicy, {
+    meaningAllowed: false,
+    scripturalNameAssociationAllowed: false,
+    genericBlessingsAllowed: true,
+  });
+  assert.deepEqual(page.review.requiredReasons, ["name_not_in_catalog"]);
+  assert.equal(JSON.stringify(page).includes("religious-generic-islam"), false);
+
+  const alternateSourceEvidence = {
+    kind: "kanban_human_decision",
+    reference: "kanban:t_alternate_authority",
+  };
+  const alternateRecord = {
+    ...editorialApprovalRecord,
+    sourceEvidence: alternateSourceEvidence,
+    sourceDigest: createHash("sha256")
+      .update(JSON.stringify(alternateSourceEvidence))
+      .digest("hex"),
+  };
+  await assert.rejects(
+    captureConsole(() => commandPrepareReview(
+      { input: intakePath, output: outputRoot },
+      {
+        editorialApproval: {
+          record: alternateRecord,
+          recordDigest: createHash("sha256")
+            .update(`${JSON.stringify(alternateRecord, null, 2)}\n`)
+            .digest("hex"),
+        },
+        silent: true,
+      },
+    )),
+    /material inputs.*fresh output root/i,
+  );
+  assert.equal(await readFile(dossierPath, "utf8"), dossierRaw);
+});
+
+test("prepare-review rejects unsafe or oversized intake files before writing output", async (t) => {
+  const directory = await mkdtemp(path.join(os.tmpdir(), "bebebonjour-private-review-input-boundary-"));
+  t.after(() => rm(directory, { recursive: true, force: true }));
+  const targetPath = path.join(directory, "target.json");
+  const linkedPath = path.join(directory, "linked.json");
+  const oversizedPath = path.join(directory, "oversized.json");
+  await writeFile(targetPath, `${JSON.stringify(baseIntake, null, 2)}\n`, "utf8");
+  await symlink(targetPath, linkedPath);
+  await writeFile(oversizedPath, Buffer.alloc((4 * 1024 * 1024) + 1, 0x20));
+
+  await assert.rejects(
+    commandPrepareReview({ input: linkedPath, output: path.join(directory, "linked-output") }),
+    /regular file/i,
+  );
+  await assert.rejects(
+    commandPrepareReview({ input: oversizedPath, output: path.join(directory, "oversized-output") }),
+    /maximum byte size/i,
+  );
+  assert.equal(await pathExists(path.join(directory, "linked-output")), false);
+  assert.equal(await pathExists(path.join(directory, "oversized-output")), false);
+});
+
 test("prepare-review is deterministic and idempotent for the same intake", async (t) => {
   const directory = await mkdtemp(path.join(os.tmpdir(), "bebebonjour-private-review-replay-"));
   t.after(() => rm(directory, { recursive: true, force: true }));
@@ -163,8 +296,8 @@ test("prepare-review is deterministic and idempotent for the same intake", async
   }));
   const first = await Promise.all([
     readFile(path.join(outputRoot, "review.json"), "utf8"),
-    readFile(path.join(outputRoot, "private-preview", "bayane", "page.json"), "utf8"),
-    readFile(path.join(outputRoot, "private-preview", "bayane", "fr", "index.html"), "utf8"),
+    readFile(path.join(outputRoot, "private-preview", BASE_SLUG, "page.json"), "utf8"),
+    readFile(path.join(outputRoot, "private-preview", BASE_SLUG, "fr", "index.html"), "utf8"),
   ]);
 
   await captureConsole(() => commandPrepareReview({
@@ -174,8 +307,8 @@ test("prepare-review is deterministic and idempotent for the same intake", async
   }));
   const replay = await Promise.all([
     readFile(path.join(outputRoot, "review.json"), "utf8"),
-    readFile(path.join(outputRoot, "private-preview", "bayane", "page.json"), "utf8"),
-    readFile(path.join(outputRoot, "private-preview", "bayane", "fr", "index.html"), "utf8"),
+    readFile(path.join(outputRoot, "private-preview", BASE_SLUG, "page.json"), "utf8"),
+    readFile(path.join(outputRoot, "private-preview", BASE_SLUG, "fr", "index.html"), "utf8"),
   ]);
 
   assert.deepEqual(replay, first);
@@ -471,8 +604,7 @@ test("prepare-review refuses to reuse one private root for a different intake", 
     /fresh output root/i,
   );
   assert.equal(await readFile(path.join(outputRoot, "review.json"), "utf8"), firstDossier);
-  assert.equal(await pathExists(path.join(outputRoot, "private-preview", "bayane")), true);
-  assert.equal(await pathExists(path.join(outputRoot, "private-preview", "aelio-z")), false);
+  assert.equal(await pathExists(path.join(outputRoot, "private-preview", BASE_SLUG)), true);
 });
 
 test("prepare-review rejects operational or stale-family entries in a matching private root", async (t) => {
@@ -514,9 +646,9 @@ test("prepare-review rejects an extra route inside the expected preview family o
     output: outputRoot,
     select: "religious-bayane",
   }));
-  await mkdir(path.join(outputRoot, "private-preview", "bayane", "extra-route"));
+  await mkdir(path.join(outputRoot, "private-preview", BASE_SLUG, "extra-route"));
   await writeFile(
-    path.join(outputRoot, "private-preview", "bayane", "extra-route", "index.html"),
+    path.join(outputRoot, "private-preview", BASE_SLUG, "extra-route", "index.html"),
     "unmanaged",
     "utf8",
   );
@@ -552,7 +684,7 @@ test("prepare-review rejects symlinked managed output paths before writing", asy
       })),
       /symbolic link/i,
     );
-    assert.equal(await pathExists(path.join(externalRoot, "bayane")), false);
+    assert.equal(await pathExists(path.join(externalRoot, BASE_SLUG)), false);
     assert.equal(await pathExists(path.join(externalRoot, "source", "page.json")), false);
   }
 });

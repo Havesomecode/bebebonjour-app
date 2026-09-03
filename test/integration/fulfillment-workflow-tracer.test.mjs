@@ -119,10 +119,10 @@ test("the TEST-A tracer persists one guarded synthetic order through confirmed d
   let prepareCalls = 0;
   let deliveryVerifierCalls = 0;
   const commands = {
-    async prepareReview(args) {
+    async prepareReview(args, options) {
       prepareCalls += 1;
       if (prepareCalls === 1) throw retryableError("synthetic_prepare_interruption");
-      return captureConsole(() => commandPrepareReview(args));
+      return captureConsole(() => commandPrepareReview(args, options));
     },
     render: (args) => captureConsole(() => commandRender(args)),
     tts: (args) => captureConsole(() => commandTts(args)),

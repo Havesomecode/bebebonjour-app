@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 import { mkdir, mkdtemp, readFile, readdir, rm, symlink, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
@@ -16,6 +17,10 @@ const EXPECTED_PUBLIC_STATES = [
   "complete",
 ];
 
+function demoSlug(key) {
+  return `announcement-${createHash("sha256").update(`job_demo_${key}`).digest("hex").slice(0, 16)}`;
+}
+
 test("synthetic demo exports two deterministic canonical workflows and reachable announcement slugs", async (t) => {
   const first = await mkdtemp(path.join(os.tmpdir(), "bebebonjour-demo-first-"));
   const second = await mkdtemp(path.join(os.tmpdir(), "bebebonjour-demo-second-"));
@@ -27,7 +32,7 @@ test("synthetic demo exports two deterministic canonical workflows and reachable
   await mkdir(path.dirname(previousUrl), { recursive: true });
   await writeFile(previousUrl, previousBytes);
 
-  const staleGeneratedFile = path.join(first, "announcements", "amal", "stale.txt");
+  const staleGeneratedFile = path.join(first, "announcements", demoSlug("amal"), "stale.txt");
   await mkdir(path.dirname(staleGeneratedFile), { recursive: true });
   await writeFile(staleGeneratedFile, "stale partial export\n", "utf8");
 
@@ -98,7 +103,7 @@ test("a failed staged export restores every generated slug without partial write
   const outputRoot = await mkdtemp(path.join(os.tmpdir(), "bebebonjour-demo-rollback-"));
   t.after(() => rm(outputRoot, { recursive: true, force: true }));
 
-  const priorAnnouncement = path.join(outputRoot, "announcements", "amal", "fr", "index.html");
+  const priorAnnouncement = path.join(outputRoot, "announcements", demoSlug("amal"), "fr", "index.html");
   const priorBytes = Buffer.from("previous Amal delivery\n", "utf8");
   const manifestBlocker = path.join(outputRoot, "workflow.json", "keep.txt");
   await mkdir(path.dirname(priorAnnouncement), { recursive: true });
@@ -111,7 +116,7 @@ test("a failed staged export restores every generated slug without partial write
   assert.deepEqual(await readFile(priorAnnouncement), priorBytes);
   assert.equal(await readFile(manifestBlocker, "utf8"), "existing manifest path\n");
   await assert.rejects(
-    readFile(path.join(outputRoot, "announcements", "bayane", "fr", "index.html")),
+    readFile(path.join(outputRoot, "announcements", demoSlug("bayane"), "fr", "index.html")),
     { code: "ENOENT" },
   );
 });
@@ -134,7 +139,7 @@ test("exports reject a symlinked announcements root without touching its target"
   );
 
   assert.deepEqual(await readFile(outsideAnnouncement), outsideBytes);
-  await assert.rejects(readFile(path.join(outsideRoot, "amal", "fr", "index.html")), {
+  await assert.rejects(readFile(path.join(outsideRoot, demoSlug("amal"), "fr", "index.html")), {
     code: "ENOENT",
   });
 });

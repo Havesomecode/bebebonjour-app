@@ -185,6 +185,12 @@ test("provider manifest binds one executable least-privilege hosted candidate", 
 
 test("production build syntax-checks every private TEST-A operator module", () => {
   for (const modulePath of [
+    "./convex/operations.js",
+    "./src/operations/operations-command-error.mjs",
+    "./src/operations/operations-action-handlers.mjs",
+    "./src/operations/operations-command-worker.mjs",
+    "./src/operations/operations-worker-runtime.mjs",
+    "./src/persistence/convex-operations-command-queue.mjs",
     "./src/fulfillment/exact-revision-publication-adapter.mjs",
     "./src/fulfillment/local-artifact-resolver.mjs",
     "./src/fulfillment/vercel-test-a-publication-provider.mjs",

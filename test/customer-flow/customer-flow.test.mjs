@@ -3,6 +3,7 @@ import test from "node:test";
 
 import {
   CustomerFlowError,
+  createCustomerFlowRuntime,
   createCustomerFlowService,
 } from "../../src/customer-flow/service.mjs";
 import { createInMemoryCustomerFlowStore } from "../../src/customer-flow/memory-store.mjs";
@@ -38,7 +39,7 @@ function harness(options = {}) {
     event: ["event_test_001", "event_test_002"],
   };
   const store = options.store || createInMemoryCustomerFlowStore();
-  const service = createCustomerFlowService({
+  const runtime = createCustomerFlowRuntime({
     store,
     now: () => "2026-08-11T00:00:00.000Z",
     createId(kind) {
@@ -61,7 +62,12 @@ function harness(options = {}) {
     enqueueWorkItem: options.enqueueWorkItem,
     atomicFulfillment: options.atomicFulfillment,
   });
-  return { checkoutCalls, service, store };
+  return {
+    checkoutCalls,
+    service: runtime.customerService,
+    operationsCheckout: runtime.operationsCheckout,
+    store,
+  };
 }
 
 async function createJob(service, intake = syntheticIntake, options = {}) {
@@ -124,6 +130,25 @@ test("synthetic intake creates a canonical private job and reusable test checkou
   });
   assert.deepEqual(checkoutCalls[0].paymentIntentMetadata, checkoutCalls[0].metadata);
   assert.equal(first.checkoutUrl.includes(syntheticIntake.customer.email), false);
+});
+
+test("operations-created checkout persists immutable command provenance", async () => {
+  const { service, operationsCheckout, store } = harness();
+  const submission = await createJob(service);
+  const operationsCommandId = "command_checkout_provenance_000001";
+  await operationsCheckout.createCheckout(submission.jobId, operationsCommandId);
+  const stored = await store.readJob(submission.jobId);
+  assert.equal(stored.payment.checkout.operationsCommandId, operationsCommandId);
+});
+
+test("customer checkout cannot forge Operations command provenance", async () => {
+  const { service, store } = harness();
+  const submission = await createJob(service);
+  await service.createCheckout(submission.jobId, submission.intakeToken, {
+    operationsCommandId: "command_customer_forged_000001",
+  });
+  const stored = await store.readJob(submission.jobId);
+  assert.equal(stored.payment.checkout.operationsCommandId, undefined);
 });
 
 test("only an explicitly operational intake enqueues Kanban work", async () => {

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
-import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { chmod, link, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
@@ -63,11 +63,12 @@ test("local generation workspace derives revision paths from persisted inputs an
     ordinal: 1,
     inputDigest: INTAKE_DIGEST,
   });
-  assert.deepEqual(JSON.parse(await readFile(paths.intakePath, "utf8")).baby, {
+  assert.deepEqual(paths.intakeSnapshot.baby, {
     firstName: "Amal Test",
     nameArabic: "أمل",
     gender: "girl",
   });
+  assert.equal(Object.hasOwn(paths, "intakePath"), false);
 
   await writePrivateReview(paths);
   const first = await workspace.collectArtifactSet({ kind: "private_review", paths });
@@ -79,6 +80,14 @@ test("local generation workspace derives revision paths from persisted inputs an
   assert.match(first.pageDigest, /^[a-f0-9]{64}$/);
   assert.match(first.transcriptDigest, /^[a-f0-9]{64}$/);
   assert.match(first.assetManifestDigest, /^[a-f0-9]{64}$/);
+  assert.equal(
+    first.pageDigest,
+    first.files.find((file) => file.path === "artifacts/current/page.json").sha256,
+  );
+  assert.equal(
+    first.transcriptDigest,
+    first.files.find((file) => file.path === "artifacts/current/transcript.json").sha256,
+  );
   assert.deepEqual(first.files.map((file) => file.path), [
     "artifacts/current/page.json",
     "artifacts/current/transcript.json",
@@ -89,6 +98,33 @@ test("local generation workspace derives revision paths from persisted inputs an
   await assert.rejects(
     workspace.collectArtifactSet({ kind: "private_review", paths }),
     /diverge from the persisted manifest/i,
+  );
+});
+
+test("artifact collection rejects hard-linked files", async (t) => {
+  const { workspace } = await fixture(t);
+  const paths = await workspace.resolveJobPaths(JOB);
+  await writePrivateReview(paths);
+  await link(
+    path.join(paths.reviewRoot, "review.json"),
+    path.join(paths.reviewRoot, "review-copy.json"),
+  );
+
+  await assert.rejects(
+    workspace.collectArtifactSet({ kind: "private_review", paths }),
+    /Secure filesystem boundary rejected/i,
+  );
+});
+
+test("artifact collection rejects files writable by another principal", async (t) => {
+  const { workspace } = await fixture(t);
+  const paths = await workspace.resolveJobPaths(JOB);
+  await writePrivateReview(paths);
+  await chmod(path.join(paths.reviewRoot, "review.json"), 0o620);
+
+  await assert.rejects(
+    workspace.collectArtifactSet({ kind: "private_review", paths }),
+    /Secure filesystem boundary rejected/i,
   );
 });
 
@@ -190,13 +226,13 @@ test("persisted orchestration drives compose, render, and retryable test-mode TT
   let failPrepare = true;
   let failTts = true;
   const commands = {
-    async prepareReview(args) {
+    async prepareReview(args, options) {
       prepareCalls += 1;
       if (failPrepare) {
         failPrepare = false;
         throw retryableError("synthetic_prepare_failure");
       }
-      return captureConsole(() => commandPrepareReview(args));
+      return captureConsole(() => commandPrepareReview(args, options));
     },
     async render(args) {
       return captureConsole(() => commandRender(args));
@@ -251,7 +287,7 @@ test("persisted orchestration drives compose, render, and retryable test-mode TT
   now = "2026-08-11T00:00:02.000Z";
   orchestrator = makeOrchestrator();
   status = await orchestrator.runNext(jobId);
-  assert.equal(status.state, "content_review_required");
+  assert.equal(status.state, "content_review_required", JSON.stringify(status.stageAttempts.at(-1)));
   assert.equal(status.currentRevisionId, "r1");
   assert.equal(prepareCalls, 2);
 
@@ -300,6 +336,10 @@ test("persisted orchestration drives compose, render, and retryable test-mode TT
   assert.equal(preparedArtifacts.pageDigest, createHash("sha256").update(
     await readFile(paths.approvedPagePath),
   ).digest("hex"));
+  assert.equal(
+    preparedArtifacts.files.find((file) => file.path === "artifacts/current/page.json")?.sha256,
+    preparedArtifacts.pageDigest,
+  );
 
   now = "2026-08-11T00:00:05.000Z";
   status = await orchestrator.runNext(jobId);
@@ -319,6 +359,10 @@ test("persisted orchestration drives compose, render, and retryable test-mode TT
   const narrationArtifacts = finalAggregate.artifactSets.at(-1);
   assert.equal(narrationArtifacts.kind, "narration_review");
   assert.equal(narrationArtifacts.pageDigest, preparedArtifacts.pageDigest);
+  assert.equal(
+    narrationArtifacts.files.find((file) => file.path === "approved/page.json")?.sha256,
+    narrationArtifacts.pageDigest,
+  );
   assert.match(narrationArtifacts.transcriptDigest, /^[a-f0-9]{64}$/);
   assert.match(narrationArtifacts.assetManifestDigest, /^[a-f0-9]{64}$/);
   const replay = await handlers.generate_tts({

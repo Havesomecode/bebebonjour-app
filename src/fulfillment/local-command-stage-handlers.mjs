@@ -85,7 +85,7 @@ export function createLocalCommandStageHandlers(options = {}) {
     async prepare_review(context) {
       const paths = await pathsFor(context);
       const commandArgs = {
-        input: requiredPath(paths, "intakePath"),
+        input: requiredPath(paths, "inputRecordPath"),
         output: requiredPath(paths, "reviewRoot"),
         ...(paths.selectionId ? { select: paths.selectionId } : {}),
       };
@@ -94,7 +94,10 @@ export function createLocalCommandStageHandlers(options = {}) {
         context,
         paths,
         expectedRevisionId: paths.revision?.revisionId,
-        command: () => commands.prepareReview(commandArgs),
+        command: () => commands.prepareReview(commandArgs, {
+          intakeSnapshot: requiredIntakeSnapshot(paths),
+          silent: true,
+        }),
       });
       return {
         revision: structuredClone(paths.revision),
@@ -199,6 +202,14 @@ function requiredPath(paths, key) {
     throw new Error(`Resolved job path ${key} is required.`);
   }
   return value;
+}
+
+function requiredIntakeSnapshot(paths) {
+  const intake = paths?.intakeSnapshot;
+  if (!intake || typeof intake !== "object" || Array.isArray(intake)) {
+    throw new Error("Resolved intake snapshot is required.");
+  }
+  return structuredClone(intake);
 }
 
 function assertLocalVerificationUrl(value) {

@@ -41,6 +41,39 @@ test("reviewed TEST-A operator policy is loaded from the exact pinned manifest b
   );
 });
 
+test("reviewed generation policy grants only prepare_review and canonical read/write authority", async () => {
+  const manifestBytes = await readFile(manifestUrl);
+  const {
+    REVIEWED_TEST_A_GENERATION_POLICY,
+    loadReviewedTestAGenerationPolicy,
+  } = await import("../../src/config/test-a-hosted-provider-manifest.mjs");
+
+  assert.deepEqual(
+    loadReviewedTestAGenerationPolicy(manifestBytes),
+    REVIEWED_TEST_A_GENERATION_POLICY,
+  );
+  assert.deepEqual(REVIEWED_TEST_A_GENERATION_POLICY.capabilities, ["prepare-review"]);
+  assert.deepEqual(REVIEWED_TEST_A_GENERATION_POLICY.authorityInputs, [
+    "jobId",
+    "privateArtifactRoot",
+    "jobScopedEditorialApprovalRecord",
+  ]);
+  assert.deepEqual(REVIEWED_TEST_A_GENERATION_POLICY.stages, ["prepare_review"]);
+  assert.deepEqual(REVIEWED_TEST_A_GENERATION_POLICY.localConfiguration, ["privateArtifactRoot"]);
+  assert.deepEqual(REVIEWED_TEST_A_GENERATION_POLICY.allowedEnvironmentVariables, [
+    "CONVEX_URL",
+    "CUSTOMER_FLOW_BACKEND_TOKEN",
+  ]);
+  for (const forbidden of [
+    "BEBEBONJOUR_APPROVAL_HMAC_KEY",
+    "RESEND_API_KEY",
+    "STRIPE_SECRET_KEY",
+    "VERCEL_TOKEN",
+  ]) {
+    assert.ok(REVIEWED_TEST_A_GENERATION_POLICY.forbiddenEnvironmentVariables.includes(forbidden));
+  }
+});
+
 test("reviewed TEST-A operator policy rejects tampered bytes and contradictory secret-store policy", async () => {
   const manifestBytes = await readFile(manifestUrl);
   const manifest = JSON.parse(manifestBytes);
