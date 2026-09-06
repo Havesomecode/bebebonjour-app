@@ -6,7 +6,7 @@ import { isDeepStrictEqual } from "node:util";
 
 import { createLocalGenerationWorkspace } from "./local-generation-workspace.mjs";
 
-const MAX_FILE_BYTES = 64 * 1024 * 1024;
+const MAX_FILE_BYTES = 20 * 1024 * 1024;
 
 export function createHostedGenerationWorkspace(options = {}) {
   const rootPath = options.rootPath;
@@ -85,7 +85,7 @@ export function createHostedGenerationWorkspace(options = {}) {
   async function hydrateRemoteArtifactSet({ remote, paths }) {
     for (const file of remote.files) {
       const target = safeArtifactPath(paths.reviewRoot, file.path);
-      const bytes = await artifactStore.downloadArtifact(file);
+      const bytes = await artifactStore.downloadArtifact(file, remote.artifactSet);
       await mkdir(path.dirname(target), { recursive: true, mode: 0o700 });
       await writeFile(target, bytes, { mode: 0o600 });
     }

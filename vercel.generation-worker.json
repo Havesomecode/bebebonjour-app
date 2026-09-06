@@ -1,0 +1,21 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "builds": [
+    {
+      "src": "generation-worker/api/worker.mjs",
+      "use": "@vercel/node"
+    }
+  ],
+  "routes": [
+    {
+      "src": "/api/operations/worker",
+      "dest": "generation-worker/api/worker.mjs"
+    }
+  ],
+  "crons": [
+    {
+      "path": "/api/operations/worker",
+      "schedule": "*/5 * * * *"
+    }
+  ]
+}

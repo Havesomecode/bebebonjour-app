@@ -9,6 +9,13 @@ const environment = Object.freeze({
   BEBEBONJOUR_OPERATIONS_WORKER_ID: "production-worker-1",
   BEBEBONJOUR_OPERATIONS_WORKER_ACTIONS: "",
 });
+const generationEnvironment = Object.freeze({
+  ...environment,
+  BEBEBONJOUR_OPERATIONS_WORKER_ACTIONS: "generate",
+  BEBEBONJOUR_OPERATIONS_WORKER_LIMIT: "5",
+  BEBEBONJOUR_OPERATIONS_WORKER_LEASE_MS: "120000",
+  CRON_SECRET: "cron-secret-with-at-least-thirty-two-bytes",
+});
 
 
 test("no-action production worker proves scoped health and claims no command class", async () => {
@@ -143,7 +150,7 @@ test("production generation entrypoint composes job-scoped generation without fu
     async query(name, input) {
       calls.push([name, structuredClone(input)]);
       if (name === "operations:workerHealth") return { protocolVersion: "1.0", scope: "worker" };
-      if (name === "fulfillment:getJob") {
+      if (name === "generation:getClaimedFulfillmentJob") {
         return {
           version: 4,
           currentRevisionId: "r1",
@@ -167,11 +174,7 @@ test("production generation entrypoint composes job-scoped generation without fu
   };
 
   const result = await runOperationsWorkerCommand({
-    environment: {
-      ...environment,
-      BEBEBONJOUR_OPERATIONS_WORKER_ACTIONS: "generate",
-      CUSTOMER_FLOW_BACKEND_TOKEN: "backend-token-with-at-least-thirty-two-bytes",
-    },
+    environment: generationEnvironment,
     client,
     artifactStore: {
       async readEditorialApproval(receivedJobId) {
@@ -213,7 +216,7 @@ test("production generation entrypoint composes job-scoped generation without fu
     "operations:claimCommands",
     "operations:fenceCommand",
     "operations:fenceCommand",
-    "fulfillment:getJob",
+    "generation:getClaimedFulfillmentJob",
     "operations:completeCommand",
   ]);
 });
@@ -233,16 +236,15 @@ test("worker startup fails before queue access when an uncomposed action is enab
   assert.equal(calls, 0);
 });
 
-test("production generation rejects missing or shared credentials before queue access", async () => {
+test("production generation rejects incomplete or broad runtime authority before queue access", async () => {
   const environments = [
     {
       ...environment,
       BEBEBONJOUR_OPERATIONS_WORKER_ACTIONS: "generate",
     },
     {
-      ...environment,
-      BEBEBONJOUR_OPERATIONS_WORKER_ACTIONS: "generate",
-      CUSTOMER_FLOW_BACKEND_TOKEN: environment.BEBEBONJOUR_OPERATIONS_WORKER_TOKEN,
+      ...generationEnvironment,
+      CUSTOMER_FLOW_BACKEND_TOKEN: "broad-backend-token-with-at-least-thirty-two-bytes",
     },
   ];
   for (const invalidEnvironment of environments) {
@@ -255,7 +257,7 @@ test("production generation rejects missing or shared credentials before queue a
           async mutation() { calls += 1; },
         },
       }),
-      /(CUSTOMER_FLOW_BACKEND_TOKEN|credentials must be distinct)/u,
+      /(is required|CUSTOMER_FLOW_BACKEND_TOKEN is forbidden)/u,
     );
     assert.equal(calls, 0);
   }

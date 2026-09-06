@@ -41,6 +41,7 @@ const REVIEW_ROOT_INPUTS = Object.freeze([
   "package-lock.json",
   "package.json",
   "scripts/verify-vercel-routing.mjs",
+  "vercel.generation-worker.json",
   "vercel.json",
 ]);
 
@@ -51,12 +52,9 @@ export async function createTestAOperatorIsolationInventory(options) {
     .map((filePath) => relativePath(rootPath, filePath))
     .sort();
   const publicModuleGraph = await traceLocalModuleGraph(rootPath, publicEntrypoints);
-  const operationsWorkerEntrypoint = "api/operations/worker.mjs";
+  const operationsWorkerEntrypoint = "generation-worker/api/worker.mjs";
   const operationsWorkerModuleGraph = await traceLocalModuleGraph(rootPath, [operationsWorkerEntrypoint]);
-  const customerPublicModuleGraph = await traceLocalModuleGraph(
-    rootPath,
-    publicEntrypoints.filter((entrypoint) => entrypoint !== operationsWorkerEntrypoint),
-  );
+  const customerPublicModuleGraph = await traceLocalModuleGraph(rootPath, publicEntrypoints);
   const privateInvocation = "ops/run-test-a-operator.mjs";
   const privateModuleGraph = await traceLocalModuleGraph(rootPath, [privateInvocation]);
   const generationInvocation = "ops/run-test-a-generation.mjs";

@@ -33,6 +33,8 @@ the field-map contract.
   `npx convex deployments --deployment havesomecode:bebebonjour-test-a:prod`
 - Vercel project: `bebebonjour-fulfillment`
 - Vercel production alias: `https://bebebonjour-fulfillment.vercel.app`
+- Isolated generation worker project: `bebebonjour-generation-worker` (resolve
+  and record its provider project ID before the first separately authorized deploy)
 
 Always resolve the production alias immediately before deploy. Do not reuse a
 retired preview deployment name from an old manifest.
@@ -46,9 +48,10 @@ npx convex deploy --deployment havesomecode:bebebonjour-test-a:prod
 ```
 
 Set `CUSTOMER_FLOW_BACKEND_TOKEN` and `BEBEBONJOUR_OPERATIONS_WORKER_TOKEN` on
-that exact Convex production deployment. Each token must match its server-side
-Vercel value, the two values must be distinct, and neither may be printed,
-committed, copied into Kanban, or exposed to browser code.
+that exact Convex production deployment. The first token is mounted only in the
+fulfillment project; the second is mounted only in the isolated generation
+project. The values must be distinct and neither may be printed, committed,
+copied into Kanban, or exposed to browser code.
 
 The deployed schema must include:
 
@@ -71,13 +74,7 @@ The fulfillment project requires these server-side names:
 - `CUSTOMER_FLOW_TEST_ACCESS_TOKEN`
 - `CUSTOMER_FLOW_ALLOWED_ORIGINS`
 - `BEBEBONJOUR_OPERATIONS_TOKEN`
-- `BEBEBONJOUR_OPERATIONS_WORKER_TOKEN`
 - `BEBEBONJOUR_OPS_RATE_LIMIT_TOKEN`
-- `BEBEBONJOUR_OPERATIONS_WORKER_ID`
-- `BEBEBONJOUR_OPERATIONS_WORKER_ACTIONS` (`generate` only when generation is enabled)
-- `BEBEBONJOUR_OPERATIONS_WORKER_LIMIT`
-- `BEBEBONJOUR_OPERATIONS_WORKER_LEASE_MS`
-- `CRON_SECRET`
 - `STRIPE_SECRET_KEY` (test mode until a separately approved live rollout)
 - `STRIPE_CUSTOMER_FLOW_WEBHOOK_SECRET`
 - `STRIPE_CHECKOUT_SUCCESS_URL`
@@ -89,6 +86,24 @@ The fulfillment project requires these server-side names:
 `CONVEX_URL` must point to the current production deployment returned by the
 provider, not a deleted preview. List variable names with `vercel env ls`; never
 print values.
+
+The separate `bebebonjour-generation-worker` project uses
+`vercel.generation-worker.json`, packages only
+`generation-worker/api/worker.mjs`, and has exactly these application variables:
+
+- `CONVEX_URL`
+- `BEBEBONJOUR_OPERATIONS_WORKER_TOKEN`
+- `BEBEBONJOUR_OPERATIONS_WORKER_ID`
+- `BEBEBONJOUR_OPERATIONS_WORKER_ACTIONS=generate`
+- `BEBEBONJOUR_OPERATIONS_WORKER_LIMIT=5`
+- `BEBEBONJOUR_OPERATIONS_WORKER_LEASE_MS=120000`
+- `CRON_SECRET`
+
+It must not contain `CUSTOMER_FLOW_BACKEND_TOKEN`, operations UI credentials,
+payment, email, Tally, publication, provider-management, or model-provider
+credentials. Read back variable names and the provider project ID before deploy;
+never print values. The main fulfillment project must not contain any of the six
+`BEBEBONJOUR_OPERATIONS_WORKER_*`/`CRON_SECRET` worker inputs.
 
 ## Tally form and webhook
 
@@ -147,8 +162,10 @@ Vercel generation uses only invocation-local `/tmp` as a private staging area.
 Every completed private-review file is uploaded to Convex file storage, and the
 exact job/revision/kind metadata is committed insert-once to
 `fulfillmentGenerationArtifactSets` before the fulfillment stage can complete.
-A cold invocation downloads each file through a worker-authenticated short-lived
-URL and verifies its byte length and SHA-256 digest before replay. The staging
+A cold invocation requests each file through the claim-scoped authenticated
+`GET /generation/artifact` Convex HTTP action and verifies its byte length and
+SHA-256 digest before replay. Each file is limited to 20 MiB and no direct
+storage URL is returned. The staging
 directory is removed in `finally`; no Vercel filesystem path is a durability
 authority.
 
@@ -178,9 +195,11 @@ closed JSON schema, exact job binding, exact non-broadening policy, and evidence
 digests before the approval can be inserted. Repeating the exact approval is
 idempotent; a conflicting record for the same job is rejected.
 
-The Vercel cron endpoint authenticates `CRON_SECRET`, health-checks the exact
-worker protocol, and claims only the configured `generate` action. The worker
-reads the canonical customer/fulfillment records plus the persisted approval,
+The isolated Vercel cron endpoint authenticates `CRON_SECRET`, health-checks the
+exact worker protocol, and claims only the configured `generate` action. Every
+Convex read, transition, upload URL, commit, and byte read binds the worker token,
+command ID, worker ID, lease token, exact job, active lease, and `generate`
+action. The worker reads the canonical customer/fulfillment records plus the persisted approval,
 rejects unpaid, mismatched, or ineligible jobs before artifact upload, crosses
 the Operations effect fence once, advances only `prepare_review`, persists the
 complete private artifact set in Convex, and stops at `content_review_required`.

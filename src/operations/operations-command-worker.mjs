@@ -109,6 +109,11 @@ export function createOperationsCommandWorker(options = {}) {
             expectedVersion: command.expectedVersion,
             payload: structuredClone(command.payload),
             fenceExternalEffect,
+            workerAuthority: Object.freeze({
+              commandId: command.commandId,
+              workerId: input.workerId,
+              leaseToken: requiredLeaseToken(command),
+            }),
           });
           if (EXTERNAL_EFFECT_ACTIONS.has(command.action) && effectFenceCount < 1) {
             throw new OperationsCommandError("effect_fence_required");

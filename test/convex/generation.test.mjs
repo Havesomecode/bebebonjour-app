@@ -15,6 +15,12 @@ const readArtifactSet = makeFunctionReference("generation:readArtifactSet");
 const backendToken = "backend-token-at-least-thirty-two-characters";
 const workerToken = "worker-token-at-least-thirty-two-characters_";
 const jobId = "job_generation_storage_001";
+const authority = Object.freeze({
+  workerToken,
+  workerId: "generation-worker-1",
+  commandId: "command_generation_storage_001",
+  leaseToken: "generation-storage-lease-token",
+});
 
 function fixture() {
   process.env.CUSTOMER_FLOW_BACKEND_TOKEN = backendToken;
@@ -22,7 +28,31 @@ function fixture() {
   return convexTest(schema, {
     "./_generated/server.js": () => import("convex/server"),
     "./generation.js": () => import("../../convex/generation.js"),
+    "./http.js": () => import("../../convex/http.js"),
   });
+}
+
+function artifactRequest(overrides = {}) {
+  const parameters = new URLSearchParams({
+    jobId,
+    revisionId: "r1",
+    kind: "private_review",
+    path: "review.json",
+    ...overrides.parameters,
+  });
+  return {
+    path: `/generation/artifact?${parameters}`,
+    init: {
+      method: "GET",
+      headers: {
+        authorization: `Bearer ${authority.workerToken}`,
+        "x-bebebonjour-worker-id": authority.workerId,
+        "x-bebebonjour-command-id": authority.commandId,
+        "x-bebebonjour-lease-token": authority.leaseToken,
+        ...overrides.headers,
+      },
+    },
+  };
 }
 
 function editorialApproval(reference = "kanban:t_reviewed_generation") {
@@ -45,8 +75,34 @@ function editorialApproval(reference = "kanban:t_reviewed_generation") {
   return { record, recordDigest: sha256(`${JSON.stringify(record, null, 2)}\n`) };
 }
 
-test("Convex keeps editorial approval immutable and worker-readable", async () => {
+async function seedClaim(convex) {
+  await convex.run((context) => context.db.insert("customerFlowOperationsCommands", {
+    commandId: authority.commandId,
+    jobId,
+    action: "generate",
+    expectedState: "generation_queued",
+    expectedVersion: 3,
+    payload: {},
+    requestedAt: new Date().toISOString(),
+    requestedBy: "primary_operator",
+    state: "running",
+    attempts: 1,
+    claim: {
+      workerId: authority.workerId,
+      leaseToken: authority.leaseToken,
+      claimedAtMs: Date.now(),
+      leaseExpiresAtMs: Date.now() + 600_000,
+      effectStartedAtMs: Date.now(),
+    },
+    lastFailureReason: null,
+    outcome: null,
+    updatedAt: new Date().toISOString(),
+  }));
+}
+
+test("Convex keeps editorial approval immutable and claim-scoped", async () => {
   const convex = fixture();
+  await seedClaim(convex);
   const approval = editorialApproval();
   await assert.rejects(
     convex.mutation(saveEditorialApproval, {
@@ -61,7 +117,7 @@ test("Convex keeps editorial approval immutable and worker-readable", async () =
     jobId,
     approval,
   }), { created: true, approval });
-  assert.deepEqual(await convex.query(readEditorialApproval, { workerToken, jobId }), approval);
+  assert.deepEqual(await convex.query(readEditorialApproval, { ...authority, jobId }), approval);
   assert.deepEqual(await convex.mutation(saveEditorialApproval, {
     backendToken,
     jobId,
@@ -76,13 +132,14 @@ test("Convex keeps editorial approval immutable and worker-readable", async () =
     /immutable/u,
   );
   await assert.rejects(
-    convex.query(readEditorialApproval, { workerToken: "wrong", jobId }),
+    convex.query(readEditorialApproval, { ...authority, workerToken: "wrong", jobId }),
     /authorization/u,
   );
 });
 
-test("Convex commits a bounded artifact set only after every blob exists", async () => {
+test("Convex commits and streams a bounded private artifact set only for the active claim", async () => {
   const convex = fixture();
+  await seedClaim(convex);
   const bytes = Buffer.from("private review artifact\n");
   const storageId = await convex.run((context) => context.storage.store(new Blob([bytes])));
   const storageMetadata = await convex.run((context) => context.db.system.get(storageId));
@@ -102,12 +159,12 @@ test("Convex commits a bounded artifact set only after every blob exists", async
     }],
   };
   assert.deepEqual(await convex.mutation(commitArtifactSet, {
-    workerToken,
+    ...authority,
     jobId,
     artifactSet,
   }), { created: true, artifactSet });
   const readback = await convex.query(readArtifactSet, {
-    workerToken,
+    ...authority,
     jobId,
     revisionId: "r1",
     kind: "private_review",
@@ -115,11 +172,26 @@ test("Convex commits a bounded artifact set only after every blob exists", async
   assert.deepEqual(readback.artifactSet, artifactSet);
   assert.equal(readback.files.length, 1);
   assert.equal(readback.files[0].storageId, storageId);
-  assert.match(readback.files[0].url, /^https:\/\//u);
+  assert.equal(Object.hasOwn(readback.files[0], "url"), false);
+  const request = artifactRequest();
+  const response = await convex.fetch(request.path, request.init);
+  assert.equal(response.status, 200);
+  assert.equal(response.headers.get("cache-control"), "private, no-store");
+  assert.deepEqual(Buffer.from(await response.arrayBuffer()), bytes);
+
+  const replay = artifactRequest({
+    headers: { "x-bebebonjour-lease-token": "replayed-lease-token" },
+  });
+  assert.equal((await convex.fetch(replay.path, replay.init)).status, 403);
+  const missingAuthentication = artifactRequest({ headers: { authorization: "" } });
+  assert.equal(
+    (await convex.fetch(missingAuthentication.path, missingAuthentication.init)).status,
+    403,
+  );
 
   await assert.rejects(
     convex.mutation(commitArtifactSet, {
-      workerToken,
+      ...authority,
       jobId,
       artifactSet: {
         ...artifactSet,
@@ -133,7 +205,7 @@ test("Convex commits a bounded artifact set only after every blob exists", async
 
   await assert.rejects(
     convex.mutation(commitArtifactSet, {
-      workerToken,
+      ...authority,
       jobId,
       artifactSet: {
         ...artifactSet,
@@ -143,6 +215,15 @@ test("Convex commits a bounded artifact set only after every blob exists", async
       },
     }),
   );
+
+  await convex.run(async (context) => {
+    const command = await context.db
+      .query("customerFlowOperationsCommands")
+      .withIndex("by_command_id", (query) => query.eq("commandId", authority.commandId))
+      .unique();
+    await context.db.patch(command._id, { state: "completed", claim: null });
+  });
+  assert.equal((await convex.fetch(request.path, request.init)).status, 403);
 });
 
 function sha256(value) {

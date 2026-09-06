@@ -2,7 +2,6 @@ import { lstatSync, realpathSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { REVIEWED_TEST_A_GENERATION_POLICY } from "../config/test-a-hosted-provider-manifest.mjs";
 import { loadJobScopedGenerationApproval } from "./job-scoped-generation-approval.mjs";
 import { createTestAGenerationRunner } from "./test-a-generation-runner.mjs";
 
@@ -12,6 +11,10 @@ const INERT_GENERATION_ENVIRONMENT_VARIABLES = Object.freeze([
   "HOME",
   "TMPDIR",
   "__CF_USER_TEXT_ENCODING",
+]);
+const LOCAL_GENERATION_ENVIRONMENT_VARIABLES = Object.freeze([
+  "CONVEX_URL",
+  "CUSTOMER_FLOW_BACKEND_TOKEN",
 ]);
 
 const defaultRepositoryRoot = path.resolve(
@@ -66,7 +69,7 @@ export function generationOperatorErrorCode(error) {
 
 function requireGenerationEnvironment(environment) {
   const allowedNames = new Set([
-    ...REVIEWED_TEST_A_GENERATION_POLICY.allowedEnvironmentVariables,
+    ...LOCAL_GENERATION_ENVIRONMENT_VARIABLES,
     ...INERT_GENERATION_ENVIRONMENT_VARIABLES,
   ]);
   if (
@@ -76,11 +79,6 @@ function requireGenerationEnvironment(environment) {
     || Object.keys(environment).some((name) => !allowedNames.has(name))
   ) {
     throw operatorError("generation_environment_rejected");
-  }
-  for (const name of REVIEWED_TEST_A_GENERATION_POLICY.forbiddenEnvironmentVariables) {
-    if (environment?.[name] !== undefined) {
-      throw operatorError("generation_environment_rejected");
-    }
   }
   const convexUrl = environment?.CONVEX_URL;
   const backendToken = environment?.CUSTOMER_FLOW_BACKEND_TOKEN;
@@ -105,7 +103,7 @@ function requireGenerationEnvironment(environment) {
     throw operatorError("generation_environment_rejected");
   }
   return Object.freeze(Object.fromEntries(
-    REVIEWED_TEST_A_GENERATION_POLICY.allowedEnvironmentVariables
+    LOCAL_GENERATION_ENVIRONMENT_VARIABLES
       .filter((name) => environment[name] !== undefined)
       .map((name) => [name, environment[name]]),
   ));

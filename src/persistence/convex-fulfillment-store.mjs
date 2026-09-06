@@ -25,23 +25,26 @@ const DEFAULT_FUNCTIONS = Object.freeze({
 
 export function createConvexFulfillmentStore(options = {}) {
   const client = options.client;
-  const backendToken = options.backendToken;
+  const authorization = options.authorization || { backendToken: options.backendToken };
   const functions = { ...DEFAULT_FUNCTIONS, ...options.functions };
   if (!client?.query || !client?.mutation) {
     throw new Error("A Convex client with query and mutation methods is required.");
   }
-  if (typeof backendToken !== "string" || backendToken.length < 32) {
-    throw new Error("A Convex backend token of at least 32 characters is required.");
+  if (!authorization
+    || typeof authorization !== "object"
+    || Array.isArray(authorization)
+    || !Object.values(authorization).some((value) => typeof value === "string" && value.length >= 32)) {
+    throw new Error("Convex fulfillment authorization is required.");
   }
 
   async function change(jobId, transition) {
     for (let attempt = 0; attempt < 5; attempt += 1) {
-      const current = await client.query(functions.getJob, { backendToken, jobId });
+      const current = await client.query(functions.getJob, { ...authorization, jobId });
       if (!current) throw new Error(`Unknown fulfillment job: ${jobId}`);
       const next = transition(structuredClone(current));
       if (next.version === current.version) return structuredClone(next);
       const result = await client.mutation(functions.replaceJob, {
-        backendToken,
+        ...authorization,
         jobId,
         expectedVersion: current.version,
         aggregate: next,
@@ -57,7 +60,7 @@ export function createConvexFulfillmentStore(options = {}) {
     async createJob(input, context) {
       const aggregate = createJobAggregate(input, context);
       const result = await client.mutation(functions.createJob, {
-        backendToken,
+        ...authorization,
         jobId: input.jobId,
         aggregate,
       });
@@ -77,16 +80,16 @@ export function createConvexFulfillmentStore(options = {}) {
     },
 
     getJob(jobId) {
-      return client.query(functions.getJob, { backendToken, jobId });
+      return client.query(functions.getJob, { ...authorization, jobId });
     },
 
     getReviewApproval(approvalId) {
-      return client.query(functions.getReviewApproval, { backendToken, approvalId });
+      return client.query(functions.getReviewApproval, { ...authorization, approvalId });
     },
 
     async saveReviewApproval(approval) {
       const result = await client.mutation(functions.saveReviewApproval, {
-        backendToken,
+        ...authorization,
         approval,
       });
       return structuredClone(result.approval);

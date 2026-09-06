@@ -289,13 +289,7 @@
       "CUSTOMER_FLOW_TEST_ACCESS_TOKEN",
       "CUSTOMER_FLOW_ALLOWED_ORIGINS",
       "BEBEBONJOUR_OPERATIONS_TOKEN",
-      "BEBEBONJOUR_OPERATIONS_WORKER_TOKEN",
       "BEBEBONJOUR_OPS_RATE_LIMIT_TOKEN",
-      "BEBEBONJOUR_OPERATIONS_WORKER_ID",
-      "BEBEBONJOUR_OPERATIONS_WORKER_ACTIONS",
-      "BEBEBONJOUR_OPERATIONS_WORKER_LIMIT",
-      "BEBEBONJOUR_OPERATIONS_WORKER_LEASE_MS",
-      "CRON_SECRET",
       "STRIPE_SECRET_KEY",
       "STRIPE_CUSTOMER_FLOW_WEBHOOK_SECRET",
       "STRIPE_CHECKOUT_SUCCESS_URL",
@@ -313,7 +307,6 @@
       "GET /api/customer-flow/v1/jobs/:jobId/status",
       "POST /api/customer-flow/v1/jobs/:jobId/checkout",
       "POST /api/customer-flow/webhooks/stripe",
-      "GET /api/operations/worker",
       "POST /api/webhooks/tally"
     ],
     "forbiddenVariables": [
@@ -323,7 +316,6 @@
     ],
     "testAccess": "X-Test-A-Access-Token is required on every /v1 command and must be collected interactively, held in memory only, and never bundled into browser assets",
     "additionalEntrypoints": [
-      "api/operations/worker.mjs",
       "api/webhooks/tally.mjs"
     ]
   },
@@ -379,15 +371,27 @@
     "authorityInputs": [
       "jobId",
       "persistedJobScopedEditorialApproval",
-      "convexPrivateArtifactStorage"
+      "convexAuthenticatedPrivateArtifactHttpAction"
     ],
     "capabilities": [
       "prepare-review"
     ],
+    "deployment": {
+      "provider": "Vercel",
+      "projectName": "bebebonjour-generation-worker",
+      "configPath": "vercel.generation-worker.json",
+      "entrypoint": "generation-worker/api/worker.mjs",
+      "route": "GET /api/operations/worker",
+      "schedule": "*/5 * * * *"
+    },
     "environmentVariables": [
       "CONVEX_URL",
-      "CUSTOMER_FLOW_BACKEND_TOKEN",
-      "BEBEBONJOUR_OPERATIONS_WORKER_TOKEN"
+      "BEBEBONJOUR_OPERATIONS_WORKER_TOKEN",
+      "BEBEBONJOUR_OPERATIONS_WORKER_ID",
+      "BEBEBONJOUR_OPERATIONS_WORKER_ACTIONS",
+      "BEBEBONJOUR_OPERATIONS_WORKER_LIMIT",
+      "BEBEBONJOUR_OPERATIONS_WORKER_LEASE_MS",
+      "CRON_SECRET"
     ],
     "localConfiguration": [],
     "providerOperationsEnabled": "Convex file storage only",
@@ -408,11 +412,11 @@
     "writeAuthority": "BEBEBONJOUR_OPERATIONS_WORKER_TOKEN",
     "approvalProvisioningAuthority": "CUSTOMER_FLOW_BACKEND_TOKEN via private immutable-file command",
     "publicReadAccess": false,
-    "maximumFileBytes": 67108864,
+    "maximumFileBytes": 20971520,
     "maximumArtifactSetBytes": 268435456,
     "maximumFiles": 2048,
     "immutability": "job + revision + kind metadata is insert-once; conflicting writes are rejected",
-    "readback": "worker-authenticated query issues short-lived storage URLs and verifies bytes plus sha256 before use"
+    "readback": "claim-scoped authenticated Convex HTTP action streams at most 20 MiB per file and verifies bytes plus sha256 before use; no direct storage URL is returned"
   },
   "secretStores": {
     "vercelProduction": {
@@ -424,13 +428,7 @@
         "CUSTOMER_FLOW_TEST_ACCESS_TOKEN",
         "CUSTOMER_FLOW_ALLOWED_ORIGINS",
         "BEBEBONJOUR_OPERATIONS_TOKEN",
-        "BEBEBONJOUR_OPERATIONS_WORKER_TOKEN",
         "BEBEBONJOUR_OPS_RATE_LIMIT_TOKEN",
-        "BEBEBONJOUR_OPERATIONS_WORKER_ID",
-        "BEBEBONJOUR_OPERATIONS_WORKER_ACTIONS",
-        "BEBEBONJOUR_OPERATIONS_WORKER_LIMIT",
-        "BEBEBONJOUR_OPERATIONS_WORKER_LEASE_MS",
-        "CRON_SECRET",
         "STRIPE_SECRET_KEY",
         "STRIPE_CUSTOMER_FLOW_WEBHOOK_SECRET",
         "STRIPE_CHECKOUT_SUCCESS_URL",
@@ -440,6 +438,12 @@
         "TALLY_INTAKE_FIELD_MAP"
       ],
       "forbidden": [
+        "BEBEBONJOUR_OPERATIONS_WORKER_TOKEN",
+        "BEBEBONJOUR_OPERATIONS_WORKER_ID",
+        "BEBEBONJOUR_OPERATIONS_WORKER_ACTIONS",
+        "BEBEBONJOUR_OPERATIONS_WORKER_LIMIT",
+        "BEBEBONJOUR_OPERATIONS_WORKER_LEASE_MS",
+        "CRON_SECRET",
         "CONVEX_DEPLOY_KEY",
         "RESEND_API_KEY",
         "RESEND_FROM",
@@ -498,15 +502,20 @@
       ]
     },
     "generationOperator": {
-      "owner": "Vercel generation-only prepare_review runtime and private approval provisioner",
+      "owner": "isolated Vercel generation-only prepare_review project",
       "allowed": [
         "CONVEX_URL",
-        "CUSTOMER_FLOW_BACKEND_TOKEN",
-        "BEBEBONJOUR_OPERATIONS_WORKER_TOKEN"
+        "BEBEBONJOUR_OPERATIONS_WORKER_TOKEN",
+        "BEBEBONJOUR_OPERATIONS_WORKER_ID",
+        "BEBEBONJOUR_OPERATIONS_WORKER_ACTIONS",
+        "BEBEBONJOUR_OPERATIONS_WORKER_LIMIT",
+        "BEBEBONJOUR_OPERATIONS_WORKER_LEASE_MS",
+        "CRON_SECRET"
       ],
       "forbidden": [
         "BEBEBONJOUR_APPROVAL_HMAC_KEY",
         "CONVEX_DEPLOY_KEY",
+        "CUSTOMER_FLOW_BACKEND_TOKEN",
         "CUSTOMER_FLOW_TOKEN_ENCRYPTION_KEY",
         "CUSTOMER_FLOW_TEST_ACCESS_TOKEN",
         "ELEVENLABS_API_KEY",

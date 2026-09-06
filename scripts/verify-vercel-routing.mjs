@@ -25,6 +25,7 @@ const sourceRoot = requestedRevision
   : path.resolve(process.env.VERCEL_ROUTING_SOURCE || projectRoot);
 const buildRoot = path.join(scratchRoot, "source");
 const outputRoot = path.join(scratchRoot, "output");
+const workerOutputRoot = path.join(scratchRoot, "worker-output");
 const globalConfigRoot = path.join(scratchRoot, "global-config");
 
 try {
@@ -44,9 +45,14 @@ try {
   await mkdir(buildRoot, { recursive: true });
   await Promise.all([
     cp(path.join(sourceRoot, "api"), path.join(buildRoot, "api"), { recursive: true }),
+    cp(path.join(sourceRoot, "generation-worker"), path.join(buildRoot, "generation-worker"), { recursive: true }),
     cp(path.join(sourceRoot, "src"), path.join(buildRoot, "src"), { recursive: true }),
     cp(path.join(sourceRoot, "package.json"), path.join(buildRoot, "package.json")),
     cp(path.join(sourceRoot, "package-lock.json"), path.join(buildRoot, "package-lock.json")),
+    cp(
+      path.join(sourceRoot, "vercel.generation-worker.json"),
+      path.join(buildRoot, "vercel.generation-worker.json"),
+    ),
     mkdir(path.join(buildRoot, ".vercel-static"), { recursive: true }),
     mkdir(path.join(buildRoot, ".vercel"), { recursive: true }),
     mkdir(globalConfigRoot, { recursive: true }),
@@ -89,9 +95,26 @@ try {
     "--output", outputRoot,
   ], { environment });
 
-  const [manifest, outputConfig, functionConfig, operationsWorkerConfig, tallyFunctionConfig] = await Promise.all([
+  run(vercelCli, [
+    "build",
+    "--cwd", buildRoot,
+    "--global-config", globalConfigRoot,
+    "--local-config", path.join(buildRoot, "vercel.generation-worker.json"),
+    "--non-interactive",
+    "--output", workerOutputRoot,
+  ], { environment });
+
+  const [
+    manifest,
+    outputConfig,
+    workerOutputConfig,
+    functionConfig,
+    operationsWorkerConfig,
+    tallyFunctionConfig,
+  ] = await Promise.all([
     readFile(path.join(buildRoot, "ops", "test-a-hosted-provider-manifest.json"), "utf8").then(JSON.parse),
     readFile(path.join(outputRoot, "config.json"), "utf8").then(JSON.parse),
+    readFile(path.join(workerOutputRoot, "config.json"), "utf8").then(JSON.parse),
     readFile(
       path.join(
         outputRoot,
@@ -104,7 +127,14 @@ try {
       "utf8",
     ).then(JSON.parse),
     readFile(
-      path.join(outputRoot, "functions", "api", "operations", "worker.func", ".vc-config.json"),
+      path.join(
+        workerOutputRoot,
+        "functions",
+        "generation-worker",
+        "api",
+        "worker.mjs.func",
+        ".vc-config.json",
+      ),
       "utf8",
     ).then(JSON.parse),
     readFile(
@@ -119,6 +149,7 @@ try {
   assert.equal(operationsWorkerConfig.maxDuration, 60);
   assert.match(tallyFunctionConfig.runtime, /^nodejs22\.x$/);
   assert.ok(Array.isArray(outputConfig.routes), "Vercel output must contain generated routes");
+  assert.ok(Array.isArray(workerOutputConfig.routes), "worker output must contain generated routes");
   assert.ok(Array.isArray(manifest.vercelApi.routes), "provider manifest must declare Vercel routes");
 
   for (const manifestRoute of manifest.vercelApi.routes) {
@@ -128,17 +159,29 @@ try {
     const resolved = resolveGeneratedRoute(outputConfig.routes, probePath);
     const expectedDestination = pathname === "/api/webhooks/tally"
       ? TALLY_FUNCTION_DESTINATION
-      : pathname === "/api/operations/worker"
-        ? OPERATIONS_WORKER_DESTINATION
-        : FUNCTION_DESTINATION;
+      : FUNCTION_DESTINATION;
     assert.equal(resolved?.destination, expectedDestination,
       `${manifestRoute} resolved to ${JSON.stringify(resolved)} instead of ${expectedDestination}; generated routes: ${JSON.stringify(outputConfig.routes)}`);
   }
 
+  assert.equal(
+    resolveGeneratedRoute(outputConfig.routes, "/api/operations/worker")?.status,
+    404,
+  );
+  assert.equal(
+    resolveGeneratedRoute(workerOutputConfig.routes, "/api/operations/worker")?.destination,
+    "generation-worker/api/worker.mjs",
+  );
+  const workerCustomerRoute = resolveGeneratedRoute(
+    workerOutputConfig.routes,
+    "/api/customer-flow/health",
+  );
+  assert.ok(!workerCustomerRoute || workerCustomerRoute.status === 404);
+
   const artifactInventory = await inspectGeneratedPublicArtifact(outputRoot);
 
   console.log(
-    `PASS: Vercel CLI ${EXPECTED_VERCEL_VERSION} packages ${FUNCTION_DESTINATION}, ${OPERATIONS_WORKER_DESTINATION}, and ${TALLY_FUNCTION_DESTINATION}; all ${manifest.vercelApi.routes.length} manifest routes resolve to their reviewed handlers.`,
+    `PASS: Vercel CLI ${EXPECTED_VERCEL_VERSION} isolates ${OPERATIONS_WORKER_DESTINATION} from ${FUNCTION_DESTINATION} and ${TALLY_FUNCTION_DESTINATION}; all ${manifest.vercelApi.routes.length} customer routes resolve to their reviewed handlers.`,
   );
   console.log(`HERMES_VERIFY_RESULT=${JSON.stringify({
     status: "PASS",

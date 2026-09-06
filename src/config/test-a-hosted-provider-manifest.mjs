@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 
 export const EXPECTED_TEST_A_HOSTED_PROVIDER_MANIFEST_SHA256 =
-  "7f1b357d0e8f2e0b8a5bfb67db413e6ad1b806e6bbd51f9b529b8a0301314890";
+  "51c239290bea0bbd9ce6d925302b0da15c220fa14c2230200db9c28221de1a08";
 
 const manifestUrl = new URL("../../ops/test-a-hosted-provider-manifest.json", import.meta.url);
 
@@ -102,6 +102,7 @@ export function loadReviewedTestAGenerationPolicy(
   requireExactKeys(runtime, [
     "authorityInputs",
     "capabilities",
+    "deployment",
     "environmentVariables",
     "localConfiguration",
     "providerOperationsEnabled",
@@ -113,6 +114,10 @@ export function loadReviewedTestAGenerationPolicy(
     "generation operator authority inputs",
   );
   const capabilities = requireUniqueStringArray(runtime.capabilities, "generation operator capabilities");
+  const deployment = requireRecord(runtime.deployment, "generation operator deployment");
+  requireExactKeys(deployment, [
+    "configPath", "entrypoint", "projectName", "provider", "route", "schedule",
+  ], "generation operator deployment");
   const runtimeEnvironmentVariables = requireUniqueStringArray(
     runtime.environmentVariables,
     "generation operator runtime environment variables",
@@ -127,18 +132,30 @@ export function loadReviewedTestAGenerationPolicy(
     JSON.stringify(authorityInputs) !== JSON.stringify([
       "jobId",
       "persistedJobScopedEditorialApproval",
-      "convexPrivateArtifactStorage",
+      "convexAuthenticatedPrivateArtifactHttpAction",
     ])
     || JSON.stringify(capabilities) !== JSON.stringify(["prepare-review"])
     || JSON.stringify(runtimeEnvironmentVariables) !== JSON.stringify([
       "CONVEX_URL",
-      "CUSTOMER_FLOW_BACKEND_TOKEN",
       "BEBEBONJOUR_OPERATIONS_WORKER_TOKEN",
+      "BEBEBONJOUR_OPERATIONS_WORKER_ID",
+      "BEBEBONJOUR_OPERATIONS_WORKER_ACTIONS",
+      "BEBEBONJOUR_OPERATIONS_WORKER_LIMIT",
+      "BEBEBONJOUR_OPERATIONS_WORKER_LEASE_MS",
+      "CRON_SECRET",
     ])
     || JSON.stringify(localConfiguration) !== JSON.stringify([])
     || JSON.stringify(stages) !== JSON.stringify(["prepare_review"])
     || runtime.providerOperationsEnabled !== "Convex file storage only"
     || runtime.publicApiAccess !== false
+    || JSON.stringify(deployment) !== JSON.stringify({
+      provider: "Vercel",
+      projectName: "bebebonjour-generation-worker",
+      configPath: "vercel.generation-worker.json",
+      entrypoint: "generation-worker/api/worker.mjs",
+      route: "GET /api/operations/worker",
+      schedule: "*/5 * * * *",
+    })
   ) {
     throw new Error("TEST-A generation authority must remain isolated to prepare_review.");
   }
@@ -164,6 +181,7 @@ export function loadReviewedTestAGenerationPolicy(
     allowedEnvironmentVariables,
     authorityInputs,
     capabilities,
+    deployment,
     forbiddenEnvironmentVariables,
     localConfiguration,
     manifestSha256,
@@ -175,6 +193,28 @@ export function loadReviewedTestAGenerationPolicy(
 export const REVIEWED_TEST_A_GENERATION_POLICY = loadReviewedTestAGenerationPolicy(
   readFileSync(manifestUrl),
 );
+
+export function requireReviewedTestAGenerationEnvironment(
+  environment,
+  { policy = REVIEWED_TEST_A_GENERATION_POLICY } = {},
+) {
+  for (const name of policy.forbiddenEnvironmentVariables) {
+    if (environment?.[name] !== undefined) {
+      throw new Error(`${name} is forbidden by the reviewed TEST-A generation secret-store policy.`);
+    }
+  }
+  for (const name of policy.allowedEnvironmentVariables) {
+    if (typeof environment?.[name] !== "string" || environment[name].trim() === "") {
+      throw new Error(`${name} is required by the reviewed TEST-A generation secret-store policy.`);
+    }
+  }
+  if (environment.BEBEBONJOUR_OPERATIONS_WORKER_ACTIONS !== "generate") {
+    throw new Error("BEBEBONJOUR_OPERATIONS_WORKER_ACTIONS must equal generate.");
+  }
+  return Object.freeze(Object.fromEntries(
+    policy.allowedEnvironmentVariables.map((name) => [name, environment[name]]),
+  ));
+}
 
 export function requireReviewedTestAOperatorEnvironment(
   environment,

@@ -9,7 +9,6 @@ import { createProductionGenerationWorker } from "../../src/operations/productio
 import { createConvexGenerationArtifactStore } from "../../src/persistence/convex-generation-artifact-store.mjs";
 
 const JOB_ID = "job_hosted_generation_001";
-const BACKEND_TOKEN = "backend-token-with-at-least-thirty-two-bytes";
 const WORKER_TOKEN = "worker-token-with-at-least-thirty-two-bytes";
 const COMMAND_ID = "command_hosted_generate_000001";
 const INTAKE_DIGEST = "a".repeat(64);
@@ -99,8 +98,8 @@ function hostedFixture() {
   const client = {
     async query(name, input) {
       if (name === "operations:workerHealth") return { protocolVersion: "1.0", scope: "worker" };
-      if (name === "customerFlow:readJob") {
-        assert.equal(input.backendToken, BACKEND_TOKEN);
+      if (name === "generation:readClaimedCustomerJob") {
+        assert.equal(input.workerToken, WORKER_TOKEN);
         return {
           schemaVersion: "1.0",
           jobId: JOB_ID,
@@ -109,7 +108,7 @@ function hostedFixture() {
           payment: { status: "paid" },
         };
       }
-      if (name === "fulfillment:getJob") return structuredClone(aggregate);
+      if (name === "generation:getClaimedFulfillmentJob") return structuredClone(aggregate);
       if (name === "generation:readEditorialApproval") {
         assert.equal(input.workerToken, WORKER_TOKEN);
         return structuredClone(approval);
@@ -119,10 +118,7 @@ function hostedFixture() {
         if (!artifactRecord) return null;
         return {
           artifactSet: structuredClone(artifactRecord),
-          files: artifactRecord.files.map((file) => ({
-            ...structuredClone(file),
-            url: `memory:download:${file.storageId}`,
-          })),
+          files: structuredClone(artifactRecord.files),
         };
       }
       throw new Error(`Unexpected query ${name}`);
@@ -141,7 +137,7 @@ function hostedFixture() {
         workerFailure = input.reasonCode;
         return { ok: true };
       }
-      if (name === "fulfillment:replaceJob") {
+      if (name === "generation:replaceClaimedFulfillmentJob") {
         assert.equal(input.expectedVersion, aggregate.version);
         aggregate = structuredClone(input.aggregate);
         return { updated: true, aggregate: structuredClone(aggregate) };
@@ -166,11 +162,24 @@ function hostedFixture() {
         headers: { "content-type": "application/json" },
       });
     }
-    if (String(url).startsWith("memory:download:")) {
+    if (String(url).startsWith("https://test-a.convex.site/generation/artifact?")) {
+      const artifactUrl = new URL(url);
+      assert.equal(options.headers.authorization, `Bearer ${WORKER_TOKEN}`);
+      assert.equal(options.headers["x-bebebonjour-worker-id"], "production-worker-1");
+      assert.equal(options.headers["x-bebebonjour-command-id"], COMMAND_ID);
+      assert.equal(options.headers["x-bebebonjour-lease-token"], "hosted-generation-lease");
+      assert.equal(artifactUrl.searchParams.get("jobId"), JOB_ID);
+      assert.equal(artifactUrl.searchParams.get("kind"), "private_review");
+      const file = artifactRecord?.files.find(
+        (entry) => entry.path === artifactUrl.searchParams.get("path"),
+      );
+      const bytes = file ? blobs.get(file.storageId) : null;
+      if (!bytes) return new Response(null, { status: 404 });
       downloadCount += 1;
-      const storageId = String(url).slice("memory:download:".length);
-      const bytes = blobs.get(storageId);
-      return bytes ? new Response(bytes, { status: 200 }) : new Response("missing", { status: 404 });
+      return new Response(bytes, {
+        status: 200,
+        headers: { "content-type": "application/octet-stream" },
+      });
     }
     throw new Error(`Unexpected URL ${url}`);
   }
@@ -190,10 +199,12 @@ test("Vercel-safe production worker generates into Convex storage and a cold inv
   const fixture = hostedFixture();
   const environment = {
     CONVEX_URL: "https://test-a.convex.cloud",
-    CUSTOMER_FLOW_BACKEND_TOKEN: BACKEND_TOKEN,
     BEBEBONJOUR_OPERATIONS_WORKER_TOKEN: WORKER_TOKEN,
     BEBEBONJOUR_OPERATIONS_WORKER_ID: "production-worker-1",
     BEBEBONJOUR_OPERATIONS_WORKER_ACTIONS: "generate",
+    BEBEBONJOUR_OPERATIONS_WORKER_LIMIT: "5",
+    BEBEBONJOUR_OPERATIONS_WORKER_LEASE_MS: "120000",
+    CRON_SECRET: "cron-secret-with-at-least-thirty-two-bytes",
   };
 
   const generated = await runOperationsWorkerCommand({
@@ -238,6 +249,11 @@ test("Vercel-safe production worker generates into Convex storage and a cold inv
     "prepare_review",
     {
       operationsCommandId: COMMAND_ID,
+      workerAuthority: {
+        commandId: COMMAND_ID,
+        workerId: "production-worker-1",
+        leaseToken: "hosted-generation-lease",
+      },
       operationsEffectBoundary: async (request, operation) => {
         assert.deepEqual(request, {
           jobId: JOB_ID,
@@ -257,7 +273,12 @@ test("Vercel-safe production worker generates into Convex storage and a cold inv
 test("hosted artifact uploads reject cross-job manifest references before storage mutation", async () => {
   let mutationCount = 0;
   const store = createConvexGenerationArtifactStore({
-    workerToken: WORKER_TOKEN,
+    authorization: {
+      workerToken: WORKER_TOKEN,
+      commandId: COMMAND_ID,
+      workerId: "production-worker-1",
+      leaseToken: "hosted-generation-lease",
+    },
     client: {
       async query() { return null; },
       async mutation() {
@@ -265,6 +286,7 @@ test("hosted artifact uploads reject cross-job manifest references before storag
         throw new Error("storage mutation must not run");
       },
     },
+    convexUrl: "https://test-a.convex.cloud",
     fetchImpl: async () => new Response(null, { status: 500 }),
   });
   const bytes = Buffer.from("x", "utf8");

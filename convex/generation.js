@@ -1,12 +1,32 @@
-import { mutationGeneric, queryGeneric } from "convex/server";
+import {
+  internalQueryGeneric,
+  mutationGeneric,
+  queryGeneric,
+} from "convex/server";
 import { v } from "convex/values";
 
 const DIGEST = /^[a-f0-9]{64}$/u;
 const JOB_ID = /^job_[A-Za-z0-9][A-Za-z0-9_-]{2,127}$/u;
 const REVISION_ID = /^r[1-9][0-9]*$/u;
 const MAX_FILES = 2_048;
-const MAX_FILE_BYTES = 64 * 1024 * 1024;
+const MAX_FILE_BYTES = 20 * 1024 * 1024;
 const MAX_TOTAL_BYTES = 256 * 1024 * 1024;
+const CLAIMED_GENERATION_ARGS = Object.freeze({
+  workerToken: v.string(),
+  workerId: v.string(),
+  commandId: v.string(),
+  leaseToken: v.string(),
+  jobId: v.string(),
+});
+const PREPARE_REVIEW_TRANSITIONS = new Set([
+  "generation_queued>generating",
+  "generating>content_review_required",
+  "generating>retry_wait",
+  "generating>failed",
+  "failed>generation_queued",
+  "retry_wait>generation_queued",
+]);
+
 
 export const saveEditorialApproval = mutationGeneric({
   args: {
@@ -34,32 +54,69 @@ export const saveEditorialApproval = mutationGeneric({
 });
 
 export const readEditorialApproval = queryGeneric({
-  args: { workerToken: v.string(), jobId: v.string() },
+  args: CLAIMED_GENERATION_ARGS,
   handler: async (context, args) => {
-    assertWorkerToken(args.workerToken);
-    assertJobId(args.jobId);
+    await assertClaimedGenerationAuthority(context, args);
     const document = await findEditorialApproval(context, args.jobId);
     return document?.approval || null;
   },
 });
 
-export const createArtifactUploadUrl = mutationGeneric({
-  args: { workerToken: v.string() },
+export const readClaimedCustomerJob = queryGeneric({
+  args: CLAIMED_GENERATION_ARGS,
   handler: async (context, args) => {
-    assertWorkerToken(args.workerToken);
+    await assertClaimedGenerationAuthority(context, args);
+    const document = await context.db
+      .query("customerFlowJobs")
+      .withIndex("by_job_id", (query) => query.eq("jobId", args.jobId))
+      .unique();
+    return document?.job || null;
+  },
+});
+
+export const getClaimedFulfillmentJob = queryGeneric({
+  args: CLAIMED_GENERATION_ARGS,
+  handler: async (context, args) => {
+    await assertClaimedGenerationAuthority(context, args);
+    const document = await findFulfillmentJob(context, args.jobId);
+    return document?.aggregate || null;
+  },
+});
+
+export const replaceClaimedFulfillmentJob = mutationGeneric({
+  args: {
+    ...CLAIMED_GENERATION_ARGS,
+    expectedVersion: v.number(),
+    aggregate: v.any(),
+  },
+  handler: async (context, args) => {
+    await assertClaimedGenerationAuthority(context, args);
+    const document = await findFulfillmentJob(context, args.jobId);
+    if (!document) return { updated: false, current: null };
+    if (document.aggregate.version !== args.expectedVersion) {
+      return { updated: false, current: document.aggregate };
+    }
+    assertPrepareReviewReplacement(document.aggregate, args.aggregate, args);
+    await context.db.patch(document._id, { aggregate: args.aggregate });
+    return { updated: true, aggregate: args.aggregate };
+  },
+});
+
+export const createArtifactUploadUrl = mutationGeneric({
+  args: CLAIMED_GENERATION_ARGS,
+  handler: async (context, args) => {
+    await assertClaimedGenerationAuthority(context, args);
     return context.storage.generateUploadUrl();
   },
 });
 
 export const commitArtifactSet = mutationGeneric({
   args: {
-    workerToken: v.string(),
-    jobId: v.string(),
+    ...CLAIMED_GENERATION_ARGS,
     artifactSet: v.any(),
   },
   handler: async (context, args) => {
-    assertWorkerToken(args.workerToken);
-    assertJobId(args.jobId);
+    await assertClaimedGenerationAuthority(context, args);
     await assertArtifactSet(context, args.jobId, args.artifactSet);
     const existing = await findArtifactSet(
       context,
@@ -85,28 +142,43 @@ export const commitArtifactSet = mutationGeneric({
 
 export const readArtifactSet = queryGeneric({
   args: {
-    workerToken: v.string(),
-    jobId: v.string(),
+    ...CLAIMED_GENERATION_ARGS,
     revisionId: v.string(),
     kind: v.string(),
   },
   handler: async (context, args) => {
-    assertWorkerToken(args.workerToken);
-    assertJobId(args.jobId);
+    await assertClaimedGenerationAuthority(context, args);
     if (!REVISION_ID.test(args.revisionId) || args.kind !== "private_review") {
       throw new Error("Generation artifact lookup is invalid.");
     }
     const document = await findArtifactSet(context, args.jobId, args.revisionId, args.kind);
     if (!document) return null;
-    const files = [];
     for (const file of document.artifactSet.files) {
       const storageId = context.db.system.normalizeId("_storage", file.storageId);
       if (!storageId) throw new Error("Generation artifact storage id is invalid.");
-      const url = await context.storage.getUrl(storageId);
-      if (!url) throw new Error("Generation artifact blob is missing.");
-      files.push({ ...file, url });
+      const metadata = await context.db.system.get(storageId);
+      if (!metadata) throw new Error("Generation artifact blob is missing.");
     }
-    return { artifactSet: document.artifactSet, files };
+    return { artifactSet: document.artifactSet, files: document.artifactSet.files };
+  },
+});
+
+export const authorizeArtifactRead = internalQueryGeneric({
+  args: {
+    ...CLAIMED_GENERATION_ARGS,
+    revisionId: v.string(),
+    kind: v.string(),
+    path: v.string(),
+  },
+  handler: async (context, args) => {
+    await assertClaimedGenerationAuthority(context, args);
+    if (!REVISION_ID.test(args.revisionId) || args.kind !== "private_review" || !safeRelativePath(args.path)) {
+      throw new Error("Generation artifact lookup is invalid.");
+    }
+    const document = await findArtifactSet(context, args.jobId, args.revisionId, args.kind);
+    const file = document?.artifactSet?.files?.find((entry) => entry.path === args.path);
+    if (!file) throw new Error("Generation artifact file is missing.");
+    return file;
   },
 });
 
@@ -124,6 +196,93 @@ function findArtifactSet(context, jobId, revisionId, kind) {
       query.eq("jobId", jobId).eq("revisionId", revisionId).eq("kind", kind)
     ))
     .unique();
+}
+
+function findFulfillmentJob(context, jobId) {
+  return context.db
+    .query("fulfillmentJobs")
+    .withIndex("by_job_id", (query) => query.eq("jobId", jobId))
+    .unique();
+}
+
+async function assertClaimedGenerationAuthority(context, args) {
+  assertWorkerToken(args.workerToken);
+  assertJobId(args.jobId);
+  const command = await context.db
+    .query("customerFlowOperationsCommands")
+    .withIndex("by_command_id", (query) => query.eq("commandId", args.commandId))
+    .unique();
+  if (
+    !command
+    || command.jobId !== args.jobId
+    || command.action !== "generate"
+    || command.state !== "running"
+    || command.claim?.workerId !== args.workerId
+    || command.claim?.leaseToken !== args.leaseToken
+    || !Number.isFinite(command.claim?.effectStartedAtMs)
+    || !Number.isFinite(command.claim?.leaseExpiresAtMs)
+    || command.claim.leaseExpiresAtMs <= Date.now()
+  ) {
+    throw new Error("Generation prepare_review claim authorization failed.");
+  }
+  return command;
+}
+
+function assertPrepareReviewReplacement(current, next, args) {
+  const mutableFields = new Set([
+    "artifactSets", "currentRevisionId", "events", "retry", "revisions", "stageAttempts",
+    "state", "updatedAt", "version",
+  ]);
+  const immutableFields = Object.keys(current).filter((field) => !mutableFields.has(field));
+  if (
+    !next
+    || typeof next !== "object"
+    || Array.isArray(next)
+    || Object.keys(next).sort().join("\0") !== Object.keys(current).sort().join("\0")
+    || next.jobId !== args.jobId
+    || next.version !== args.expectedVersion + 1
+    || !PREPARE_REVIEW_TRANSITIONS.has(`${current.state}>${next.state}`)
+    || immutableFields.some((field) => JSON.stringify(next[field]) !== JSON.stringify(current[field]))
+    || !preservesHistory(current.events, next.events, { exactAdded: 1 })
+    || !preservesHistory(current.revisions, next.revisions, { maximumAdded: 1 })
+    || !preservesHistory(current.artifactSets, next.artifactSets, { maximumAdded: 1 })
+    || next.stageAttempts.some((attempt) => attempt?.stage !== "prepare_review")
+    || next.artifactSets.some((artifactSet) => artifactSet?.kind !== "private_review")
+    || !preservesStageAttempts(current.stageAttempts, next.stageAttempts, args.commandId)
+  ) {
+    throw new Error("Generation worker may write only the claimed prepare_review transition.");
+  }
+}
+
+function preservesHistory(current, next, { exactAdded, maximumAdded } = {}) {
+  if (!Array.isArray(current) || !Array.isArray(next)) return false;
+  const added = next.length - current.length;
+  if (exactAdded !== undefined ? added !== exactAdded : added < 0 || added > maximumAdded) {
+    return false;
+  }
+  return current.every((entry, index) => JSON.stringify(entry) === JSON.stringify(next[index]));
+}
+
+function preservesStageAttempts(current, next, commandId) {
+  if (!Array.isArray(current) || !Array.isArray(next)) return false;
+  if (next.length === current.length + 1) {
+    return preservesHistory(current, next, { exactAdded: 1 })
+      && next.at(-1)?.stage === "prepare_review"
+      && next.at(-1)?.operationsCommandId === commandId;
+  }
+  if (next.length !== current.length) return false;
+  if (next.length === 0) return true;
+  if (!current.slice(0, -1).every(
+    (entry, index) => JSON.stringify(entry) === JSON.stringify(next[index]),
+  )) return false;
+  const immutableAttemptFields = [
+    "attemptId", "stage", "revisionId", "attemptNumber", "operationNumber", "idempotencyKey",
+    "operationBinding", "operationsCommandId", "startedAt", "effectStartedAt",
+  ];
+  return current.at(-1)?.stage === "prepare_review"
+    && immutableAttemptFields.every(
+      (field) => JSON.stringify(current.at(-1)?.[field]) === JSON.stringify(next.at(-1)?.[field]),
+    );
 }
 
 async function assertEditorialApproval(value, jobId) {

@@ -4,18 +4,26 @@ const DIGEST = /^[a-f0-9]{64}$/u;
 const JOB_ID = /^job_[A-Za-z0-9][A-Za-z0-9_-]{2,127}$/u;
 const REVISION_ID = /^r[1-9][0-9]*$/u;
 const MAX_FILES = 2_048;
-const MAX_FILE_BYTES = 64 * 1024 * 1024;
+const MAX_FILE_BYTES = 20 * 1024 * 1024;
 const MAX_TOTAL_BYTES = 256 * 1024 * 1024;
 
 export function createConvexGenerationArtifactStore(options = {}) {
   const client = options.client;
-  const workerToken = options.workerToken;
+  const authorization = options.authorization;
   const fetchImpl = options.fetchImpl || globalThis.fetch;
-  if (!client || typeof client.query !== "function" || typeof client.mutation !== "function") {
+  const artifactReadOrigin = convexSiteOrigin(options.convexUrl);
+  if (!client
+    || typeof client.query !== "function"
+    || typeof client.mutation !== "function") {
     throw new Error("Convex generation storage requires a query and mutation client.");
   }
-  if (typeof workerToken !== "string" || Buffer.byteLength(workerToken, "utf8") < 32) {
-    throw new Error("Convex generation storage worker token is invalid.");
+  if (!authorization
+    || typeof authorization !== "object"
+    || Array.isArray(authorization)
+    || Object.keys(authorization).sort().join("\0") !== "commandId\0leaseToken\0workerId\0workerToken"
+    || typeof authorization.workerToken !== "string"
+    || Buffer.byteLength(authorization.workerToken, "utf8") < 32) {
+    throw new Error("Convex generation storage claim authorization is invalid.");
   }
   if (typeof fetchImpl !== "function") {
     throw new Error("Convex generation storage requires fetch.");
@@ -24,7 +32,7 @@ export function createConvexGenerationArtifactStore(options = {}) {
   return Object.freeze({
     async readEditorialApproval(jobId) {
       assertJobId(jobId);
-      const approval = await client.query("generation:readEditorialApproval", { workerToken, jobId });
+      const approval = await client.query("generation:readEditorialApproval", { ...authorization, jobId });
       if (!approval) throw new Error("The job-scoped editorial approval is not provisioned.");
       return structuredClone(approval);
     },
@@ -34,7 +42,7 @@ export function createConvexGenerationArtifactStore(options = {}) {
       assertRevisionId(revisionId);
       assertKind(kind);
       const value = await client.query("generation:readArtifactSet", {
-        workerToken,
+        ...authorization,
         jobId,
         revisionId,
         kind,
@@ -66,7 +74,10 @@ export function createConvexGenerationArtifactStore(options = {}) {
         if (bytes.byteLength > MAX_FILE_BYTES || totalBytes > MAX_TOTAL_BYTES) {
           throw new Error("Generated artifact bytes exceed the hosted storage boundary.");
         }
-        const uploadUrl = await client.mutation("generation:createArtifactUploadUrl", { workerToken });
+        const uploadUrl = await client.mutation("generation:createArtifactUploadUrl", {
+          ...authorization,
+          jobId,
+        });
         const response = await fetchImpl(uploadUrl, {
           method: "POST",
           headers: { "content-type": "application/octet-stream" },
@@ -96,7 +107,7 @@ export function createConvexGenerationArtifactStore(options = {}) {
         files: uploadedFiles,
       };
       const committed = await client.mutation("generation:commitArtifactSet", {
-        workerToken,
+        ...authorization,
         jobId,
         artifactSet: hostedArtifactSet,
       });
@@ -110,13 +121,30 @@ export function createConvexGenerationArtifactStore(options = {}) {
       return structuredClone(hostedArtifactSet);
     },
 
-    async downloadArtifact(file) {
-      assertFile(file, true);
-      if (typeof file.url !== "string" || file.url.trim() === "") {
-        throw new Error("Convex generation artifact readback URL is invalid.");
+    async downloadArtifact(file, artifactSet) {
+      assertFile(file);
+      assertArtifactSet(artifactSet, {
+        jobId: inferJobId(artifactSet?.manifestRef),
+        revisionId: artifactSet?.revisionId,
+        kind: "private_review",
+      });
+      const url = new URL("/generation/artifact", artifactReadOrigin);
+      url.searchParams.set("jobId", inferJobId(artifactSet.manifestRef));
+      url.searchParams.set("revisionId", artifactSet.revisionId);
+      url.searchParams.set("kind", artifactSet.kind);
+      url.searchParams.set("path", file.path);
+      const response = await fetchImpl(url, {
+        method: "GET",
+        headers: {
+          authorization: `Bearer ${authorization.workerToken}`,
+          "x-bebebonjour-worker-id": authorization.workerId,
+          "x-bebebonjour-command-id": authorization.commandId,
+          "x-bebebonjour-lease-token": authorization.leaseToken,
+        },
+      });
+      if (!response?.ok) {
+        throw new Error("Convex generation artifact readback was not authorized.");
       }
-      const response = await fetchImpl(file.url, { method: "GET" });
-      if (!response?.ok) throw new Error("Convex generation artifact readback failed.");
       const bytes = Buffer.from(await response.arrayBuffer());
       if (bytes.byteLength !== file.bytes || sha256(bytes) !== file.sha256) {
         throw new Error("Convex generation artifact readback does not match its durable manifest.");
@@ -124,6 +152,29 @@ export function createConvexGenerationArtifactStore(options = {}) {
       return bytes;
     },
   });
+}
+
+function convexSiteOrigin(value) {
+  let url;
+  try {
+    url = new URL(value);
+  } catch {
+    throw new Error("Convex generation storage requires an exact Convex deployment origin.");
+  }
+  if (
+    url.protocol !== "https:"
+    || url.origin !== value
+    || !url.hostname.endsWith(".convex.cloud")
+    || url.username
+    || url.password
+    || url.pathname !== "/"
+    || url.search
+    || url.hash
+  ) {
+    throw new Error("Convex generation storage requires an exact Convex deployment origin.");
+  }
+  url.hostname = `${url.hostname.slice(0, -".convex.cloud".length)}.convex.site`;
+  return url.origin;
 }
 
 function assertArtifactReadback(record, expected) {
@@ -135,12 +186,12 @@ function assertArtifactReadback(record, expected) {
     !Array.isArray(record.files)
     || record.files.length !== record.artifactSet.files.length
     || record.files.some((file, index) => (
-      JSON.stringify(withoutUrl(file)) !== JSON.stringify(record.artifactSet.files[index])
+      JSON.stringify(file) !== JSON.stringify(record.artifactSet.files[index])
     ))
   ) {
-    throw new Error("Convex generation artifact URLs do not match the durable manifest.");
+    throw new Error("Convex generation artifact readback does not match the durable manifest.");
   }
-  for (const file of record.files) assertFile(file, true);
+  for (const file of record.files) assertFile(file);
 }
 
 function assertArtifactSet(value, expected) {
@@ -173,7 +224,7 @@ function assertArtifactSet(value, expected) {
   let totalBytes = 0;
   const paths = new Set();
   for (const file of value.files) {
-    assertFile(file, false);
+    assertFile(file);
     totalBytes += file.bytes;
     if (paths.has(file.path) || totalBytes > MAX_TOTAL_BYTES) {
       throw new Error("Convex generation artifact inventory is invalid.");
@@ -182,8 +233,8 @@ function assertArtifactSet(value, expected) {
   }
 }
 
-function assertFile(file, allowUrl) {
-  const keys = ["bytes", "path", "sha256", "storageId", ...(allowUrl ? ["url"] : [])];
+function assertFile(file) {
+  const keys = ["bytes", "path", "sha256", "storageId"];
   if (
     !file
     || typeof file !== "object"
@@ -199,11 +250,6 @@ function assertFile(file, allowUrl) {
   ) {
     throw new Error("Convex generation artifact file is invalid.");
   }
-}
-
-function withoutUrl(file) {
-  const { url: _url, ...rest } = file;
-  return rest;
 }
 
 function safeRelativePath(value) {

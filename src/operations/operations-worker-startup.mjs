@@ -1,5 +1,6 @@
 import { ConvexHttpClient } from "convex/browser";
 
+import { requireReviewedTestAGenerationEnvironment } from "../config/test-a-hosted-provider-manifest.mjs";
 import { createOperationsWorkerRuntime } from "./operations-worker-runtime.mjs";
 import { createProductionGenerationWorker } from "./production-generation-worker.mjs";
 
@@ -36,10 +37,14 @@ export async function runOperationsWorkerCommand(options = {}) {
   if (!injectedCapabilities && enabledActions.some((action) => action !== "generate")) {
     throw new Error("Production Operations worker permits only the generate action.");
   }
+  if (!injectedCapabilities && enabledActions.includes("generate")) {
+    requireReviewedTestAGenerationEnvironment(environment);
+  }
   const productionGeneration = !injectedCapabilities && enabledActions.includes("generate")
     ? createProductionGenerationWorker({
         environment,
         client,
+        convexUrl,
         workerToken,
         createGenerationRunner: options.createGenerationRunner,
         artifactStore: options.artifactStore,

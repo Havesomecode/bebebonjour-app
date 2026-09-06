@@ -75,13 +75,13 @@ export function createOperationsActionHandlers({
         revisionId: command.payload.revisionId,
         publicationId: command.payload.publicationId,
       });
-      return projectOutcome(command, await fulfillmentStore.getJob(command.jobId));
+      return projectOutcome(command, await fulfillmentStore.getJob(command.jobId, command.workerAuthority));
     },
 
     async retry(command) {
       command = { ...command, action: "retry" };
       await fulfillmentOrchestrator.resumeRetry(command.jobId, { commandId: command.commandId });
-      return projectOutcome(command, await fulfillmentStore.getJob(command.jobId));
+      return projectOutcome(command, await fulfillmentStore.getJob(command.jobId, command.workerAuthority));
     },
 
     async reconcile(command) {
@@ -91,7 +91,7 @@ export function createOperationsActionHandlers({
         sourceCommandId: command.payload.sourceCommandId,
         providerStatus: command.payload.providerStatus,
       }));
-      const aggregate = await fulfillmentStore.getJob(command.jobId);
+      const aggregate = await fulfillmentStore.getJob(command.jobId, command.workerAuthority);
       return {
         code: "reconciled",
         jobVersion: aggregate.version,
@@ -105,12 +105,15 @@ export function createOperationsActionHandlers({
   for (const [action, contract] of Object.entries(STAGE_ACTIONS)) {
     handlers[action] = async (command) => {
       command = { ...command, action };
-      const options = { operationsCommandId: command.commandId };
+      const options = {
+        operationsCommandId: command.commandId,
+        workerAuthority: command.workerAuthority,
+      };
       if (contract.external) {
         options.operationsEffectBoundary = (_stage, invokeStage) => requireEffectBoundary(command, invokeStage);
       }
       await fulfillmentOrchestrator.runExpectedStage(command.jobId, contract.stage, options);
-      return projectOutcome(command, await fulfillmentStore.getJob(command.jobId));
+      return projectOutcome(command, await fulfillmentStore.getJob(command.jobId, command.workerAuthority));
     };
   }
 
@@ -131,7 +134,7 @@ export function createOperationsActionHandlers({
         throw commandError("review_authorization_invalid", false);
       }
       await fulfillmentOrchestrator.recordReviewDecision(command.jobId, decision);
-      return projectOutcome(command, await fulfillmentStore.getJob(command.jobId));
+      return projectOutcome(command, await fulfillmentStore.getJob(command.jobId, command.workerAuthority));
     };
   }
 

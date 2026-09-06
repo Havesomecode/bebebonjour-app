@@ -18,7 +18,6 @@ test("operator isolation inventory keeps TEST-A capabilities outside every publi
 
   assert.deepEqual(inventory.publicEntrypoints, [
     "api/customer-flow/[...route].mjs",
-    "api/operations/worker.mjs",
     "api/webhooks/tally.mjs",
   ]);
   assert.equal(inventory.privateInvocation, "ops/run-test-a-operator.mjs");
@@ -40,7 +39,7 @@ test("operator isolation inventory keeps TEST-A capabilities outside every publi
   assert.equal(inventory.generationModuleGraph.includes("src/fulfillment/operator-runner-test-a.mjs"), false);
   assert.equal(inventory.generationModuleGraph.includes("src/fulfillment/resend-delivery-adapter.mjs"), false);
   assert.equal(inventory.generationModuleGraph.includes("src/fulfillment/vercel-test-a-publication-provider.mjs"), false);
-  assert.equal(inventory.operationsWorkerEntrypoint, "api/operations/worker.mjs");
+  assert.equal(inventory.operationsWorkerEntrypoint, "generation-worker/api/worker.mjs");
   assert.ok(inventory.operationsWorkerModuleGraph.includes("src/operations/production-generation-worker.mjs"));
   assert.deepEqual(inventory.operationsWorkerGenerationModules, [
     "src/fulfillment/hosted-generation-workspace.mjs",
@@ -55,6 +54,7 @@ test("operator isolation inventory keeps TEST-A capabilities outside every publi
   assert.ok(inventory.reviewInputs.includes("package-lock.json"));
   assert.ok(inventory.reviewInputs.includes("package.json"));
   assert.ok(inventory.reviewInputs.includes("vercel.json"));
+  assert.ok(inventory.reviewInputs.includes("vercel.generation-worker.json"));
   assert.ok(inventory.reviewInputs.includes("scripts/verify-vercel-routing.mjs"));
   assert.deepEqual(inventory.privateCapabilityModules, [
     "ops/persist-test-a-generation-approval.mjs",

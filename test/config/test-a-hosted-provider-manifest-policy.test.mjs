@@ -53,26 +53,74 @@ test("reviewed generation policy grants only prepare_review and canonical read/w
     REVIEWED_TEST_A_GENERATION_POLICY,
   );
   assert.deepEqual(REVIEWED_TEST_A_GENERATION_POLICY.capabilities, ["prepare-review"]);
+  assert.deepEqual(REVIEWED_TEST_A_GENERATION_POLICY.deployment, {
+    provider: "Vercel",
+    projectName: "bebebonjour-generation-worker",
+    configPath: "vercel.generation-worker.json",
+    entrypoint: "generation-worker/api/worker.mjs",
+    route: "GET /api/operations/worker",
+    schedule: "*/5 * * * *",
+  });
   assert.deepEqual(REVIEWED_TEST_A_GENERATION_POLICY.authorityInputs, [
     "jobId",
     "persistedJobScopedEditorialApproval",
-    "convexPrivateArtifactStorage",
+    "convexAuthenticatedPrivateArtifactHttpAction",
   ]);
   assert.deepEqual(REVIEWED_TEST_A_GENERATION_POLICY.stages, ["prepare_review"]);
   assert.deepEqual(REVIEWED_TEST_A_GENERATION_POLICY.localConfiguration, []);
   assert.deepEqual(REVIEWED_TEST_A_GENERATION_POLICY.allowedEnvironmentVariables, [
     "CONVEX_URL",
-    "CUSTOMER_FLOW_BACKEND_TOKEN",
     "BEBEBONJOUR_OPERATIONS_WORKER_TOKEN",
+    "BEBEBONJOUR_OPERATIONS_WORKER_ID",
+    "BEBEBONJOUR_OPERATIONS_WORKER_ACTIONS",
+    "BEBEBONJOUR_OPERATIONS_WORKER_LIMIT",
+    "BEBEBONJOUR_OPERATIONS_WORKER_LEASE_MS",
+    "CRON_SECRET",
   ]);
+  assert.deepEqual(
+    REVIEWED_TEST_A_GENERATION_POLICY.allowedEnvironmentVariables,
+    REVIEWED_TEST_A_GENERATION_POLICY.runtimeEnvironmentVariables,
+  );
   for (const forbidden of [
     "BEBEBONJOUR_APPROVAL_HMAC_KEY",
+    "CUSTOMER_FLOW_BACKEND_TOKEN",
     "RESEND_API_KEY",
     "STRIPE_SECRET_KEY",
     "VERCEL_TOKEN",
   ]) {
     assert.ok(REVIEWED_TEST_A_GENERATION_POLICY.forbiddenEnvironmentVariables.includes(forbidden));
   }
+});
+
+test("reviewed generation runtime rejects broad or incomplete mounted authority", async () => {
+  const {
+    requireReviewedTestAGenerationEnvironment,
+  } = await import("../../src/config/test-a-hosted-provider-manifest.mjs");
+  const exactEnvironment = {
+    CONVEX_URL: "https://test-a.convex.cloud",
+    BEBEBONJOUR_OPERATIONS_WORKER_TOKEN: "worker-token-with-at-least-thirty-two-bytes",
+    BEBEBONJOUR_OPERATIONS_WORKER_ID: "generation-worker-1",
+    BEBEBONJOUR_OPERATIONS_WORKER_ACTIONS: "generate",
+    BEBEBONJOUR_OPERATIONS_WORKER_LIMIT: "5",
+    BEBEBONJOUR_OPERATIONS_WORKER_LEASE_MS: "120000",
+    CRON_SECRET: "cron-secret-with-at-least-thirty-two-bytes",
+  };
+
+  assert.deepEqual(requireReviewedTestAGenerationEnvironment(exactEnvironment), exactEnvironment);
+  assert.throws(
+    () => requireReviewedTestAGenerationEnvironment({
+      ...exactEnvironment,
+      CUSTOMER_FLOW_BACKEND_TOKEN: "broad-backend-token-with-at-least-thirty-two-bytes",
+    }),
+    /CUSTOMER_FLOW_BACKEND_TOKEN is forbidden/u,
+  );
+  assert.throws(
+    () => requireReviewedTestAGenerationEnvironment({
+      ...exactEnvironment,
+      BEBEBONJOUR_OPERATIONS_WORKER_ACTIONS: "",
+    }),
+    /(is required|must equal generate)/u,
+  );
 });
 
 test("reviewed TEST-A operator policy rejects tampered bytes and contradictory secret-store policy", async () => {
