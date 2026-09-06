@@ -105,10 +105,9 @@ function requireGenerationEnvironment(environment) {
     throw operatorError("generation_environment_rejected");
   }
   return Object.freeze(Object.fromEntries(
-    REVIEWED_TEST_A_GENERATION_POLICY.allowedEnvironmentVariables.map((name) => [
-      name,
-      environment[name],
-    ]),
+    REVIEWED_TEST_A_GENERATION_POLICY.allowedEnvironmentVariables
+      .filter((name) => environment[name] !== undefined)
+      .map((name) => [name, environment[name]]),
   ));
 }
 

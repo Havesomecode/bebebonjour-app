@@ -20,6 +20,7 @@ const evidencePath = path.join(rootPath, EVIDENCE_RELATIVE_PATH);
 const focusedTestFiles = [
   "test/config/test-a-hosted-provider-manifest-policy.test.mjs",
   "test/config/test-a-operator-isolation.test.mjs",
+  "test/convex/generation.test.mjs",
   "test/fulfillment/exact-revision-publication-adapter.test.mjs",
   "test/fulfillment/failed-prepare-review-recovery.test.mjs",
   "test/fulfillment/generation-stage-workspace.test.mjs",
@@ -28,6 +29,7 @@ const focusedTestFiles = [
   "test/fulfillment/resend-delivery-adapter.test.mjs",
   "test/fulfillment/secure-filesystem-snapshot.test.mjs",
   "test/fulfillment/test-a-generation-runner.test.mjs",
+  "test/fulfillment/test-a-generation-approval-startup.test.mjs",
   "test/fulfillment/test-a-generation-startup.test.mjs",
   "test/fulfillment/test-a-operator-runner.test.mjs",
   "test/fulfillment/test-a-operator-startup.test.mjs",
@@ -36,11 +38,12 @@ const focusedTestFiles = [
   "test/operations/operations-command-worker.test.mjs",
   "test/operations/operations-worker-runtime.test.mjs",
   "test/operations/operations-worker-startup.test.mjs",
+  "test/operations/hosted-generation-storage.test.mjs",
 ];
 const controls = Object.freeze([
   {
     id: "isolated-generation-only-authority",
-    requirement: "The generation-only Operations worker composes its production path without injected fulfillment capabilities from distinct scoped Convex worker and backend credentials, canonical Convex customer and fulfillment authority, one disjoint mode-0700 private artifact root, and one immutable approvals/<jobId>.json record. It claims only generate, fences the Operations effect before claiming the fulfillment stage, binds the Operations command into exact artifact provenance, writes only beneath the private root, advances only prepare_review, and leaves checkout, review mutation, render, TTS, publication, delivery, retry, and reconciliation unavailable. The lower-level private generation entrypoint retains its closed approval, canonical paid-record, filesystem, replay, and exact failed-state recovery gates.",
+    requirement: "The generation-only Operations worker composes its hosted production path from distinct scoped Convex worker and backend credentials, canonical Convex customer and fulfillment authority, invocation-scoped private staging, and immutable job-scoped approvals and review artifacts persisted durably in Convex. It claims only generate, fences the Operations effect before claiming the fulfillment stage, binds the Operations command into exact artifact provenance, advances only prepare_review, and leaves checkout, review mutation, publication, delivery, retry, and reconciliation unavailable. The lower-level private generation entrypoint retains its closed approval, canonical paid-record, filesystem, replay, and exact failed-state recovery gates.",
     proofs: [
       "test/fulfillment/test-a-generation-runner.test.mjs: generation-only runner persists canonical intake, advances only prepare_review, and returns PII-free output",
       "test/fulfillment/test-a-generation-runner.test.mjs: generation-only end to end produces the approved neutral unknown-name dossier and stops for review",
@@ -67,6 +70,9 @@ const controls = Object.freeze([
       "test/operations/operations-worker-startup.test.mjs: production generation entrypoint composes job-scoped generation without fulfillment injection",
       "test/operations/operations-worker-startup.test.mjs: production generation rejects missing or invalid private configuration before queue access",
       "test/operations/operations-worker-startup.test.mjs: worker startup fails before queue access when an uncomposed action is enabled",
+      "test/operations/hosted-generation-storage.test.mjs: Vercel-safe production worker persists review artifacts in Convex and survives a cold invocation",
+      "test/convex/generation.test.mjs: Convex keeps editorial approvals immutable and validates complete artifact persistence",
+      "test/fulfillment/test-a-generation-approval-startup.test.mjs: generation approval startup persists exact immutable approval bytes through Convex",
       "test/config/test-a-operator-isolation.test.mjs: the authenticated Operations worker graph contains only the reviewed generation subset while customer routes contain no private capability",
     ],
   },
@@ -148,6 +154,8 @@ const generatedEvidence = {
   controls,
   isolation: {
     customerPublicModuleGraph: isolation.customerPublicModuleGraph,
+    generationApprovalInvocation: isolation.generationApprovalInvocation,
+    generationApprovalModuleGraph: isolation.generationApprovalModuleGraph,
     generationInvocation: isolation.generationInvocation,
     generationModuleGraph: isolation.generationModuleGraph,
     operationsWorkerEntrypoint: isolation.operationsWorkerEntrypoint,

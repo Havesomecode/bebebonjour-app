@@ -130,4 +130,14 @@ export default defineSchema({
     approvalId: v.string(),
     approval: v.any(),
   }).index("by_approval_id", ["approvalId"]),
+  fulfillmentGenerationEditorialApprovals: defineTable({
+    jobId: v.string(),
+    approval: v.any(),
+  }).index("by_job_id", ["jobId"]),
+  fulfillmentGenerationArtifactSets: defineTable({
+    jobId: v.string(),
+    revisionId: v.string(),
+    kind: v.string(),
+    artifactSet: v.any(),
+  }).index("by_job_revision_kind", ["jobId", "revisionId", "kind"]),
 });

@@ -265,8 +265,12 @@
       "customerFlowSubmissions",
       "customerFlowProviderEvents",
       "customerFlowWorkItems",
+      "customerFlowOperationsCommands",
+      "customerFlowOperationsLoginThrottle",
       "fulfillmentJobs",
-      "fulfillmentReviewApprovals"
+      "fulfillmentReviewApprovals",
+      "fulfillmentGenerationEditorialApprovals",
+      "fulfillmentGenerationArtifactSets"
     ]
   },
   "vercelApi": {
@@ -284,12 +288,13 @@
       "CUSTOMER_FLOW_TOKEN_ENCRYPTION_KEY",
       "CUSTOMER_FLOW_TEST_ACCESS_TOKEN",
       "CUSTOMER_FLOW_ALLOWED_ORIGINS",
+      "BEBEBONJOUR_OPERATIONS_TOKEN",
       "BEBEBONJOUR_OPERATIONS_WORKER_TOKEN",
+      "BEBEBONJOUR_OPS_RATE_LIMIT_TOKEN",
       "BEBEBONJOUR_OPERATIONS_WORKER_ID",
       "BEBEBONJOUR_OPERATIONS_WORKER_ACTIONS",
       "BEBEBONJOUR_OPERATIONS_WORKER_LIMIT",
       "BEBEBONJOUR_OPERATIONS_WORKER_LEASE_MS",
-      "BEBEBONJOUR_GENERATION_ARTIFACT_ROOT",
       "CRON_SECRET",
       "STRIPE_SECRET_KEY",
       "STRIPE_CUSTOMER_FLOW_WEBHOOK_SECRET",
@@ -373,24 +378,41 @@
   "generationOperatorRuntime": {
     "authorityInputs": [
       "jobId",
-      "privateArtifactRoot",
-      "jobScopedEditorialApprovalRecord"
+      "persistedJobScopedEditorialApproval",
+      "convexPrivateArtifactStorage"
     ],
     "capabilities": [
       "prepare-review"
     ],
     "environmentVariables": [
       "CONVEX_URL",
-      "CUSTOMER_FLOW_BACKEND_TOKEN"
+      "CUSTOMER_FLOW_BACKEND_TOKEN",
+      "BEBEBONJOUR_OPERATIONS_WORKER_TOKEN"
     ],
-    "localConfiguration": [
-      "privateArtifactRoot"
-    ],
-    "providerOperationsEnabled": false,
+    "localConfiguration": [],
+    "providerOperationsEnabled": "Convex file storage only",
     "publicApiAccess": false,
     "stages": [
       "prepare_review"
     ]
+  },
+  "generationArtifactStorage": {
+    "provider": "Convex file storage and indexed metadata",
+    "durabilityAuthority": "convex.identity",
+    "ephemeralExecutionStorage": "Vercel /tmp staging only; removed after every invocation",
+    "persistedResources": [
+      "_storage",
+      "fulfillmentGenerationEditorialApprovals",
+      "fulfillmentGenerationArtifactSets"
+    ],
+    "writeAuthority": "BEBEBONJOUR_OPERATIONS_WORKER_TOKEN",
+    "approvalProvisioningAuthority": "CUSTOMER_FLOW_BACKEND_TOKEN via private immutable-file command",
+    "publicReadAccess": false,
+    "maximumFileBytes": 67108864,
+    "maximumArtifactSetBytes": 268435456,
+    "maximumFiles": 2048,
+    "immutability": "job + revision + kind metadata is insert-once; conflicting writes are rejected",
+    "readback": "worker-authenticated query issues short-lived storage URLs and verifies bytes plus sha256 before use"
   },
   "secretStores": {
     "vercelProduction": {
@@ -401,6 +423,14 @@
         "CUSTOMER_FLOW_TOKEN_ENCRYPTION_KEY",
         "CUSTOMER_FLOW_TEST_ACCESS_TOKEN",
         "CUSTOMER_FLOW_ALLOWED_ORIGINS",
+        "BEBEBONJOUR_OPERATIONS_TOKEN",
+        "BEBEBONJOUR_OPERATIONS_WORKER_TOKEN",
+        "BEBEBONJOUR_OPS_RATE_LIMIT_TOKEN",
+        "BEBEBONJOUR_OPERATIONS_WORKER_ID",
+        "BEBEBONJOUR_OPERATIONS_WORKER_ACTIONS",
+        "BEBEBONJOUR_OPERATIONS_WORKER_LIMIT",
+        "BEBEBONJOUR_OPERATIONS_WORKER_LEASE_MS",
+        "CRON_SECRET",
         "STRIPE_SECRET_KEY",
         "STRIPE_CUSTOMER_FLOW_WEBHOOK_SECRET",
         "STRIPE_CHECKOUT_SUCCESS_URL",
@@ -468,10 +498,11 @@
       ]
     },
     "generationOperator": {
-      "owner": "non-public generation-only prepare_review runtime",
+      "owner": "Vercel generation-only prepare_review runtime and private approval provisioner",
       "allowed": [
         "CONVEX_URL",
-        "CUSTOMER_FLOW_BACKEND_TOKEN"
+        "CUSTOMER_FLOW_BACKEND_TOKEN",
+        "BEBEBONJOUR_OPERATIONS_WORKER_TOKEN"
       ],
       "forbidden": [
         "BEBEBONJOUR_APPROVAL_HMAC_KEY",
@@ -502,7 +533,8 @@
     "convexProduction": {
       "owner": "Canonical Convex production deployment convex.identity only",
       "allowed": [
-        "CUSTOMER_FLOW_BACKEND_TOKEN"
+        "CUSTOMER_FLOW_BACKEND_TOKEN",
+        "BEBEBONJOUR_OPERATIONS_WORKER_TOKEN"
       ],
       "forbidden": [
         "CONVEX_DEPLOY_KEY",

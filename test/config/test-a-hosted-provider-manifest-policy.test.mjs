@@ -55,14 +55,15 @@ test("reviewed generation policy grants only prepare_review and canonical read/w
   assert.deepEqual(REVIEWED_TEST_A_GENERATION_POLICY.capabilities, ["prepare-review"]);
   assert.deepEqual(REVIEWED_TEST_A_GENERATION_POLICY.authorityInputs, [
     "jobId",
-    "privateArtifactRoot",
-    "jobScopedEditorialApprovalRecord",
+    "persistedJobScopedEditorialApproval",
+    "convexPrivateArtifactStorage",
   ]);
   assert.deepEqual(REVIEWED_TEST_A_GENERATION_POLICY.stages, ["prepare_review"]);
-  assert.deepEqual(REVIEWED_TEST_A_GENERATION_POLICY.localConfiguration, ["privateArtifactRoot"]);
+  assert.deepEqual(REVIEWED_TEST_A_GENERATION_POLICY.localConfiguration, []);
   assert.deepEqual(REVIEWED_TEST_A_GENERATION_POLICY.allowedEnvironmentVariables, [
     "CONVEX_URL",
     "CUSTOMER_FLOW_BACKEND_TOKEN",
+    "BEBEBONJOUR_OPERATIONS_WORKER_TOKEN",
   ]);
   for (const forbidden of [
     "BEBEBONJOUR_APPROVAL_HMAC_KEY",

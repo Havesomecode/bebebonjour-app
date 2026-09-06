@@ -23,6 +23,16 @@ test("operator isolation inventory keeps TEST-A capabilities outside every publi
   ]);
   assert.equal(inventory.privateInvocation, "ops/run-test-a-operator.mjs");
   assert.equal(inventory.generationInvocation, "ops/run-test-a-generation.mjs");
+  assert.equal(
+    inventory.generationApprovalInvocation,
+    "ops/persist-test-a-generation-approval.mjs",
+  );
+  assert.ok(inventory.generationApprovalModuleGraph.includes(
+    "src/fulfillment/test-a-generation-approval-startup.mjs",
+  ));
+  assert.ok(inventory.generationApprovalModuleGraph.includes(
+    "src/fulfillment/job-scoped-generation-approval.mjs",
+  ));
   assert.ok(inventory.generationModuleGraph.includes("src/fulfillment/test-a-generation-runner.mjs"));
   assert.ok(inventory.generationModuleGraph.includes("src/fulfillment/test-a-generation-startup.mjs"));
   assert.ok(inventory.generationModuleGraph.includes("src/fulfillment/local-prepare-review-stage-handler.mjs"));
@@ -33,10 +43,11 @@ test("operator isolation inventory keeps TEST-A capabilities outside every publi
   assert.equal(inventory.operationsWorkerEntrypoint, "api/operations/worker.mjs");
   assert.ok(inventory.operationsWorkerModuleGraph.includes("src/operations/production-generation-worker.mjs"));
   assert.deepEqual(inventory.operationsWorkerGenerationModules, [
-    "src/fulfillment/job-scoped-generation-approval.mjs",
+    "src/fulfillment/hosted-generation-workspace.mjs",
     "src/fulfillment/local-prepare-review-stage-handler.mjs",
     "src/fulfillment/test-a-generation-runner.mjs",
     "src/operations/production-generation-worker.mjs",
+    "src/persistence/convex-generation-artifact-store.mjs",
   ]);
   assert.ok(inventory.privateModuleGraph.includes("src/fulfillment/operator-runner-test-a.mjs"));
   assert.ok(inventory.privateModuleGraph.includes("src/fulfillment/test-a-operator-startup.mjs"));
@@ -46,16 +57,20 @@ test("operator isolation inventory keeps TEST-A capabilities outside every publi
   assert.ok(inventory.reviewInputs.includes("vercel.json"));
   assert.ok(inventory.reviewInputs.includes("scripts/verify-vercel-routing.mjs"));
   assert.deepEqual(inventory.privateCapabilityModules, [
+    "ops/persist-test-a-generation-approval.mjs",
     "ops/run-test-a-operator.mjs",
     "ops/run-test-a-generation.mjs",
+    "src/fulfillment/hosted-generation-workspace.mjs",
     "src/fulfillment/job-scoped-generation-approval.mjs",
     "src/fulfillment/local-prepare-review-stage-handler.mjs",
     "src/fulfillment/operator-runner-test-a.mjs",
+    "src/fulfillment/test-a-generation-approval-startup.mjs",
     "src/fulfillment/test-a-generation-runner.mjs",
     "src/fulfillment/test-a-generation-startup.mjs",
     "src/fulfillment/test-a-operator-runtime-identity.mjs",
     "src/fulfillment/test-a-operator-startup.mjs",
     "src/operations/production-generation-worker.mjs",
+    "src/persistence/convex-generation-artifact-store.mjs",
   ]);
   assert.equal(
     inventory.customerPublicModuleGraph.some(

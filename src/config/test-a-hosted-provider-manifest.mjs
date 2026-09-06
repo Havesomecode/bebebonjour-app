@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 
 export const EXPECTED_TEST_A_HOSTED_PROVIDER_MANIFEST_SHA256 =
-  "f8598da7fa3a71ed53bc9b8a042b813a6d10087efbf81403bc51bae1ba801dae";
+  "7f1b357d0e8f2e0b8a5bfb67db413e6ad1b806e6bbd51f9b529b8a0301314890";
 
 const manifestUrl = new URL("../../ops/test-a-hosted-provider-manifest.json", import.meta.url);
 
@@ -120,22 +120,24 @@ export function loadReviewedTestAGenerationPolicy(
   const localConfiguration = requireUniqueStringArray(
     runtime.localConfiguration,
     "generation operator local configuration",
+    { allowEmpty: true },
   );
   const stages = requireUniqueStringArray(runtime.stages, "generation operator stages");
   if (
     JSON.stringify(authorityInputs) !== JSON.stringify([
       "jobId",
-      "privateArtifactRoot",
-      "jobScopedEditorialApprovalRecord",
+      "persistedJobScopedEditorialApproval",
+      "convexPrivateArtifactStorage",
     ])
     || JSON.stringify(capabilities) !== JSON.stringify(["prepare-review"])
     || JSON.stringify(runtimeEnvironmentVariables) !== JSON.stringify([
       "CONVEX_URL",
       "CUSTOMER_FLOW_BACKEND_TOKEN",
+      "BEBEBONJOUR_OPERATIONS_WORKER_TOKEN",
     ])
-    || JSON.stringify(localConfiguration) !== JSON.stringify(["privateArtifactRoot"])
+    || JSON.stringify(localConfiguration) !== JSON.stringify([])
     || JSON.stringify(stages) !== JSON.stringify(["prepare_review"])
-    || runtime.providerOperationsEnabled !== false
+    || runtime.providerOperationsEnabled !== "Convex file storage only"
     || runtime.publicApiAccess !== false
   ) {
     throw new Error("TEST-A generation authority must remain isolated to prepare_review.");
@@ -211,14 +213,14 @@ function requireExactKeys(value, expectedKeys, label) {
   }
 }
 
-function requireUniqueStringArray(value, label) {
+function requireUniqueStringArray(value, label, { allowEmpty = false } = {}) {
   if (
     !Array.isArray(value)
-    || value.length === 0
+    || (!allowEmpty && value.length === 0)
     || value.some((entry) => typeof entry !== "string" || entry.trim() === "")
     || new Set(value).size !== value.length
   ) {
-    throw new Error(`TEST-A ${label} must be a non-empty unique string list.`);
+    throw new Error(`TEST-A ${label} must be a${allowEmpty ? "" : " non-empty"} unique string list.`);
   }
   return [...value];
 }

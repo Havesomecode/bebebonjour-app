@@ -42,7 +42,10 @@ export async function runOperationsWorkerCommand(options = {}) {
         client,
         workerToken,
         createGenerationRunner: options.createGenerationRunner,
-        repositoryRoot: options.repositoryRoot,
+        artifactStore: options.artifactStore,
+        fetchImpl: options.fetchImpl,
+        clock: options.clock,
+        tokenFactory: options.tokenFactory,
       })
     : {};
 

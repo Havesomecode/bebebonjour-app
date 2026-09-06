@@ -45,8 +45,9 @@ From the exact reviewed worktree:
 npx convex deploy --deployment havesomecode:bebebonjour-test-a:prod
 ```
 
-Set `CUSTOMER_FLOW_BACKEND_TOKEN` on that exact Convex production deployment.
-The token must match the server-side Vercel value and must never be printed,
+Set `CUSTOMER_FLOW_BACKEND_TOKEN` and `BEBEBONJOUR_OPERATIONS_WORKER_TOKEN` on
+that exact Convex production deployment. Each token must match its server-side
+Vercel value, the two values must be distinct, and neither may be printed,
 committed, copied into Kanban, or exposed to browser code.
 
 The deployed schema must include:
@@ -55,7 +56,10 @@ The deployed schema must include:
 - `customerFlowSubmissions`
 - `customerFlowProviderEvents`
 - `customerFlowWorkItems`
-- the fulfillment tables
+- `customerFlowOperationsCommands` and `customerFlowOperationsLoginThrottle`
+- `fulfillmentJobs` and `fulfillmentReviewApprovals`
+- `fulfillmentGenerationEditorialApprovals` and
+  `fulfillmentGenerationArtifactSets`; artifact bytes live in Convex `_storage`
 
 ## Vercel production variables
 
@@ -66,6 +70,14 @@ The fulfillment project requires these server-side names:
 - `CUSTOMER_FLOW_TOKEN_ENCRYPTION_KEY`
 - `CUSTOMER_FLOW_TEST_ACCESS_TOKEN`
 - `CUSTOMER_FLOW_ALLOWED_ORIGINS`
+- `BEBEBONJOUR_OPERATIONS_TOKEN`
+- `BEBEBONJOUR_OPERATIONS_WORKER_TOKEN`
+- `BEBEBONJOUR_OPS_RATE_LIMIT_TOKEN`
+- `BEBEBONJOUR_OPERATIONS_WORKER_ID`
+- `BEBEBONJOUR_OPERATIONS_WORKER_ACTIONS` (`generate` only when generation is enabled)
+- `BEBEBONJOUR_OPERATIONS_WORKER_LIMIT`
+- `BEBEBONJOUR_OPERATIONS_WORKER_LEASE_MS`
+- `CRON_SECRET`
 - `STRIPE_SECRET_KEY` (test mode until a separately approved live rollout)
 - `STRIPE_CUSTOMER_FLOW_WEBHOOK_SECRET`
 - `STRIPE_CHECKOUT_SUCCESS_URL`
@@ -131,10 +143,16 @@ be copied into Kanban comments or logs.
 
 ### Isolated private generation
 
-Generation uses a separate entrypoint and authority boundary from status and
-persisted approval. Pre-create a private directory outside the repository, keep
-it mode `0700`, and place the human-issued job-scoped editorial approval beneath
-that root. The approval must validate against
+Vercel generation uses only invocation-local `/tmp` as a private staging area.
+Every completed private-review file is uploaded to Convex file storage, and the
+exact job/revision/kind metadata is committed insert-once to
+`fulfillmentGenerationArtifactSets` before the fulfillment stage can complete.
+A cold invocation downloads each file through a worker-authenticated short-lived
+URL and verifies its byte length and SHA-256 digest before replay. The staging
+directory is removed in `finally`; no Vercel filesystem path is a durability
+authority.
+
+The human-issued job-scoped editorial approval must validate against
 `schemas/job-scoped-editorial-approval.schema.json`, bind the exact `job_...`
 identifier, carry the SHA-256 digest of its canonical `sourceEvidence` JSON, and
 contain exactly the `unknown_name_general_wishes` policy: preserve submitted
@@ -148,21 +166,24 @@ mkdir -m 700 /absolute/private/path/bebebonjour-generation
 mkdir -m 700 /absolute/private/path/bebebonjour-generation/approvals
 # A human decision authority writes and validates this JSON before generation.
 chmod 400 /absolute/private/path/bebebonjour-generation/approvals/job_...json
-BEBEBONJOUR_PRIVATE_ARTIFACT_ROOT=/absolute/private/path/bebebonjour-generation \
-  ./scripts/private-generate-intake-from-hermes-secrets.sh \
-    <job_id> /absolute/private/path/bebebonjour-generation/approvals/job_...json
+CONVEX_URL=https://the-reviewed-deployment.convex.cloud \
+CUSTOMER_FLOW_BACKEND_TOKEN=... \
+  node ops/persist-test-a-generation-approval.mjs \
+    <job_id> /absolute/private/path/bebebonjour-generation \
+    /absolute/private/path/bebebonjour-generation/approvals/job_...json
 ```
 
-The wrapper accepts exactly one canonical `job_...` identifier and one absolute
-approval-record path beneath the configured private root. It forwards only
-`CONVEX_URL` and `CUSTOMER_FLOW_BACKEND_TOKEN` as business environment values.
-Startup validates the private path, file permissions, closed JSON schema, exact
-job binding, exact non-broadening policy, and source-evidence digest before it
-constructs the backend runner. The worker then reads both canonical records,
-rejects unpaid, mismatched, or ineligible jobs before a Convex mutation,
-persists the canonical intake bytes and exact approval binding only beneath the
-configured private root, advances only `prepare_review`, and stops at
-`content_review_required`.
+The private provisioning command validates the root isolation, immutable file,
+closed JSON schema, exact job binding, exact non-broadening policy, and evidence
+digests before the approval can be inserted. Repeating the exact approval is
+idempotent; a conflicting record for the same job is rejected.
+
+The Vercel cron endpoint authenticates `CRON_SECRET`, health-checks the exact
+worker protocol, and claims only the configured `generate` action. The worker
+reads the canonical customer/fulfillment records plus the persisted approval,
+rejects unpaid, mismatched, or ineligible jobs before artifact upload, crosses
+the Operations effect fence once, advances only `prepare_review`, persists the
+complete private artifact set in Convex, and stops at `content_review_required`.
 Replay after successful generation returns `already_generated`; a bounded
 prepare-review retry resumes only that same stage. Output is a PII-free status
 projection and must never be augmented with intake, email, names, notes, page
@@ -175,10 +196,12 @@ returns `unknown`; exact, alias, ambiguous, cross-script-conflict, and invalid
 orthography outcomes remain rejected. The submitted name is never rewritten to
 obtain a fallback, and the approved path always uses the general-wishes fallback.
 
-This entrypoint has no persisted content-approval, TTS, render-after-approval,
-publication, delivery, Vercel, Resend, Stripe mutation, or generic run-next
-capability. Do not replace it with `ops/run-test-a-operator.mjs run-next` and do
-not add provider credentials to its environment.
+This entrypoint has only canonical Convex reads/writes and Convex private-file
+storage. It has no persisted content-approval, TTS, render-after-approval,
+publication, delivery, Vercel management, Resend, Stripe mutation, or generic
+run-next capability. Do not replace it with
+`ops/run-test-a-operator.mjs run-next` and do not add provider credentials to
+its environment.
 
 ## Verification gates
 

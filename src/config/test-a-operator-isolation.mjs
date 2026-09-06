@@ -4,29 +4,36 @@ import path from "node:path";
 
 const PRIVATE_OPERATOR_MARKERS = Object.freeze([
   "operator-runner-test-a",
+  "persist-test-a-generation-approval",
   "run-test-a-generation",
+  "test-a-generation-approval-startup",
   "test-a-generation-startup",
   "test-a-operator-startup",
   "test-a-operator-runtime-identity",
 ]);
 const GENERATION_WORKER_MARKERS = Object.freeze(["test-a-generation-runner"]);
 const PRIVATE_CAPABILITY_MODULES = Object.freeze([
+  "ops/persist-test-a-generation-approval.mjs",
   "ops/run-test-a-operator.mjs",
   "ops/run-test-a-generation.mjs",
+  "src/fulfillment/hosted-generation-workspace.mjs",
   "src/fulfillment/job-scoped-generation-approval.mjs",
   "src/fulfillment/local-prepare-review-stage-handler.mjs",
   "src/fulfillment/operator-runner-test-a.mjs",
+  "src/fulfillment/test-a-generation-approval-startup.mjs",
   "src/fulfillment/test-a-generation-runner.mjs",
   "src/fulfillment/test-a-generation-startup.mjs",
   "src/fulfillment/test-a-operator-runtime-identity.mjs",
   "src/fulfillment/test-a-operator-startup.mjs",
   "src/operations/production-generation-worker.mjs",
+  "src/persistence/convex-generation-artifact-store.mjs",
 ]);
 const OPERATIONS_WORKER_GENERATION_MODULES = Object.freeze([
-  "src/fulfillment/job-scoped-generation-approval.mjs",
+  "src/fulfillment/hosted-generation-workspace.mjs",
   "src/fulfillment/local-prepare-review-stage-handler.mjs",
   "src/fulfillment/test-a-generation-runner.mjs",
   "src/operations/production-generation-worker.mjs",
+  "src/persistence/convex-generation-artifact-store.mjs",
 ]);
 const REVIEW_ROOT_INPUTS = Object.freeze([
   ".env.example",
@@ -50,10 +57,15 @@ export async function createTestAOperatorIsolationInventory(options) {
     rootPath,
     publicEntrypoints.filter((entrypoint) => entrypoint !== operationsWorkerEntrypoint),
   );
-  const privateInvocation = PRIVATE_CAPABILITY_MODULES[0];
+  const privateInvocation = "ops/run-test-a-operator.mjs";
   const privateModuleGraph = await traceLocalModuleGraph(rootPath, [privateInvocation]);
   const generationInvocation = "ops/run-test-a-generation.mjs";
   const generationModuleGraph = await traceLocalModuleGraph(rootPath, [generationInvocation]);
+  const generationApprovalInvocation = "ops/persist-test-a-generation-approval.mjs";
+  const generationApprovalModuleGraph = await traceLocalModuleGraph(
+    rootPath,
+    [generationApprovalInvocation],
+  );
 
   for (const privateModule of PRIVATE_CAPABILITY_MODULES) {
     if (customerPublicModuleGraph.includes(privateModule)) {
@@ -89,6 +101,7 @@ export async function createTestAOperatorIsolationInventory(options) {
   const packageCommandReferences = [
     ...findPrivateInvocationPackageCommands(packageJson, privateInvocation),
     ...findPrivateInvocationPackageCommands(packageJson, generationInvocation),
+    ...findPrivateInvocationPackageCommands(packageJson, generationApprovalInvocation),
   ];
   if (packageCommandReferences.length > 0) {
     throw new Error("Package command surface exposes the private TEST-A operator invocation.");
@@ -128,8 +141,25 @@ export async function createTestAOperatorIsolationInventory(options) {
   ) {
     throw new Error("Private TEST-A generation startup must have exactly one non-test invocation.");
   }
+  const generationApprovalStartupImporters = [];
+  for (const filePath of nonTestModules) {
+    const source = await readFile(filePath, "utf8");
+    if (staticImportSpecifiers(source).some(
+      (specifier) => specifier.endsWith("/test-a-generation-approval-startup.mjs"),
+    )) {
+      generationApprovalStartupImporters.push(relativePath(rootPath, filePath));
+    }
+  }
+  if (
+    generationApprovalStartupImporters.length !== 1
+    || generationApprovalStartupImporters[0] !== generationApprovalInvocation
+  ) {
+    throw new Error("Private TEST-A generation approval startup must have exactly one non-test invocation.");
+  }
 
   return Object.freeze({
+    generationApprovalInvocation,
+    generationApprovalModuleGraph,
     generationInvocation,
     generationModuleGraph,
     customerPublicModuleGraph,
@@ -148,6 +178,7 @@ export async function createTestAOperatorIsolationInventory(options) {
       ...publicModuleGraph,
       ...privateModuleGraph,
       ...generationModuleGraph,
+      ...generationApprovalModuleGraph,
     ])].sort(),
   });
 }
