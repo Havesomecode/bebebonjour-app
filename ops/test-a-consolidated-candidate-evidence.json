@@ -16,6 +16,7 @@
       "convex/operations.js",
       "convex/schema.js",
       "generation-worker/api/worker.mjs",
+      "ops/codex-response-schema-compatibility-evidence.json",
       "ops/persist-test-a-generation-approval.mjs",
       "ops/run-test-a-generation.mjs",
       "ops/run-test-a-operator.mjs",
@@ -150,6 +151,7 @@
       "test/integration/fulfillment-end-to-end.test.mjs",
       "test/integration/fulfillment-workflow-tracer.test.mjs",
       "test/name-resolution.test.mjs",
+      "test/operations/codex-packaged-response-schema.test.mjs",
       "test/operations/codex-packaged-runtime.test.mjs",
       "test/operations/hermes-kanban-client.test.mjs",
       "test/operations/hosted-generation-storage.test.mjs",
@@ -186,6 +188,7 @@
       "convex/operations.js",
       "convex/schema.js",
       "generation-worker/api/worker.mjs",
+      "ops/codex-response-schema-compatibility-evidence.json",
       "ops/persist-test-a-generation-approval.mjs",
       "ops/run-test-a-generation.mjs",
       "ops/run-test-a-operator.mjs",
@@ -320,6 +323,7 @@
       "test/integration/fulfillment-end-to-end.test.mjs",
       "test/integration/fulfillment-workflow-tracer.test.mjs",
       "test/name-resolution.test.mjs",
+      "test/operations/codex-packaged-response-schema.test.mjs",
       "test/operations/codex-packaged-runtime.test.mjs",
       "test/operations/hermes-kanban-client.test.mjs",
       "test/operations/hosted-generation-storage.test.mjs",
@@ -393,6 +397,10 @@
         "sha256": "e912a248f4350c3512e61ee0bd6ac160e80891c3252459a3b0c12b294877eb5b"
       },
       {
+        "path": "ops/codex-response-schema-compatibility-evidence.json",
+        "sha256": "1fd44d92cc769a70e3883581e937d872ebb16299b46e34d9872438967cd2b134"
+      },
+      {
         "path": "ops/persist-test-a-generation-approval.mjs",
         "sha256": "0c78508c663b33c9c515d5108c527681140af7e5df27727a0a8716e743a9ff13"
       },
@@ -406,7 +414,7 @@
       },
       {
         "path": "ops/test-a-consolidated-candidate-audit.mjs",
-        "sha256": "13eb76acd0d5ae91fb650ec4465066901b638ee3ad0e10b64feae01831fb058d"
+        "sha256": "c2d666dcba9169933a970576912f18340134ec7d90cf290853761836d91ec518"
       },
       {
         "path": "ops/test-a-hosted-provider-manifest.json",
@@ -430,7 +438,7 @@
       },
       {
         "path": "schemas/codex-subscription-composition.schema.json",
-        "sha256": "ea3fb3aab8cdca8ee23adb8d1276edd65d62026d18ee13ef466f63624c375679"
+        "sha256": "042b96d94b7c77461e02e55a92af7a828b4619c7701aab25f9abb41d98f56914"
       },
       {
         "path": "schemas/fulfillment-job-store.schema.json",
@@ -734,7 +742,7 @@
       },
       {
         "path": "test/config/test-a-operator-isolation-audit.test.mjs",
-        "sha256": "f469a94a10e393f28f00e98aa04a649e546e56a16f7ddfabefe85d40b403d00b"
+        "sha256": "de8247a3f4c4a93747e4bf4263a27c82577c944c4949373b89f02e56806f9a4b"
       },
       {
         "path": "test/config/test-a-operator-isolation.test.mjs",
@@ -865,6 +873,10 @@
         "sha256": "b86f804876c5f24cf3ce045b4d44ab6f32376f36d4cde9bca0bc328879afbe1d"
       },
       {
+        "path": "test/operations/codex-packaged-response-schema.test.mjs",
+        "sha256": "7ae0219ce30da5616b4b633f6bfbf2ffedcadfc61e31e9707964d82b42bc6fef"
+      },
+      {
         "path": "test/operations/codex-packaged-runtime.test.mjs",
         "sha256": "7606bc66d8d25d22af1e2ccde4f7ffac4a003884e8ff120ef71afbe463669b36"
       },
@@ -952,6 +964,8 @@
         "test/fulfillment/secure-filesystem-snapshot.test.mjs: artifact collection rejects a substituted stage ancestor after binding the workspace root",
         "test/fulfillment/generation-stage-workspace.test.mjs: persisted orchestration drives compose, render, and retryable test-mode TTS",
         "test/fulfillment/test-a-generation-startup.test.mjs: generation startup rejects every unrecognized environment variable before runner construction",
+        "test/operations/codex-packaged-response-schema.test.mjs: pinned packaged Codex response schema satisfies the strict OpenAI boundary",
+        "test/operations/codex-packaged-response-schema.test.mjs: packaged Codex 0.146.0 accepts and enforces the production response schema (authorized synthetic provider probe recorded in durable evidence)",
         "test/fulfillment/test-a-generation-runner.test.mjs: generation runner binds an Operations command through its real stage orchestration",
         "test/operations/operations-worker-startup.test.mjs: production generation entrypoint composes job-scoped generation without fulfillment injection",
         "test/operations/operations-worker-startup.test.mjs: production generation rejects missing or invalid private configuration before queue access",
@@ -1156,6 +1170,7 @@
       "test/convex/generation-worker-authority.test.mjs",
       "test/fulfillment/exact-revision-publication-adapter.test.mjs",
       "test/fulfillment/failed-prepare-review-recovery.test.mjs",
+      "test/fulfillment/codex-subscription-composer.test.mjs",
       "test/fulfillment/generation-stage-workspace.test.mjs",
       "test/fulfillment/job-orchestration.test.mjs",
       "test/fulfillment/local-command-stage-handlers.test.mjs",
@@ -1169,6 +1184,8 @@
       "test/fulfillment/vercel-test-a-publication-provider.test.mjs",
       "test/http/operations-worker-handler.test.mjs",
       "test/operations/operations-command-worker.test.mjs",
+      "test/operations/codex-packaged-response-schema.test.mjs",
+      "test/operations/codex-packaged-runtime.test.mjs",
       "test/operations/operations-worker-runtime.test.mjs",
       "test/operations/operations-worker-startup.test.mjs",
       "test/operations/hosted-generation-storage.test.mjs"

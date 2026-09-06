@@ -6,6 +6,7 @@
   "required": ["schemaVersion", "languages"],
   "properties": {
     "schemaVersion": {
+      "type": "string",
       "const": "1.0"
     },
     "languages": {
