@@ -15,7 +15,7 @@ test("Convex operations queue forwards authorization only to server mutations", 
   };
   const queue = createConvexOperationsCommandQueue({ client, workerToken });
 
-  const claimed = await queue.claimCommands({ workerId: "worker-1", limit: 1, leaseMs: 120_000 });
+  const claimed = await queue.claimCommands({ workerId: "worker-1", actions: ["generate"], limit: 1, leaseMs: 120_000 });
   await queue.fenceCommand({
     commandId: "command_1",
     workerId: "worker-1",

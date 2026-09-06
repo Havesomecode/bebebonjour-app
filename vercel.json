@@ -10,5 +10,11 @@
       "source": "/api/webhooks/tally",
       "destination": "/api/webhooks/tally"
     }
+  ],
+  "crons": [
+    {
+      "path": "/api/operations/worker",
+      "schedule": "*/5 * * * *"
+    }
   ]
 }

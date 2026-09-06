@@ -91,6 +91,22 @@ const OUTCOME_CONTRACT_BY_ACTION = Object.freeze({
   }),
 });
 
+export const operatorHealth = queryGeneric({
+  args: { operatorToken: v.string() },
+  handler: async (_context, args) => {
+    assertOperatorToken(args.operatorToken);
+    return { protocolVersion: "1.0", scope: "operator" };
+  },
+});
+
+export const workerHealth = queryGeneric({
+  args: { workerToken: v.string() },
+  handler: async (_context, args) => {
+    assertWorkerToken(args.workerToken);
+    return { protocolVersion: "1.0", scope: "worker" };
+  },
+});
+
 export const consumeLoginAttempt = mutationGeneric({
   args: { rateLimitToken: v.string(), sourceHash: v.string() },
   handler: async (context, args) => {
@@ -324,27 +340,34 @@ export const claimCommands = mutationGeneric({
   args: {
     workerToken: v.string(),
     workerId: v.string(),
+    actions: v.array(v.string()),
     limit: v.number(),
     leaseMs: v.number(),
   },
   handler: async (context, args) => {
     assertWorkerToken(args.workerToken);
     assertWorkerClaimInput(args);
+    if (args.actions.length === 0) return [];
     const nowMs = Date.now();
-    const pending = await context.db
+    const actions = [...args.actions].sort();
+    const pending = (await Promise.all(actions.map((action) => context.db
       .query("customerFlowOperationsCommands")
-      .withIndex("by_state_and_requested_at", (query) => query.eq("state", "pending"))
+      .withIndex("by_state_action_requested_at", (query) => query
+        .eq("state", "pending")
+        .eq("action", action))
       .order("asc")
-      .take(args.limit * 4);
-    const running = await context.db
+      .take(args.limit)))).flat();
+    const running = (await Promise.all(actions.map((action) => context.db
       .query("customerFlowOperationsCommands")
-      .withIndex("by_state_and_claim_lease_expiry", (query) => query
+      .withIndex("by_state_action_claim_lease_expiry", (query) => query
         .eq("state", "running")
+        .eq("action", action)
         .lte("claim.leaseExpiresAtMs", nowMs))
       .order("asc")
-      .take(args.limit * 4);
+      .take(args.limit)))).flat();
     const candidates = [...running, ...pending]
-      .sort((left, right) => left.requestedAt.localeCompare(right.requestedAt))
+      .sort((left, right) => left.requestedAt.localeCompare(right.requestedAt)
+        || left.commandId.localeCompare(right.commandId))
       .slice(0, args.limit);
     const claimed = [];
 
@@ -1156,6 +1179,12 @@ function isHttpsUrl(value) {
 
 function assertWorkerClaimInput(args) {
   assertWorkerId(args.workerId);
+  if (!Array.isArray(args.actions)
+    || args.actions.length > ALL_ACTIONS.size
+    || new Set(args.actions).size !== args.actions.length
+    || args.actions.some((action) => !ALL_ACTIONS.has(action))) {
+    throw new Error("Operator worker action scope is invalid.");
+  }
   if (!Number.isInteger(args.limit) || args.limit < 1 || args.limit > 20) {
     throw new Error("Operator worker claim limit is invalid.");
   }

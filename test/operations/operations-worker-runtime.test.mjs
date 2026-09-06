@@ -113,6 +113,32 @@ test("worker runtime composes the scoped Convex queue with canonical action hand
   }
 });
 
+test("worker runtime supports an explicit no-action health deployment without provider capabilities", async () => {
+  const calls = [];
+  const runtime = createOperationsWorkerRuntime({
+    client: {
+      async mutation(name, input) {
+        calls.push([name, structuredClone(input)]);
+        if (name === "operations:claimCommands") return [];
+        throw new Error(`Unexpected mutation ${name}`);
+      },
+    },
+    workerToken,
+    enabledActions: [],
+  });
+  assert.deepEqual(
+    await runtime.runOnce({ workerId: "health-worker", limit: 1, leaseMs: 60_000 }),
+    { claimed: 0, completed: 0, failed: 0 },
+  );
+  assert.deepEqual(calls, [["operations:claimCommands", {
+    workerToken,
+    workerId: "health-worker",
+    actions: [],
+    limit: 1,
+    leaseMs: 60_000,
+  }]]);
+});
+
 test("worker runtime rejects missing trusted capabilities before claiming commands", () => {
   const { options } = dependencies({ operationsCheckout: null });
   assert.throws(

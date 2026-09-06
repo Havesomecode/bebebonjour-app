@@ -30,7 +30,7 @@ test("operator and worker credentials cannot cross privilege boundaries", async 
     /Unauthorized/u,
   );
   await assert.rejects(
-    convex.mutation(claimCommands, { workerToken: operatorToken, workerId: "worker-1", limit: 1, leaseMs: 60_000 }),
+    convex.mutation(claimCommands, { workerToken: operatorToken, workerId: "worker-1", actions: [], limit: 1, leaseMs: 60_000 }),
     /Unauthorized/u,
   );
   await assert.rejects(

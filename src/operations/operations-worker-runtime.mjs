@@ -14,6 +14,7 @@ export function createOperationsWorkerRuntime(options = {}) {
     fulfillmentStore: options.fulfillmentStore,
     authorizeReviewDecision: options.authorizeReviewDecision,
     reconcileExternalEffect: options.reconcileExternalEffect,
+    enabledActions: options.enabledActions,
   });
   return createOperationsCommandWorker({ queue, handlers });
 }

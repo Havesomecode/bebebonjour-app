@@ -24,17 +24,29 @@ export function createOperationsActionHandlers({
   fulfillmentStore,
   authorizeReviewDecision,
   reconcileExternalEffect,
+  enabledActions,
 }) {
-  requireMethod(operationsCheckout, "createCheckout");
-  requireMethod(customerStore, "readJob");
-  for (const method of ["runExpectedStage", "recordReviewDecision", "queueDelivery", "resumeRetry"]) {
-    requireMethod(fulfillmentOrchestrator, method);
+  const scope = normalizeActionScope(enabledActions);
+  if (scope.has("create_checkout")) {
+    requireMethod(operationsCheckout, "createCheckout");
+    requireMethod(customerStore, "readJob");
   }
-  requireMethod(fulfillmentStore, "getJob");
-  if (typeof authorizeReviewDecision !== "function") {
+  if ([...scope].some((action) => Object.hasOwn(STAGE_ACTIONS, action))) {
+    requireMethod(fulfillmentOrchestrator, "runExpectedStage");
+  }
+  if ([...scope].some((action) => Object.hasOwn(REVIEW_ACTIONS, action))) {
+    requireMethod(fulfillmentOrchestrator, "recordReviewDecision");
+  }
+  if (scope.has("queue_delivery")) requireMethod(fulfillmentOrchestrator, "queueDelivery");
+  if (scope.has("retry")) requireMethod(fulfillmentOrchestrator, "resumeRetry");
+  if ([...scope].some((action) => action !== "create_checkout")) {
+    requireMethod(fulfillmentStore, "getJob");
+  }
+  if ([...scope].some((action) => Object.hasOwn(REVIEW_ACTIONS, action))
+    && typeof authorizeReviewDecision !== "function") {
     throw new Error("Operations review commands require a trusted review authorization capability.");
   }
-  if (typeof reconcileExternalEffect !== "function") {
+  if (scope.has("reconcile") && typeof reconcileExternalEffect !== "function") {
     throw new Error("Operations reconciliation requires a trusted provider reconciliation capability.");
   }
 
@@ -123,7 +135,25 @@ export function createOperationsActionHandlers({
     };
   }
 
-  return Object.freeze(handlers);
+  return Object.freeze(Object.fromEntries([...scope].map((action) => [action, handlers[action]])));
+}
+
+function normalizeActionScope(enabledActions) {
+  const all = [
+    "create_checkout",
+    ...Object.keys(STAGE_ACTIONS),
+    ...Object.keys(REVIEW_ACTIONS),
+    "queue_delivery",
+    "retry",
+    "reconcile",
+  ];
+  const actions = enabledActions === undefined ? all : enabledActions;
+  if (!Array.isArray(actions)
+    || new Set(actions).size !== actions.length
+    || actions.some((action) => !all.includes(action))) {
+    throw new Error("Operations worker action scope is invalid.");
+  }
+  return new Set(actions);
 }
 
 async function requireEffectBoundary(command, operation) {

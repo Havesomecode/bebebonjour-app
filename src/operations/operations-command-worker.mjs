@@ -10,6 +10,11 @@ const EXTERNAL_EFFECT_ACTIONS = new Set([
   "publish",
   "deliver",
 ]);
+const ALL_ACTIONS = new Set([
+  "create_checkout", "generate", "approve_content", "request_content_changes", "reject_content",
+  "render", "generate_narration", "approve_narration", "request_narration_changes", "reject_narration",
+  "publish", "queue_delivery", "deliver", "retry", "reconcile",
+]);
 
 export function createOperationsCommandWorker(options = {}) {
   const { queue, handlers } = options;
@@ -19,6 +24,10 @@ export function createOperationsCommandWorker(options = {}) {
   if (!handlers || typeof handlers !== "object" || Array.isArray(handlers)) {
     throw new Error("Operations command handlers are required.");
   }
+  const enabledActions = Object.keys(handlers).sort();
+  if (enabledActions.some((action) => !ALL_ACTIONS.has(action))) {
+    throw new Error("Operations worker action scope is invalid.");
+  }
 
 
   return Object.freeze({
@@ -26,6 +35,7 @@ export function createOperationsCommandWorker(options = {}) {
       assertRunInput(input);
       const claimed = await queue.claimCommands({
         workerId: input.workerId,
+        actions: enabledActions,
         limit: input.limit,
         leaseMs: input.leaseMs,
       });
@@ -168,6 +178,7 @@ function requiredLeaseToken(command) {
 
 function assertRunInput(input) {
   if (!WORKER_ID.test(input.workerId || "")) throw new Error("Operations worker id is invalid.");
+
   if (!Number.isInteger(input.limit) || input.limit < 1 || input.limit > 20) {
     throw new Error("Operations worker claim limit is invalid.");
   }

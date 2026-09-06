@@ -16,10 +16,17 @@ const completeCommand = makeFunctionReference("operations:completeCommand");
 const failCommand = makeFunctionReference("operations:failCommand");
 const consumeLoginAttempt = makeFunctionReference("operations:consumeLoginAttempt");
 const resetLoginThrottle = makeFunctionReference("operations:resetLoginThrottle");
+const operatorHealth = makeFunctionReference("operations:operatorHealth");
+const workerHealth = makeFunctionReference("operations:workerHealth");
 
 const operatorToken = "operator-token-at-least-32-characters";
 const workerToken = "worker-token-at-least-32-characters__";
 const rateLimitToken = "rate-limit-token-at-least-32-characters";
+const allActions = Object.freeze([
+  "create_checkout", "generate", "approve_content", "request_content_changes", "reject_content",
+  "render", "generate_narration", "approve_narration", "request_narration_changes", "reject_narration",
+  "publish", "queue_delivery", "deliver", "retry", "reconcile",
+]);
 
 function fixture() {
   process.env.BEBEBONJOUR_OPERATIONS_TOKEN = operatorToken;
@@ -112,6 +119,69 @@ async function replaceFulfillment(convex, aggregate) {
     await context.db.patch(document._id, { aggregate });
   });
 }
+
+test("scoped health probes authenticate without reading customer records", async () => {
+  const convex = fixture();
+  const operator = await convex.query(operatorHealth, { operatorToken });
+  const worker = await convex.query(workerHealth, { workerToken });
+  assert.deepEqual(operator, { protocolVersion: "1.0", scope: "operator" });
+  assert.deepEqual(worker, { protocolVersion: "1.0", scope: "worker" });
+});
+
+test("worker claims only explicitly enabled actions", async () => {
+  const convex = fixture();
+  await seed(convex);
+  const base = {
+    jobId: "job_ops_001",
+    expectedState: "generation_queued",
+    expectedVersion: 3,
+    payload: {},
+    requestedBy: "primary_operator",
+    state: "pending",
+    attempts: 0,
+    claim: null,
+    lastFailureReason: null,
+    outcome: null,
+  };
+  await convex.run(async (context) => {
+    await context.db.insert("customerFlowOperationsCommands", {
+      ...base,
+      commandId: "command_scoped_generate_000001",
+      action: "generate",
+      requestedAt: "2026-09-03T04:00:00.000Z",
+      updatedAt: "2026-09-03T04:00:00.000Z",
+    });
+    await context.db.insert("customerFlowOperationsCommands", {
+      ...base,
+      commandId: "command_scoped_publish_000001",
+      action: "publish",
+      requestedAt: "2026-09-03T04:00:01.000Z",
+      updatedAt: "2026-09-03T04:00:01.000Z",
+    });
+  });
+
+  assert.deepEqual(await convex.mutation(claimCommands, {
+    actions: [],
+    workerToken,
+    workerId: "scoped-worker",
+    limit: 2,
+    leaseMs: 120_000,
+  }), []);
+  const claimed = await convex.mutation(claimCommands, {
+    actions: ["generate"],
+    workerToken,
+    workerId: "scoped-worker",
+    limit: 2,
+    leaseMs: 120_000,
+  });
+  assert.deepEqual(claimed.map((command) => command.action), ["generate"]);
+  const untouched = await convex.run(async (context) => context.db
+    .query("customerFlowOperationsCommands")
+    .withIndex("by_command_id", (query) => query.eq("commandId", "command_scoped_publish_000001"))
+    .unique());
+  assert.equal(untouched.state, "pending");
+  assert.equal(untouched.claim, null);
+});
 
 test("login throttle is durable, source-scoped, resettable, and server-clocked", async (t) => {
   const convex = fixture();
@@ -284,6 +354,7 @@ test("checkout commands stop without provider I/O when the canonical checkout ap
   });
   const claimed = await convex.mutation(claimCommands, {
     workerToken,
+    actions: allActions,
     workerId: "ops-worker-1",
     limit: 1,
     leaseMs: 120_000,
@@ -370,6 +441,7 @@ test("expired commands are discovered by lease expiry rather than request-order 
 
   const claimed = await convex.mutation(claimCommands, {
     workerToken,
+    actions: allActions,
     workerId: "recovery-worker",
     limit: 1,
     leaseMs: 120_000,
@@ -393,6 +465,7 @@ test("worker claims, completes, and safely retries commands with leases", async 
 
   const first = await convex.mutation(claimCommands, {
     workerToken,
+    actions: allActions,
     workerId: "ops-worker-1",
     limit: 1,
     leaseMs: 120_000,
@@ -486,6 +559,7 @@ test("worker claims, completes, and safely retries commands with leases", async 
 
   const noMore = await convex.mutation(claimCommands, {
     workerToken,
+    actions: allActions,
     workerId: "ops-worker-2",
     limit: 1,
     leaseMs: 120_000,
@@ -508,6 +582,7 @@ test("effect fence rejects an expired canonical stage lease", async () => {
   });
   const [claimed] = await convex.mutation(claimCommands, {
     workerToken,
+    actions: allActions,
     workerId: "ops-worker-stage-lease",
     limit: 1,
     leaseMs: 120_000,
@@ -554,6 +629,7 @@ test("effect fence rejects a future stage lease outside canonical timestamp form
   });
   const [claimed] = await convex.mutation(claimCommands, {
     workerToken,
+    actions: allActions,
     workerId: "ops-worker-stage-lease",
     limit: 1,
     leaseMs: 120_000,
@@ -598,6 +674,7 @@ test("failed commands retain bounded failure codes and become retryable without 
   });
   const claimed = await convex.mutation(claimCommands, {
     workerToken,
+    actions: allActions,
     workerId: "ops-worker-1",
     limit: 1,
     leaseMs: 120_000,
@@ -720,6 +797,7 @@ test("review completion follows only the latest decision and its action terminal
   });
   const [claimed] = await convex.mutation(claimCommands, {
     workerToken,
+    actions: allActions,
     workerId: "ops-worker-review",
     limit: 1,
     leaseMs: 120_000,
@@ -986,6 +1064,7 @@ test("operator identity and command lease timestamps are server-owned", async (t
   nowMs += 1_000;
   const [claimed] = await convex.mutation(claimCommands, {
     workerToken,
+    actions: allActions,
     workerId: "ops-worker-1",
     limit: 1,
     leaseMs: 120_000,
@@ -1124,6 +1203,7 @@ test("ambiguous external effects move the command and operator projection to rec
   });
   const [claimed] = await convex.mutation(claimCommands, {
     workerToken,
+    actions: allActions,
     workerId: "ops-worker-1",
     limit: 1,
     leaseMs: 120_000,
@@ -1165,6 +1245,7 @@ test("ambiguous external effects move the command and operator projection to rec
   });
   const [failedReconciliation] = await convex.mutation(claimCommands, {
     workerToken,
+    actions: allActions,
     workerId: "ops-worker-2",
     limit: 1,
     leaseMs: 120_000,
@@ -1191,6 +1272,7 @@ test("ambiguous external effects move the command and operator projection to rec
   });
   const [reconciliation] = await convex.mutation(claimCommands, {
     workerToken,
+    actions: allActions,
     workerId: "ops-worker-2",
     limit: 1,
     leaseMs: 120_000,
@@ -1216,6 +1298,7 @@ test("ambiguous external effects move the command and operator projection to rec
   assert.deepEqual(resolved.availableActions, []);
   const [retriedSource] = await convex.mutation(claimCommands, {
     workerToken,
+    actions: allActions,
     workerId: "ops-worker-3",
     limit: 1,
     leaseMs: 120_000,
@@ -1241,6 +1324,7 @@ test("command completion enforces action-specific outcomes and replays idempoten
   });
   const [claimed] = await convex.mutation(claimCommands, {
     workerToken,
+    actions: allActions,
     workerId: "ops-worker-1",
     limit: 1,
     leaseMs: 120_000,
@@ -1328,6 +1412,7 @@ test("effect fence rejects a matching stage that belongs to another operations c
   });
   const [claimed] = await convex.mutation(claimCommands, {
     workerToken,
+    actions: allActions,
     workerId: "ops-worker-stage-owner",
     limit: 1,
     leaseMs: 120_000,
@@ -1376,6 +1461,7 @@ test("server fence expires stale external-effect ownership before another provid
   });
   const [claimed] = await convex.mutation(claimCommands, {
     workerToken,
+    actions: allActions,
     workerId: "ops-worker-expiry",
     limit: 1,
     leaseMs: 1_000,
@@ -1435,6 +1521,7 @@ test("expired fenced effects are moved to reconciliation after completion reject
   });
   const [claimed] = await convex.mutation(claimCommands, {
     workerToken,
+    actions: allActions,
     workerId: "ops-worker-expired-completion",
     limit: 1,
     leaseMs: 1_000,
@@ -1546,6 +1633,7 @@ test("successful reconciliation resolves the source only from authoritative pers
   });
   const [reconciliation] = await convex.mutation(claimCommands, {
     workerToken,
+    actions: allActions,
     workerId: "ops-worker-2",
     limit: 1,
     leaseMs: 120_000,
@@ -1679,6 +1767,7 @@ test("claiming revalidates canonical artifact bindings after a same-version drif
 
   const claimed = await convex.mutation(claimCommands, {
     workerToken,
+    actions: allActions,
     workerId: "ops-worker-1",
     limit: 1,
     leaseMs: 120_000,

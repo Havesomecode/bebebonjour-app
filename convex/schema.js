@@ -112,7 +112,9 @@ export default defineSchema({
     .index("by_job_action_version", ["jobId", "action", "expectedVersion"])
     .index("by_job_id_and_state", ["jobId", "state"])
     .index("by_state_and_requested_at", ["state", "requestedAt"])
-    .index("by_state_and_claim_lease_expiry", ["state", "claim.leaseExpiresAtMs"]),
+    .index("by_state_action_requested_at", ["state", "action", "requestedAt"])
+    .index("by_state_and_claim_lease_expiry", ["state", "claim.leaseExpiresAtMs"])
+    .index("by_state_action_claim_lease_expiry", ["state", "action", "claim.leaseExpiresAtMs"]),
   customerFlowOperationsLoginThrottle: defineTable({
     bucketKey: v.string(),
     windowStartedAtMs: v.number(),

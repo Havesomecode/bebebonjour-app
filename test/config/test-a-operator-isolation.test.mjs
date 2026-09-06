@@ -13,11 +13,12 @@ import {
 
 const rootPath = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 
-test("operator isolation inventory traces one status/review-only invocation outside every public route graph", async () => {
+test("operator isolation inventory keeps TEST-A capabilities outside every public route graph", async () => {
   const inventory = await createTestAOperatorIsolationInventory({ rootPath });
 
   assert.deepEqual(inventory.publicEntrypoints, [
     "api/customer-flow/[...route].mjs",
+    "api/operations/worker.mjs",
     "api/webhooks/tally.mjs",
   ]);
   assert.equal(inventory.privateInvocation, "ops/run-test-a-operator.mjs");

@@ -7,6 +7,7 @@
       ".env.example",
       "LIVE_SETUP.md",
       "README.md",
+      "api/operations/worker.mjs",
       "api/webhooks/stripe.mjs",
       "api/webhooks/tally.mjs",
       "convex/customerFlow.js",
@@ -33,6 +34,7 @@
       "scripts/lib/secure-filesystem-snapshot.py",
       "scripts/private-generate-intake-from-hermes-secrets.sh",
       "scripts/private-intake-status-from-hermes-secrets.sh",
+      "scripts/run-operations-worker.mjs",
       "scripts/verify-vercel-routing.mjs",
       "src/config/fulfillment-config.mjs",
       "src/config/hosted-customer-flow-config.mjs",
@@ -61,6 +63,7 @@
       "src/fulfillment/test-a-operator-runtime-identity.mjs",
       "src/fulfillment/test-a-operator-startup.mjs",
       "src/fulfillment/vercel-test-a-publication-provider.mjs",
+      "src/http/operations-worker-handler.mjs",
       "src/http/production-webhooks.mjs",
       "src/http/tally-intake-handler.mjs",
       "src/http/webhook-handlers.mjs",
@@ -70,6 +73,7 @@
       "src/operations/operations-command-error.mjs",
       "src/operations/operations-command-worker.mjs",
       "src/operations/operations-worker-runtime.mjs",
+      "src/operations/operations-worker-startup.mjs",
       "src/persistence/convex-customer-flow-store.mjs",
       "src/persistence/convex-fulfillment-store.mjs",
       "src/persistence/convex-operations-command-queue.mjs",
@@ -118,6 +122,7 @@
       "test/fulfillment/test-a-operator-runner.test.mjs",
       "test/fulfillment/test-a-operator-startup.test.mjs",
       "test/fulfillment/vercel-test-a-publication-provider.test.mjs",
+      "test/http/operations-worker-handler.test.mjs",
       "test/http/tally-intake-handler.test.mjs",
       "test/http/webhook-handlers.test.mjs",
       "test/integration/fulfillment-database.test.mjs",
@@ -129,6 +134,7 @@
       "test/operations/operations-action-handlers.test.mjs",
       "test/operations/operations-command-worker.test.mjs",
       "test/operations/operations-worker-runtime.test.mjs",
+      "test/operations/operations-worker-startup.test.mjs",
       "test/persistence/convex-customer-flow-store.test.mjs",
       "test/persistence/convex-operations-command-queue.test.mjs",
       "test/persistence/supabase-fulfillment-store.test.mjs",
@@ -146,6 +152,7 @@
       ".env.example",
       "LIVE_SETUP.md",
       "README.md",
+      "api/operations/worker.mjs",
       "api/webhooks/stripe.mjs",
       "api/webhooks/tally.mjs",
       "convex/customerFlow.js",
@@ -172,6 +179,7 @@
       "scripts/lib/secure-filesystem-snapshot.py",
       "scripts/private-generate-intake-from-hermes-secrets.sh",
       "scripts/private-intake-status-from-hermes-secrets.sh",
+      "scripts/run-operations-worker.mjs",
       "scripts/verify-vercel-routing.mjs",
       "src/config/fulfillment-config.mjs",
       "src/config/hosted-customer-flow-config.mjs",
@@ -200,6 +208,7 @@
       "src/fulfillment/test-a-operator-runtime-identity.mjs",
       "src/fulfillment/test-a-operator-startup.mjs",
       "src/fulfillment/vercel-test-a-publication-provider.mjs",
+      "src/http/operations-worker-handler.mjs",
       "src/http/production-webhooks.mjs",
       "src/http/tally-intake-handler.mjs",
       "src/http/webhook-handlers.mjs",
@@ -209,6 +218,7 @@
       "src/operations/operations-command-error.mjs",
       "src/operations/operations-command-worker.mjs",
       "src/operations/operations-worker-runtime.mjs",
+      "src/operations/operations-worker-startup.mjs",
       "src/persistence/convex-customer-flow-store.mjs",
       "src/persistence/convex-fulfillment-store.mjs",
       "src/persistence/convex-operations-command-queue.mjs",
@@ -257,6 +267,7 @@
       "test/fulfillment/test-a-operator-runner.test.mjs",
       "test/fulfillment/test-a-operator-startup.test.mjs",
       "test/fulfillment/vercel-test-a-publication-provider.test.mjs",
+      "test/http/operations-worker-handler.test.mjs",
       "test/http/tally-intake-handler.test.mjs",
       "test/http/webhook-handlers.test.mjs",
       "test/integration/fulfillment-database.test.mjs",
@@ -268,6 +279,7 @@
       "test/operations/operations-action-handlers.test.mjs",
       "test/operations/operations-command-worker.test.mjs",
       "test/operations/operations-worker-runtime.test.mjs",
+      "test/operations/operations-worker-startup.test.mjs",
       "test/persistence/convex-customer-flow-store.test.mjs",
       "test/persistence/convex-operations-command-queue.test.mjs",
       "test/persistence/supabase-fulfillment-store.test.mjs",
@@ -284,7 +296,7 @@
     "reviewedFileDigests": [
       {
         "path": ".env.example",
-        "sha256": "3cddf8f2fcd7f4aeea2b6f3f0738e3789dd7890d86da31f029dd38edb1cb1e05"
+        "sha256": "60eb91028221f785a1396ba482445cb5b59fc76c0d128bdc6932f2de3bc3244b"
       },
       {
         "path": "LIVE_SETUP.md",
@@ -299,6 +311,10 @@
         "sha256": "c02c032e2ac35fe0201d9cf3750eb5acfbbc326c27c473a4ffe3fc3dd4a93531"
       },
       {
+        "path": "api/operations/worker.mjs",
+        "sha256": "b50939b34b351c0093659b0940aa0a3a3ceafda4f868eafec1a003ba4ae2713e"
+      },
+      {
         "path": "api/webhooks/tally.mjs",
         "sha256": "17b3458ba697b19814ad2ca22ed5ec7cf090d3f4cf027020a2712cb2f068aad0"
       },
@@ -308,11 +324,11 @@
       },
       {
         "path": "convex/operations.js",
-        "sha256": "2bb527c33b2104de9449197d67e11f1966ff66600b499d294fe746e2213f9b6b"
+        "sha256": "66df258e6fd45d906b07de6e4a9e1205486205be489f44ca6fbeeb87a4c71870"
       },
       {
         "path": "convex/schema.js",
-        "sha256": "d28bd0f37f1d0f6d83e7d24d230577948f64e4203be6c5c4de93b68ffe1bb7a5"
+        "sha256": "600fc14927ac921da685d9986b61cf6d450cb8c5f9397dfb752b872360cb36f1"
       },
       {
         "path": "ops/run-test-a-generation.mjs",
@@ -340,7 +356,7 @@
       },
       {
         "path": "package.json",
-        "sha256": "b2779af9c46f03fc6f52d3e14a7a3eb1461383c7dc8153343aaae900b2a68e2b"
+        "sha256": "370130a28e1828a3784da629aba16235d5935552386ab4473dd1b806a736bb9a"
       },
       {
         "path": "public/404.html",
@@ -401,6 +417,10 @@
       {
         "path": "scripts/private-intake-status-from-hermes-secrets.sh",
         "sha256": "c573cd4c11731e79a7dc8492a0b9d3e19ebf2799cc77bb8cdcbde32f70d8b61f"
+      },
+      {
+        "path": "scripts/run-operations-worker.mjs",
+        "sha256": "6a6987fcfb9e6c1d5fada4e80425a366d4425704a44f25f4837c758f86837879"
       },
       {
         "path": "scripts/verify-vercel-routing.mjs",
@@ -531,6 +551,10 @@
         "sha256": "530c25270301c2faedf01052a17aba6e5e1d6b50a0ff787fa02d365966ee6f27"
       },
       {
+        "path": "src/http/operations-worker-handler.mjs",
+        "sha256": "b99e7925bdfb823a0efb1a54caba983c79d2b5e4b09ebcb678d8c82ac9342a93"
+      },
+      {
         "path": "src/http/tally-intake-handler.mjs",
         "sha256": "e72cb33a4de0290944adcb6bb58ee50ab0ed282a7b4420ddcf487023909e788c"
       },
@@ -544,7 +568,7 @@
       },
       {
         "path": "src/operations/operations-action-handlers.mjs",
-        "sha256": "75bcbf652d134c943b5cb4f37bf221686927ba0cb8ae8b6a7b329c83e9083279"
+        "sha256": "bcacca383043a3bd52bcb7dc8a794c15c93134c44a43a59828bfd97d7c380cfe"
       },
       {
         "path": "src/operations/operations-command-error.mjs",
@@ -552,11 +576,15 @@
       },
       {
         "path": "src/operations/operations-command-worker.mjs",
-        "sha256": "6e85bd5cff35bdd2bfb59a855bf4e8875fab869ac876099950e2069adc22fe07"
+        "sha256": "cdb89b42da85ccce5552e8b70cffe66dcc8fca42fc8fe702ace34532d24c9f25"
       },
       {
         "path": "src/operations/operations-worker-runtime.mjs",
-        "sha256": "a150fc24be941e0db73e0ec9106e42455eb81762ffa695e314a5f87dad86a57e"
+        "sha256": "5da50acaf24f8b85bd2ad000932d60c815e2983b5a4499dc8b5fc28d7f93ae0c"
+      },
+      {
+        "path": "src/operations/operations-worker-startup.mjs",
+        "sha256": "8a02a5ed7c4a0f221cd9a64ad354838117cd7d56fb0c5d94c36d9fa30dc8dcfd"
       },
       {
         "path": "src/persistence/convex-customer-flow-store.mjs",
@@ -576,7 +604,7 @@
       },
       {
         "path": "test/api/webhook-entrypoints.test.mjs",
-        "sha256": "7120c0d87cb09b7addcca58f9f07e377b950a3048d126fbd7d6d41baf2f0a0a6"
+        "sha256": "1f6993f57449d6aaee2d2ae697f70fb141fd8dea394c8b9150e8fbf894ba9320"
       },
       {
         "path": "test/config/hosted-provider-artifacts.test.mjs",
@@ -600,7 +628,7 @@
       },
       {
         "path": "test/config/test-a-operator-isolation.test.mjs",
-        "sha256": "986b0c019f815bbb50734e922c7c63eecc5be5ce881befc5d2fcf5cc7b258a10"
+        "sha256": "df7f1ee4378267f1a3c584aaeb8f9dd7d3289bd9744669fd8411c31d44260698"
       },
       {
         "path": "test/convex/customer-flow.test.mjs",
@@ -608,11 +636,11 @@
       },
       {
         "path": "test/convex/operations-authorization.test.mjs",
-        "sha256": "2442fbf068d81c8d44cc18a08f7ecc6a3c5bf3406a99e07f2b15a08230cfd830"
+        "sha256": "432d9a3b8e10a762a3dcfe43900331cc8b35f53b0ae3024499bdd948c4fe5d2d"
       },
       {
         "path": "test/convex/operations.test.mjs",
-        "sha256": "a1f263ef48e228d2e3836ebd57f9ced0fd788c8a383fcab26bd80e6d1c3230f5"
+        "sha256": "2535dbbd2291aac4696b12dc23d0ff12c331c7899341c1a87e165250cdc0446c"
       },
       {
         "path": "test/customer-flow/customer-flow.test.mjs",
@@ -687,6 +715,10 @@
         "sha256": "471cbfed2a13f73d3156453fb1ae1030986ae06a934a51483b2d30b35ad7c956"
       },
       {
+        "path": "test/http/operations-worker-handler.test.mjs",
+        "sha256": "a8744812342cce825a7ce7cf19dcda2ab0544088b1b5547cf8c1265d38c0dbda"
+      },
+      {
         "path": "test/http/tally-intake-handler.test.mjs",
         "sha256": "8c45ab69ceb5e3634f8a08d54a50a77165653ed2ad612f45675be152081b0e28"
       },
@@ -716,7 +748,11 @@
       },
       {
         "path": "test/operations/operations-worker-runtime.test.mjs",
-        "sha256": "417477f76d509cee1c7a94e86b41cd78fb6af40575152c6f185f4fcc4ecd297c"
+        "sha256": "f335d0a1662e1516443c8e1b2427d1657aedae6bfb12d9e8f0f715fa45a39073"
+      },
+      {
+        "path": "test/operations/operations-worker-startup.test.mjs",
+        "sha256": "8f7bf0458e978b2ea23cbbab3dab0b8f6b6ae382c7caa28212ff297b0cf05550"
       },
       {
         "path": "test/persistence/convex-customer-flow-store.test.mjs",
@@ -724,7 +760,7 @@
       },
       {
         "path": "test/persistence/convex-operations-command-queue.test.mjs",
-        "sha256": "da36fb40b7c10b43815c8fa1259d92f7fe0daab7a051c17d7e36dccaf8b83431"
+        "sha256": "d4e4b655c9cd7be2887d630e45519b94c83824a31dbbd9852783402954a60081"
       },
       {
         "path": "test/private-review.test.mjs",
@@ -732,7 +768,7 @@
       },
       {
         "path": "vercel.json",
-        "sha256": "f96a1746744ed6a26d1916d960b1615c4e1ea5df6fb93ed02ba1af1a6b5585a3"
+        "sha256": "815444aeffda312206f1df612661d701b41bd9b7a56ac89a86dcc9dd63e3c6b6"
       }
     ]
   },
@@ -838,10 +874,12 @@
     "privateInvocation": "ops/run-test-a-operator.mjs",
     "publicEntrypoints": [
       "api/customer-flow/[...route].mjs",
+      "api/operations/worker.mjs",
       "api/webhooks/tally.mjs"
     ],
     "publicModuleGraph": [
       "api/customer-flow/[...route].mjs",
+      "api/operations/worker.mjs",
       "api/webhooks/tally.mjs",
       "src/config/hosted-customer-flow-config.mjs",
       "src/customer-flow/hosted-http-api.mjs",
@@ -855,9 +893,16 @@
       "src/customer-flow/tally-intake.mjs",
       "src/fulfillment/job-machine.mjs",
       "src/fulfillment/job-orchestrator.mjs",
+      "src/http/operations-worker-handler.mjs",
       "src/http/tally-intake-handler.mjs",
+      "src/operations/operations-action-handlers.mjs",
+      "src/operations/operations-command-error.mjs",
+      "src/operations/operations-command-worker.mjs",
+      "src/operations/operations-worker-runtime.mjs",
+      "src/operations/operations-worker-startup.mjs",
       "src/persistence/convex-customer-flow-store.mjs",
-      "src/persistence/convex-fulfillment-store.mjs"
+      "src/persistence/convex-fulfillment-store.mjs",
+      "src/persistence/convex-operations-command-queue.mjs"
     ],
     "privateCapabilityModules": [
       "ops/run-test-a-operator.mjs",
