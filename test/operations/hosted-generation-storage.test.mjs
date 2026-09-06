@@ -204,6 +204,11 @@ test("Vercel-safe production worker generates into Convex storage and a cold inv
     BEBEBONJOUR_OPERATIONS_WORKER_ACTIONS: "generate",
     BEBEBONJOUR_OPERATIONS_WORKER_LIMIT: "5",
     BEBEBONJOUR_OPERATIONS_WORKER_LEASE_MS: "120000",
+    BEBEBONJOUR_CODEX_SUBSCRIPTION_ENABLED: "true",
+    BEBEBONJOUR_CODEX_AUTH_ENCRYPTION_KEY: Buffer.alloc(32, 17).toString("base64url"),
+    BEBEBONJOUR_CODEX_MODEL: "gpt-5.6-sol",
+    BEBEBONJOUR_CODEX_TIMEOUT_MS: "90000",
+    BEBEBONJOUR_CODEX_AUTH_LEASE_MS: "110000",
     CRON_SECRET: "cron-secret-with-at-least-thirty-two-bytes",
   };
 
@@ -211,6 +216,9 @@ test("Vercel-safe production worker generates into Convex storage and a cold inv
     environment,
     client: fixture.client,
     fetchImpl: fixture.fetchImpl,
+    createCodexAuthStateStore: () => ({ kind: "synthetic-auth-store" }),
+    createCodexRuntime: async () => "/synthetic/codex",
+    createCodexComposer: () => ({ compose: async () => null }),
     clock: () => "2026-09-06T10:00:01.000Z",
     tokenFactory: () => "hosted-generation-stage-lease",
   });

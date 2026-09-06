@@ -1,4 +1,7 @@
-import { commandPrepareReview } from "../../scripts/lib/commands.mjs";
+import {
+  commandPrepareReview,
+  preflightPrivateReviewComposition,
+} from "../../scripts/lib/commands.mjs";
 
 export function createLocalPrepareReviewStageHandler(options = {}) {
   if (
@@ -11,6 +14,14 @@ export function createLocalPrepareReviewStageHandler(options = {}) {
   const prepareReview = options.prepareReview || commandPrepareReview;
   if (typeof prepareReview !== "function") {
     throw new Error("The deterministic prepare-review command is required.");
+  }
+  const compose = options.compose || null;
+  if (compose !== null && typeof compose !== "function") {
+    throw new Error("The local subscription composition capability is invalid.");
+  }
+  const preflightComposition = options.preflightComposition || preflightPrivateReviewComposition;
+  if (compose !== null && typeof preflightComposition !== "function") {
+    throw new Error("The private-review composition preflight is required.");
   }
 
   return async function prepareReviewStage(context) {
@@ -37,13 +48,30 @@ export function createLocalPrepareReviewStageHandler(options = {}) {
     }
 
     try {
-      await prepareReview({
+      const intakeSnapshot = requiredIntakeSnapshot(paths);
+      const editorialApproval = requiredEditorialApproval(paths);
+      const prepareArgs = {
         input: requiredPath(paths, "inputRecordPath"),
         output: requiredPath(paths, "reviewRoot"),
         ...(paths.selectionId ? { select: paths.selectionId } : {}),
-      }, {
-        editorialApproval: requiredEditorialApproval(paths),
-        intakeSnapshot: requiredIntakeSnapshot(paths),
+      };
+      if (compose) {
+        const preflight = await preflightComposition(prepareArgs, {
+          editorialApproval,
+          intakeSnapshot,
+        });
+        if (preflight?.state !== "composition_ready") {
+          throw new Error(`Private-review composition preflight rejected: ${preflight?.state || "invalid"}.`);
+        }
+      }
+      const composition = compose
+        ? await compose(intakeSnapshot, { signal: context.signal })
+        : null;
+      if (compose) await context.assertStageOwnership();
+      await prepareReview(prepareArgs, {
+        editorialApproval,
+        intakeSnapshot,
+        ...(composition ? { composition } : {}),
         silent: true,
       });
       await context.assertStageOwnership();

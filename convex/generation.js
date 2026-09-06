@@ -26,7 +26,119 @@ const PREPARE_REVIEW_TRANSITIONS = new Set([
   "failed>generation_queued",
   "retry_wait>generation_queued",
 ]);
+const CODEX_AUTH_SLOT = "primary";
+const CODEX_AUTH_ENVELOPE = /^v1\.[A-Za-z0-9_-]{16}\.[A-Za-z0-9_-]{22}\.[A-Za-z0-9_-]{16,131072}$/u;
 
+export const initializeCodexAuthState = mutationGeneric({
+  args: {
+    ...CLAIMED_GENERATION_ARGS,
+    envelope: v.string(),
+    plaintextDigest: v.string(),
+  },
+  handler: async (context, args) => {
+    await assertClaimedGenerationAuthority(context, args);
+    assertEncryptedAuthState(args);
+    const existing = await findCodexAuthState(context);
+    if (existing) {
+      return { initialized: false, version: existing.version };
+    }
+    await context.db.insert("fulfillmentCodexAuthState", {
+      slot: CODEX_AUTH_SLOT,
+      version: 1,
+      envelope: args.envelope,
+      plaintextDigest: args.plaintextDigest,
+      lease: null,
+      updatedAtMs: Date.now(),
+    });
+    return { initialized: true, version: 1 };
+  },
+});
+
+export const claimCodexAuthState = mutationGeneric({
+  args: {
+    ...CLAIMED_GENERATION_ARGS,
+    authLeaseMs: v.number(),
+  },
+  handler: async (context, args) => {
+    const command = await assertClaimedGenerationAuthority(context, args);
+    if (!Number.isInteger(args.authLeaseMs) || args.authLeaseMs < 1_000 || args.authLeaseMs > 300_000) {
+      throw new Error("Codex auth state lease duration is invalid.");
+    }
+    const state = await findCodexAuthState(context);
+    if (!state) throw new Error("Codex auth state is not initialized.");
+    const nowMs = Date.now();
+    if (state.lease?.leaseExpiresAtMs > nowMs) {
+      if (
+        state.lease.workerId === args.workerId
+        && state.lease.commandId === args.commandId
+        && state.lease.commandLeaseToken === args.leaseToken
+        && state.lease.jobId === args.jobId
+      ) {
+        return authLeaseResult(state);
+      }
+      return { acquired: false };
+    }
+    const leaseExpiresAtMs = Math.min(nowMs + args.authLeaseMs, command.claim.leaseExpiresAtMs);
+    if (leaseExpiresAtMs - nowMs < 1_000) {
+      throw new Error("Codex auth state lease cannot outlive the generation command claim.");
+    }
+    const lease = {
+      workerId: args.workerId,
+      commandId: args.commandId,
+      commandLeaseToken: args.leaseToken,
+      jobId: args.jobId,
+      authLeaseToken: `codex_auth_lease_${crypto.randomUUID().replaceAll("-", "")}`,
+      claimedAtMs: nowMs,
+      leaseExpiresAtMs,
+    };
+    await context.db.patch(state._id, { lease, updatedAtMs: nowMs });
+    return authLeaseResult({ ...state, lease });
+  },
+});
+
+export const commitCodexAuthState = mutationGeneric({
+  args: {
+    ...CLAIMED_GENERATION_ARGS,
+    authLeaseToken: v.string(),
+    expectedVersion: v.number(),
+    envelope: v.string(),
+    plaintextDigest: v.string(),
+  },
+  handler: async (context, args) => {
+    await assertClaimedGenerationAuthority(context, args);
+    assertEncryptedAuthState(args);
+    const state = await requireOwnedCodexAuthLease(context, args);
+    if (state.version !== args.expectedVersion) {
+      throw new Error("Codex auth state version changed before writeback.");
+    }
+    const version = state.version + 1;
+    await context.db.patch(state._id, {
+      version,
+      envelope: args.envelope,
+      plaintextDigest: args.plaintextDigest,
+      lease: null,
+      updatedAtMs: Date.now(),
+    });
+    return { committed: true, version, plaintextDigest: args.plaintextDigest };
+  },
+});
+
+export const releaseCodexAuthState = mutationGeneric({
+  args: {
+    ...CLAIMED_GENERATION_ARGS,
+    authLeaseToken: v.string(),
+    expectedVersion: v.number(),
+  },
+  handler: async (context, args) => {
+    await assertClaimedGenerationAuthority(context, args);
+    const state = await requireOwnedCodexAuthLease(context, args);
+    if (state.version !== args.expectedVersion) {
+      throw new Error("Codex auth state version changed before release.");
+    }
+    await context.db.patch(state._id, { lease: null, updatedAtMs: Date.now() });
+    return { released: true };
+  },
+});
 
 export const saveEditorialApproval = mutationGeneric({
   args: {
@@ -181,6 +293,49 @@ export const authorizeArtifactRead = internalQueryGeneric({
     return file;
   },
 });
+
+function findCodexAuthState(context) {
+  return context.db
+    .query("fulfillmentCodexAuthState")
+    .withIndex("by_slot", (query) => query.eq("slot", CODEX_AUTH_SLOT))
+    .unique();
+}
+
+function assertEncryptedAuthState(value) {
+  if (
+    !CODEX_AUTH_ENVELOPE.test(value?.envelope || "")
+    || !DIGEST.test(value?.plaintextDigest || "")
+  ) {
+    throw new Error("Codex encrypted auth state is invalid.");
+  }
+}
+
+function authLeaseResult(state) {
+  return {
+    acquired: true,
+    version: state.version,
+    envelope: state.envelope,
+    plaintextDigest: state.plaintextDigest,
+    authLeaseToken: state.lease.authLeaseToken,
+    leaseExpiresAtMs: state.lease.leaseExpiresAtMs,
+  };
+}
+
+async function requireOwnedCodexAuthLease(context, args) {
+  const state = await findCodexAuthState(context);
+  if (
+    !state
+    || state.lease?.workerId !== args.workerId
+    || state.lease?.commandId !== args.commandId
+    || state.lease?.commandLeaseToken !== args.leaseToken
+    || state.lease?.jobId !== args.jobId
+    || state.lease?.authLeaseToken !== args.authLeaseToken
+    || state.lease?.leaseExpiresAtMs <= Date.now()
+  ) {
+    throw new Error("Codex auth state lease is not active.");
+  }
+  return state;
+}
 
 function findEditorialApproval(context, jobId) {
   return context.db

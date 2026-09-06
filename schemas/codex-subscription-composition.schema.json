@@ -1,0 +1,83 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://bebebonjour.local/schemas/codex-subscription-composition.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "languages"],
+  "properties": {
+    "schemaVersion": {
+      "const": "1.0"
+    },
+    "languages": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["ar", "fr"],
+      "properties": {
+        "ar": {
+          "$ref": "#/$defs/languageComposition"
+        },
+        "fr": {
+          "$ref": "#/$defs/languageComposition"
+        }
+      }
+    }
+  },
+  "$defs": {
+    "line": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 240
+    },
+    "lines": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/line"
+      },
+      "minItems": 1,
+      "maxItems": 3
+    },
+    "narration": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 720
+    },
+    "languageComposition": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "description",
+        "introLines",
+        "introNarration",
+        "blessingLines",
+        "blessingNarration",
+        "closingLines",
+        "closingNarration"
+      ],
+      "properties": {
+        "description": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 400
+        },
+        "introLines": {
+          "$ref": "#/$defs/lines"
+        },
+        "introNarration": {
+          "$ref": "#/$defs/narration"
+        },
+        "blessingLines": {
+          "$ref": "#/$defs/lines"
+        },
+        "blessingNarration": {
+          "$ref": "#/$defs/narration"
+        },
+        "closingLines": {
+          "$ref": "#/$defs/lines"
+        },
+        "closingNarration": {
+          "$ref": "#/$defs/narration"
+        }
+      }
+    }
+  }
+}

@@ -35,6 +35,7 @@ export function createTestAGenerationRunner(options = {}) {
     resolveJobPaths: workspace.resolveJobPaths,
     collectArtifactSet: workspace.collectArtifactSet,
     cleanupStageOutput: workspace.cleanupStageOutput,
+    compose: options.compose,
     prepareReview: options.prepareReviewCommand,
   });
 

@@ -10,6 +10,6 @@ test("Vercel Tally entrypoint exports a lazy Node handler", () => {
 
 test("Vercel Operations worker entrypoint exports a lazy bounded Node handler", () => {
   assert.equal(workerModule.config.runtime, "nodejs");
-  assert.equal(workerModule.config.maxDuration, 60);
+  assert.equal(workerModule.config.maxDuration, 300);
   assert.equal(typeof workerModule.default, "function");
 });

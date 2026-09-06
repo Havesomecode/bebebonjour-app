@@ -65,6 +65,8 @@ test("reviewed generation policy grants only prepare_review and canonical read/w
     "jobId",
     "persistedJobScopedEditorialApproval",
     "convexAuthenticatedPrivateArtifactHttpAction",
+    "optionalOneTimeCodexAuthBootstrap",
+    "singleLeasedEncryptedCodexAuthState",
   ]);
   assert.deepEqual(REVIEWED_TEST_A_GENERATION_POLICY.stages, ["prepare_review"]);
   assert.deepEqual(REVIEWED_TEST_A_GENERATION_POLICY.localConfiguration, []);
@@ -75,7 +77,16 @@ test("reviewed generation policy grants only prepare_review and canonical read/w
     "BEBEBONJOUR_OPERATIONS_WORKER_ACTIONS",
     "BEBEBONJOUR_OPERATIONS_WORKER_LIMIT",
     "BEBEBONJOUR_OPERATIONS_WORKER_LEASE_MS",
+    "BEBEBONJOUR_CODEX_SUBSCRIPTION_ENABLED",
+    "BEBEBONJOUR_CODEX_AUTH_ENCRYPTION_KEY",
+    "BEBEBONJOUR_CODEX_AUTH_BOOTSTRAP_B64",
+    "BEBEBONJOUR_CODEX_MODEL",
+    "BEBEBONJOUR_CODEX_TIMEOUT_MS",
+    "BEBEBONJOUR_CODEX_AUTH_LEASE_MS",
     "CRON_SECRET",
+  ]);
+  assert.deepEqual(REVIEWED_TEST_A_GENERATION_POLICY.optionalEnvironmentVariables, [
+    "BEBEBONJOUR_CODEX_AUTH_BOOTSTRAP_B64",
   ]);
   assert.deepEqual(
     REVIEWED_TEST_A_GENERATION_POLICY.allowedEnvironmentVariables,
@@ -103,6 +114,11 @@ test("reviewed generation runtime rejects broad or incomplete mounted authority"
     BEBEBONJOUR_OPERATIONS_WORKER_ACTIONS: "generate",
     BEBEBONJOUR_OPERATIONS_WORKER_LIMIT: "5",
     BEBEBONJOUR_OPERATIONS_WORKER_LEASE_MS: "120000",
+    BEBEBONJOUR_CODEX_SUBSCRIPTION_ENABLED: "true",
+    BEBEBONJOUR_CODEX_AUTH_ENCRYPTION_KEY: Buffer.alloc(32, 17).toString("base64url"),
+    BEBEBONJOUR_CODEX_MODEL: "gpt-5.6-sol",
+    BEBEBONJOUR_CODEX_TIMEOUT_MS: "90000",
+    BEBEBONJOUR_CODEX_AUTH_LEASE_MS: "110000",
     CRON_SECRET: "cron-secret-with-at-least-thirty-two-bytes",
   };
 

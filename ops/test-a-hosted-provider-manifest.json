@@ -371,7 +371,9 @@
     "authorityInputs": [
       "jobId",
       "persistedJobScopedEditorialApproval",
-      "convexAuthenticatedPrivateArtifactHttpAction"
+      "convexAuthenticatedPrivateArtifactHttpAction",
+      "optionalOneTimeCodexAuthBootstrap",
+      "singleLeasedEncryptedCodexAuthState"
     ],
     "capabilities": [
       "prepare-review"
@@ -391,10 +393,19 @@
       "BEBEBONJOUR_OPERATIONS_WORKER_ACTIONS",
       "BEBEBONJOUR_OPERATIONS_WORKER_LIMIT",
       "BEBEBONJOUR_OPERATIONS_WORKER_LEASE_MS",
+      "BEBEBONJOUR_CODEX_SUBSCRIPTION_ENABLED",
+      "BEBEBONJOUR_CODEX_AUTH_ENCRYPTION_KEY",
+      "BEBEBONJOUR_CODEX_AUTH_BOOTSTRAP_B64",
+      "BEBEBONJOUR_CODEX_MODEL",
+      "BEBEBONJOUR_CODEX_TIMEOUT_MS",
+      "BEBEBONJOUR_CODEX_AUTH_LEASE_MS",
       "CRON_SECRET"
     ],
+    "optionalEnvironmentVariables": [
+      "BEBEBONJOUR_CODEX_AUTH_BOOTSTRAP_B64"
+    ],
     "localConfiguration": [],
-    "providerOperationsEnabled": "Convex file storage only",
+    "providerOperationsEnabled": "OpenAI Codex subscription composition and Convex file storage",
     "publicApiAccess": false,
     "stages": [
       "prepare_review"
@@ -407,7 +418,8 @@
     "persistedResources": [
       "_storage",
       "fulfillmentGenerationEditorialApprovals",
-      "fulfillmentGenerationArtifactSets"
+      "fulfillmentGenerationArtifactSets",
+      "fulfillmentCodexAuthState (AES-256-GCM ciphertext only)"
     ],
     "writeAuthority": "BEBEBONJOUR_OPERATIONS_WORKER_TOKEN",
     "approvalProvisioningAuthority": "CUSTOMER_FLOW_BACKEND_TOKEN via private immutable-file command",
@@ -510,6 +522,12 @@
         "BEBEBONJOUR_OPERATIONS_WORKER_ACTIONS",
         "BEBEBONJOUR_OPERATIONS_WORKER_LIMIT",
         "BEBEBONJOUR_OPERATIONS_WORKER_LEASE_MS",
+        "BEBEBONJOUR_CODEX_SUBSCRIPTION_ENABLED",
+        "BEBEBONJOUR_CODEX_AUTH_ENCRYPTION_KEY",
+        "BEBEBONJOUR_CODEX_AUTH_BOOTSTRAP_B64",
+        "BEBEBONJOUR_CODEX_MODEL",
+        "BEBEBONJOUR_CODEX_TIMEOUT_MS",
+        "BEBEBONJOUR_CODEX_AUTH_LEASE_MS",
         "CRON_SECRET"
       ],
       "forbidden": [

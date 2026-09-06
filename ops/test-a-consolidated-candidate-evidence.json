@@ -5,6 +5,7 @@
   "candidateBoundary": {
     "changedPaths": [
       ".env.example",
+      ".gitignore",
       "LIVE_SETUP.md",
       "README.md",
       "api/webhooks/stripe.mjs",
@@ -26,15 +27,18 @@
       "package-lock.json",
       "package.json",
       "public/404.html",
+      "schemas/codex-subscription-composition.schema.json",
       "schemas/fulfillment-job-store.schema.json",
       "schemas/job-scoped-editorial-approval.schema.json",
       "schemas/review-dossier.schema.json",
       "scripts/dispatch-intakes-from-hermes-secrets.sh",
       "scripts/dispatch-intakes-to-kanban.mjs",
+      "scripts/lib/codex-subscription-composition.mjs",
       "scripts/lib/commands.mjs",
       "scripts/lib/name-resolution.mjs",
       "scripts/lib/schema-validation.mjs",
       "scripts/lib/secure-filesystem-snapshot.py",
+      "scripts/package-codex-runtime.mjs",
       "scripts/private-generate-intake-from-hermes-secrets.sh",
       "scripts/private-intake-status-from-hermes-secrets.sh",
       "scripts/run-operations-worker.mjs",
@@ -49,6 +53,7 @@
       "src/customer-flow/tally-intake-webhook.mjs",
       "src/customer-flow/tally-intake.mjs",
       "src/demo/synthetic-demo.mjs",
+      "src/fulfillment/codex-subscription-composer.mjs",
       "src/fulfillment/exact-revision-publication-adapter.mjs",
       "src/fulfillment/external-effect-stage-handlers.mjs",
       "src/fulfillment/hosted-generation-workspace.mjs",
@@ -72,6 +77,7 @@
       "src/http/production-webhooks.mjs",
       "src/http/tally-intake-handler.mjs",
       "src/http/webhook-handlers.mjs",
+      "src/operations/codex-packaged-runtime.mjs",
       "src/operations/hermes-kanban-client.mjs",
       "src/operations/kanban-intake-dispatcher.mjs",
       "src/operations/operations-action-handlers.mjs",
@@ -80,6 +86,7 @@
       "src/operations/operations-worker-runtime.mjs",
       "src/operations/operations-worker-startup.mjs",
       "src/operations/production-generation-worker.mjs",
+      "src/persistence/convex-codex-auth-state-store.mjs",
       "src/persistence/convex-customer-flow-store.mjs",
       "src/persistence/convex-fulfillment-store.mjs",
       "src/persistence/convex-generation-artifact-store.mjs",
@@ -108,6 +115,7 @@
       "test/config/test-a-hosted-provider-manifest-policy.test.mjs",
       "test/config/test-a-operator-isolation-audit.test.mjs",
       "test/config/test-a-operator-isolation.test.mjs",
+      "test/convex/codex-auth-state.test.mjs",
       "test/convex/customer-flow.test.mjs",
       "test/convex/generation-worker-authority.test.mjs",
       "test/convex/generation.test.mjs",
@@ -120,11 +128,13 @@
       "test/fixtures/tally-intake-field-map.json",
       "test/fixtures/tally-intake-submission.json",
       "test/fixtures/tally-paid-submission.json",
+      "test/fulfillment/codex-subscription-composer.test.mjs",
       "test/fulfillment/exact-revision-publication-adapter.test.mjs",
       "test/fulfillment/failed-prepare-review-recovery.test.mjs",
       "test/fulfillment/generation-stage-workspace.test.mjs",
       "test/fulfillment/job-orchestration.test.mjs",
       "test/fulfillment/local-command-stage-handlers.test.mjs",
+      "test/fulfillment/local-prepare-review-stage-handler.test.mjs",
       "test/fulfillment/resend-delivery-adapter.test.mjs",
       "test/fulfillment/secure-filesystem-snapshot.test.mjs",
       "test/fulfillment/test-a-generation-approval-startup.test.mjs",
@@ -140,6 +150,7 @@
       "test/integration/fulfillment-end-to-end.test.mjs",
       "test/integration/fulfillment-workflow-tracer.test.mjs",
       "test/name-resolution.test.mjs",
+      "test/operations/codex-packaged-runtime.test.mjs",
       "test/operations/hermes-kanban-client.test.mjs",
       "test/operations/hosted-generation-storage.test.mjs",
       "test/operations/kanban-intake-dispatcher.test.mjs",
@@ -147,6 +158,7 @@
       "test/operations/operations-command-worker.test.mjs",
       "test/operations/operations-worker-runtime.test.mjs",
       "test/operations/operations-worker-startup.test.mjs",
+      "test/persistence/convex-codex-auth-state-store.test.mjs",
       "test/persistence/convex-customer-flow-store.test.mjs",
       "test/persistence/convex-operations-command-queue.test.mjs",
       "test/persistence/supabase-fulfillment-store.test.mjs",
@@ -163,6 +175,7 @@
     ],
     "pathAllowlist": [
       ".env.example",
+      ".gitignore",
       "LIVE_SETUP.md",
       "README.md",
       "api/webhooks/stripe.mjs",
@@ -184,15 +197,18 @@
       "package-lock.json",
       "package.json",
       "public/404.html",
+      "schemas/codex-subscription-composition.schema.json",
       "schemas/fulfillment-job-store.schema.json",
       "schemas/job-scoped-editorial-approval.schema.json",
       "schemas/review-dossier.schema.json",
       "scripts/dispatch-intakes-from-hermes-secrets.sh",
       "scripts/dispatch-intakes-to-kanban.mjs",
+      "scripts/lib/codex-subscription-composition.mjs",
       "scripts/lib/commands.mjs",
       "scripts/lib/name-resolution.mjs",
       "scripts/lib/schema-validation.mjs",
       "scripts/lib/secure-filesystem-snapshot.py",
+      "scripts/package-codex-runtime.mjs",
       "scripts/private-generate-intake-from-hermes-secrets.sh",
       "scripts/private-intake-status-from-hermes-secrets.sh",
       "scripts/run-operations-worker.mjs",
@@ -207,6 +223,7 @@
       "src/customer-flow/tally-intake-webhook.mjs",
       "src/customer-flow/tally-intake.mjs",
       "src/demo/synthetic-demo.mjs",
+      "src/fulfillment/codex-subscription-composer.mjs",
       "src/fulfillment/exact-revision-publication-adapter.mjs",
       "src/fulfillment/external-effect-stage-handlers.mjs",
       "src/fulfillment/hosted-generation-workspace.mjs",
@@ -230,6 +247,7 @@
       "src/http/production-webhooks.mjs",
       "src/http/tally-intake-handler.mjs",
       "src/http/webhook-handlers.mjs",
+      "src/operations/codex-packaged-runtime.mjs",
       "src/operations/hermes-kanban-client.mjs",
       "src/operations/kanban-intake-dispatcher.mjs",
       "src/operations/operations-action-handlers.mjs",
@@ -238,6 +256,7 @@
       "src/operations/operations-worker-runtime.mjs",
       "src/operations/operations-worker-startup.mjs",
       "src/operations/production-generation-worker.mjs",
+      "src/persistence/convex-codex-auth-state-store.mjs",
       "src/persistence/convex-customer-flow-store.mjs",
       "src/persistence/convex-fulfillment-store.mjs",
       "src/persistence/convex-generation-artifact-store.mjs",
@@ -266,6 +285,7 @@
       "test/config/test-a-hosted-provider-manifest-policy.test.mjs",
       "test/config/test-a-operator-isolation-audit.test.mjs",
       "test/config/test-a-operator-isolation.test.mjs",
+      "test/convex/codex-auth-state.test.mjs",
       "test/convex/customer-flow.test.mjs",
       "test/convex/generation-worker-authority.test.mjs",
       "test/convex/generation.test.mjs",
@@ -278,11 +298,13 @@
       "test/fixtures/tally-intake-field-map.json",
       "test/fixtures/tally-intake-submission.json",
       "test/fixtures/tally-paid-submission.json",
+      "test/fulfillment/codex-subscription-composer.test.mjs",
       "test/fulfillment/exact-revision-publication-adapter.test.mjs",
       "test/fulfillment/failed-prepare-review-recovery.test.mjs",
       "test/fulfillment/generation-stage-workspace.test.mjs",
       "test/fulfillment/job-orchestration.test.mjs",
       "test/fulfillment/local-command-stage-handlers.test.mjs",
+      "test/fulfillment/local-prepare-review-stage-handler.test.mjs",
       "test/fulfillment/resend-delivery-adapter.test.mjs",
       "test/fulfillment/secure-filesystem-snapshot.test.mjs",
       "test/fulfillment/test-a-generation-approval-startup.test.mjs",
@@ -298,6 +320,7 @@
       "test/integration/fulfillment-end-to-end.test.mjs",
       "test/integration/fulfillment-workflow-tracer.test.mjs",
       "test/name-resolution.test.mjs",
+      "test/operations/codex-packaged-runtime.test.mjs",
       "test/operations/hermes-kanban-client.test.mjs",
       "test/operations/hosted-generation-storage.test.mjs",
       "test/operations/kanban-intake-dispatcher.test.mjs",
@@ -305,6 +328,7 @@
       "test/operations/operations-command-worker.test.mjs",
       "test/operations/operations-worker-runtime.test.mjs",
       "test/operations/operations-worker-startup.test.mjs",
+      "test/persistence/convex-codex-auth-state-store.test.mjs",
       "test/persistence/convex-customer-flow-store.test.mjs",
       "test/persistence/convex-operations-command-queue.test.mjs",
       "test/persistence/supabase-fulfillment-store.test.mjs",
@@ -323,6 +347,10 @@
       {
         "path": ".env.example",
         "sha256": "2e92d12f27b4c18076cad7ddae18237b04c936dd7165771ec52673d4b5150339"
+      },
+      {
+        "path": ".gitignore",
+        "sha256": "cb46005fd8aa484c49661cfa5f67952172a05f57006cffa0b8efd1d8b2cb7820"
       },
       {
         "path": "LIVE_SETUP.md",
@@ -346,7 +374,7 @@
       },
       {
         "path": "convex/generation.js",
-        "sha256": "ccf914f02ff638c8ea48e907f9ea39b7a4b7f37f9dfd3c3167cb4e691702c532"
+        "sha256": "e1934582a206db7feb28c09a6fae778aacc64439b1290f8616bbbaa69849cae5"
       },
       {
         "path": "convex/http.js",
@@ -358,11 +386,11 @@
       },
       {
         "path": "convex/schema.js",
-        "sha256": "fad557af81244a6512c1d58b94d4184288a289d815edce0604f41e47979c6944"
+        "sha256": "2dd0309ec018a4a914568283599c53387ad2ea624439571d391acf2e8d2d4ecc"
       },
       {
         "path": "generation-worker/api/worker.mjs",
-        "sha256": "be1424701e823160d9239ce8947d0c3a2c5560a1f9dc875bb89f6c94c7285a46"
+        "sha256": "e912a248f4350c3512e61ee0bd6ac160e80891c3252459a3b0c12b294877eb5b"
       },
       {
         "path": "ops/persist-test-a-generation-approval.mjs",
@@ -382,7 +410,7 @@
       },
       {
         "path": "ops/test-a-hosted-provider-manifest.json",
-        "sha256": "51c239290bea0bbd9ce6d925302b0da15c220fa14c2230200db9c28221de1a08"
+        "sha256": "a6e9ed8c6865087597e183b3ea43b45d2df4c35cb19680fb53f3e3dcc832cc4f"
       },
       {
         "path": "ops/test-a-operator-isolation-audit.mjs",
@@ -390,15 +418,19 @@
       },
       {
         "path": "package-lock.json",
-        "sha256": "04ebff5a11fc3b989f7434965d571b8b486f0038d99c56a42eee23935c3ecb06"
+        "sha256": "6ddf4e07cc43d750dd445951c9d32cb893e6fb406139685a84988943ec5e354a"
       },
       {
         "path": "package.json",
-        "sha256": "fe2870f44fb7c810e1d1a1b0cb34a4fad259df0c0796c3bc2c38fb518525a26c"
+        "sha256": "072bc79595c7a7f449e131e9a7fa1f72d84adc5a0f9271d81c8326cad66230eb"
       },
       {
         "path": "public/404.html",
         "sha256": "b3a4404f1316bc0ee93a62cec3b932c6b7d0343e207db59907dcea57508282e0"
+      },
+      {
+        "path": "schemas/codex-subscription-composition.schema.json",
+        "sha256": "ea3fb3aab8cdca8ee23adb8d1276edd65d62026d18ee13ef466f63624c375679"
       },
       {
         "path": "schemas/fulfillment-job-store.schema.json",
@@ -410,7 +442,7 @@
       },
       {
         "path": "schemas/review-dossier.schema.json",
-        "sha256": "57dfa63a345350bda66b456ae66143f4ec46945e1c749e9d434d04d39cdfe9f7"
+        "sha256": "0a802fc3e3cf590c49997b685918d6f70995a340acbbeccf5080124c7f141184"
       },
       {
         "path": "scripts/dispatch-intakes-from-hermes-secrets.sh",
@@ -421,8 +453,12 @@
         "sha256": "22916abde9f03510edd0e3780ccfa3e2b775973296fa4110751b0afacb281e47"
       },
       {
+        "path": "scripts/lib/codex-subscription-composition.mjs",
+        "sha256": "c94eff5b76f260943912770554d89e006666d5877deefa1b4fbc82c0d3e9bd0f"
+      },
+      {
         "path": "scripts/lib/commands.mjs",
-        "sha256": "ca0dff99a596ba8e42c8ee9697da3d9d4e2030520d8bd77c7810f5a79d000e53"
+        "sha256": "36a80d726426e8427e4571762412d71d765e31284d6c8cd84b298106e65a2a59"
       },
       {
         "path": "scripts/lib/common.mjs",
@@ -449,6 +485,10 @@
         "sha256": "26e05efd57bc079e76e57a89ae070e6bc27b38ff8cc84bdb6878a8c08ffec164"
       },
       {
+        "path": "scripts/package-codex-runtime.mjs",
+        "sha256": "72d0b346dfc80e1313116e3f2e0c2e2077cc512ec23c9c62aadf623b9d732369"
+      },
+      {
         "path": "scripts/private-generate-intake-from-hermes-secrets.sh",
         "sha256": "7fa201e6dc77e02abbcd5bae0ecd56104cf8ab72514d9ae3069794dc5c1b5319"
       },
@@ -470,11 +510,11 @@
       },
       {
         "path": "src/config/test-a-hosted-provider-manifest.mjs",
-        "sha256": "b7646e42005616b41ceb2efc39bce86c6fcf3395dac3732baa75fbd08376821b"
+        "sha256": "8a029708629c09048eff42dff0baa2d16968537286451db4ea57938b61076284"
       },
       {
         "path": "src/config/test-a-operator-isolation.mjs",
-        "sha256": "2ea4b5d0f3c478e7f87870a6b184422d13116e692013c302c2a16ce10e925751"
+        "sha256": "c78a5d2f5ab258178277d1e52a1a9ca1e5c968cee3619ab3aeb7d35c399a1080"
       },
       {
         "path": "src/customer-flow/hosted-http-api.mjs",
@@ -521,6 +561,10 @@
         "sha256": "89c48bb0a1abc45a75e257a0273434bab85749c373149e955725b37c47047393"
       },
       {
+        "path": "src/fulfillment/codex-subscription-composer.mjs",
+        "sha256": "c016c06e7823d0664b65a13be9c4e66b491f19901d23cd225873a64a8f07ddf6"
+      },
+      {
         "path": "src/fulfillment/exact-revision-publication-adapter.mjs",
         "sha256": "127b046d7cf79ae89791106c841205f0ece6efddd214991c499fb19e36cf64d4"
       },
@@ -554,7 +598,7 @@
       },
       {
         "path": "src/fulfillment/local-prepare-review-stage-handler.mjs",
-        "sha256": "8975cbfaf9dec8b47fb1e0a388c7ac77132854cfc9b3cfe95891cb46acc129ba"
+        "sha256": "addd080cf32cd4dd1e06402e55dfe00cb656da64a6164e885f91f5e921c6977a"
       },
       {
         "path": "src/fulfillment/operator-runner-test-a.mjs",
@@ -578,7 +622,7 @@
       },
       {
         "path": "src/fulfillment/test-a-generation-runner.mjs",
-        "sha256": "bd2e3c65dd5ff25856e9e6b024a657c754062ad7f35de0f9829f937a3cbcbd6e"
+        "sha256": "6f11e7f79b029c97254c66af668fe552d750017c887223b2ae6ae02bb8a01a34"
       },
       {
         "path": "src/fulfillment/test-a-generation-startup.mjs",
@@ -603,6 +647,10 @@
       {
         "path": "src/http/tally-intake-handler.mjs",
         "sha256": "e72cb33a4de0290944adcb6bb58ee50ab0ed282a7b4420ddcf487023909e788c"
+      },
+      {
+        "path": "src/operations/codex-packaged-runtime.mjs",
+        "sha256": "cd15483f092ed485f7adbdbc5f270550908e770e0cda1ec88e086bbbe5f197f0"
       },
       {
         "path": "src/operations/hermes-kanban-client.mjs",
@@ -630,11 +678,15 @@
       },
       {
         "path": "src/operations/operations-worker-startup.mjs",
-        "sha256": "e3e6e9055dfa4c419bb348dc183c0924726c0b0b77a84bd40f994d9f38e44d0e"
+        "sha256": "735ef5d14e0736fcb4021c1a7ece51ca13ac258af8f5dda6a8709f3671590b5e"
       },
       {
         "path": "src/operations/production-generation-worker.mjs",
-        "sha256": "df2335ced62175bd85c934123ddd66bfd0e0ff2a676fe21660260e7b6a654465"
+        "sha256": "25ff9ddcce00b69c33c048831315ad92c6b8cdfba1ae01e4ff323578d5c73971"
+      },
+      {
+        "path": "src/persistence/convex-codex-auth-state-store.mjs",
+        "sha256": "ac616e745eda29dabf55de444736304c54b74f947a63ad9efcfc82f8ac87694b"
       },
       {
         "path": "src/persistence/convex-customer-flow-store.mjs",
@@ -658,11 +710,11 @@
       },
       {
         "path": "test/api/webhook-entrypoints.test.mjs",
-        "sha256": "cdb58a0afe37b5cbd97f05aeb7bffc50a0c1663713c7532177c7ad4673117e59"
+        "sha256": "84bddef96c5b5456b72bfb7b676404a52b5640d25708d9bbb1133cda621fe1ec"
       },
       {
         "path": "test/config/generation-worker-isolation.test.mjs",
-        "sha256": "7fec6b24a6c008927c1a2ff69c76ce4a8c2ae8aed9594dc37241c21ca9e5083d"
+        "sha256": "00c105292a7ad297669e043f9cacdda5b716629d160b5bc0833aa08e0dd3c2ba"
       },
       {
         "path": "test/config/hosted-provider-artifacts.test.mjs",
@@ -678,7 +730,7 @@
       },
       {
         "path": "test/config/test-a-hosted-provider-manifest-policy.test.mjs",
-        "sha256": "1629a4096cb0897408e3f8878bacd38521afabb44d7202b453deccd25c9b914e"
+        "sha256": "dc48f632411e47e4a691c8f106ececb31e90b9e6b58f1f2683351b55ca71bbb3"
       },
       {
         "path": "test/config/test-a-operator-isolation-audit.test.mjs",
@@ -686,7 +738,11 @@
       },
       {
         "path": "test/config/test-a-operator-isolation.test.mjs",
-        "sha256": "01429b6894b0500a89b93f6685596d49425b62c1280e9067c6d90af5723378b9"
+        "sha256": "bc24ba4752ca40dbf5af23b8ccb6c74ae76d2bb764d9b5498ec6c64018d64101"
+      },
+      {
+        "path": "test/convex/codex-auth-state.test.mjs",
+        "sha256": "d7dd5a9599ff3f143a8fd7643f6defe359c961f55ae0c3c319b1654bcd086aa2"
       },
       {
         "path": "test/convex/customer-flow.test.mjs",
@@ -733,6 +789,10 @@
         "sha256": "e71b48ff4a33ac76dccbc64c6ef61ce1e38996fb123c133c6472d02a17338332"
       },
       {
+        "path": "test/fulfillment/codex-subscription-composer.test.mjs",
+        "sha256": "384c635888397ebe3e330abf021a38b1171f7aeeca4c7f84ad04926e74ec0a93"
+      },
+      {
         "path": "test/fulfillment/exact-revision-publication-adapter.test.mjs",
         "sha256": "aa16a21f4f5a20ee14c849fae20af35bc9157bd54799862579d0fc4e33d1aad7"
       },
@@ -751,6 +811,10 @@
       {
         "path": "test/fulfillment/local-command-stage-handlers.test.mjs",
         "sha256": "8f930b970a82073d542d7e50ffe6e757fc83659dce6db992bee9f523b453bd6a"
+      },
+      {
+        "path": "test/fulfillment/local-prepare-review-stage-handler.test.mjs",
+        "sha256": "22dec25793c3ca9f3795b18fae13f91a7446ec9a3deee2b3202bcd5f35c897f6"
       },
       {
         "path": "test/fulfillment/resend-delivery-adapter.test.mjs",
@@ -801,12 +865,16 @@
         "sha256": "b86f804876c5f24cf3ce045b4d44ab6f32376f36d4cde9bca0bc328879afbe1d"
       },
       {
+        "path": "test/operations/codex-packaged-runtime.test.mjs",
+        "sha256": "7606bc66d8d25d22af1e2ccde4f7ffac4a003884e8ff120ef71afbe463669b36"
+      },
+      {
         "path": "test/operations/hermes-kanban-client.test.mjs",
         "sha256": "6365a7c2f324f8b4fd5bc65622495363eb36d7cc8ed0e8006b6a0814ed0c7365"
       },
       {
         "path": "test/operations/hosted-generation-storage.test.mjs",
-        "sha256": "d9e92b52ada6ed6cb0c04835fdc4a9b309baa7d5518580f116f268aa01339d91"
+        "sha256": "7ca759153d810da572c4db2c17b45dab85083b7ea00955272daaa19346e8dc51"
       },
       {
         "path": "test/operations/kanban-intake-dispatcher.test.mjs",
@@ -826,7 +894,11 @@
       },
       {
         "path": "test/operations/operations-worker-startup.test.mjs",
-        "sha256": "a2f1fe6e6cde42084619f6b4a02c74d9d72525477c95b951e228f185af32565e"
+        "sha256": "d767955e11faee9f86afdc0e13add7f3a2aa0069e4765b0eea079e4f7bc6c972"
+      },
+      {
+        "path": "test/persistence/convex-codex-auth-state-store.test.mjs",
+        "sha256": "019bb4b29eb80d683d8030636e5d7527565ff33606ecca6008a5162efe2ced1b"
       },
       {
         "path": "test/persistence/convex-customer-flow-store.test.mjs",
@@ -842,7 +914,7 @@
       },
       {
         "path": "vercel.generation-worker.json",
-        "sha256": "1d8d616c33ba534655cfda5070f8f6babd51d5b1c9f797de912417e554ab6d5a"
+        "sha256": "8afde19b10e14b4b18be4f9516af8855c46d5c019064cc00e72a2d7d4612b841"
       },
       {
         "path": "vercel.json",
@@ -852,7 +924,7 @@
   },
   "reviewedManifest": {
     "path": "ops/test-a-hosted-provider-manifest.json",
-    "sha256": "51c239290bea0bbd9ce6d925302b0da15c220fa14c2230200db9c28221de1a08"
+    "sha256": "a6e9ed8c6865087597e183b3ea43b45d2df4c35cb19680fb53f3e3dcc832cc4f"
   },
   "controls": [
     {
@@ -968,6 +1040,7 @@
     "generationInvocation": "ops/run-test-a-generation.mjs",
     "generationModuleGraph": [
       "ops/run-test-a-generation.mjs",
+      "scripts/lib/codex-subscription-composition.mjs",
       "scripts/lib/commands.mjs",
       "scripts/lib/common.mjs",
       "scripts/lib/name-resolution.mjs",
@@ -986,14 +1059,19 @@
     ],
     "operationsWorkerEntrypoint": "generation-worker/api/worker.mjs",
     "operationsWorkerGenerationModules": [
+      "scripts/lib/codex-subscription-composition.mjs",
+      "src/fulfillment/codex-subscription-composer.mjs",
       "src/fulfillment/hosted-generation-workspace.mjs",
       "src/fulfillment/local-prepare-review-stage-handler.mjs",
       "src/fulfillment/test-a-generation-runner.mjs",
+      "src/operations/codex-packaged-runtime.mjs",
       "src/operations/production-generation-worker.mjs",
+      "src/persistence/convex-codex-auth-state-store.mjs",
       "src/persistence/convex-generation-artifact-store.mjs"
     ],
     "operationsWorkerModuleGraph": [
       "generation-worker/api/worker.mjs",
+      "scripts/lib/codex-subscription-composition.mjs",
       "scripts/lib/commands.mjs",
       "scripts/lib/common.mjs",
       "scripts/lib/name-resolution.mjs",
@@ -1001,6 +1079,7 @@
       "scripts/lib/schema-validation.mjs",
       "scripts/lib/validators.mjs",
       "src/config/test-a-hosted-provider-manifest.mjs",
+      "src/fulfillment/codex-subscription-composer.mjs",
       "src/fulfillment/hosted-generation-workspace.mjs",
       "src/fulfillment/job-machine.mjs",
       "src/fulfillment/job-orchestrator.mjs",
@@ -1009,12 +1088,14 @@
       "src/fulfillment/secure-filesystem-snapshot.mjs",
       "src/fulfillment/test-a-generation-runner.mjs",
       "src/http/operations-worker-handler.mjs",
+      "src/operations/codex-packaged-runtime.mjs",
       "src/operations/operations-action-handlers.mjs",
       "src/operations/operations-command-error.mjs",
       "src/operations/operations-command-worker.mjs",
       "src/operations/operations-worker-runtime.mjs",
       "src/operations/operations-worker-startup.mjs",
       "src/operations/production-generation-worker.mjs",
+      "src/persistence/convex-codex-auth-state-store.mjs",
       "src/persistence/convex-fulfillment-store.mjs",
       "src/persistence/convex-generation-artifact-store.mjs",
       "src/persistence/convex-operations-command-queue.mjs"
@@ -1047,6 +1128,8 @@
       "ops/persist-test-a-generation-approval.mjs",
       "ops/run-test-a-operator.mjs",
       "ops/run-test-a-generation.mjs",
+      "scripts/lib/codex-subscription-composition.mjs",
+      "src/fulfillment/codex-subscription-composer.mjs",
       "src/fulfillment/hosted-generation-workspace.mjs",
       "src/fulfillment/job-scoped-generation-approval.mjs",
       "src/fulfillment/local-prepare-review-stage-handler.mjs",
@@ -1056,7 +1139,9 @@
       "src/fulfillment/test-a-generation-startup.mjs",
       "src/fulfillment/test-a-operator-runtime-identity.mjs",
       "src/fulfillment/test-a-operator-startup.mjs",
+      "src/operations/codex-packaged-runtime.mjs",
       "src/operations/production-generation-worker.mjs",
+      "src/persistence/convex-codex-auth-state-store.mjs",
       "src/persistence/convex-generation-artifact-store.mjs"
     ],
     "packageCommandReferences": [],

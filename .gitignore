@@ -1,5 +1,6 @@
 .env.local
 .vercel/
+.codex-runtime/
 out/
 node_modules/
 .worktrees/

@@ -28,6 +28,10 @@ import {
   writeJson,
   writeText,
 } from "./common.mjs";
+import {
+  codexCompositionMaterial,
+  codexCompositionToSuggestion,
+} from "./codex-subscription-composition.mjs";
 import { renderHtml } from "./render-html.mjs";
 import {
   assertUnknownNameGeneralWishesPolicy,
@@ -58,11 +62,13 @@ const REFERENCE_CATALOG_PATH = path.join(PROJECT_ROOT, "data", "reference-catalo
 const VERCEL_PROJECT_LINK_PATH = path.join(PROJECT_ROOT, ".vercel", "project.json");
 const RENDERER_MATERIAL_PATHS = [
   path.join(PROJECT_ROOT, "scripts", "lib", "commands.mjs"),
+  path.join(PROJECT_ROOT, "scripts", "lib", "codex-subscription-composition.mjs"),
   path.join(PROJECT_ROOT, "scripts", "lib", "common.mjs"),
   path.join(PROJECT_ROOT, "scripts", "lib", "name-resolution.mjs"),
   path.join(PROJECT_ROOT, "scripts", "lib", "render-html.mjs"),
   path.join(PROJECT_ROOT, "scripts", "lib", "schema-validation.mjs"),
   path.join(PROJECT_ROOT, "scripts", "lib", "validators.mjs"),
+  path.join(PROJECT_ROOT, "schemas", "codex-subscription-composition.schema.json"),
   path.join(PROJECT_ROOT, "schemas", "job-scoped-editorial-approval.schema.json"),
   path.join(PROJECT_ROOT, "schemas", "name-resolution-evidence.schema.json"),
   path.join(PROJECT_ROOT, "schemas", "narration-approval.schema.json"),
@@ -91,7 +97,7 @@ export async function commandCompose(args, options = {}) {
       reasons: ["unsupported_gender_copy"],
     };
     if (options.silent !== true) console.log(JSON.stringify(result, null, 2));
-    process.exitCode = 3;
+    if (options.setExitCode !== false) process.exitCode = 3;
     return result;
   }
 
@@ -111,7 +117,7 @@ export async function commandCompose(args, options = {}) {
       reasons: nameResolution.reviewReasons,
     };
     if (options.silent !== true) console.log(JSON.stringify(result, null, 2));
-    process.exitCode = 3;
+    if (options.setExitCode !== false) process.exitCode = 3;
     return result;
   }
 
@@ -122,7 +128,7 @@ export async function commandCompose(args, options = {}) {
       nextAction: "Decide whether to continue with general wishes or provide operator-authored content.",
     };
     if (options.silent !== true) console.log(JSON.stringify(blocked, null, 2));
-    process.exitCode = 3;
+    if (options.setExitCode !== false) process.exitCode = 3;
     return blocked;
   }
 
@@ -137,7 +143,7 @@ export async function commandCompose(args, options = {}) {
       })),
     };
     if (options.silent !== true) console.log(JSON.stringify(result, null, 2));
-    process.exitCode = 3;
+    if (options.setExitCode !== false) process.exitCode = 3;
     return result;
   }
 
@@ -149,7 +155,24 @@ export async function commandCompose(args, options = {}) {
     throw new Error(`Unknown compose selection: ${selectionId}`);
   }
 
-  const page = buildDraftPage(intake, selected, nameResolution);
+  if (options.preflightOnly === true) {
+    return {
+      state: "composition_ready",
+      suggestion: {
+        id: selected.id,
+        label: selected.label,
+      },
+    };
+  }
+
+  const composition = options.composition
+    ? codexCompositionToSuggestion(options.composition, intake)
+    : null;
+  const page = buildDraftPage(
+    intake,
+    composition ? { ...selected, ...composition } : selected,
+    nameResolution,
+  );
   assertValidPage(page);
   await writeJson(output, page);
 
@@ -164,6 +187,27 @@ export async function commandCompose(args, options = {}) {
   };
   if (options.silent !== true) console.log(JSON.stringify(result, null, 2));
   return result;
+}
+
+export async function preflightPrivateReviewComposition(args, options = {}) {
+  const editorialApprovalMaterial = options.editorialApproval
+    ? projectEditorialApprovalMaterial(options.editorialApproval)
+    : null;
+  const materialBinding = await buildPrivateReviewMaterialBinding(
+    typeof args.select === "string" ? args.select : null,
+    editorialApprovalMaterial,
+    null,
+  );
+  return commandCompose({ ...args, "private-review": true }, {
+    intakeSnapshot: options.intakeSnapshot,
+    catalogSnapshot: materialBinding.catalogSnapshot,
+    ...(editorialApprovalMaterial
+      ? { editorialPolicy: editorialApprovalMaterial.policy }
+      : {}),
+    preflightOnly: true,
+    setExitCode: false,
+    silent: true,
+  });
 }
 
 export async function commandPrepareReview(args, options = {}) {
@@ -190,9 +234,13 @@ export async function commandPrepareReview(args, options = {}) {
   const editorialApprovalMaterial = options.editorialApproval
     ? projectEditorialApprovalMaterial(options.editorialApproval)
     : null;
+  const compositionMaterial = options.composition
+    ? codexCompositionMaterial(options.composition)
+    : null;
   const materialBinding = await buildPrivateReviewMaterialBinding(
     typeof args.select === "string" ? args.select : null,
     editorialApprovalMaterial,
+    compositionMaterial,
   );
   const expectedPreviewRoot = path.posix.join(
     "private-preview",
@@ -211,6 +259,7 @@ export async function commandPrepareReview(args, options = {}) {
     ...(editorialApprovalMaterial
       ? { editorialPolicy: editorialApprovalMaterial.policy }
       : {}),
+    ...(options.composition ? { composition: options.composition } : {}),
     silent: options.silent === true,
   });
 
@@ -257,6 +306,7 @@ export async function commandApproveReview(args) {
   const currentBinding = await buildPrivateReviewMaterialBinding(
     dossier.generationMaterials.selectionId,
     dossier.generationMaterials.editorialApproval || null,
+    dossier.generationMaterials.composition || null,
   );
   if (
     dossier.materialDigest !== sha256(JSON.stringify(dossier.generationMaterials)) ||
@@ -435,7 +485,11 @@ function requireIsoTimestamp(value, label) {
   return value;
 }
 
-async function buildPrivateReviewMaterialBinding(selectionId, editorialApproval = null) {
+async function buildPrivateReviewMaterialBinding(
+  selectionId,
+  editorialApproval = null,
+  composition = null,
+) {
   const catalogRaw = await readFile(REFERENCE_CATALOG_PATH);
   const generationMaterials = {
     selectionId,
@@ -445,6 +499,7 @@ async function buildPrivateReviewMaterialBinding(selectionId, editorialApproval 
     ...(editorialApproval
       ? { editorialApproval: normalizeEditorialApprovalMaterial(editorialApproval) }
       : {}),
+    ...(composition ? { composition: normalizeCompositionMaterial(composition) } : {}),
   };
 
   return {
@@ -452,6 +507,24 @@ async function buildPrivateReviewMaterialBinding(selectionId, editorialApproval 
     generationMaterials,
     materialDigest: sha256(JSON.stringify(generationMaterials)),
   };
+}
+
+function normalizeCompositionMaterial(material) {
+  const expectedKeys = ["adapterVersion", "model", "outputDigest", "provider", "requestDigest"];
+  const actualKeys = Object.keys(material || {}).sort();
+  if (
+    actualKeys.length !== expectedKeys.length
+    || expectedKeys.some((key, index) => actualKeys[index] !== key)
+    || material.adapterVersion !== "1.0.0"
+    || material.provider !== "openai-codex-subscription"
+    || typeof material.model !== "string"
+    || !/^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/u.test(material.model)
+    || !/^[a-f0-9]{64}$/u.test(material.requestDigest || "")
+    || !/^[a-f0-9]{64}$/u.test(material.outputDigest || "")
+  ) {
+    throw new Error("Invalid Codex subscription composition material.");
+  }
+  return cloneJson(material);
 }
 
 function projectEditorialApprovalMaterial(editorialApproval) {

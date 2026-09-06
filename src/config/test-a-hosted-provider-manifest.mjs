@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 
 export const EXPECTED_TEST_A_HOSTED_PROVIDER_MANIFEST_SHA256 =
-  "51c239290bea0bbd9ce6d925302b0da15c220fa14c2230200db9c28221de1a08";
+  "a6e9ed8c6865087597e183b3ea43b45d2df4c35cb19680fb53f3e3dcc832cc4f";
 
 const manifestUrl = new URL("../../ops/test-a-hosted-provider-manifest.json", import.meta.url);
 
@@ -105,6 +105,7 @@ export function loadReviewedTestAGenerationPolicy(
     "deployment",
     "environmentVariables",
     "localConfiguration",
+    "optionalEnvironmentVariables",
     "providerOperationsEnabled",
     "publicApiAccess",
     "stages",
@@ -127,12 +128,18 @@ export function loadReviewedTestAGenerationPolicy(
     "generation operator local configuration",
     { allowEmpty: true },
   );
+  const optionalEnvironmentVariables = requireUniqueStringArray(
+    runtime.optionalEnvironmentVariables,
+    "generation operator optional environment variables",
+  );
   const stages = requireUniqueStringArray(runtime.stages, "generation operator stages");
   if (
     JSON.stringify(authorityInputs) !== JSON.stringify([
       "jobId",
       "persistedJobScopedEditorialApproval",
       "convexAuthenticatedPrivateArtifactHttpAction",
+      "optionalOneTimeCodexAuthBootstrap",
+      "singleLeasedEncryptedCodexAuthState",
     ])
     || JSON.stringify(capabilities) !== JSON.stringify(["prepare-review"])
     || JSON.stringify(runtimeEnvironmentVariables) !== JSON.stringify([
@@ -142,11 +149,21 @@ export function loadReviewedTestAGenerationPolicy(
       "BEBEBONJOUR_OPERATIONS_WORKER_ACTIONS",
       "BEBEBONJOUR_OPERATIONS_WORKER_LIMIT",
       "BEBEBONJOUR_OPERATIONS_WORKER_LEASE_MS",
+      "BEBEBONJOUR_CODEX_SUBSCRIPTION_ENABLED",
+      "BEBEBONJOUR_CODEX_AUTH_ENCRYPTION_KEY",
+      "BEBEBONJOUR_CODEX_AUTH_BOOTSTRAP_B64",
+      "BEBEBONJOUR_CODEX_MODEL",
+      "BEBEBONJOUR_CODEX_TIMEOUT_MS",
+      "BEBEBONJOUR_CODEX_AUTH_LEASE_MS",
       "CRON_SECRET",
+    ])
+    || JSON.stringify(optionalEnvironmentVariables) !== JSON.stringify([
+      "BEBEBONJOUR_CODEX_AUTH_BOOTSTRAP_B64",
     ])
     || JSON.stringify(localConfiguration) !== JSON.stringify([])
     || JSON.stringify(stages) !== JSON.stringify(["prepare_review"])
-    || runtime.providerOperationsEnabled !== "Convex file storage only"
+    || runtime.providerOperationsEnabled
+      !== "OpenAI Codex subscription composition and Convex file storage"
     || runtime.publicApiAccess !== false
     || JSON.stringify(deployment) !== JSON.stringify({
       provider: "Vercel",
@@ -184,6 +201,7 @@ export function loadReviewedTestAGenerationPolicy(
     deployment,
     forbiddenEnvironmentVariables,
     localConfiguration,
+    optionalEnvironmentVariables,
     manifestSha256,
     runtimeEnvironmentVariables,
     stages,
@@ -204,6 +222,9 @@ export function requireReviewedTestAGenerationEnvironment(
     }
   }
   for (const name of policy.allowedEnvironmentVariables) {
+    if (policy.optionalEnvironmentVariables.includes(name) && environment?.[name] === undefined) {
+      continue;
+    }
     if (typeof environment?.[name] !== "string" || environment[name].trim() === "") {
       throw new Error(`${name} is required by the reviewed TEST-A generation secret-store policy.`);
     }
@@ -214,8 +235,13 @@ export function requireReviewedTestAGenerationEnvironment(
   if (environment.BEBEBONJOUR_OPERATIONS_WORKER_ACTIONS !== "generate") {
     throw new Error("BEBEBONJOUR_OPERATIONS_WORKER_ACTIONS must equal generate.");
   }
+  if (environment.BEBEBONJOUR_CODEX_SUBSCRIPTION_ENABLED !== "true") {
+    throw new Error("BEBEBONJOUR_CODEX_SUBSCRIPTION_ENABLED must equal true.");
+  }
   return Object.freeze(Object.fromEntries(
-    policy.allowedEnvironmentVariables.map((name) => [name, environment[name]]),
+    policy.allowedEnvironmentVariables
+      .filter((name) => environment[name] !== undefined)
+      .map((name) => [name, environment[name]]),
   ));
 }
 

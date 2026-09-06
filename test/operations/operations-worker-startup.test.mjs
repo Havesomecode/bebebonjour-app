@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { randomBytes } from "node:crypto";
 import test from "node:test";
 
 import { runOperationsWorkerCommand } from "../../src/operations/operations-worker-startup.mjs";
@@ -14,6 +15,11 @@ const generationEnvironment = Object.freeze({
   BEBEBONJOUR_OPERATIONS_WORKER_ACTIONS: "generate",
   BEBEBONJOUR_OPERATIONS_WORKER_LIMIT: "5",
   BEBEBONJOUR_OPERATIONS_WORKER_LEASE_MS: "120000",
+  BEBEBONJOUR_CODEX_SUBSCRIPTION_ENABLED: "true",
+  BEBEBONJOUR_CODEX_AUTH_ENCRYPTION_KEY: Buffer.alloc(32, 17).toString("base64url"),
+  BEBEBONJOUR_CODEX_MODEL: "gpt-5.6-sol",
+  BEBEBONJOUR_CODEX_TIMEOUT_MS: "90000",
+  BEBEBONJOUR_CODEX_AUTH_LEASE_MS: "110000",
   CRON_SECRET: "cron-secret-with-at-least-thirty-two-bytes",
 });
 
@@ -133,6 +139,15 @@ test("production generation entrypoint composes job-scoped generation without fu
   const jobId = "job_production_composition_001";
   const calls = [];
   let stageEffects = 0;
+  const initializationOrder = [];
+  const bootstrapAuthJson = JSON.stringify({
+    auth_mode: "chatgpt",
+    tokens: {
+      access_token: randomBytes(24).toString("base64url"),
+      refresh_token: randomBytes(24).toString("base64url"),
+    },
+    last_refresh: "2026-09-06T00:00:00.000Z",
+  });
   const command = {
     commandId: "command_production_generate_000001",
     jobId,
@@ -174,7 +189,10 @@ test("production generation entrypoint composes job-scoped generation without fu
   };
 
   const result = await runOperationsWorkerCommand({
-    environment: generationEnvironment,
+    environment: {
+      ...generationEnvironment,
+      BEBEBONJOUR_CODEX_AUTH_BOOTSTRAP_B64: Buffer.from(bootstrapAuthJson).toString("base64url"),
+    },
     client,
     artifactStore: {
       async readEditorialApproval(receivedJobId) {
@@ -185,16 +203,43 @@ test("production generation entrypoint composes job-scoped generation without fu
       async uploadArtifactSet() { throw new Error("Mock runner must not upload artifacts."); },
       async downloadArtifact() { throw new Error("Mock runner must not download artifacts."); },
     },
+    createCodexAuthStateStore(options) {
+      assert.equal(options.jobId, jobId);
+      assert.equal(options.authorization.commandId, command.commandId);
+      assert.equal(options.encryptionKey, generationEnvironment.BEBEBONJOUR_CODEX_AUTH_ENCRYPTION_KEY);
+      return {
+        kind: "synthetic-auth-store",
+        async initialize(value) {
+          assert.equal(value, bootstrapAuthJson);
+          initializationOrder.push("auth_initialized");
+        },
+      };
+    },
+    async createCodexRuntime(options) {
+      assert.deepEqual(initializationOrder, ["auth_initialized"]);
+      assert.match(options.destinationRoot, /bebebonjour-generation-/u);
+      return "/synthetic/codex";
+    },
+    createCodexComposer(options) {
+      assert.equal(options.authStateStore.kind, "synthetic-auth-store");
+      assert.equal(options.executable, "/synthetic/codex");
+      assert.deepEqual(options.executableArgs, []);
+      assert.equal(options.model, "gpt-5.6-sol");
+      assert.equal(options.timeoutMs, 90_000);
+      return { compose: async () => ({ synthetic: true }) };
+    },
     createGenerationRunner(options) {
       assert.equal(options.editorialApproval.record.jobId, jobId);
       assert.equal(typeof options.customerReader.readJob, "function");
       assert.equal(typeof options.store.getJob, "function");
       assert.equal(typeof options.workspace.persistJobInput, "function");
+      assert.equal(typeof options.compose, "function");
       return {
         async generate(receivedJobId, generationOptions) {
           assert.equal(receivedJobId, jobId);
           assert.equal(generationOptions.operationsCommandId, command.commandId);
           assert.equal(generationOptions.operationsEffectBoundary, undefined);
+          assert.deepEqual(await options.compose({ synthetic: true }), { synthetic: true });
           stageEffects += 1;
         },
       };
@@ -279,6 +324,33 @@ test("production generation rejects a cron secret equal to the worker token befo
     /CRON_SECRET must be distinct from BEBEBONJOUR_OPERATIONS_WORKER_TOKEN/u,
   );
   assert.equal(calls, 0);
+});
+
+test("production generation rejects invalid Codex bootstrap and lease windows before queue access", async () => {
+  const environments = [
+    {
+      ...generationEnvironment,
+      BEBEBONJOUR_CODEX_AUTH_BOOTSTRAP_B64: "not+canonical",
+    },
+    {
+      ...generationEnvironment,
+      BEBEBONJOUR_OPERATIONS_WORKER_LEASE_MS: "119999",
+    },
+  ];
+  for (const invalidEnvironment of environments) {
+    let calls = 0;
+    await assert.rejects(
+      runOperationsWorkerCommand({
+        environment: invalidEnvironment,
+        client: {
+          async query() { calls += 1; },
+          async mutation() { calls += 1; },
+        },
+      }),
+      /(BOOTSTRAP_B64 is invalid|too short for Codex auth writeback)/u,
+    );
+    assert.equal(calls, 0);
+  }
 });
 
 test("worker startup rejects a mismatched health protocol before claiming", async () => {

@@ -42,10 +42,14 @@ test("operator isolation inventory keeps TEST-A capabilities outside every publi
   assert.equal(inventory.operationsWorkerEntrypoint, "generation-worker/api/worker.mjs");
   assert.ok(inventory.operationsWorkerModuleGraph.includes("src/operations/production-generation-worker.mjs"));
   assert.deepEqual(inventory.operationsWorkerGenerationModules, [
+    "scripts/lib/codex-subscription-composition.mjs",
+    "src/fulfillment/codex-subscription-composer.mjs",
     "src/fulfillment/hosted-generation-workspace.mjs",
     "src/fulfillment/local-prepare-review-stage-handler.mjs",
     "src/fulfillment/test-a-generation-runner.mjs",
+    "src/operations/codex-packaged-runtime.mjs",
     "src/operations/production-generation-worker.mjs",
+    "src/persistence/convex-codex-auth-state-store.mjs",
     "src/persistence/convex-generation-artifact-store.mjs",
   ]);
   assert.ok(inventory.privateModuleGraph.includes("src/fulfillment/operator-runner-test-a.mjs"));
@@ -60,6 +64,8 @@ test("operator isolation inventory keeps TEST-A capabilities outside every publi
     "ops/persist-test-a-generation-approval.mjs",
     "ops/run-test-a-operator.mjs",
     "ops/run-test-a-generation.mjs",
+    "scripts/lib/codex-subscription-composition.mjs",
+    "src/fulfillment/codex-subscription-composer.mjs",
     "src/fulfillment/hosted-generation-workspace.mjs",
     "src/fulfillment/job-scoped-generation-approval.mjs",
     "src/fulfillment/local-prepare-review-stage-handler.mjs",
@@ -69,7 +75,9 @@ test("operator isolation inventory keeps TEST-A capabilities outside every publi
     "src/fulfillment/test-a-generation-startup.mjs",
     "src/fulfillment/test-a-operator-runtime-identity.mjs",
     "src/fulfillment/test-a-operator-startup.mjs",
+    "src/operations/codex-packaged-runtime.mjs",
     "src/operations/production-generation-worker.mjs",
+    "src/persistence/convex-codex-auth-state-store.mjs",
     "src/persistence/convex-generation-artifact-store.mjs",
   ]);
   assert.equal(

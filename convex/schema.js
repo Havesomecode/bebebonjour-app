@@ -140,4 +140,20 @@ export default defineSchema({
     kind: v.string(),
     artifactSet: v.any(),
   }).index("by_job_revision_kind", ["jobId", "revisionId", "kind"]),
+  fulfillmentCodexAuthState: defineTable({
+    slot: v.literal("primary"),
+    version: v.number(),
+    envelope: v.string(),
+    plaintextDigest: v.string(),
+    lease: v.union(v.null(), v.object({
+      workerId: v.string(),
+      commandId: v.string(),
+      commandLeaseToken: v.string(),
+      jobId: v.string(),
+      authLeaseToken: v.string(),
+      claimedAtMs: v.number(),
+      leaseExpiresAtMs: v.number(),
+    })),
+    updatedAtMs: v.number(),
+  }).index("by_slot", ["slot"]),
 });
