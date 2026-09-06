@@ -23,7 +23,7 @@ test("successor consolidated audit binds the complete reviewed source boundary",
   assert.ok(result.reviewInputCount > 20);
   assert.ok(result.reviewInputCount <= result.pathAllowlistCount);
   assert.equal(result.controlCount, 6);
-  assert.equal(result.focusedTestFileCount, 14);
+  assert.equal(result.focusedTestFileCount, 18);
   assert.match(result.reviewedManifestSha256, /^[a-f0-9]{64}$/u);
   assert.equal(result.providerMutation, "none");
   const evidence = JSON.parse(readFileSync(

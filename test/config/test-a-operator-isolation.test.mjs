@@ -30,6 +30,14 @@ test("operator isolation inventory keeps TEST-A capabilities outside every publi
   assert.equal(inventory.generationModuleGraph.includes("src/fulfillment/operator-runner-test-a.mjs"), false);
   assert.equal(inventory.generationModuleGraph.includes("src/fulfillment/resend-delivery-adapter.mjs"), false);
   assert.equal(inventory.generationModuleGraph.includes("src/fulfillment/vercel-test-a-publication-provider.mjs"), false);
+  assert.equal(inventory.operationsWorkerEntrypoint, "api/operations/worker.mjs");
+  assert.ok(inventory.operationsWorkerModuleGraph.includes("src/operations/production-generation-worker.mjs"));
+  assert.deepEqual(inventory.operationsWorkerGenerationModules, [
+    "src/fulfillment/job-scoped-generation-approval.mjs",
+    "src/fulfillment/local-prepare-review-stage-handler.mjs",
+    "src/fulfillment/test-a-generation-runner.mjs",
+    "src/operations/production-generation-worker.mjs",
+  ]);
   assert.ok(inventory.privateModuleGraph.includes("src/fulfillment/operator-runner-test-a.mjs"));
   assert.ok(inventory.privateModuleGraph.includes("src/fulfillment/test-a-operator-startup.mjs"));
   assert.equal(inventory.privateModuleGraph.includes("src/fulfillment/test-a-operator-runtime-identity.mjs"), false);
@@ -47,10 +55,19 @@ test("operator isolation inventory keeps TEST-A capabilities outside every publi
     "src/fulfillment/test-a-generation-startup.mjs",
     "src/fulfillment/test-a-operator-runtime-identity.mjs",
     "src/fulfillment/test-a-operator-startup.mjs",
+    "src/operations/production-generation-worker.mjs",
   ]);
   assert.equal(
-    inventory.publicModuleGraph.some((modulePath) => inventory.privateCapabilityModules.includes(modulePath)),
+    inventory.customerPublicModuleGraph.some(
+      (modulePath) => inventory.privateCapabilityModules.includes(modulePath),
+    ),
     false,
+  );
+  assert.deepEqual(
+    inventory.operationsWorkerModuleGraph.filter(
+      (modulePath) => inventory.privateCapabilityModules.includes(modulePath),
+    ),
+    inventory.operationsWorkerGenerationModules,
   );
   assert.deepEqual(inventory.publicCapabilityMarkers, []);
   assert.deepEqual(inventory.packageCommandReferences, []);

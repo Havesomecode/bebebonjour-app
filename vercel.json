@@ -7,6 +7,10 @@
       "destination": "/api/customer-flow/[...route]"
     },
     {
+      "source": "/api/operations/worker",
+      "destination": "/api/operations/worker"
+    },
+    {
       "source": "/api/webhooks/tally",
       "destination": "/api/webhooks/tally"
     }

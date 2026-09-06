@@ -32,11 +32,15 @@ const focusedTestFiles = [
   "test/fulfillment/test-a-operator-runner.test.mjs",
   "test/fulfillment/test-a-operator-startup.test.mjs",
   "test/fulfillment/vercel-test-a-publication-provider.test.mjs",
+  "test/http/operations-worker-handler.test.mjs",
+  "test/operations/operations-command-worker.test.mjs",
+  "test/operations/operations-worker-runtime.test.mjs",
+  "test/operations/operations-worker-startup.test.mjs",
 ];
 const controls = Object.freeze([
   {
     id: "isolated-generation-only-authority",
-    requirement: "The private generation entrypoint accepts only its three explicit authority inputs (job ID, private root, and immutable job-scoped editorial approval record), two reviewed business-authority variables, and named inert OS plumbing; it validates the closed approval policy before backend construction, reads canonical paid records, writes only beneath one private root, and permits one atomic legacy-input enrichment only when every original input and canonical intake byte is unchanged and the exact job-scoped approval is valid. It rejects concurrent competing approvals, malformed or rebound authority, record drift, noncanonical intake, symlinked paths, and partial writes; revalidates exact canonical intake bytes before any retry mutation or stage effect; advances only prepare_review; and on terminal replay revalidates the exact persisted input, approval, dossier materials, artifact inventory, and manifest without mutation. Its one failed-state recovery is hard-bound to the exact authorized job, canonical payment/intake identity, immutable approval bytes, one terminal prepare_review attempt, and absence of revision or external-effect evidence; it exposes no generic failed-job reset, provider, persisted content-approval, TTS, publication, delivery, or generic run-next authority.",
+    requirement: "The generation-only Operations worker composes its production path without injected fulfillment capabilities from distinct scoped Convex worker and backend credentials, canonical Convex customer and fulfillment authority, one disjoint mode-0700 private artifact root, and one immutable approvals/<jobId>.json record. It claims only generate, fences the Operations effect before claiming the fulfillment stage, binds the Operations command into exact artifact provenance, writes only beneath the private root, advances only prepare_review, and leaves checkout, review mutation, render, TTS, publication, delivery, retry, and reconciliation unavailable. The lower-level private generation entrypoint retains its closed approval, canonical paid-record, filesystem, replay, and exact failed-state recovery gates.",
     proofs: [
       "test/fulfillment/test-a-generation-runner.test.mjs: generation-only runner persists canonical intake, advances only prepare_review, and returns PII-free output",
       "test/fulfillment/test-a-generation-runner.test.mjs: generation-only end to end produces the approved neutral unknown-name dossier and stops for review",
@@ -59,7 +63,11 @@ const controls = Object.freeze([
       "test/fulfillment/secure-filesystem-snapshot.test.mjs: artifact collection rejects a substituted stage ancestor after binding the workspace root",
       "test/fulfillment/generation-stage-workspace.test.mjs: persisted orchestration drives compose, render, and retryable test-mode TTS",
       "test/fulfillment/test-a-generation-startup.test.mjs: generation startup rejects every unrecognized environment variable before runner construction",
-      "test/config/test-a-operator-isolation.test.mjs: generation-only invocation remains outside every public route graph and provider-capable module",
+      "test/fulfillment/test-a-generation-runner.test.mjs: generation runner binds an Operations command through its real stage orchestration",
+      "test/operations/operations-worker-startup.test.mjs: production generation entrypoint composes job-scoped generation without fulfillment injection",
+      "test/operations/operations-worker-startup.test.mjs: production generation rejects missing or invalid private configuration before queue access",
+      "test/operations/operations-worker-startup.test.mjs: worker startup fails before queue access when an uncomposed action is enabled",
+      "test/config/test-a-operator-isolation.test.mjs: the authenticated Operations worker graph contains only the reviewed generation subset while customer routes contain no private capability",
     ],
   },
   {
@@ -139,8 +147,12 @@ const generatedEvidence = {
   },
   controls,
   isolation: {
+    customerPublicModuleGraph: isolation.customerPublicModuleGraph,
     generationInvocation: isolation.generationInvocation,
     generationModuleGraph: isolation.generationModuleGraph,
+    operationsWorkerEntrypoint: isolation.operationsWorkerEntrypoint,
+    operationsWorkerGenerationModules: isolation.operationsWorkerGenerationModules,
+    operationsWorkerModuleGraph: isolation.operationsWorkerModuleGraph,
     privateInvocation: isolation.privateInvocation,
     publicEntrypoints: isolation.publicEntrypoints,
     publicModuleGraph: isolation.publicModuleGraph,

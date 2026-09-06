@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 
 export const EXPECTED_TEST_A_HOSTED_PROVIDER_MANIFEST_SHA256 =
-  "6f96a597e2741f79a2050e4ad62cfb27a5f3d497a4974b1aad62c5f46786f31d";
+  "f8598da7fa3a71ed53bc9b8a042b813a6d10087efbf81403bc51bae1ba801dae";
 
 const manifestUrl = new URL("../../ops/test-a-hosted-provider-manifest.json", import.meta.url);
 

@@ -58,9 +58,9 @@ export function createTestAGenerationRunner(options = {}) {
   });
 
   return Object.freeze({
-    async generate(jobId) {
+    async generate(jobId, generationOptions = {}) {
       try {
-        return await generate(jobId);
+        return await generate(jobId, generationOptions);
       } catch (error) {
         if (error instanceof TestAGenerationOperatorError) throw error;
         throw safeError("generation_backend_failed");
@@ -68,7 +68,7 @@ export function createTestAGenerationRunner(options = {}) {
     },
   });
 
-  async function generate(jobId) {
+  async function generate(jobId, generationOptions) {
     if (typeof jobId !== "string" || !JOB_ID.test(jobId)) {
       throw safeError("generation_authority_rejected");
     }
@@ -142,7 +142,7 @@ export function createTestAGenerationRunner(options = {}) {
     } catch {
       throw safeError("generation_authority_rejected");
     }
-    const status = await orchestrator.runExpectedStage(jobId, "prepare_review");
+    const status = await orchestrator.runExpectedStage(jobId, "prepare_review", generationOptions);
     if (status?.state === "content_review_required") {
       return resultFor(status, "generated");
     }

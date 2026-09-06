@@ -164,6 +164,28 @@ async function fixture(t, options = {}) {
   return { backingStore, calls, root, runner };
 }
 
+test("generation runner binds an Operations command through its real stage orchestration", async (t) => {
+  const context = await fixture(t);
+  const operationsCommandId = "command_generation_provenance_000001";
+  let boundaries = 0;
+
+  const result = await context.runner.generate(JOB_ID, {
+    operationsCommandId,
+    async operationsEffectBoundary(details, invokeStage) {
+      boundaries += 1;
+      assert.equal(details.jobId, JOB_ID);
+      assert.equal(details.stage, "prepare_review");
+      assert.equal(details.operationsCommandId, operationsCommandId);
+      return invokeStage();
+    },
+  });
+
+  assert.equal(result.state, "content_review_required");
+  assert.equal(boundaries, 1);
+  const aggregate = await context.backingStore.getJob(JOB_ID);
+  assert.equal(aggregate.artifactSets[0].operationsCommandId, operationsCommandId);
+});
+
 function productionRunner(context, artifactRoot, editorialApproval = EDITORIAL_APPROVAL) {
   return createTestAGenerationRunner({
     editorialApproval,

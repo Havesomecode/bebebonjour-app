@@ -257,7 +257,8 @@
     },
     "functionsDirectory": "convex",
     "environmentVariables": [
-      "CUSTOMER_FLOW_BACKEND_TOKEN"
+      "CUSTOMER_FLOW_BACKEND_TOKEN",
+      "BEBEBONJOUR_OPERATIONS_WORKER_TOKEN"
     ],
     "tables": [
       "customerFlowJobs",
@@ -283,6 +284,13 @@
       "CUSTOMER_FLOW_TOKEN_ENCRYPTION_KEY",
       "CUSTOMER_FLOW_TEST_ACCESS_TOKEN",
       "CUSTOMER_FLOW_ALLOWED_ORIGINS",
+      "BEBEBONJOUR_OPERATIONS_WORKER_TOKEN",
+      "BEBEBONJOUR_OPERATIONS_WORKER_ID",
+      "BEBEBONJOUR_OPERATIONS_WORKER_ACTIONS",
+      "BEBEBONJOUR_OPERATIONS_WORKER_LIMIT",
+      "BEBEBONJOUR_OPERATIONS_WORKER_LEASE_MS",
+      "BEBEBONJOUR_GENERATION_ARTIFACT_ROOT",
+      "CRON_SECRET",
       "STRIPE_SECRET_KEY",
       "STRIPE_CUSTOMER_FLOW_WEBHOOK_SECRET",
       "STRIPE_CHECKOUT_SUCCESS_URL",
@@ -300,6 +308,7 @@
       "GET /api/customer-flow/v1/jobs/:jobId/status",
       "POST /api/customer-flow/v1/jobs/:jobId/checkout",
       "POST /api/customer-flow/webhooks/stripe",
+      "GET /api/operations/worker",
       "POST /api/webhooks/tally"
     ],
     "forbiddenVariables": [
@@ -309,6 +318,7 @@
     ],
     "testAccess": "X-Test-A-Access-Token is required on every /v1 command and must be collected interactively, held in memory only, and never bundled into browser assets",
     "additionalEntrypoints": [
+      "api/operations/worker.mjs",
       "api/webhooks/tally.mjs"
     ]
   },

@@ -2,14 +2,14 @@ import { createHash } from "node:crypto";
 import { lstat, readFile, readdir } from "node:fs/promises";
 import path from "node:path";
 
-const PUBLIC_CAPABILITY_MARKERS = Object.freeze([
+const PRIVATE_OPERATOR_MARKERS = Object.freeze([
   "operator-runner-test-a",
   "run-test-a-generation",
-  "test-a-generation-runner",
   "test-a-generation-startup",
   "test-a-operator-startup",
   "test-a-operator-runtime-identity",
 ]);
+const GENERATION_WORKER_MARKERS = Object.freeze(["test-a-generation-runner"]);
 const PRIVATE_CAPABILITY_MODULES = Object.freeze([
   "ops/run-test-a-operator.mjs",
   "ops/run-test-a-generation.mjs",
@@ -20,6 +20,13 @@ const PRIVATE_CAPABILITY_MODULES = Object.freeze([
   "src/fulfillment/test-a-generation-startup.mjs",
   "src/fulfillment/test-a-operator-runtime-identity.mjs",
   "src/fulfillment/test-a-operator-startup.mjs",
+  "src/operations/production-generation-worker.mjs",
+]);
+const OPERATIONS_WORKER_GENERATION_MODULES = Object.freeze([
+  "src/fulfillment/job-scoped-generation-approval.mjs",
+  "src/fulfillment/local-prepare-review-stage-handler.mjs",
+  "src/fulfillment/test-a-generation-runner.mjs",
+  "src/operations/production-generation-worker.mjs",
 ]);
 const REVIEW_ROOT_INPUTS = Object.freeze([
   ".env.example",
@@ -37,21 +44,39 @@ export async function createTestAOperatorIsolationInventory(options) {
     .map((filePath) => relativePath(rootPath, filePath))
     .sort();
   const publicModuleGraph = await traceLocalModuleGraph(rootPath, publicEntrypoints);
+  const operationsWorkerEntrypoint = "api/operations/worker.mjs";
+  const operationsWorkerModuleGraph = await traceLocalModuleGraph(rootPath, [operationsWorkerEntrypoint]);
+  const customerPublicModuleGraph = await traceLocalModuleGraph(
+    rootPath,
+    publicEntrypoints.filter((entrypoint) => entrypoint !== operationsWorkerEntrypoint),
+  );
   const privateInvocation = PRIVATE_CAPABILITY_MODULES[0];
   const privateModuleGraph = await traceLocalModuleGraph(rootPath, [privateInvocation]);
   const generationInvocation = "ops/run-test-a-generation.mjs";
   const generationModuleGraph = await traceLocalModuleGraph(rootPath, [generationInvocation]);
 
   for (const privateModule of PRIVATE_CAPABILITY_MODULES) {
-    if (publicModuleGraph.includes(privateModule)) {
+    if (customerPublicModuleGraph.includes(privateModule)) {
       throw new Error(`Public route graph imports private TEST-A operator module ${privateModule}.`);
+    }
+    if (
+      operationsWorkerModuleGraph.includes(privateModule)
+      && !OPERATIONS_WORKER_GENERATION_MODULES.includes(privateModule)
+    ) {
+      throw new Error(`Operations worker imports private TEST-A operator module ${privateModule}.`);
     }
   }
 
   const publicCapabilityMarkers = [];
-  for (const modulePath of publicModuleGraph) {
+  for (const modulePath of customerPublicModuleGraph) {
     const source = await readFile(path.join(rootPath, modulePath), "utf8");
-    for (const marker of PUBLIC_CAPABILITY_MARKERS) {
+    for (const marker of [...PRIVATE_OPERATOR_MARKERS, ...GENERATION_WORKER_MARKERS]) {
+      if (source.includes(marker)) publicCapabilityMarkers.push({ marker, path: modulePath });
+    }
+  }
+  for (const modulePath of operationsWorkerModuleGraph) {
+    const source = await readFile(path.join(rootPath, modulePath), "utf8");
+    for (const marker of PRIVATE_OPERATOR_MARKERS) {
       if (source.includes(marker)) publicCapabilityMarkers.push({ marker, path: modulePath });
     }
   }
@@ -107,6 +132,10 @@ export async function createTestAOperatorIsolationInventory(options) {
   return Object.freeze({
     generationInvocation,
     generationModuleGraph,
+    customerPublicModuleGraph,
+    operationsWorkerEntrypoint,
+    operationsWorkerGenerationModules: [...OPERATIONS_WORKER_GENERATION_MODULES],
+    operationsWorkerModuleGraph,
     packageCommandReferences,
     privateCapabilityModules: [...PRIVATE_CAPABILITY_MODULES],
     privateInvocation,
@@ -144,7 +173,10 @@ export async function inspectGeneratedPublicArtifact(artifactRoot) {
     const bytes = await readFile(filePath);
     const relative = relativePath(absoluteRoot, filePath);
     const text = isTextFile(relative) ? bytes.toString("utf8") : "";
-    for (const marker of PUBLIC_CAPABILITY_MARKERS) {
+    const markers = relative.startsWith("functions/api/operations/worker.func/")
+      ? PRIVATE_OPERATOR_MARKERS
+      : [...PRIVATE_OPERATOR_MARKERS, ...GENERATION_WORKER_MARKERS];
+    for (const marker of markers) {
       if (relative.includes(marker) || text.includes(marker)) {
         throw new Error(`Generated public artifact exposes private TEST-A operator capability marker ${marker}.`);
       }

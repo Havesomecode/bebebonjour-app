@@ -1,6 +1,7 @@
 import { ConvexHttpClient } from "convex/browser";
 
 import { createOperationsWorkerRuntime } from "./operations-worker-runtime.mjs";
+import { createProductionGenerationWorker } from "./production-generation-worker.mjs";
 
 const WORKER_ID = /^[A-Za-z0-9][A-Za-z0-9_-]{2,63}$/u;
 const ALL_ACTIONS = new Set([
@@ -24,6 +25,26 @@ export async function runOperationsWorkerCommand(options = {}) {
   if (typeof client.query !== "function" || typeof client.mutation !== "function") {
     throw new Error("Operations worker Convex client is invalid.");
   }
+  const injectedCapabilities = [
+    options.operationsCheckout,
+    options.customerStore,
+    options.fulfillmentOrchestrator,
+    options.fulfillmentStore,
+    options.authorizeReviewDecision,
+    options.reconcileExternalEffect,
+  ].some((value) => value !== undefined);
+  if (!injectedCapabilities && enabledActions.some((action) => action !== "generate")) {
+    throw new Error("Production Operations worker permits only the generate action.");
+  }
+  const productionGeneration = !injectedCapabilities && enabledActions.includes("generate")
+    ? createProductionGenerationWorker({
+        environment,
+        client,
+        workerToken,
+        createGenerationRunner: options.createGenerationRunner,
+        repositoryRoot: options.repositoryRoot,
+      })
+    : {};
 
   const runtime = createOperationsWorkerRuntime({
     client,
@@ -31,8 +52,8 @@ export async function runOperationsWorkerCommand(options = {}) {
     enabledActions,
     operationsCheckout: options.operationsCheckout,
     customerStore: options.customerStore,
-    fulfillmentOrchestrator: options.fulfillmentOrchestrator,
-    fulfillmentStore: options.fulfillmentStore,
+    fulfillmentOrchestrator: options.fulfillmentOrchestrator || productionGeneration.fulfillmentOrchestrator,
+    fulfillmentStore: options.fulfillmentStore || productionGeneration.fulfillmentStore,
     authorizeReviewDecision: options.authorizeReviewDecision,
     reconcileExternalEffect: options.reconcileExternalEffect,
   });
