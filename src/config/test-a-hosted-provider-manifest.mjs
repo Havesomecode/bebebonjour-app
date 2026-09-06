@@ -208,6 +208,9 @@ export function requireReviewedTestAGenerationEnvironment(
       throw new Error(`${name} is required by the reviewed TEST-A generation secret-store policy.`);
     }
   }
+  if (environment.CRON_SECRET === environment.BEBEBONJOUR_OPERATIONS_WORKER_TOKEN) {
+    throw new Error("CRON_SECRET must be distinct from BEBEBONJOUR_OPERATIONS_WORKER_TOKEN.");
+  }
   if (environment.BEBEBONJOUR_OPERATIONS_WORKER_ACTIONS !== "generate") {
     throw new Error("BEBEBONJOUR_OPERATIONS_WORKER_ACTIONS must equal generate.");
   }

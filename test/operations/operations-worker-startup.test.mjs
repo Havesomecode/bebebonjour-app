@@ -263,6 +263,24 @@ test("production generation rejects incomplete or broad runtime authority before
   }
 });
 
+test("production generation rejects a cron secret equal to the worker token before queue access", async () => {
+  let calls = 0;
+  await assert.rejects(
+    runOperationsWorkerCommand({
+      environment: {
+        ...generationEnvironment,
+        CRON_SECRET: generationEnvironment.BEBEBONJOUR_OPERATIONS_WORKER_TOKEN,
+      },
+      client: {
+        async query() { calls += 1; },
+        async mutation() { calls += 1; },
+      },
+    }),
+    /CRON_SECRET must be distinct from BEBEBONJOUR_OPERATIONS_WORKER_TOKEN/u,
+  );
+  assert.equal(calls, 0);
+});
+
 test("worker startup rejects a mismatched health protocol before claiming", async () => {
   let mutations = 0;
   await assert.rejects(

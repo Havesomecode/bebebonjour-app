@@ -470,7 +470,7 @@
       },
       {
         "path": "src/config/test-a-hosted-provider-manifest.mjs",
-        "sha256": "87f2720a733f16b922b0a2bfec6cb56bcf730d7293e0bfabb6d4bf84283f539c"
+        "sha256": "b7646e42005616b41ceb2efc39bce86c6fcf3395dac3732baa75fbd08376821b"
       },
       {
         "path": "src/config/test-a-operator-isolation.mjs",
@@ -826,7 +826,7 @@
       },
       {
         "path": "test/operations/operations-worker-startup.test.mjs",
-        "sha256": "680820ea89041c4f323b898566c7fe300d7ebe0d1f6366139d0482059ff2f71e"
+        "sha256": "a2f1fe6e6cde42084619f6b4a02c74d9d72525477c95b951e228f185af32565e"
       },
       {
         "path": "test/persistence/convex-customer-flow-store.test.mjs",
