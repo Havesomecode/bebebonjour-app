@@ -238,9 +238,16 @@ test("production generation entrypoint composes job-scoped generation without fu
         async generate(receivedJobId, generationOptions) {
           assert.equal(receivedJobId, jobId);
           assert.equal(generationOptions.operationsCommandId, command.commandId);
-          assert.equal(generationOptions.operationsEffectBoundary, undefined);
-          assert.deepEqual(await options.compose({ synthetic: true }), { synthetic: true });
-          stageEffects += 1;
+          assert.equal(typeof generationOptions.operationsEffectBoundary, "function");
+          await generationOptions.operationsEffectBoundary({
+            jobId,
+            stage: "prepare_review",
+            attemptId: "attempt_production_generate_000001",
+            operationsCommandId: command.commandId,
+          }, async () => {
+            assert.deepEqual(await options.compose({ synthetic: true }), { synthetic: true });
+            stageEffects += 1;
+          });
         },
       };
     },

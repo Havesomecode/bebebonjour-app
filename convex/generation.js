@@ -168,7 +168,7 @@ export const saveEditorialApproval = mutationGeneric({
 export const readEditorialApproval = queryGeneric({
   args: CLAIMED_GENERATION_ARGS,
   handler: async (context, args) => {
-    await assertClaimedGenerationAuthority(context, args);
+    await assertClaimedGenerationAuthority(context, args, { effectFenceRequired: false });
     const document = await findEditorialApproval(context, args.jobId);
     return document?.approval || null;
   },
@@ -177,7 +177,7 @@ export const readEditorialApproval = queryGeneric({
 export const readClaimedCustomerJob = queryGeneric({
   args: CLAIMED_GENERATION_ARGS,
   handler: async (context, args) => {
-    await assertClaimedGenerationAuthority(context, args);
+    await assertClaimedGenerationAuthority(context, args, { effectFenceRequired: false });
     const document = await context.db
       .query("customerFlowJobs")
       .withIndex("by_job_id", (query) => query.eq("jobId", args.jobId))
@@ -189,7 +189,7 @@ export const readClaimedCustomerJob = queryGeneric({
 export const getClaimedFulfillmentJob = queryGeneric({
   args: CLAIMED_GENERATION_ARGS,
   handler: async (context, args) => {
-    await assertClaimedGenerationAuthority(context, args);
+    await assertClaimedGenerationAuthority(context, args, { effectFenceRequired: false });
     const document = await findFulfillmentJob(context, args.jobId);
     return document?.aggregate || null;
   },
@@ -202,13 +202,22 @@ export const replaceClaimedFulfillmentJob = mutationGeneric({
     aggregate: v.any(),
   },
   handler: async (context, args) => {
-    await assertClaimedGenerationAuthority(context, args);
+    const command = await assertClaimedGenerationAuthority(
+      context,
+      args,
+      { effectFenceRequired: false },
+    );
     const document = await findFulfillmentJob(context, args.jobId);
     if (!document) return { updated: false, current: null };
     if (document.aggregate.version !== args.expectedVersion) {
       return { updated: false, current: document.aggregate };
     }
     assertPrepareReviewReplacement(document.aggregate, args.aggregate, args);
+    const entersPrepareReview = document.aggregate.state === "generation_queued"
+      && args.aggregate.state === "generating";
+    if (!entersPrepareReview && !Number.isFinite(command.claim.effectStartedAtMs)) {
+      throw new Error("Generation prepare_review claim authorization failed.");
+    }
     await context.db.patch(document._id, { aggregate: args.aggregate });
     return { updated: true, aggregate: args.aggregate };
   },
@@ -360,7 +369,11 @@ function findFulfillmentJob(context, jobId) {
     .unique();
 }
 
-async function assertClaimedGenerationAuthority(context, args) {
+async function assertClaimedGenerationAuthority(
+  context,
+  args,
+  { effectFenceRequired = true } = {},
+) {
   assertWorkerToken(args.workerToken);
   assertJobId(args.jobId);
   const command = await context.db
@@ -374,7 +387,7 @@ async function assertClaimedGenerationAuthority(context, args) {
     || command.state !== "running"
     || command.claim?.workerId !== args.workerId
     || command.claim?.leaseToken !== args.leaseToken
-    || !Number.isFinite(command.claim?.effectStartedAtMs)
+    || (effectFenceRequired && !Number.isFinite(command.claim?.effectStartedAtMs))
     || !Number.isFinite(command.claim?.leaseExpiresAtMs)
     || command.claim.leaseExpiresAtMs <= Date.now()
   ) {

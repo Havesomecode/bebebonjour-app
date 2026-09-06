@@ -42,7 +42,24 @@ function editorialApproval() {
   };
 }
 
-function hostedFixture() {
+function productionEnvironment() {
+  return {
+    CONVEX_URL: "https://test-a.convex.cloud",
+    BEBEBONJOUR_OPERATIONS_WORKER_TOKEN: WORKER_TOKEN,
+    BEBEBONJOUR_OPERATIONS_WORKER_ID: "production-worker-1",
+    BEBEBONJOUR_OPERATIONS_WORKER_ACTIONS: "generate",
+    BEBEBONJOUR_OPERATIONS_WORKER_LIMIT: "5",
+    BEBEBONJOUR_OPERATIONS_WORKER_LEASE_MS: "120000",
+    BEBEBONJOUR_CODEX_SUBSCRIPTION_ENABLED: "true",
+    BEBEBONJOUR_CODEX_AUTH_ENCRYPTION_KEY: Buffer.alloc(32, 17).toString("base64url"),
+    BEBEBONJOUR_CODEX_MODEL: "gpt-5.6-sol",
+    BEBEBONJOUR_CODEX_TIMEOUT_MS: "90000",
+    BEBEBONJOUR_CODEX_AUTH_LEASE_MS: "110000",
+    CRON_SECRET: "cron-secret-with-at-least-thirty-two-bytes",
+  };
+}
+
+function hostedFixture(options = {}) {
   const intake = structuredClone(BASE_INTAKE);
   intake.requestId = JOB_ID;
   intake.customer.email = "synthetic-hosted@example.test";
@@ -81,6 +98,8 @@ function hostedFixture() {
   let claimAvailable = true;
   let downloadCount = 0;
   let uploadOrdinal = 0;
+  const trace = [];
+  const nowMs = Date.now();
   const command = {
     commandId: COMMAND_ID,
     jobId: JOB_ID,
@@ -91,7 +110,7 @@ function hostedFixture() {
     claim: {
       workerId: "production-worker-1",
       leaseToken: "hosted-generation-lease",
-      leaseExpiresAtMs: Date.now() + 120_000,
+      leaseExpiresAtMs: nowMs + 120_000,
     },
   };
 
@@ -100,6 +119,7 @@ function hostedFixture() {
       if (name === "operations:workerHealth") return { protocolVersion: "1.0", scope: "worker" };
       if (name === "generation:readClaimedCustomerJob") {
         assert.equal(input.workerToken, WORKER_TOKEN);
+        trace.push("customer_job_read");
         return {
           schemaVersion: "1.0",
           jobId: JOB_ID,
@@ -108,9 +128,13 @@ function hostedFixture() {
           payment: { status: "paid" },
         };
       }
-      if (name === "generation:getClaimedFulfillmentJob") return structuredClone(aggregate);
+      if (name === "generation:getClaimedFulfillmentJob") {
+        trace.push(`fulfillment_read:${aggregate.state}`);
+        return structuredClone(aggregate);
+      }
       if (name === "generation:readEditorialApproval") {
         assert.equal(input.workerToken, WORKER_TOKEN);
+        trace.push("editorial_approval_read");
         return structuredClone(approval);
       }
       if (name === "generation:readArtifactSet") {
@@ -130,16 +154,49 @@ function hostedFixture() {
         return [structuredClone(command)];
       }
       if (name === "operations:fenceCommand") {
-        return { active: true, command: structuredClone(command) };
+        if (!input.effectMayBeIssued) {
+          trace.push("operations_preflight_fenced");
+          const active = aggregate.state === command.expectedState
+            && aggregate.version === command.expectedVersion;
+          return { active, command: active ? structuredClone(command) : null };
+        }
+        trace.push("operations_effect_fence_checked");
+        const attempt = aggregate.stageAttempts?.at(-1);
+        const active = options.rejectEffectFence !== true
+          && aggregate.state === "generating"
+          && aggregate.version > command.expectedVersion
+          && attempt?.stage === "prepare_review"
+          && attempt?.status === "running"
+          && attempt?.operationsCommandId === COMMAND_ID
+          && Date.parse(attempt.leaseExpiresAt) > Date.now();
+        if (active) trace.push("operations_effect_fenced");
+        return { active, command: active ? structuredClone(command) : null };
       }
-      if (name === "operations:completeCommand") return { ok: true };
+      if (name === "operations:completeCommand") {
+        trace.push("operations_command_completed");
+        return { ok: true };
+      }
       if (name === "operations:failCommand") {
+        trace.push("operations_command_failed");
         workerFailure = input.reasonCode;
         return { ok: true };
       }
       if (name === "generation:replaceClaimedFulfillmentJob") {
         assert.equal(input.expectedVersion, aggregate.version);
+        const entersPrepareReview = aggregate.state === "generation_queued"
+          && input.aggregate.state === "generating";
+        if (!entersPrepareReview && !trace.includes("operations_effect_fenced")) {
+          throw new Error("Generation prepare_review claim authorization failed.");
+        }
+        if (
+          options.rejectPrepareReviewClaim === true
+          && entersPrepareReview
+        ) {
+          trace.push("prepare_review_claim_rejected");
+          return { updated: false, current: structuredClone(aggregate) };
+        }
         aggregate = structuredClone(input.aggregate);
+        if (aggregate.state === "generating") trace.push("prepare_review_claimed");
         return { updated: true, aggregate: structuredClone(aggregate) };
       }
       if (name === "generation:createArtifactUploadUrl") {
@@ -187,30 +244,20 @@ function hostedFixture() {
   return {
     client,
     fetchImpl,
+    clock: () => new Date(nowMs).toISOString(),
+    recordTrace(value) { trace.push(value); },
     get aggregate() { return structuredClone(aggregate); },
     get artifactRecord() { return structuredClone(artifactRecord); },
     get blobCount() { return blobs.size; },
     get downloadCount() { return downloadCount; },
+    get trace() { return [...trace]; },
     get workerFailure() { return workerFailure; },
   };
 }
 
 test("Vercel-safe production worker generates into Convex storage and a cold invocation reads it back", async () => {
   const fixture = hostedFixture();
-  const environment = {
-    CONVEX_URL: "https://test-a.convex.cloud",
-    BEBEBONJOUR_OPERATIONS_WORKER_TOKEN: WORKER_TOKEN,
-    BEBEBONJOUR_OPERATIONS_WORKER_ID: "production-worker-1",
-    BEBEBONJOUR_OPERATIONS_WORKER_ACTIONS: "generate",
-    BEBEBONJOUR_OPERATIONS_WORKER_LIMIT: "5",
-    BEBEBONJOUR_OPERATIONS_WORKER_LEASE_MS: "120000",
-    BEBEBONJOUR_CODEX_SUBSCRIPTION_ENABLED: "true",
-    BEBEBONJOUR_CODEX_AUTH_ENCRYPTION_KEY: Buffer.alloc(32, 17).toString("base64url"),
-    BEBEBONJOUR_CODEX_MODEL: "gpt-5.6-sol",
-    BEBEBONJOUR_CODEX_TIMEOUT_MS: "90000",
-    BEBEBONJOUR_CODEX_AUTH_LEASE_MS: "110000",
-    CRON_SECRET: "cron-secret-with-at-least-thirty-two-bytes",
-  };
+  const environment = productionEnvironment();
 
   const generated = await runOperationsWorkerCommand({
     environment,
@@ -218,8 +265,13 @@ test("Vercel-safe production worker generates into Convex storage and a cold inv
     fetchImpl: fixture.fetchImpl,
     createCodexAuthStateStore: () => ({ kind: "synthetic-auth-store" }),
     createCodexRuntime: async () => "/synthetic/codex",
-    createCodexComposer: () => ({ compose: async () => null }),
-    clock: () => "2026-09-06T10:00:01.000Z",
+    createCodexComposer: () => ({
+      compose: async () => {
+        fixture.recordTrace("provider_compose_started");
+        return null;
+      },
+    }),
+    clock: fixture.clock,
     tokenFactory: () => "hosted-generation-stage-lease",
   });
   assert.equal(fixture.workerFailure, null, JSON.stringify(fixture.aggregate.stageAttempts?.at(-1)));
@@ -232,6 +284,19 @@ test("Vercel-safe production worker generates into Convex storage and a cold inv
     completed: 1,
     failed: 0,
   });
+  assert.deepEqual(fixture.trace.slice(0, 11), [
+    "operations_preflight_fenced",
+    "editorial_approval_read",
+    "fulfillment_read:generation_queued",
+    "customer_job_read",
+    "fulfillment_read:generation_queued",
+    "fulfillment_read:generation_queued",
+    "prepare_review_claimed",
+    "operations_effect_fence_checked",
+    "operations_effect_fenced",
+    "fulfillment_read:generating",
+    "provider_compose_started",
+  ]);
   assert.equal(fixture.aggregate.state, "content_review_required");
   assert.equal(fixture.artifactRecord.kind, "private_review");
   assert.ok(fixture.blobCount > 0);
@@ -276,6 +341,50 @@ test("Vercel-safe production worker generates into Convex storage and a cold inv
   assert.equal(replayed.jobId, JOB_ID);
   assert.equal(replayed.revisionId, fixture.aggregate.currentRevisionId);
   assert.equal(fixture.downloadCount, fixture.blobCount);
+});
+
+test("production generate fails closed before composition when its stage claim or effect fence is rejected", async () => {
+  for (const scenario of [
+    { name: "prepare_review claim", fixtureOptions: { rejectPrepareReviewClaim: true } },
+    { name: "Operations effect fence", fixtureOptions: { rejectEffectFence: true } },
+  ]) {
+    const fixture = hostedFixture(scenario.fixtureOptions);
+    let compositionCount = 0;
+    const result = await runOperationsWorkerCommand({
+      environment: productionEnvironment(),
+      client: fixture.client,
+      fetchImpl: fixture.fetchImpl,
+      createCodexAuthStateStore: () => ({ kind: "synthetic-auth-store" }),
+      createCodexRuntime: async () => "/synthetic/codex",
+      createCodexComposer: () => ({
+        compose: async () => {
+          compositionCount += 1;
+          return null;
+        },
+      }),
+      clock: fixture.clock,
+      tokenFactory: () => "hosted-generation-stage-lease",
+    });
+
+    assert.deepEqual(result, {
+      status: "ok",
+      protocolVersion: "1.0",
+      workerId: "production-worker-1",
+      enabledActionCount: 1,
+      claimed: 1,
+      completed: 0,
+      failed: 1,
+    }, scenario.name);
+    assert.equal(compositionCount, 0, scenario.name);
+    assert.equal(fixture.artifactRecord, null, scenario.name);
+    assert.equal(fixture.blobCount, 0, scenario.name);
+    assert.equal(fixture.trace.includes("operations_command_completed"), false, scenario.name);
+    assert.equal(
+      fixture.aggregate.state,
+      scenario.fixtureOptions.rejectPrepareReviewClaim ? "generation_queued" : "generating",
+      scenario.name,
+    );
+  }
 });
 
 test("hosted artifact uploads reject cross-job manifest references before storage mutation", async () => {

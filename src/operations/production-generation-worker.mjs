@@ -59,87 +59,79 @@ export function createProductionGenerationWorker(options = {}) {
           throw new Error("Production generation requires the Operations effect fence.");
         }
         const authorization = claimedAuthorization(workerToken, generationOptions.workerAuthority);
-        return generationOptions.operationsEffectBoundary(
-          Object.freeze({
-            jobId,
-            stage,
-            operationsCommandId: generationOptions.operationsCommandId,
-          }),
-          async () => {
-            const fulfillmentStore = scopedFulfillmentStore(generationOptions.workerAuthority);
-            const artifactStore = options.artifactStore || createConvexGenerationArtifactStore({
-              client,
-              authorization,
-              convexUrl: options.convexUrl || options.environment?.CONVEX_URL,
-              fetchImpl: options.fetchImpl,
+        const fulfillmentStore = scopedFulfillmentStore(generationOptions.workerAuthority);
+        const artifactStore = options.artifactStore || createConvexGenerationArtifactStore({
+          client,
+          authorization,
+          convexUrl: options.convexUrl || options.environment?.CONVEX_URL,
+          fetchImpl: options.fetchImpl,
+        });
+        const editorialApproval = await artifactStore.readEditorialApproval(jobId);
+        const customerReader = Object.freeze({
+          readJob(claimedJobId) {
+            return client.query("generation:readClaimedCustomerJob", {
+              ...authorization,
+              jobId: claimedJobId,
             });
-            const editorialApproval = await artifactStore.readEditorialApproval(jobId);
-            const customerReader = Object.freeze({
-              readJob(claimedJobId) {
-                return client.query("generation:readClaimedCustomerJob", {
-                  ...authorization,
-                  jobId: claimedJobId,
-                });
-              },
-            });
-            const stagingRoot = await mkdtemp(path.join(os.tmpdir(), "bebebonjour-generation-"));
-            try {
-              const workspace = createHostedGenerationWorkspace({
-                rootPath: stagingRoot,
-                artifactStore,
-              });
-              const authStateStore = createAuthStateStore({
-                client,
-                authorization,
-                jobId,
-                encryptionKey: compositionConfig.encryptionKey,
-                authLeaseMs: compositionConfig.authLeaseMs,
-              });
-              let composerPromise = null;
-              const compose = async (...args) => {
-                composerPromise ||= (async () => {
-                  if (compositionConfig.bootstrapAuthJson !== null) {
-                    await authStateStore.initialize(compositionConfig.bootstrapAuthJson);
-                  }
-                  const executable = await createCodexRuntime({ destinationRoot: stagingRoot });
-                  return createComposer({
-                    authStateStore,
-                    environment: options.environment,
-                    executable,
-                    executableArgs: [],
-                    model: compositionConfig.model,
-                    timeoutMs: compositionConfig.timeoutMs,
-                  });
-                })();
-                const composer = await composerPromise;
-                if (typeof composer?.compose !== "function") {
-                  throw new Error("Production Codex composition capability is invalid.");
-                }
-                return composer.compose(...args);
-              };
-              const runner = createRunner({
-                editorialApproval,
-                customerReader,
-                store: fulfillmentStore,
-                workspace,
-                clock: options.clock,
-                tokenFactory: options.tokenFactory,
-                compose,
-              });
-              if (
-                typeof runner?.generate !== "function"
-                || Object.keys(runner).some((key) => key !== "generate")
-              ) {
-                throw new Error("Production generation runner is invalid.");
-              }
-              return await runner.generate(jobId, {
-                operationsCommandId: generationOptions.operationsCommandId,
-              });
-            } finally {
-              await rm(stagingRoot, { recursive: true, force: true });
-            }
           },
-        );
+        });
+        const stagingRoot = await mkdtemp(path.join(os.tmpdir(), "bebebonjour-generation-"));
+        try {
+          const workspace = createHostedGenerationWorkspace({
+            rootPath: stagingRoot,
+            artifactStore,
+          });
+          const authStateStore = createAuthStateStore({
+            client,
+            authorization,
+            jobId,
+            encryptionKey: compositionConfig.encryptionKey,
+            authLeaseMs: compositionConfig.authLeaseMs,
+          });
+          let composerPromise = null;
+          const compose = async (...args) => {
+            composerPromise ||= (async () => {
+              if (compositionConfig.bootstrapAuthJson !== null) {
+                await authStateStore.initialize(compositionConfig.bootstrapAuthJson);
+              }
+              const executable = await createCodexRuntime({ destinationRoot: stagingRoot });
+              return createComposer({
+                authStateStore,
+                environment: options.environment,
+                executable,
+                executableArgs: [],
+                model: compositionConfig.model,
+                timeoutMs: compositionConfig.timeoutMs,
+              });
+            })();
+            const composer = await composerPromise;
+            if (typeof composer?.compose !== "function") {
+              throw new Error("Production Codex composition capability is invalid.");
+            }
+            return composer.compose(...args);
+          };
+          const runner = createRunner({
+            editorialApproval,
+            customerReader,
+            store: fulfillmentStore,
+            workspace,
+            clock: options.clock,
+            tokenFactory: options.tokenFactory,
+            compose,
+          });
+          if (
+            typeof runner?.generate !== "function"
+            || Object.keys(runner).some((key) => key !== "generate")
+          ) {
+            throw new Error("Production generation runner is invalid.");
+          }
+          return await runner.generate(jobId, {
+            operationsCommandId: generationOptions.operationsCommandId,
+            operationsEffectBoundary: generationOptions.operationsEffectBoundary,
+          });
+        } finally {
+          await rm(stagingRoot, { recursive: true, force: true });
+        }
       },
     }),
   });

@@ -8,12 +8,15 @@ import schema from "../../convex/schema.js";
 import {
   claimStageTransition,
   createJobAggregate,
+  failStageTransition,
   recordPaymentTransition,
 } from "../../src/fulfillment/job-machine.mjs";
 
 const readClaimedCustomerJob = makeFunctionReference("generation:readClaimedCustomerJob");
+const readEditorialApproval = makeFunctionReference("generation:readEditorialApproval");
 const getClaimedFulfillmentJob = makeFunctionReference("generation:getClaimedFulfillmentJob");
 const replaceClaimedFulfillmentJob = makeFunctionReference("generation:replaceClaimedFulfillmentJob");
+const createArtifactUploadUrl = makeFunctionReference("generation:createArtifactUploadUrl");
 
 const workerToken = "worker-token-at-least-thirty-two-characters_";
 const workerId = "generation-worker-1";
@@ -60,7 +63,7 @@ function aggregateFixture() {
   }, now);
 }
 
-async function seed(convex, { action = "generate" } = {}) {
+async function seed(convex, { action = "generate", effectStarted = true } = {}) {
   const aggregate = aggregateFixture();
   const customer = {
     schemaVersion: "1.0",
@@ -88,7 +91,7 @@ async function seed(convex, { action = "generate" } = {}) {
         leaseToken,
         claimedAtMs: Date.now(),
         leaseExpiresAtMs: Date.now() + 600_000,
-        effectStartedAtMs: Date.now(),
+        ...(effectStarted ? { effectStartedAtMs: Date.now() } : {}),
       },
       lastFailureReason: null,
       outcome: null,
@@ -97,6 +100,53 @@ async function seed(convex, { action = "generate" } = {}) {
   });
   return { aggregate, customer };
 }
+
+test("active worker authority reads generation metadata and claims only prepare_review before the effect fence", async () => {
+  const convex = fixture();
+  const { aggregate, customer } = await seed(convex, { effectStarted: false });
+  assert.equal(await convex.query(readEditorialApproval, { ...authority(), jobId }), null);
+  assert.deepEqual(await convex.query(getClaimedFulfillmentJob, { ...authority(), jobId }), aggregate);
+  assert.deepEqual(await convex.query(readClaimedCustomerJob, { ...authority(), jobId }), customer);
+  await assert.rejects(
+    convex.mutation(createArtifactUploadUrl, { ...authority(), jobId }),
+    /prepare_review|claim/u,
+  );
+
+  const claimed = claimStageTransition(aggregate, {
+    commandId: "claim-generation-authority-pre-fence",
+    stage: "prepare_review",
+    leaseToken: "prepare-review-pre-fence-lease",
+    leaseMs: 300_000,
+    maxAttempts: 2,
+    operationsCommandId: commandId,
+  }, now);
+  assert.deepEqual(await convex.mutation(replaceClaimedFulfillmentJob, {
+    ...authority(),
+    jobId,
+    expectedVersion: aggregate.version,
+    aggregate: claimed,
+  }), { updated: true, aggregate: claimed });
+
+  const failed = failStageTransition(claimed, {
+    commandId: "fail-generation-authority-pre-fence",
+    stage: "prepare_review",
+    leaseToken: "prepare-review-pre-fence-lease",
+    reasonCode: "stage_error",
+    retryable: false,
+  }, {
+    maxAttemptsByStage: { prepare_review: 2 },
+    backoffMsByStage: { prepare_review: [0] },
+  }, "2026-09-06T10:01:00.000Z");
+  await assert.rejects(
+    convex.mutation(replaceClaimedFulfillmentJob, {
+      ...authority(),
+      jobId,
+      expectedVersion: claimed.version,
+      aggregate: failed,
+    }),
+    /prepare_review|claim/u,
+  );
+});
 
 test("claim-scoped generation authority reads and advances only its claimed prepare_review job", async () => {
   const convex = fixture();

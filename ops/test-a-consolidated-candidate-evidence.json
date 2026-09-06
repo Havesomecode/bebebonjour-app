@@ -378,7 +378,7 @@
       },
       {
         "path": "convex/generation.js",
-        "sha256": "e1934582a206db7feb28c09a6fae778aacc64439b1290f8616bbbaa69849cae5"
+        "sha256": "a2f6607b866dd34b0774ea2e01e87acf3b59e7afc23fe86191f0d0d23f176a08"
       },
       {
         "path": "convex/http.js",
@@ -690,7 +690,7 @@
       },
       {
         "path": "src/operations/production-generation-worker.mjs",
-        "sha256": "25ff9ddcce00b69c33c048831315ad92c6b8cdfba1ae01e4ff323578d5c73971"
+        "sha256": "dd1bf56443153269dc942564cef00921d77b783e277cd8d7d3695272ede09e59"
       },
       {
         "path": "src/persistence/convex-codex-auth-state-store.mjs",
@@ -758,7 +758,7 @@
       },
       {
         "path": "test/convex/generation-worker-authority.test.mjs",
-        "sha256": "579071a1e9b783f17960969dd7d9a5ebab9a3e92725f220ac2a30ea72a8c075c"
+        "sha256": "f4e56728d4199337964edac4cafcce5112064309c32ae5e2966ee3214c9e1e91"
       },
       {
         "path": "test/convex/generation.test.mjs",
@@ -886,7 +886,7 @@
       },
       {
         "path": "test/operations/hosted-generation-storage.test.mjs",
-        "sha256": "7ca759153d810da572c4db2c17b45dab85083b7ea00955272daaa19346e8dc51"
+        "sha256": "0f5430e60197c95ec20cd3a668111b84bbf687844d3fe25f23edf10eceef463c"
       },
       {
         "path": "test/operations/kanban-intake-dispatcher.test.mjs",
@@ -906,7 +906,7 @@
       },
       {
         "path": "test/operations/operations-worker-startup.test.mjs",
-        "sha256": "d767955e11faee9f86afdc0e13add7f3a2aa0069e4765b0eea079e4f7bc6c972"
+        "sha256": "ffd908a9e9ea918c2f8548f3bb7add314530c42d0e7b4098dc0cdc3e35badd2d"
       },
       {
         "path": "test/persistence/convex-codex-auth-state-store.test.mjs",
