@@ -146,7 +146,7 @@ try {
   assert.equal(outputConfig.version, 3);
   assert.match(functionConfig.runtime, /^nodejs22\.x$/);
   assert.match(operationsWorkerConfig.runtime, /^nodejs22\.x$/);
-  assert.equal(operationsWorkerConfig.maxDuration, 60);
+  assert.equal(operationsWorkerConfig.maxDuration, 300);
   assert.match(tallyFunctionConfig.runtime, /^nodejs22\.x$/);
   assert.ok(Array.isArray(outputConfig.routes), "Vercel output must contain generated routes");
   assert.ok(Array.isArray(workerOutputConfig.routes), "worker output must contain generated routes");

@@ -512,7 +512,7 @@
       },
       {
         "path": "scripts/verify-vercel-routing.mjs",
-        "sha256": "07160300bfb96342b6789f01ac307d7c15d02c2c8d3acab14ef424854ecd6428"
+        "sha256": "c0c379b0fd115bbdb7613873131d36a3555babf1084a0116806cec589577af8d"
       },
       {
         "path": "src/config/hosted-customer-flow-config.mjs",
