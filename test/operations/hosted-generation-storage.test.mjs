@@ -125,6 +125,9 @@ function hostedFixture(options = {}) {
       if (name === "generation:readClaimedCustomerJob") {
         assert.equal(input.workerToken, WORKER_TOKEN);
         trace.push("customer_job_read");
+        if (options.rejectCustomerRead === true) {
+          throw new Error("synthetic customer payload must stay private");
+        }
         return {
           schemaVersion: "1.0",
           jobId: JOB_ID,
@@ -428,6 +431,37 @@ test("production generate fails closed before composition when its stage claim o
       assert.equal(fixture.trace.includes("operations_command_failed"), false, scenario.name);
     }
   }
+});
+
+test("production pre-effect failures persist only a bounded generation reason", async () => {
+  const fixture = hostedFixture({ rejectCustomerRead: true });
+  const result = await runOperationsWorkerCommand({
+    environment: productionEnvironment(),
+    client: fixture.client,
+    fetchImpl: fixture.fetchImpl,
+    createCodexAuthStateStore: () => ({ kind: "synthetic-auth-store" }),
+    createCodexRuntime: async () => {
+      throw new Error("Codex runtime must not start after a pre-effect failure.");
+    },
+    clock: fixture.clock,
+    tokenFactory: () => "hosted-generation-stage-lease",
+  });
+
+  assert.deepEqual(result, {
+    status: "ok",
+    protocolVersion: "1.0",
+    workerId: "production-worker-1",
+    enabledActionCount: 1,
+    claimed: 1,
+    completed: 0,
+    failed: 1,
+  });
+  assert.equal(fixture.workerFailure, "generation_backend_failed");
+  assert.match(fixture.workerFailure, /^[a-z0-9_]{3,64}$/u);
+  assert.equal(fixture.workerFailure.includes("payload"), false);
+  assert.equal(fixture.artifactRecord, null);
+  assert.equal(fixture.blobCount, 0);
+  assert.equal(fixture.trace.includes("operations_effect_fenced"), false);
 });
 
 test("hosted artifact uploads reject cross-job manifest references before storage mutation", async () => {

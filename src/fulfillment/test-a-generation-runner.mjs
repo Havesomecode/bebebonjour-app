@@ -192,7 +192,7 @@ function requireEditorialApproval(value) {
   return Object.freeze(canonicalizeJobScopedEditorialApproval(value));
 }
 
-class TestAGenerationOperatorError extends Error {
+class TestAGenerationOperatorError extends OperationsCommandError {
   constructor(code) {
     super(code);
     this.name = "TestAGenerationOperatorError";

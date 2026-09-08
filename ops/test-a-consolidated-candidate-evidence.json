@@ -418,7 +418,7 @@
       },
       {
         "path": "ops/test-a-consolidated-candidate-audit.mjs",
-        "sha256": "77e236272c7a532bcde83e3ddc0d50ed201009b6fc6051866442484bc3b5aac9"
+        "sha256": "6b3619f4b4659584a8877f06753dacdbef856868b8e6e734990c85d72207aa38"
       },
       {
         "path": "ops/test-a-hosted-provider-manifest.json",
@@ -642,7 +642,7 @@
       },
       {
         "path": "src/fulfillment/test-a-generation-runner.mjs",
-        "sha256": "2b78bc77b26565b8693a338a9febe9432b7ca05c429db40aee1f3cb8b7f288bc"
+        "sha256": "9adc5dd58d5dd3e74d11be541da3b97a8a32593ab2a4f55920874e7b7999612d"
       },
       {
         "path": "src/fulfillment/test-a-generation-startup.mjs",
@@ -898,7 +898,7 @@
       },
       {
         "path": "test/operations/hosted-generation-storage.test.mjs",
-        "sha256": "fac3452f9f4c3ae04733be3db5882c410091ec3e19df40a251a5cf7373de9835"
+        "sha256": "eb80ae130c9873cfbdef170f358416227a78fa3d3037e7e1d6ffb3a5f3bbe5d1"
       },
       {
         "path": "test/operations/kanban-intake-dispatcher.test.mjs",
@@ -953,7 +953,7 @@
   "controls": [
     {
       "id": "isolated-generation-only-authority",
-      "requirement": "The generation-only Operations worker is packaged in a separate Vercel project with only its exact worker inventory and no customer-flow backend, payment, email, publication, provider-management, or model credentials. Every canonical read, prepare_review transition, artifact upload, commit, and byte read is bound to the active claimed generate command. Private artifacts are streamed through an authenticated Convex HTTP action without direct storage URLs. Invocation-scoped staging is ephemeral and immutable job-scoped approvals and review artifacts persist durably in Convex. An Operations fence rejection before provider I/O atomically moves the exact claimed prepare_review attempt to retry_wait or failed without artifact or auth-state mutation. Checkout, review mutation, publication, delivery, retry, and reconciliation remain unavailable. The lower-level private generation entrypoint retains its closed approval, canonical paid-record, filesystem, replay, and exact failed-state recovery gates.",
+      "requirement": "The generation-only Operations worker is packaged in a separate Vercel project with only its exact worker inventory and no customer-flow backend, payment, email, publication, provider-management, or model credentials. Every canonical read, prepare_review transition, artifact upload, commit, and byte read is bound to the active claimed generate command. Private artifacts are streamed through an authenticated Convex HTTP action without direct storage URLs. Invocation-scoped staging is ephemeral and immutable job-scoped approvals and review artifacts persist durably in Convex. Pre-effect generation failures persist only a bounded trusted reason code, and an Operations fence rejection before provider I/O atomically moves the exact claimed prepare_review attempt to retry_wait or failed without artifact or auth-state mutation. Checkout, review mutation, publication, delivery, retry, and reconciliation remain unavailable. The lower-level private generation entrypoint retains its closed approval, canonical paid-record, filesystem, replay, and exact failed-state recovery gates.",
       "proofs": [
         "test/fulfillment/test-a-generation-runner.test.mjs: generation-only runner persists canonical intake, advances only prepare_review, and returns PII-free output",
         "test/fulfillment/test-a-generation-runner.test.mjs: generation-only end to end produces the approved neutral unknown-name dossier and stops for review",
@@ -983,6 +983,7 @@
         "test/operations/operations-worker-startup.test.mjs: production generation rejects missing or invalid private configuration before queue access",
         "test/operations/operations-worker-startup.test.mjs: worker startup fails before queue access when an uncomposed action is enabled",
         "test/operations/hosted-generation-storage.test.mjs: Vercel-safe production worker persists review artifacts in Convex and survives a cold invocation",
+        "test/operations/hosted-generation-storage.test.mjs: production pre-effect failures persist only a bounded generation reason",
         "test/convex/generation.test.mjs: Convex keeps approvals immutable and serves private artifact bytes only through an active claim-scoped authenticated HTTP action",
         "test/convex/generation.test.mjs: Convex canonicalizes an approved record before the generation runner verifies it",
         "test/convex/generation-worker-authority.test.mjs: claim-scoped generation authority rejects wrong, replayed, cross-job, and non-generate claims",
