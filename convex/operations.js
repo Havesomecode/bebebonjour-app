@@ -296,9 +296,13 @@ export const requestCommand = mutationGeneric({
         .eq("action", args.action)
         .eq("expectedVersion", args.expectedVersion))
       .collect();
+    const replacementSource = commandsForActionVersion.length === 1
+      && isAuditedNoEffectGenerateFailure(commandsForActionVersion[0], aggregate)
+      ? commandsForActionVersion[0]
+      : null;
     const existingForVersion = args.action === "reconcile"
       ? commandsForActionVersion.find((command) => command.state !== "failed")
-      : commandsForActionVersion[0];
+      : replacementSource ? null : commandsForActionVersion[0];
     if (existingForVersion) {
       if (!sameCommandBinding(existingForVersion, request)) {
         throw new Error("A different operator command already exists for this job version.");
@@ -319,6 +323,7 @@ export const requestCommand = mutationGeneric({
 
     const command = {
       commandId: args.commandId,
+      ...(replacementSource ? { supersedesCommandId: replacementSource.commandId } : {}),
       jobId: args.jobId,
       action: args.action,
       expectedState: args.expectedState,
@@ -1065,6 +1070,31 @@ function commandConflictGroup(action) {
   return null;
 }
 
+function isAuditedNoEffectGenerateFailure(command, aggregate) {
+  return command.action === "generate"
+    && command.expectedState === "generation_queued"
+    && command.expectedVersion === aggregate.version
+    && command.state === "failed"
+    && command.attempts === 1
+    && command.claim === null
+    && command.lastFailureReason === "stale_job_state"
+    && command.outcome === null
+    && command.supersedesCommandId === undefined
+    && stableStringify(command.payload) === "{}"
+    && !hasCommandProvenance(aggregate, command.commandId);
+}
+
+function hasCommandProvenance(value, commandId) {
+  if (Array.isArray(value)) {
+    return value.some((entry) => hasCommandProvenance(entry, commandId));
+  }
+  if (!value || typeof value !== "object") return false;
+  return Object.entries(value).some(([key, entry]) => (
+    (["commandId", "operationsCommandId"].includes(key) && entry === commandId)
+    || hasCommandProvenance(entry, commandId)
+  ));
+}
+
 function summarizeJob(customer, fulfillment, reconciliationCommand = null) {
   return {
     jobId: customer.jobId,
@@ -1095,6 +1125,7 @@ function projectCustomerJob(job) {
 function projectCommand(command) {
   return {
     commandId: command.commandId,
+    ...(command.supersedesCommandId ? { supersedesCommandId: command.supersedesCommandId } : {}),
     jobId: command.jobId,
     action: command.action,
     expectedState: command.expectedState,

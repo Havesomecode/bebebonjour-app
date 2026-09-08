@@ -92,6 +92,7 @@ export default defineSchema({
     .index("by_state_and_updated_at", ["state", "updatedAt"]),
   customerFlowOperationsCommands: defineTable({
     commandId: v.string(),
+    supersedesCommandId: v.optional(v.string()),
     jobId: v.string(),
     action: operationAction,
     expectedState: v.string(),

@@ -312,6 +312,163 @@ test("command requests are idempotent and bound to the exact aggregate state and
   );
 });
 
+test("a failed no-effect generate command can be replaced without reset or id reuse", async () => {
+  const convex = fixture();
+  await seed(convex);
+  const failedCommandId = "command_failed_no_effect_000001";
+  const replacementCommandId = "command_failed_no_effect_000002";
+  await convex.run(async (context) => {
+    await context.db.insert("customerFlowOperationsCommands", {
+      commandId: failedCommandId,
+      jobId: "job_ops_001",
+      action: "generate",
+      expectedState: "generation_queued",
+      expectedVersion: 3,
+      payload: {},
+      requestedAt: "2026-09-03T04:00:00.000Z",
+      requestedBy: "primary_operator",
+      state: "failed",
+      attempts: 1,
+      claim: null,
+      lastFailureReason: "stale_job_state",
+      outcome: null,
+      updatedAt: "2026-09-03T04:01:00.000Z",
+    });
+  });
+
+  const replacement = await convex.mutation(requestCommand, {
+    operatorToken,
+    commandId: replacementCommandId,
+    jobId: "job_ops_001",
+    action: "generate",
+    expectedState: "generation_queued",
+    expectedVersion: 3,
+    payload: {},
+  });
+
+  assert.equal(replacement.created, true);
+  assert.equal(replacement.command.commandId, replacementCommandId);
+  assert.equal(replacement.command.state, "pending");
+  assert.equal(replacement.command.supersedesCommandId, failedCommandId);
+
+  const detail = await convex.query(getJob, { operatorToken, jobId: "job_ops_001" });
+  const failed = detail.commands.find((command) => command.commandId === failedCommandId);
+  assert.equal(failed.state, "failed");
+  assert.equal(failed.attempts, 1);
+  assert.equal(failed.lastFailureReason, "stale_job_state");
+  assert.equal(failed.supersedesCommandId, undefined);
+
+  const claimed = await convex.mutation(claimCommands, {
+    workerToken,
+    actions: allActions,
+    workerId: "replacement-worker",
+    limit: 2,
+    leaseMs: 120_000,
+  });
+  assert.deepEqual(claimed.map((command) => command.commandId), [replacementCommandId]);
+});
+
+test("generate replacement rejects active, completed, uncertain, and other failed commands", async () => {
+  const blockedStates = [
+    { state: "pending", attempts: 0, claim: null, lastFailureReason: null, outcome: null },
+    {
+      state: "running",
+      attempts: 1,
+      claim: {
+        workerId: "existing-worker",
+        leaseToken: "lease-existing-worker",
+        claimedAtMs: Date.now(),
+        leaseExpiresAtMs: Date.now() + 120_000,
+      },
+      lastFailureReason: null,
+      outcome: null,
+    },
+    {
+      state: "completed",
+      attempts: 1,
+      claim: null,
+      lastFailureReason: null,
+      outcome: { code: "review_prepared", revisionId: "revision_001", artifactSetId: "artifact_001", jobVersion: 4 },
+    },
+    { state: "reconciliation_required", attempts: 1, claim: null, lastFailureReason: "external_effect_lease_expired", outcome: null },
+    { state: "failed", attempts: 1, claim: null, lastFailureReason: "provider_rejected", outcome: null },
+  ];
+
+  for (const [index, blocked] of blockedStates.entries()) {
+    const convex = fixture();
+    await seed(convex);
+    await convex.run(async (context) => {
+      await context.db.insert("customerFlowOperationsCommands", {
+        commandId: `command_blocked_replacement_${String(index).padStart(6, "0")}`,
+        jobId: "job_ops_001",
+        action: "generate",
+        expectedState: "generation_queued",
+        expectedVersion: 3,
+        payload: {},
+        requestedAt: "2026-09-03T04:00:00.000Z",
+        requestedBy: "primary_operator",
+        ...blocked,
+        updatedAt: "2026-09-03T04:01:00.000Z",
+      });
+    });
+
+    await assert.rejects(
+      convex.mutation(requestCommand, {
+        operatorToken,
+        commandId: `command_blocked_replacement_new_${String(index).padStart(6, "0")}`,
+        jobId: "job_ops_001",
+        action: "generate",
+        expectedState: "generation_queued",
+        expectedVersion: 3,
+        payload: {},
+      }),
+      /already exists|reconciliation|not available/i,
+      `unexpectedly replaced ${blocked.state}:${blocked.lastFailureReason}`,
+    );
+  }
+});
+
+test("a failed generate command with canonical effect provenance cannot be replaced", async () => {
+  const convex = fixture();
+  const commandId = "command_failed_with_effect_000001";
+  await seed(convex, {
+    fulfillment: fulfillmentAggregate({
+      events: [{ commandId, type: "review_prepared" }],
+    }),
+  });
+  await convex.run(async (context) => {
+    await context.db.insert("customerFlowOperationsCommands", {
+      commandId,
+      jobId: "job_ops_001",
+      action: "generate",
+      expectedState: "generation_queued",
+      expectedVersion: 3,
+      payload: {},
+      requestedAt: "2026-09-03T04:00:00.000Z",
+      requestedBy: "primary_operator",
+      state: "failed",
+      attempts: 1,
+      claim: null,
+      lastFailureReason: "stale_job_state",
+      outcome: null,
+      updatedAt: "2026-09-03T04:01:00.000Z",
+    });
+  });
+
+  await assert.rejects(
+    convex.mutation(requestCommand, {
+      operatorToken,
+      commandId: "command_failed_with_effect_000002",
+      jobId: "job_ops_001",
+      action: "generate",
+      expectedState: "generation_queued",
+      expectedVersion: 3,
+      payload: {},
+    }),
+    /already exists/i,
+  );
+});
+
 test("checkout commands stop without provider I/O when the canonical checkout appears before claim", async () => {
   const convex = fixture();
   await seed(convex, {

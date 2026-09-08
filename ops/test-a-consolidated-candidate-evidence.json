@@ -388,11 +388,11 @@
       },
       {
         "path": "convex/operations.js",
-        "sha256": "7ba5889238f8e5459ed61826952b65c4ad86a65268b4b7135d8363b1b5bc9fb3"
+        "sha256": "9dcc989933b333abb960b89ad8d2deef425b0ba66340871b2aa3576106321fbd"
       },
       {
         "path": "convex/schema.js",
-        "sha256": "2dd0309ec018a4a914568283599c53387ad2ea624439571d391acf2e8d2d4ecc"
+        "sha256": "08686e3a49f7ac454969cdae0ff526a46f67ffc9334daf800442416e0b88fa11"
       },
       {
         "path": "generation-worker/api/worker.mjs",
@@ -776,7 +776,7 @@
       },
       {
         "path": "test/convex/operations.test.mjs",
-        "sha256": "8dbe31f466da50518beae8eee74ab564452db5144acf43ee6fa0c5d6e802b000"
+        "sha256": "54334f04fd8a723ce67b8f405aa07012d1cdce5819b394449cdbd6ee20d79beb"
       },
       {
         "path": "test/customer-flow/customer-flow.test.mjs",
