@@ -178,7 +178,10 @@ try {
   );
   assert.ok(!workerCustomerRoute || workerCustomerRoute.status === 404);
 
-  const artifactInventory = await inspectGeneratedPublicArtifact(outputRoot);
+  const [artifactInventory, workerArtifactInventory] = await Promise.all([
+    inspectGeneratedPublicArtifact(outputRoot),
+    inspectGeneratedPublicArtifact(workerOutputRoot),
+  ]);
 
   console.log(
     `PASS: Vercel CLI ${EXPECTED_VERCEL_VERSION} isolates ${OPERATIONS_WORKER_DESTINATION} from ${FUNCTION_DESTINATION} and ${TALLY_FUNCTION_DESTINATION}; all ${manifest.vercelApi.routes.length} customer routes resolve to their reviewed handlers.`,
@@ -187,6 +190,8 @@ try {
     status: "PASS",
     generatedArtifactFileCount: artifactInventory.fileCount,
     generatedArtifactPathInventorySha256: artifactInventory.pathInventorySha256,
+    workerArtifactFileCount: workerArtifactInventory.fileCount,
+    workerArtifactPathInventorySha256: workerArtifactInventory.pathInventorySha256,
     operationsWorkerMaxDuration: operationsWorkerConfig.maxDuration,
     privateOperatorReachable: false,
   })}`);

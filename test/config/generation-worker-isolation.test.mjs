@@ -19,13 +19,10 @@ test("generation worker is deployed only by its isolated Vercel project", async 
   assert.deepEqual(workerConfig.builds, [{
     src: "generation-worker/api/worker.mjs",
     use: "@vercel/node",
-    config: {
-      includeFiles: [".codex-runtime/**"],
-    },
   }]);
   assert.equal(
     workerConfig.installCommand,
-    "npm ci && node scripts/package-codex-runtime.mjs",
+    "npm ci",
   );
   assert.deepEqual(workerConfig.routes, [{
     src: "/api/operations/worker",

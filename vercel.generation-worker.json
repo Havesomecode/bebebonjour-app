@@ -1,13 +1,10 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "installCommand": "npm ci && node scripts/package-codex-runtime.mjs",
+  "installCommand": "npm ci",
   "builds": [
     {
       "src": "generation-worker/api/worker.mjs",
-      "use": "@vercel/node",
-      "config": {
-        "includeFiles": [".codex-runtime/**"]
-      }
+      "use": "@vercel/node"
     }
   ],
   "routes": [

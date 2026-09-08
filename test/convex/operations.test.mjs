@@ -249,7 +249,7 @@ test("operator list returns a bounded joined projection without secret token mat
   assert.equal(JSON.stringify(result).includes("bbbbbbbb"), false);
 });
 
-test("operator detail returns the private intake, canonical aggregate, commands, and state-aware actions", async () => {
+test("Operations keeps Generate enabled and enqueues the prepared generation job", async () => {
   const convex = fixture();
   await seed(convex);
 
@@ -260,6 +260,19 @@ test("operator detail returns the private intake, canonical aggregate, commands,
   assert.equal(result.fulfillment.state, "generation_queued");
   assert.deepEqual(result.commands, []);
   assert.deepEqual(result.availableActions, ["generate"]);
+
+  const queued = await convex.mutation(requestCommand, {
+    operatorToken,
+    commandId: "command_console_generate_000001",
+    jobId: "job_ops_001",
+    action: "generate",
+    expectedState: result.fulfillment.state,
+    expectedVersion: result.fulfillment.version,
+    payload: {},
+  });
+  assert.equal(queued.created, true);
+  assert.equal(queued.command.action, "generate");
+  assert.equal(queued.command.state, "pending");
 });
 
 test("operator functions reject an invalid scoped token before returning private data", async () => {

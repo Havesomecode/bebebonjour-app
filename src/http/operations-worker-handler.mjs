@@ -1,9 +1,9 @@
 import { timingSafeEqual } from "node:crypto";
 
-import { runOperationsWorkerCommand } from "../operations/operations-worker-startup.mjs";
+import { runOperationsWorkerHealth } from "../operations/operations-worker-health.mjs";
 
 export function createOperationsWorkerHttpHandler(options = {}) {
-  const runWorker = options.runWorker || (() => runOperationsWorkerCommand());
+  const runWorker = options.runWorker || (() => runOperationsWorkerHealth());
   const cronSecret = options.cronSecret || process.env.CRON_SECRET;
   if (typeof cronSecret !== "string" || Buffer.byteLength(cronSecret, "utf8") < 32) {
     throw new Error("Operations worker cron secret is invalid.");

@@ -32,17 +32,7 @@ const PRIVATE_CAPABILITY_MODULES = Object.freeze([
   "src/persistence/convex-codex-auth-state-store.mjs",
   "src/persistence/convex-generation-artifact-store.mjs",
 ]);
-const OPERATIONS_WORKER_GENERATION_MODULES = Object.freeze([
-  "scripts/lib/codex-subscription-composition.mjs",
-  "src/fulfillment/codex-subscription-composer.mjs",
-  "src/fulfillment/hosted-generation-workspace.mjs",
-  "src/fulfillment/local-prepare-review-stage-handler.mjs",
-  "src/fulfillment/test-a-generation-runner.mjs",
-  "src/operations/codex-packaged-runtime.mjs",
-  "src/operations/production-generation-worker.mjs",
-  "src/persistence/convex-codex-auth-state-store.mjs",
-  "src/persistence/convex-generation-artifact-store.mjs",
-]);
+
 const REVIEW_ROOT_INPUTS = Object.freeze([
   ".env.example",
   "ops/test-a-hosted-provider-manifest.json",
@@ -77,10 +67,7 @@ export async function createTestAOperatorIsolationInventory(options) {
     if (customerPublicModuleGraph.includes(privateModule)) {
       throw new Error(`Public route graph imports private TEST-A operator module ${privateModule}.`);
     }
-    if (
-      operationsWorkerModuleGraph.includes(privateModule)
-      && !OPERATIONS_WORKER_GENERATION_MODULES.includes(privateModule)
-    ) {
+    if (operationsWorkerModuleGraph.includes(privateModule)) {
       throw new Error(`Operations worker imports private TEST-A operator module ${privateModule}.`);
     }
   }
@@ -170,7 +157,7 @@ export async function createTestAOperatorIsolationInventory(options) {
     generationModuleGraph,
     customerPublicModuleGraph,
     operationsWorkerEntrypoint,
-    operationsWorkerGenerationModules: [...OPERATIONS_WORKER_GENERATION_MODULES],
+    operationsWorkerGenerationModules: [],
     operationsWorkerModuleGraph,
     packageCommandReferences,
     privateCapabilityModules: [...PRIVATE_CAPABILITY_MODULES],
@@ -210,10 +197,7 @@ export async function inspectGeneratedPublicArtifact(artifactRoot) {
     const bytes = await readFile(filePath);
     const relative = relativePath(absoluteRoot, filePath);
     const text = isTextFile(relative) ? bytes.toString("utf8") : "";
-    const markers = relative.startsWith("functions/api/operations/worker.func/")
-      ? PRIVATE_OPERATOR_MARKERS
-      : [...PRIVATE_OPERATOR_MARKERS, ...GENERATION_WORKER_MARKERS];
-    for (const marker of markers) {
+    for (const marker of [...PRIVATE_OPERATOR_MARKERS, ...GENERATION_WORKER_MARKERS]) {
       if (relative.includes(marker) || text.includes(marker)) {
         throw new Error(`Generated public artifact exposes private TEST-A operator capability marker ${marker}.`);
       }

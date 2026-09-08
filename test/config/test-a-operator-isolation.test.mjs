@@ -40,18 +40,12 @@ test("operator isolation inventory keeps TEST-A capabilities outside every publi
   assert.equal(inventory.generationModuleGraph.includes("src/fulfillment/resend-delivery-adapter.mjs"), false);
   assert.equal(inventory.generationModuleGraph.includes("src/fulfillment/vercel-test-a-publication-provider.mjs"), false);
   assert.equal(inventory.operationsWorkerEntrypoint, "generation-worker/api/worker.mjs");
-  assert.ok(inventory.operationsWorkerModuleGraph.includes("src/operations/production-generation-worker.mjs"));
-  assert.deepEqual(inventory.operationsWorkerGenerationModules, [
-    "scripts/lib/codex-subscription-composition.mjs",
-    "src/fulfillment/codex-subscription-composer.mjs",
-    "src/fulfillment/hosted-generation-workspace.mjs",
-    "src/fulfillment/local-prepare-review-stage-handler.mjs",
-    "src/fulfillment/test-a-generation-runner.mjs",
-    "src/operations/codex-packaged-runtime.mjs",
-    "src/operations/production-generation-worker.mjs",
-    "src/persistence/convex-codex-auth-state-store.mjs",
-    "src/persistence/convex-generation-artifact-store.mjs",
+  assert.deepEqual(inventory.operationsWorkerModuleGraph, [
+    "generation-worker/api/worker.mjs",
+    "src/http/operations-worker-handler.mjs",
+    "src/operations/operations-worker-health.mjs",
   ]);
+  assert.deepEqual(inventory.operationsWorkerGenerationModules, []);
   assert.ok(inventory.privateModuleGraph.includes("src/fulfillment/operator-runner-test-a.mjs"));
   assert.ok(inventory.privateModuleGraph.includes("src/fulfillment/test-a-operator-startup.mjs"));
   assert.equal(inventory.privateModuleGraph.includes("src/fulfillment/test-a-operator-runtime-identity.mjs"), false);
@@ -90,7 +84,7 @@ test("operator isolation inventory keeps TEST-A capabilities outside every publi
     inventory.operationsWorkerModuleGraph.filter(
       (modulePath) => inventory.privateCapabilityModules.includes(modulePath),
     ),
-    inventory.operationsWorkerGenerationModules,
+    [],
   );
   assert.deepEqual(inventory.publicCapabilityMarkers, []);
   assert.deepEqual(inventory.packageCommandReferences, []);
