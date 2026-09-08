@@ -208,6 +208,16 @@ prepare-review retry resumes only that same stage. Output is a PII-free status
 projection and must never be augmented with intake, email, names, notes, page
 content, or raw artifact bytes.
 
+If the Operations effect fence rejects an exact persisted `prepare_review`
+claim before any effect starts, the fence mutation atomically fails the
+Operations command and closes the stage attempt. An attempt remaining within
+the current bound enters `retry_wait`; after its persisted backoff, an operator
+must run `retry` and then request a fresh `generate` command at the resulting
+job version. The worker must not compose, upload, or issue a client-side
+compensating fulfillment write on this path.
+Expired-command discovery in the next worker poll applies the same atomic
+closure if a worker exits after the stage claim and before the effect fence.
+
 The generated private dossier binds the editorial approval record digest, source
 digest, exact job, and exact policy into `generationMaterials` and therefore the
 dossier `materialDigest`. The policy applies only when the ordinary resolver

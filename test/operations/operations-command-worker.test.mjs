@@ -176,6 +176,37 @@ test("a preflight fence failure does not strand later claimed commands", async (
   assert.deepEqual(completed, [second.commandId]);
 });
 
+test("an atomically recovered effect fence preserves active_claim_expired and is not failed twice", async () => {
+  const claimed = command();
+  let fenceCount = 0;
+  const queue = {
+    async claimCommands() { return [claimed]; },
+    async fenceCommand() {
+      fenceCount += 1;
+      return fenceCount === 1
+        ? { active: true, command: claimed }
+        : { active: false, command: null };
+    },
+    async completeCommand() { throw new Error("must not complete"); },
+    async failCommand() { throw new Error("must not fail an atomically recovered stage"); },
+  };
+  const worker = createOperationsCommandWorker({
+    queue,
+    handlers: {
+      async generate({ fenceExternalEffect }) {
+        return fenceExternalEffect(async () => {
+          throw new Error("must not invoke provider mutation");
+        });
+      },
+    },
+  });
+
+  assert.deepEqual(
+    await worker.runOnce({ workerId: "worker-1", limit: 1, leaseMs: 120_000 }),
+    { claimed: 1, completed: 0, failed: 0, expired: 1 },
+  );
+});
+
 test("unsupported and classified handler failures are recorded without exception text", async () => {
   const failures = [];
   const claimed = [

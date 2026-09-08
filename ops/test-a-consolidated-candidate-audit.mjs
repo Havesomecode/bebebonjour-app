@@ -23,6 +23,7 @@ const focusedTestFiles = [
   "test/config/test-a-operator-isolation.test.mjs",
   "test/convex/generation.test.mjs",
   "test/convex/generation-worker-authority.test.mjs",
+  "test/convex/operations.test.mjs",
   "test/fulfillment/exact-revision-publication-adapter.test.mjs",
   "test/fulfillment/failed-prepare-review-recovery.test.mjs",
   "test/fulfillment/codex-subscription-composer.test.mjs",
@@ -48,7 +49,7 @@ const focusedTestFiles = [
 const controls = Object.freeze([
   {
     id: "isolated-generation-only-authority",
-    requirement: "The generation-only Operations worker is packaged in a separate Vercel project with only its exact worker inventory and no customer-flow backend, payment, email, publication, provider-management, or model credentials. Every canonical read, prepare_review transition, artifact upload, commit, and byte read is bound to the active claimed generate command. Private artifacts are streamed through an authenticated Convex HTTP action without direct storage URLs. Invocation-scoped staging is ephemeral and immutable job-scoped approvals and review artifacts persist durably in Convex. Checkout, review mutation, publication, delivery, retry, and reconciliation remain unavailable. The lower-level private generation entrypoint retains its closed approval, canonical paid-record, filesystem, replay, and exact failed-state recovery gates.",
+    requirement: "The generation-only Operations worker is packaged in a separate Vercel project with only its exact worker inventory and no customer-flow backend, payment, email, publication, provider-management, or model credentials. Every canonical read, prepare_review transition, artifact upload, commit, and byte read is bound to the active claimed generate command. Private artifacts are streamed through an authenticated Convex HTTP action without direct storage URLs. Invocation-scoped staging is ephemeral and immutable job-scoped approvals and review artifacts persist durably in Convex. An Operations fence rejection before provider I/O atomically moves the exact claimed prepare_review attempt to retry_wait or failed without artifact or auth-state mutation. Checkout, review mutation, publication, delivery, retry, and reconciliation remain unavailable. The lower-level private generation entrypoint retains its closed approval, canonical paid-record, filesystem, replay, and exact failed-state recovery gates.",
     proofs: [
       "test/fulfillment/test-a-generation-runner.test.mjs: generation-only runner persists canonical intake, advances only prepare_review, and returns PII-free output",
       "test/fulfillment/test-a-generation-runner.test.mjs: generation-only end to end produces the approved neutral unknown-name dossier and stops for review",
@@ -80,6 +81,7 @@ const controls = Object.freeze([
       "test/operations/hosted-generation-storage.test.mjs: Vercel-safe production worker persists review artifacts in Convex and survives a cold invocation",
       "test/convex/generation.test.mjs: Convex keeps approvals immutable and serves private artifact bytes only through an active claim-scoped authenticated HTTP action",
       "test/convex/generation-worker-authority.test.mjs: claim-scoped generation authority rejects wrong, replayed, cross-job, and non-generate claims",
+      "test/convex/operations.test.mjs: the actual Operations fence accepts a canonical generation-authority claim and atomically recovers expired no-effect claims for retry without artifact or auth-state mutation",
       "test/fulfillment/test-a-generation-approval-startup.test.mjs: generation approval startup persists exact immutable approval bytes through Convex",
       "test/config/generation-worker-isolation.test.mjs: generation worker is deployed only by its isolated Vercel project",
       "test/config/test-a-operator-isolation.test.mjs: the authenticated Operations worker graph contains only the reviewed generation subset while customer routes contain no private capability",

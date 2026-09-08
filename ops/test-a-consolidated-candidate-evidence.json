@@ -69,6 +69,7 @@
       "src/fulfillment/resend-delivery-adapter.mjs",
       "src/fulfillment/secure-filesystem-snapshot.mjs",
       "src/fulfillment/test-a-generation-approval-startup.mjs",
+      "src/fulfillment/test-a-generation-policy.mjs",
       "src/fulfillment/test-a-generation-runner.mjs",
       "src/fulfillment/test-a-generation-startup.mjs",
       "src/fulfillment/test-a-operator-runtime-identity.mjs",
@@ -241,6 +242,7 @@
       "src/fulfillment/resend-delivery-adapter.mjs",
       "src/fulfillment/secure-filesystem-snapshot.mjs",
       "src/fulfillment/test-a-generation-approval-startup.mjs",
+      "src/fulfillment/test-a-generation-policy.mjs",
       "src/fulfillment/test-a-generation-runner.mjs",
       "src/fulfillment/test-a-generation-startup.mjs",
       "src/fulfillment/test-a-operator-runtime-identity.mjs",
@@ -358,7 +360,7 @@
       },
       {
         "path": "LIVE_SETUP.md",
-        "sha256": "c4d0f4ec88e1aa0b1fb0fe9c19269945b25d5ac8d7a6cfbd1277af2a46beee9b"
+        "sha256": "6ebf946d125c07687892251f395451ed6d8bbe912683201b8ffe43c63bed5e7e"
       },
       {
         "path": "README.md",
@@ -386,7 +388,7 @@
       },
       {
         "path": "convex/operations.js",
-        "sha256": "66df258e6fd45d906b07de6e4a9e1205486205be489f44ca6fbeeb87a4c71870"
+        "sha256": "7ba5889238f8e5459ed61826952b65c4ad86a65268b4b7135d8363b1b5bc9fb3"
       },
       {
         "path": "convex/schema.js",
@@ -414,7 +416,7 @@
       },
       {
         "path": "ops/test-a-consolidated-candidate-audit.mjs",
-        "sha256": "c2d666dcba9169933a970576912f18340134ec7d90cf290853761836d91ec518"
+        "sha256": "109c02bf07929623685f633d9fb8a5b3774b8e82a22b5d1a7f0d078d4289ad2c"
       },
       {
         "path": "ops/test-a-hosted-provider-manifest.json",
@@ -430,7 +432,7 @@
       },
       {
         "path": "package.json",
-        "sha256": "072bc79595c7a7f449e131e9a7fa1f72d84adc5a0f9271d81c8326cad66230eb"
+        "sha256": "eb67eaf6360ca2f01a6a0b02ec80c98ab1e7248a6cdfa70e0abec9e7105e42fb"
       },
       {
         "path": "public/404.html",
@@ -590,7 +592,7 @@
       },
       {
         "path": "src/fulfillment/job-orchestrator.mjs",
-        "sha256": "826e1a48c407553fe2d917b2e1b044482d9cafe66f09d40418431fcdfe2d39c5"
+        "sha256": "81611a85d857d0ffcca0a2bfb0f4805b666c6a9e411c40590bbf04edd377ed41"
       },
       {
         "path": "src/fulfillment/job-scoped-generation-approval.mjs",
@@ -629,8 +631,12 @@
         "sha256": "450e4ff37a7c8ced74c76d956f9bdaca9f5ab6382c67cc6be92db880533ac8cf"
       },
       {
+        "path": "src/fulfillment/test-a-generation-policy.mjs",
+        "sha256": "751bcfc24dbb7944ba88c74ece7fe1ae585c7e823f0621a0ba7330fa772049eb"
+      },
+      {
         "path": "src/fulfillment/test-a-generation-runner.mjs",
-        "sha256": "6f11e7f79b029c97254c66af668fe552d750017c887223b2ae6ae02bb8a01a34"
+        "sha256": "e74e66f68fa8972a34065aa1437c7be3505b6401f7c82d4935599cd4abe72f39"
       },
       {
         "path": "src/fulfillment/test-a-generation-startup.mjs",
@@ -742,7 +748,7 @@
       },
       {
         "path": "test/config/test-a-operator-isolation-audit.test.mjs",
-        "sha256": "de8247a3f4c4a93747e4bf4263a27c82577c944c4949373b89f02e56806f9a4b"
+        "sha256": "3478c211536a3cd10091f50ba7d5b37b88c2d67d9015ec2118f8f8a19a29df8f"
       },
       {
         "path": "test/config/test-a-operator-isolation.test.mjs",
@@ -770,7 +776,7 @@
       },
       {
         "path": "test/convex/operations.test.mjs",
-        "sha256": "2535dbbd2291aac4696b12dc23d0ff12c331c7899341c1a87e165250cdc0446c"
+        "sha256": "8dbe31f466da50518beae8eee74ab564452db5144acf43ee6fa0c5d6e802b000"
       },
       {
         "path": "test/customer-flow/customer-flow.test.mjs",
@@ -886,7 +892,7 @@
       },
       {
         "path": "test/operations/hosted-generation-storage.test.mjs",
-        "sha256": "0f5430e60197c95ec20cd3a668111b84bbf687844d3fe25f23edf10eceef463c"
+        "sha256": "fac3452f9f4c3ae04733be3db5882c410091ec3e19df40a251a5cf7373de9835"
       },
       {
         "path": "test/operations/kanban-intake-dispatcher.test.mjs",
@@ -898,7 +904,7 @@
       },
       {
         "path": "test/operations/operations-command-worker.test.mjs",
-        "sha256": "be9f0acc48be0cbfb6c0ac87756b51b54733f8925698fca3821ca5fe9fa3ef65"
+        "sha256": "e5225202722077719722f81d297a11ce963efc23c67b25f313f15f916507ac72"
       },
       {
         "path": "test/operations/operations-worker-runtime.test.mjs",
@@ -941,7 +947,7 @@
   "controls": [
     {
       "id": "isolated-generation-only-authority",
-      "requirement": "The generation-only Operations worker is packaged in a separate Vercel project with only its exact worker inventory and no customer-flow backend, payment, email, publication, provider-management, or model credentials. Every canonical read, prepare_review transition, artifact upload, commit, and byte read is bound to the active claimed generate command. Private artifacts are streamed through an authenticated Convex HTTP action without direct storage URLs. Invocation-scoped staging is ephemeral and immutable job-scoped approvals and review artifacts persist durably in Convex. Checkout, review mutation, publication, delivery, retry, and reconciliation remain unavailable. The lower-level private generation entrypoint retains its closed approval, canonical paid-record, filesystem, replay, and exact failed-state recovery gates.",
+      "requirement": "The generation-only Operations worker is packaged in a separate Vercel project with only its exact worker inventory and no customer-flow backend, payment, email, publication, provider-management, or model credentials. Every canonical read, prepare_review transition, artifact upload, commit, and byte read is bound to the active claimed generate command. Private artifacts are streamed through an authenticated Convex HTTP action without direct storage URLs. Invocation-scoped staging is ephemeral and immutable job-scoped approvals and review artifacts persist durably in Convex. An Operations fence rejection before provider I/O atomically moves the exact claimed prepare_review attempt to retry_wait or failed without artifact or auth-state mutation. Checkout, review mutation, publication, delivery, retry, and reconciliation remain unavailable. The lower-level private generation entrypoint retains its closed approval, canonical paid-record, filesystem, replay, and exact failed-state recovery gates.",
       "proofs": [
         "test/fulfillment/test-a-generation-runner.test.mjs: generation-only runner persists canonical intake, advances only prepare_review, and returns PII-free output",
         "test/fulfillment/test-a-generation-runner.test.mjs: generation-only end to end produces the approved neutral unknown-name dossier and stops for review",
@@ -973,6 +979,7 @@
         "test/operations/hosted-generation-storage.test.mjs: Vercel-safe production worker persists review artifacts in Convex and survives a cold invocation",
         "test/convex/generation.test.mjs: Convex keeps approvals immutable and serves private artifact bytes only through an active claim-scoped authenticated HTTP action",
         "test/convex/generation-worker-authority.test.mjs: claim-scoped generation authority rejects wrong, replayed, cross-job, and non-generate claims",
+        "test/convex/operations.test.mjs: the actual Operations fence accepts a canonical generation-authority claim and atomically recovers expired no-effect claims for retry without artifact or auth-state mutation",
         "test/fulfillment/test-a-generation-approval-startup.test.mjs: generation approval startup persists exact immutable approval bytes through Convex",
         "test/config/generation-worker-isolation.test.mjs: generation worker is deployed only by its isolated Vercel project",
         "test/config/test-a-operator-isolation.test.mjs: the authenticated Operations worker graph contains only the reviewed generation subset while customer routes contain no private capability"
@@ -1067,8 +1074,10 @@
       "src/fulfillment/local-generation-workspace.mjs",
       "src/fulfillment/local-prepare-review-stage-handler.mjs",
       "src/fulfillment/secure-filesystem-snapshot.mjs",
+      "src/fulfillment/test-a-generation-policy.mjs",
       "src/fulfillment/test-a-generation-runner.mjs",
       "src/fulfillment/test-a-generation-startup.mjs",
+      "src/operations/operations-command-error.mjs",
       "src/persistence/convex-fulfillment-store.mjs"
     ],
     "operationsWorkerEntrypoint": "generation-worker/api/worker.mjs",
@@ -1100,6 +1109,7 @@
       "src/fulfillment/local-generation-workspace.mjs",
       "src/fulfillment/local-prepare-review-stage-handler.mjs",
       "src/fulfillment/secure-filesystem-snapshot.mjs",
+      "src/fulfillment/test-a-generation-policy.mjs",
       "src/fulfillment/test-a-generation-runner.mjs",
       "src/http/operations-worker-handler.mjs",
       "src/operations/codex-packaged-runtime.mjs",
@@ -1168,6 +1178,7 @@
       "test/config/test-a-operator-isolation.test.mjs",
       "test/convex/generation.test.mjs",
       "test/convex/generation-worker-authority.test.mjs",
+      "test/convex/operations.test.mjs",
       "test/fulfillment/exact-revision-publication-adapter.test.mjs",
       "test/fulfillment/failed-prepare-review-recovery.test.mjs",
       "test/fulfillment/codex-subscription-composer.test.mjs",

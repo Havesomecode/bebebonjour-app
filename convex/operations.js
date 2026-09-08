@@ -1,6 +1,8 @@
 import { mutationGeneric, paginationOptsValidator, queryGeneric } from "convex/server";
 import { v } from "convex/values";
 
+import { TEST_A_PREPARE_REVIEW_RETRY_POLICY } from "../src/fulfillment/test-a-generation-policy.mjs";
+
 const JOB_ID = /^job_[A-Za-z0-9][A-Za-z0-9_-]{2,127}$/u;
 const COMMAND_ID = /^command_[A-Za-z0-9][A-Za-z0-9_-]{7,127}$/u;
 const ACTOR_ID = /^[a-z0-9][a-z0-9_-]{2,63}$/u;
@@ -383,6 +385,19 @@ export const claimCommands = mutationGeneric({
         });
         continue;
       }
+      if (command.state === "running" && command.claim?.effectStartedAtMs === undefined) {
+        const fulfillment = await findFulfillmentJob(context, command.jobId);
+        if (await closeRejectedGenerateStage(context, fulfillment, command, nowMs)) {
+          await context.db.patch(command._id, {
+            state: "failed",
+            claim: null,
+            lastFailureReason: "command_lease_expired",
+            outcome: null,
+            updatedAt: new Date(nowMs).toISOString(),
+          });
+          continue;
+        }
+      }
       if (command.action === "create_checkout") {
         const customer = await findCustomerJob(context, command.jobId);
         if (customer?.job?.payment?.checkout) {
@@ -469,10 +484,21 @@ export const fenceCommand = mutationGeneric({
       return { active: false, command: null };
     }
     if (command.claim.leaseExpiresAtMs <= nowMs) {
+      const fulfillment = args.effectMayBeIssued
+        ? await findFulfillmentJob(context, command.jobId)
+        : null;
+      const stageFailureHandled = await closeRejectedGenerateStage(
+        context,
+        fulfillment,
+        command,
+        nowMs,
+      );
       const next = {
-        state: EXTERNAL_EFFECT_ACTIONS.has(command.action) && command.claim.effectStartedAtMs !== undefined
-          ? "reconciliation_required"
-          : "pending",
+        state: stageFailureHandled
+          ? "failed"
+          : EXTERNAL_EFFECT_ACTIONS.has(command.action) && command.claim.effectStartedAtMs !== undefined
+            ? "reconciliation_required"
+            : "pending",
         claim: null,
         lastFailureReason: "command_lease_expired",
         outcome: null,
@@ -517,6 +543,9 @@ export const fenceCommand = mutationGeneric({
       }
     }
     if (!stateMatches || !bindingMatches) {
+      if (args.effectMayBeIssued) {
+        await closeRejectedGenerateStage(context, fulfillment, command, nowMs);
+      }
       const next = {
         state: "failed",
         claim: null,
@@ -858,6 +887,164 @@ function commandStateIsCurrent(command, aggregate, effectMayBeIssued, nowMs) {
     && Number.isFinite(leaseExpiresAtMs)
     && new Date(leaseExpiresAtMs).toISOString() === attempt.leaseExpiresAt
     && leaseExpiresAtMs > nowMs;
+}
+
+async function closeRejectedGenerateStage(context, fulfillment, command, nowMs) {
+  const aggregate = fulfillment?.aggregate;
+  const attempt = aggregate?.stageAttempts?.at(-1);
+  const claimedEvent = aggregate?.events?.at(-1);
+  const candidateNoEffectClaim = command.action === "generate"
+    && command.claim?.effectStartedAtMs === undefined
+    && aggregate?.jobId === command.jobId
+    && aggregate.state === "generating"
+    && aggregate.version === command.expectedVersion + 1
+    && attempt?.stage === "prepare_review"
+    && attempt.status === "running"
+    && attempt.operationsCommandId === command.commandId
+    && Number.isInteger(attempt.attemptNumber)
+    && attempt.attemptNumber > 0
+    && Number.isInteger(attempt.operationNumber)
+    && attempt.operationNumber > 0
+    && typeof attempt.leaseToken === "string"
+    && attempt.leaseToken.length > 0
+    && attempt.effectStartedAt === null
+    && attempt.completedAt === null
+    && attempt.failure === null;
+  if (!candidateNoEffectClaim) return false;
+
+  const updatedAtMs = Date.parse(aggregate.updatedAt);
+  const startedAtMs = Date.parse(attempt.startedAt);
+  const leaseExpiresAtMs = Date.parse(attempt.leaseExpiresAt);
+  const leaseMs = leaseExpiresAtMs - startedAtMs;
+  if (!Number.isFinite(updatedAtMs)
+    || new Date(updatedAtMs).toISOString() !== aggregate.updatedAt
+    || updatedAtMs > nowMs
+    || !Number.isFinite(startedAtMs)
+    || new Date(startedAtMs).toISOString() !== attempt.startedAt
+    || !Number.isFinite(leaseExpiresAtMs)
+    || new Date(leaseExpiresAtMs).toISOString() !== attempt.leaseExpiresAt
+    || !Number.isInteger(leaseMs)
+    || leaseMs !== TEST_A_PREPARE_REVIEW_RETRY_POLICY.leaseMs) {
+    return false;
+  }
+
+  const priorAttempts = aggregate.stageAttempts.slice(0, -1);
+  const matchingPriorAttempts = priorAttempts.filter((entry) => (
+    entry.stage === "prepare_review" && entry.revisionId === aggregate.currentRevisionId
+  ));
+  const expectedAttemptNumber = matchingPriorAttempts.length + 1;
+  const expectedOperationNumber = matchingPriorAttempts.filter((entry) => entry.status === "completed").length + 1;
+  const exactClaimCommandId =
+    `claim:${command.jobId}:${attempt.revisionId || "unassigned"}:prepare_review:${attempt.attemptNumber}`;
+  const claimPayload = {
+    commandId: exactClaimCommandId,
+    stage: "prepare_review",
+    leaseMs,
+    maxAttempts: TEST_A_PREPARE_REVIEW_RETRY_POLICY.maxAttempts,
+    operationBinding: null,
+    operationsCommandId: command.commandId,
+  };
+  const [attemptIdDigest, idempotencyDigest, claimEventIdDigest, claimDigest] = await Promise.all([
+    sha256Hex([
+      aggregate.jobId,
+      attempt.revisionId || "unassigned",
+      "prepare_review",
+      String(attempt.attemptNumber),
+    ].join("\0")),
+    sha256Hex([
+      aggregate.jobId,
+      attempt.revisionId || "unassigned",
+      "prepare_review",
+      String(attempt.operationNumber),
+    ].join("\0")),
+    sha256Hex(`${aggregate.jobId}\0${exactClaimCommandId}`),
+    sha256Hex(`stage_claimed\0${stableStringify(claimPayload)}`),
+  ]);
+  const exactNoEffectClaim = attempt.revisionId === aggregate.currentRevisionId
+    && attempt.attemptNumber === expectedAttemptNumber
+    && attempt.operationNumber === expectedOperationNumber
+    && attempt.attemptId === `attempt_${attemptIdDigest.slice(0, 24)}`
+    && attempt.idempotencyKey === `bb_${idempotencyDigest}`
+    && attempt.operationBinding === null
+    && attempt.startedAt === aggregate.updatedAt
+    && aggregate.retry === null
+    && Object.keys(attempt).sort().join("\0") === [
+      "attemptId",
+      "attemptNumber",
+      "completedAt",
+      "effectStartedAt",
+      "failure",
+      "idempotencyKey",
+      "leaseExpiresAt",
+      "leaseToken",
+      "operationBinding",
+      "operationNumber",
+      "operationsCommandId",
+      "revisionId",
+      "stage",
+      "startedAt",
+      "status",
+    ].sort().join("\0")
+    && Object.keys(claimedEvent || {}).sort().join("\0") === [
+      "at", "commandDigest", "commandId", "eventId", "state", "type",
+    ].sort().join("\0")
+    && claimedEvent.eventId === `event_${claimEventIdDigest.slice(0, 24)}`
+    && claimedEvent.commandId === exactClaimCommandId
+    && claimedEvent.commandDigest === claimDigest
+    && claimedEvent.type === "stage_claimed"
+    && claimedEvent.at === aggregate.updatedAt
+    && claimedEvent.state === "generating";
+  if (!exactNoEffectClaim) return false;
+
+  const at = new Date(nowMs).toISOString();
+  const retryable = attempt.attemptNumber < TEST_A_PREPARE_REVIEW_RETRY_POLICY.maxAttempts;
+  const recoveryCommandId = `operations-fence-rejected:${command.commandId}:${attempt.attemptId}`;
+  const reasonCode = leaseExpiresAtMs <= nowMs
+    ? "lease_expired"
+    : "operations_effect_fence_rejected";
+  const failure = {
+    commandId: recoveryCommandId,
+    stage: "prepare_review",
+    leaseToken: attempt.leaseToken,
+    retryable: true,
+    reasonCode,
+  };
+  const eventIdDigest = await sha256Hex(`${aggregate.jobId}\0${recoveryCommandId}`);
+  const commandDigest = await sha256Hex(`stage_failed\0${stableStringify(failure)}`);
+  const recoveredAttempt = {
+    ...attempt,
+    status: retryable ? "retry_wait" : "failed",
+    leaseToken: null,
+    leaseExpiresAt: null,
+    completedAt: at,
+    failure: {
+      retryable,
+      reasonCode,
+    },
+  };
+  const nextAggregate = {
+    ...aggregate,
+    state: retryable ? "retry_wait" : "failed",
+    version: aggregate.version + 1,
+    updatedAt: at,
+    retry: retryable ? {
+      stage: "prepare_review",
+      availableAt: new Date(
+        nowMs + TEST_A_PREPARE_REVIEW_RETRY_POLICY.backoffMs[attempt.attemptNumber - 1],
+      ).toISOString(),
+    } : null,
+    stageAttempts: [...aggregate.stageAttempts.slice(0, -1), recoveredAttempt],
+    events: [...aggregate.events, {
+      eventId: `event_${eventIdDigest.slice(0, 24)}`,
+      commandId: recoveryCommandId,
+      commandDigest,
+      type: "stage_failed",
+      at,
+      state: retryable ? "retry_wait" : "failed",
+    }],
+  };
+  await context.db.patch(fulfillment._id, { aggregate: nextAggregate });
+  return true;
 }
 
 function availableActions(customer, aggregate) {
@@ -1270,4 +1457,11 @@ function stableStringify(value) {
     return `{${Object.keys(value).sort().map((key) => `${JSON.stringify(key)}:${stableStringify(value[key])}`).join(",")}}`;
   }
   return JSON.stringify(value);
+}
+
+async function sha256Hex(value) {
+  const digest = await globalThis.crypto.subtle.digest("SHA-256", new TextEncoder().encode(value));
+  return [...new Uint8Array(digest)]
+    .map((byte) => byte.toString(16).padStart(2, "0"))
+    .join("");
 }

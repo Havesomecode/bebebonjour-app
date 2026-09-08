@@ -299,6 +299,7 @@ export function createFulfillmentOrchestrator(options) {
           throw new Error("Operations effect boundary did not invoke the claimed stage.");
         }
       } catch (error) {
+        if (error?.reasonCode === "active_claim_expired") throw error;
         return failAttempt(error);
       }
 

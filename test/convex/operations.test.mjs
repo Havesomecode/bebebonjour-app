@@ -5,6 +5,10 @@ import { convexTest } from "convex-test";
 import { makeFunctionReference } from "convex/server";
 
 import schema from "../../convex/schema.js";
+import {
+  claimStageTransition,
+  failStageTransition,
+} from "../../src/fulfillment/job-machine.mjs";
 
 const listJobs = makeFunctionReference("operations:listJobs");
 const getJob = makeFunctionReference("operations:getJob");
@@ -18,6 +22,7 @@ const consumeLoginAttempt = makeFunctionReference("operations:consumeLoginAttemp
 const resetLoginThrottle = makeFunctionReference("operations:resetLoginThrottle");
 const operatorHealth = makeFunctionReference("operations:operatorHealth");
 const workerHealth = makeFunctionReference("operations:workerHealth");
+const replaceClaimedFulfillmentJob = makeFunctionReference("generation:replaceClaimedFulfillmentJob");
 
 const operatorToken = "operator-token-at-least-32-characters";
 const workerToken = "worker-token-at-least-32-characters__";
@@ -34,6 +39,7 @@ function fixture() {
   process.env.BEBEBONJOUR_OPS_RATE_LIMIT_TOKEN = rateLimitToken;
   return convexTest(schema, {
     "./_generated/server.js": () => import("convex/server"),
+    "./generation.js": () => import("../../convex/generation.js"),
     "./operations.js": () => import("../../convex/operations.js"),
   });
 }
@@ -612,6 +618,263 @@ test("effect fence rejects an expired canonical stage lease", async () => {
   assert.equal(fenced.command.state, "failed");
   assert.equal(fenced.command.lastFailureReason, "stale_job_state");
   assert.equal(fenced.command.claim, null);
+  assert.equal((await convex.query(getJob, {
+    operatorToken,
+    jobId: "job_ops_001",
+  })).fulfillment.state, "generating");
+});
+
+test("actual generation authority claim is accepted by the actual Operations effect fence", async () => {
+  const convex = fixture();
+  const aggregate = fulfillmentAggregate();
+  await seed(convex, { fulfillment: aggregate });
+  const commandId = "command_generation_fence_happy_001";
+  await convex.mutation(requestCommand, {
+    operatorToken,
+    commandId,
+    jobId: aggregate.jobId,
+    action: "generate",
+    expectedState: aggregate.state,
+    expectedVersion: aggregate.version,
+    payload: {},
+  });
+  const [claimed] = await convex.mutation(claimCommands, {
+    workerToken,
+    actions: ["generate"],
+    workerId: "ops-worker-fence-happy",
+    limit: 1,
+    leaseMs: 120_000,
+  });
+  const stageStartedAt = new Date().toISOString();
+  const generating = claimStageTransition(aggregate, {
+    commandId: `claim:${aggregate.jobId}:unassigned:prepare_review:1`,
+    stage: "prepare_review",
+    leaseToken: "happy-generation-stage-lease",
+    leaseMs: 300_000,
+    maxAttempts: 2,
+    operationBinding: null,
+    operationsCommandId: commandId,
+  }, stageStartedAt);
+  assert.equal((await convex.mutation(replaceClaimedFulfillmentJob, {
+    workerToken,
+    workerId: "ops-worker-fence-happy",
+    commandId,
+    leaseToken: claimed.claim.leaseToken,
+    jobId: aggregate.jobId,
+    expectedVersion: aggregate.version,
+    aggregate: generating,
+  })).updated, true);
+
+  const fenced = await convex.mutation(fenceCommand, {
+    workerToken,
+    commandId,
+    workerId: "ops-worker-fence-happy",
+    leaseToken: claimed.claim.leaseToken,
+    leaseMs: 120_000,
+    effectMayBeIssued: true,
+  });
+  assert.equal(fenced.active, true);
+  assert.equal(Number.isFinite(fenced.command.claim.effectStartedAtMs), true);
+  assert.equal((await convex.query(getJob, {
+    operatorToken,
+    jobId: aggregate.jobId,
+  })).fulfillment.stageAttempts.at(-1).status, "running");
+});
+
+test("actual generation authority claim is atomically recovered when its Operations fence expires", async () => {
+  const convex = fixture();
+  const aggregate = fulfillmentAggregate();
+  await seed(convex, { fulfillment: aggregate });
+  const commandId = "command_rejected_generation_fence_001";
+  await convex.mutation(requestCommand, {
+    operatorToken,
+    commandId,
+    jobId: aggregate.jobId,
+    action: "generate",
+    expectedState: aggregate.state,
+    expectedVersion: aggregate.version,
+    payload: {},
+  });
+  const [claimed] = await convex.mutation(claimCommands, {
+    workerToken,
+    actions: ["generate"],
+    workerId: "ops-worker-rejected-fence",
+    limit: 1,
+    leaseMs: 120_000,
+  });
+  const stageStartedAt = new Date().toISOString();
+  const generating = claimStageTransition(aggregate, {
+    commandId: `claim:${aggregate.jobId}:unassigned:prepare_review:1`,
+    stage: "prepare_review",
+    leaseToken: "active-generation-stage-lease",
+    leaseMs: 300_000,
+    maxAttempts: 2,
+    operationBinding: null,
+    operationsCommandId: commandId,
+  }, stageStartedAt);
+  assert.equal((await convex.mutation(replaceClaimedFulfillmentJob, {
+    workerToken,
+    workerId: "ops-worker-rejected-fence",
+    commandId,
+    leaseToken: claimed.claim.leaseToken,
+    jobId: aggregate.jobId,
+    expectedVersion: aggregate.version,
+    aggregate: generating,
+  })).updated, true);
+  await convex.run(async (context) => {
+    const command = await context.db.query("customerFlowOperationsCommands")
+      .withIndex("by_command_id", (query) => query.eq("commandId", commandId))
+      .unique();
+    await context.db.patch(command._id, {
+      claim: {
+        ...command.claim,
+        leaseExpiresAtMs: Date.parse(stageStartedAt) - 1,
+      },
+    });
+  });
+
+  const fenced = await convex.mutation(fenceCommand, {
+    workerToken,
+    commandId,
+    workerId: "ops-worker-rejected-fence",
+    leaseToken: claimed.claim.leaseToken,
+    leaseMs: 120_000,
+    effectMayBeIssued: true,
+  });
+
+  assert.equal(fenced.active, false);
+  assert.equal(fenced.command.state, "failed");
+  assert.equal(fenced.command.lastFailureReason, "command_lease_expired");
+  let providerCompositionCount = 0;
+  if (fenced.active) providerCompositionCount += 1;
+  assert.equal(providerCompositionCount, 0);
+  const recovered = await convex.run(async (context) => (await context.db
+    .query("fulfillmentJobs")
+    .withIndex("by_job_id", (query) => query.eq("jobId", aggregate.jobId))
+    .unique()).aggregate);
+  const recoveryCommandId = `operations-fence-rejected:${commandId}:${generating.stageAttempts.at(-1).attemptId}`;
+  assert.deepEqual(recovered, failStageTransition(generating, {
+    commandId: recoveryCommandId,
+    stage: "prepare_review",
+    leaseToken: generating.stageAttempts.at(-1).leaseToken,
+    retryable: true,
+    reasonCode: "operations_effect_fence_rejected",
+  }, {
+    maxAttemptsByStage: { prepare_review: 2 },
+    backoffMsByStage: { prepare_review: [60_000] },
+  }, recovered.updatedAt));
+  assert.equal(recovered.state, "retry_wait");
+  assert.equal(recovered.version, generating.version + 1);
+  assert.deepEqual(recovered.retry, {
+    stage: "prepare_review",
+    availableAt: new Date(Date.parse(recovered.updatedAt) + 60_000).toISOString(),
+  });
+  assert.deepEqual(recovered.stageAttempts.at(-1).failure, {
+    retryable: true,
+    reasonCode: "operations_effect_fence_rejected",
+  });
+  assert.equal(recovered.stageAttempts.at(-1).status, "retry_wait");
+  assert.equal(recovered.stageAttempts.at(-1).effectStartedAt, null);
+  assert.equal(recovered.events.at(-1).type, "stage_failed");
+  assert.equal(recovered.events.at(-1).state, "retry_wait");
+  const projected = await convex.query(getJob, { operatorToken, jobId: aggregate.jobId });
+  assert.deepEqual(projected.availableActions, ["retry"]);
+  const persistenceCounts = await convex.run(async (context) => ({
+    artifactSets: (await context.db.query("fulfillmentGenerationArtifactSets").collect()).length,
+    authStates: (await context.db.query("fulfillmentCodexAuthState").collect()).length,
+  }));
+  assert.deepEqual(persistenceCounts, { artifactSets: 0, authStates: 0 });
+  const retried = await convex.mutation(requestCommand, {
+    operatorToken,
+    commandId: "command_retry_recovered_generation_001",
+    jobId: aggregate.jobId,
+    action: "retry",
+    expectedState: recovered.state,
+    expectedVersion: recovered.version,
+    payload: {},
+  });
+  assert.equal(retried.created, true);
+  assert.equal((await convex.mutation(claimCommands, {
+    workerToken,
+    actions: ["retry"],
+    workerId: "ops-worker-retry-recovered",
+    limit: 1,
+    leaseMs: 120_000,
+  })).length, 1);
+});
+
+test("claim polling atomically recovers a no-effect generate stage left by a crashed worker", async () => {
+  const convex = fixture();
+  const aggregate = fulfillmentAggregate();
+  await seed(convex, { fulfillment: aggregate });
+  const commandId = "command_crashed_generation_worker_001";
+  await convex.mutation(requestCommand, {
+    operatorToken,
+    commandId,
+    jobId: aggregate.jobId,
+    action: "generate",
+    expectedState: aggregate.state,
+    expectedVersion: aggregate.version,
+    payload: {},
+  });
+  const [claimed] = await convex.mutation(claimCommands, {
+    workerToken,
+    actions: ["generate"],
+    workerId: "ops-worker-before-crash",
+    limit: 1,
+    leaseMs: 120_000,
+  });
+  const stageStartedAt = new Date(Date.now() - 300_001).toISOString();
+  const generating = claimStageTransition(aggregate, {
+    commandId: `claim:${aggregate.jobId}:unassigned:prepare_review:1`,
+    stage: "prepare_review",
+    leaseToken: "crashed-generation-stage-lease",
+    leaseMs: 300_000,
+    maxAttempts: 2,
+    operationBinding: null,
+    operationsCommandId: commandId,
+  }, stageStartedAt);
+  assert.equal((await convex.mutation(replaceClaimedFulfillmentJob, {
+    workerToken,
+    workerId: "ops-worker-before-crash",
+    commandId,
+    leaseToken: claimed.claim.leaseToken,
+    jobId: aggregate.jobId,
+    expectedVersion: aggregate.version,
+    aggregate: generating,
+  })).updated, true);
+  await convex.run(async (context) => {
+    const command = await context.db.query("customerFlowOperationsCommands")
+      .withIndex("by_command_id", (query) => query.eq("commandId", commandId))
+      .unique();
+    await context.db.patch(command._id, {
+      claim: { ...command.claim, leaseExpiresAtMs: Date.parse(stageStartedAt) - 1 },
+    });
+  });
+
+  assert.deepEqual(await convex.mutation(claimCommands, {
+    workerToken,
+    actions: ["generate"],
+    workerId: "ops-worker-after-crash",
+    limit: 1,
+    leaseMs: 120_000,
+  }), []);
+  const [recoveredCommand, recoveredJob] = await Promise.all([
+    convex.run(async (context) => context.db.query("customerFlowOperationsCommands")
+      .withIndex("by_command_id", (query) => query.eq("commandId", claimed.commandId))
+      .unique()),
+    convex.query(getJob, { operatorToken, jobId: aggregate.jobId }),
+  ]);
+  assert.equal(recoveredCommand.state, "failed");
+  assert.equal(recoveredCommand.lastFailureReason, "command_lease_expired");
+  assert.equal(recoveredJob.fulfillment.state, "retry_wait");
+  assert.equal(recoveredJob.fulfillment.stageAttempts.at(-1).status, "retry_wait");
+  assert.equal(recoveredJob.fulfillment.stageAttempts.at(-1).effectStartedAt, null);
+  assert.deepEqual(recoveredJob.fulfillment.stageAttempts.at(-1).failure, {
+    retryable: true,
+    reasonCode: "lease_expired",
+  });
+  assert.deepEqual(recoveredJob.availableActions, ["retry"]);
 });
 
 test("effect fence rejects a future stage lease outside canonical timestamp form", async () => {

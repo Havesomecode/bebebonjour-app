@@ -4,7 +4,9 @@ import { isDeepStrictEqual } from "node:util";
 import { ConvexHttpClient } from "convex/browser";
 
 import { createFulfillmentOrchestrator } from "./job-orchestrator.mjs";
+import { TEST_A_PREPARE_REVIEW_RETRY_POLICY } from "./test-a-generation-policy.mjs";
 import { createLocalGenerationWorkspace } from "./local-generation-workspace.mjs";
+import { OperationsCommandError } from "../operations/operations-command-error.mjs";
 import { createLocalPrepareReviewStageHandler } from "./local-prepare-review-stage-handler.mjs";
 import { createConvexFulfillmentStore } from "../persistence/convex-fulfillment-store.mjs";
 import { assertValidJobScopedEditorialApproval } from "../../scripts/lib/schema-validation.mjs";
@@ -15,9 +17,9 @@ const DIGEST = /^[a-f0-9]{64}$/u;
 const SAFE_REASON = /^[a-z0-9_]{1,64}$/u;
 
 export const TEST_A_GENERATION_RETRY_POLICY = Object.freeze({
-  leaseMsByStage: Object.freeze({ prepare_review: 300_000 }),
-  maxAttemptsByStage: Object.freeze({ prepare_review: 2 }),
-  backoffMsByStage: Object.freeze({ prepare_review: Object.freeze([60_000]) }),
+  leaseMsByStage: Object.freeze({ prepare_review: TEST_A_PREPARE_REVIEW_RETRY_POLICY.leaseMs }),
+  maxAttemptsByStage: Object.freeze({ prepare_review: TEST_A_PREPARE_REVIEW_RETRY_POLICY.maxAttempts }),
+  backoffMsByStage: Object.freeze({ prepare_review: TEST_A_PREPARE_REVIEW_RETRY_POLICY.backoffMs }),
 });
 
 export function createTestAGenerationRunner(options = {}) {
@@ -63,7 +65,12 @@ export function createTestAGenerationRunner(options = {}) {
       try {
         return await generate(jobId, generationOptions);
       } catch (error) {
-        if (error instanceof TestAGenerationOperatorError) throw error;
+        if (
+          error instanceof TestAGenerationOperatorError
+          || (error instanceof OperationsCommandError && error.reasonCode === "active_claim_expired")
+        ) {
+          throw error;
+        }
         throw safeError("generation_backend_failed");
       }
     },

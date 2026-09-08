@@ -3,7 +3,11 @@ import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 
-import { createJobAggregate, recordPaymentTransition } from "../../src/fulfillment/job-machine.mjs";
+import {
+  createJobAggregate,
+  failStageTransition,
+  recordPaymentTransition,
+} from "../../src/fulfillment/job-machine.mjs";
 import { runOperationsWorkerCommand } from "../../src/operations/operations-worker-startup.mjs";
 import { createProductionGenerationWorker } from "../../src/operations/production-generation-worker.mjs";
 import { createConvexGenerationArtifactStore } from "../../src/persistence/convex-generation-artifact-store.mjs";
@@ -107,6 +111,7 @@ function hostedFixture(options = {}) {
     expectedState: aggregate.state,
     expectedVersion: aggregate.version,
     payload: {},
+    state: "running",
     claim: {
       workerId: "production-worker-1",
       leaseToken: "hosted-generation-lease",
@@ -169,8 +174,30 @@ function hostedFixture(options = {}) {
           && attempt?.status === "running"
           && attempt?.operationsCommandId === COMMAND_ID
           && Date.parse(attempt.leaseExpiresAt) > Date.now();
-        if (active) trace.push("operations_effect_fenced");
-        return { active, command: active ? structuredClone(command) : null };
+        if (active) {
+          trace.push("operations_effect_fenced");
+          return { active: true, command: structuredClone(command) };
+        }
+        if (options.rejectEffectFence === true) {
+          aggregate = failStageTransition(aggregate, {
+            commandId: `operations-fence-rejected:${COMMAND_ID}:${attempt.attemptId}`,
+            stage: "prepare_review",
+            leaseToken: attempt.leaseToken,
+            retryable: true,
+            reasonCode: "operations_effect_fence_rejected",
+          }, {
+            maxAttemptsByStage: { prepare_review: 2 },
+            backoffMsByStage: { prepare_review: [60_000] },
+          }, new Date(nowMs).toISOString());
+          command.state = "failed";
+          command.claim = null;
+          trace.push("prepare_review_fence_recovered");
+          return {
+            active: false,
+            command: structuredClone(command),
+          };
+        }
+        return { active: false, command: null };
       }
       if (name === "operations:completeCommand") {
         trace.push("operations_command_completed");
@@ -252,6 +279,7 @@ function hostedFixture(options = {}) {
     get downloadCount() { return downloadCount; },
     get trace() { return [...trace]; },
     get workerFailure() { return workerFailure; },
+    get command() { return structuredClone(command); },
   };
 }
 
@@ -373,17 +401,32 @@ test("production generate fails closed before composition when its stage claim o
       enabledActionCount: 1,
       claimed: 1,
       completed: 0,
-      failed: 1,
-    }, scenario.name);
+      failed: scenario.fixtureOptions.rejectPrepareReviewClaim ? 1 : 0,
+      ...(scenario.fixtureOptions.rejectEffectFence ? { expired: 1 } : {}),
+    }, `${scenario.name}: ${fixture.workerFailure}; ${fixture.trace.join(",")}`);
     assert.equal(compositionCount, 0, scenario.name);
     assert.equal(fixture.artifactRecord, null, scenario.name);
     assert.equal(fixture.blobCount, 0, scenario.name);
     assert.equal(fixture.trace.includes("operations_command_completed"), false, scenario.name);
     assert.equal(
       fixture.aggregate.state,
-      scenario.fixtureOptions.rejectPrepareReviewClaim ? "generation_queued" : "generating",
+      scenario.fixtureOptions.rejectPrepareReviewClaim ? "generation_queued" : "retry_wait",
       scenario.name,
     );
+    if (scenario.fixtureOptions.rejectEffectFence) {
+      assert.equal(fixture.command.state, "failed", scenario.name);
+      assert.equal(fixture.aggregate.stageAttempts.at(-1).status, "retry_wait", scenario.name);
+      assert.deepEqual(fixture.aggregate.stageAttempts.at(-1).failure, {
+        retryable: true,
+        reasonCode: "operations_effect_fence_rejected",
+      }, scenario.name);
+      assert.deepEqual(fixture.aggregate.retry, {
+        stage: "prepare_review",
+        availableAt: new Date(Date.parse(fixture.clock()) + 60_000).toISOString(),
+      }, scenario.name);
+      assert.equal(fixture.trace.includes("prepare_review_fence_recovered"), true, scenario.name);
+      assert.equal(fixture.trace.includes("operations_command_failed"), false, scenario.name);
+    }
   }
 });
 
