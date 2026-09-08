@@ -6,6 +6,7 @@ import { convexTest } from "convex-test";
 import { makeFunctionReference } from "convex/server";
 
 import schema from "../../convex/schema.js";
+import { createTestAGenerationRunner } from "../../src/fulfillment/test-a-generation-runner.mjs";
 
 const saveEditorialApproval = makeFunctionReference("generation:saveEditorialApproval");
 const readEditorialApproval = makeFunctionReference("generation:readEditorialApproval");
@@ -135,6 +136,61 @@ test("Convex keeps editorial approval immutable and claim-scoped", async () => {
     convex.query(readEditorialApproval, { ...authority, workerToken: "wrong", jobId }),
     /authorization/u,
   );
+});
+
+test("Convex canonicalizes an approved record before the generation runner verifies it", async () => {
+  const convex = fixture();
+  await seedClaim(convex);
+  const approval = editorialApproval();
+  const { record } = approval;
+  const transportApproval = {
+    record: {
+      sourceDigest: record.sourceDigest,
+      sourceEvidence: {
+        reference: record.sourceEvidence.reference,
+        kind: record.sourceEvidence.kind,
+      },
+      policy: {
+        maxStage: record.policy.maxStage,
+        genericBlessingsAllowed: record.policy.genericBlessingsAllowed,
+        scripturalNameAssociationAllowed: record.policy.scripturalNameAssociationAllowed,
+        meaningAllowed: record.policy.meaningAllowed,
+        preserveSubmittedName: record.policy.preserveSubmittedName,
+        id: record.policy.id,
+      },
+      jobId: record.jobId,
+      approvalType: record.approvalType,
+      schemaVersion: record.schemaVersion,
+    },
+    recordDigest: approval.recordDigest,
+  };
+
+  const persisted = await convex.mutation(saveEditorialApproval, {
+    backendToken,
+    jobId,
+    approval: transportApproval,
+  });
+  const fetched = await convex.query(readEditorialApproval, { ...authority, jobId });
+
+  assert.deepEqual(persisted.approval, approval);
+  assert.deepEqual(fetched, approval);
+  const unused = async () => {
+    throw new Error("Golden approval regression must not execute generation.");
+  };
+  assert.doesNotThrow(() => createTestAGenerationRunner({
+    editorialApproval: fetched,
+    customerReader: { readJob: unused },
+    store: {
+      getJob: unused,
+      claimStage: unused,
+      completeStage: unused,
+      failStage: unused,
+      recoverFailedPrepareReview: unused,
+      resumeRetry: unused,
+    },
+    workspace: { persistJobInput: unused },
+    prepareReview: unused,
+  }));
 });
 
 test("Convex commits and streams a bounded private artifact set only for the active claim", async () => {

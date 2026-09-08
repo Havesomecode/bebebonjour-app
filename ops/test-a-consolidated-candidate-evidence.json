@@ -60,6 +60,7 @@
       "src/fulfillment/hosted-generation-workspace.mjs",
       "src/fulfillment/job-machine.mjs",
       "src/fulfillment/job-orchestrator.mjs",
+      "src/fulfillment/job-scoped-editorial-approval-canonicalization.mjs",
       "src/fulfillment/job-scoped-generation-approval.mjs",
       "src/fulfillment/local-command-stage-handlers.mjs",
       "src/fulfillment/local-generation-workspace.mjs",
@@ -233,6 +234,7 @@
       "src/fulfillment/hosted-generation-workspace.mjs",
       "src/fulfillment/job-machine.mjs",
       "src/fulfillment/job-orchestrator.mjs",
+      "src/fulfillment/job-scoped-editorial-approval-canonicalization.mjs",
       "src/fulfillment/job-scoped-generation-approval.mjs",
       "src/fulfillment/local-command-stage-handlers.mjs",
       "src/fulfillment/local-generation-workspace.mjs",
@@ -380,7 +382,7 @@
       },
       {
         "path": "convex/generation.js",
-        "sha256": "a2f6607b866dd34b0774ea2e01e87acf3b59e7afc23fe86191f0d0d23f176a08"
+        "sha256": "2a1b8cf24cf3a534e408e29aa72ba16491e718538e031c730075dd3a1e7292a2"
       },
       {
         "path": "convex/http.js",
@@ -388,7 +390,7 @@
       },
       {
         "path": "convex/operations.js",
-        "sha256": "9dcc989933b333abb960b89ad8d2deef425b0ba66340871b2aa3576106321fbd"
+        "sha256": "9b1a20f5bc1c90dba3b8ead1a3eb8a43eefe011a77fa717abd9950a9df55ac95"
       },
       {
         "path": "convex/schema.js",
@@ -416,7 +418,7 @@
       },
       {
         "path": "ops/test-a-consolidated-candidate-audit.mjs",
-        "sha256": "109c02bf07929623685f633d9fb8a5b3774b8e82a22b5d1a7f0d078d4289ad2c"
+        "sha256": "77e236272c7a532bcde83e3ddc0d50ed201009b6fc6051866442484bc3b5aac9"
       },
       {
         "path": "ops/test-a-hosted-provider-manifest.json",
@@ -468,7 +470,7 @@
       },
       {
         "path": "scripts/lib/commands.mjs",
-        "sha256": "36a80d726426e8427e4571762412d71d765e31284d6c8cd84b298106e65a2a59"
+        "sha256": "44270f29fb61466cdc481ffe6a53aa4c053696f5911d890190c20201ce85d94c"
       },
       {
         "path": "scripts/lib/common.mjs",
@@ -588,15 +590,19 @@
       },
       {
         "path": "src/fulfillment/job-machine.mjs",
-        "sha256": "69efebef1d4e18f74833e48cd78d204eee5cda08c9cefdc5e5079cba925e85b7"
+        "sha256": "bb2075fdec446a2baf6ca37d0d19527e6ac6801476082db6ba0c8e5802d2b231"
       },
       {
         "path": "src/fulfillment/job-orchestrator.mjs",
         "sha256": "81611a85d857d0ffcca0a2bfb0f4805b666c6a9e411c40590bbf04edd377ed41"
       },
       {
+        "path": "src/fulfillment/job-scoped-editorial-approval-canonicalization.mjs",
+        "sha256": "406c17c5f8defb793c14dd90a2bb3524e9fc872e34df3fd9271eb890690b27b1"
+      },
+      {
         "path": "src/fulfillment/job-scoped-generation-approval.mjs",
-        "sha256": "e15d69e35468f0e330543bf9fb54a2cb0c9ce9a3cd9f8d1b6c7dcfac3b845db6"
+        "sha256": "fbd23fae795ccb159efe45e06cf34e18ef76f8f1f0a47fcacd442412f7a58d5d"
       },
       {
         "path": "src/fulfillment/local-command-stage-handlers.mjs",
@@ -604,7 +610,7 @@
       },
       {
         "path": "src/fulfillment/local-generation-workspace.mjs",
-        "sha256": "621d85bcb2495a74eeea651b55add8c3937b9aeaec4223407acee7baf8edc14e"
+        "sha256": "68dccf05a0ccca37d772ccc2784fff119c4ab67c7d51365ac1c27e1f6407d3a1"
       },
       {
         "path": "src/fulfillment/local-prepare-review-stage-handler.mjs",
@@ -636,7 +642,7 @@
       },
       {
         "path": "src/fulfillment/test-a-generation-runner.mjs",
-        "sha256": "e74e66f68fa8972a34065aa1437c7be3505b6401f7c82d4935599cd4abe72f39"
+        "sha256": "2b78bc77b26565b8693a338a9febe9432b7ca05c429db40aee1f3cb8b7f288bc"
       },
       {
         "path": "src/fulfillment/test-a-generation-startup.mjs",
@@ -768,7 +774,7 @@
       },
       {
         "path": "test/convex/generation.test.mjs",
-        "sha256": "bdf670d32b4dd56ee075bba398c7ccb4b52bbe7e143f6eef2249f95f65d3f4dd"
+        "sha256": "e80195736f6f5a5b8d8a8dc53dfb4a7e9add17fe0fea2a62dfe64159ddcd50fc"
       },
       {
         "path": "test/convex/operations-authorization.test.mjs",
@@ -776,7 +782,7 @@
       },
       {
         "path": "test/convex/operations.test.mjs",
-        "sha256": "54334f04fd8a723ce67b8f405aa07012d1cdce5819b394449cdbd6ee20d79beb"
+        "sha256": "f8f58884c87b50659d7f50a69ed1908c3abfa0c7bbed043f0f0790d3c5b5ddab"
       },
       {
         "path": "test/customer-flow/customer-flow.test.mjs",
@@ -978,8 +984,10 @@
         "test/operations/operations-worker-startup.test.mjs: worker startup fails before queue access when an uncomposed action is enabled",
         "test/operations/hosted-generation-storage.test.mjs: Vercel-safe production worker persists review artifacts in Convex and survives a cold invocation",
         "test/convex/generation.test.mjs: Convex keeps approvals immutable and serves private artifact bytes only through an active claim-scoped authenticated HTTP action",
+        "test/convex/generation.test.mjs: Convex canonicalizes an approved record before the generation runner verifies it",
         "test/convex/generation-worker-authority.test.mjs: claim-scoped generation authority rejects wrong, replayed, cross-job, and non-generate claims",
         "test/convex/operations.test.mjs: the actual Operations fence accepts a canonical generation-authority claim and atomically recovers expired no-effect claims for retry without artifact or auth-state mutation",
+        "test/convex/operations.test.mjs: failed no-effect generation commands remain auditable and replaceable without duplicating effects",
         "test/fulfillment/test-a-generation-approval-startup.test.mjs: generation approval startup persists exact immutable approval bytes through Convex",
         "test/config/generation-worker-isolation.test.mjs: generation worker is deployed only by its isolated Vercel project",
         "test/config/test-a-operator-isolation.test.mjs: the authenticated Operations worker graph contains only the reviewed generation subset while customer routes contain no private capability"
@@ -1046,6 +1054,7 @@
       "src/customer-flow/tally-intake.mjs",
       "src/fulfillment/job-machine.mjs",
       "src/fulfillment/job-orchestrator.mjs",
+      "src/fulfillment/job-scoped-editorial-approval-canonicalization.mjs",
       "src/http/tally-intake-handler.mjs",
       "src/persistence/convex-customer-flow-store.mjs",
       "src/persistence/convex-fulfillment-store.mjs"
@@ -1054,6 +1063,7 @@
     "generationApprovalModuleGraph": [
       "ops/persist-test-a-generation-approval.mjs",
       "scripts/lib/schema-validation.mjs",
+      "src/fulfillment/job-scoped-editorial-approval-canonicalization.mjs",
       "src/fulfillment/job-scoped-generation-approval.mjs",
       "src/fulfillment/secure-filesystem-snapshot.mjs",
       "src/fulfillment/test-a-generation-approval-startup.mjs"
@@ -1070,6 +1080,7 @@
       "scripts/lib/validators.mjs",
       "src/fulfillment/job-machine.mjs",
       "src/fulfillment/job-orchestrator.mjs",
+      "src/fulfillment/job-scoped-editorial-approval-canonicalization.mjs",
       "src/fulfillment/job-scoped-generation-approval.mjs",
       "src/fulfillment/local-generation-workspace.mjs",
       "src/fulfillment/local-prepare-review-stage-handler.mjs",
@@ -1106,6 +1117,7 @@
       "src/fulfillment/hosted-generation-workspace.mjs",
       "src/fulfillment/job-machine.mjs",
       "src/fulfillment/job-orchestrator.mjs",
+      "src/fulfillment/job-scoped-editorial-approval-canonicalization.mjs",
       "src/fulfillment/local-generation-workspace.mjs",
       "src/fulfillment/local-prepare-review-stage-handler.mjs",
       "src/fulfillment/secure-filesystem-snapshot.mjs",
@@ -1144,6 +1156,7 @@
       "src/customer-flow/tally-intake.mjs",
       "src/fulfillment/job-machine.mjs",
       "src/fulfillment/job-orchestrator.mjs",
+      "src/fulfillment/job-scoped-editorial-approval-canonicalization.mjs",
       "src/http/tally-intake-handler.mjs",
       "src/persistence/convex-customer-flow-store.mjs",
       "src/persistence/convex-fulfillment-store.mjs"

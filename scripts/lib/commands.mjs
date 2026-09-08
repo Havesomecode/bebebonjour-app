@@ -33,6 +33,7 @@ import {
   codexCompositionToSuggestion,
 } from "./codex-subscription-composition.mjs";
 import { renderHtml } from "./render-html.mjs";
+import { serializeCanonicalJobScopedEditorialApprovalRecord } from "../../src/fulfillment/job-scoped-editorial-approval-canonicalization.mjs";
 import {
   assertUnknownNameGeneralWishesPolicy,
   resolveName,
@@ -533,7 +534,9 @@ function projectEditorialApprovalMaterial(editorialApproval) {
   if (
     typeof editorialApproval.recordDigest !== "string"
     || !/^[a-f0-9]{64}$/u.test(editorialApproval.recordDigest)
-    || editorialApproval.recordDigest !== sha256(`${JSON.stringify(record, null, 2)}\n`)
+    || editorialApproval.recordDigest !== sha256(
+      serializeCanonicalJobScopedEditorialApprovalRecord(record),
+    )
     || record.sourceDigest !== sha256(JSON.stringify({
       kind: record.sourceEvidence.kind,
       reference: record.sourceEvidence.reference,

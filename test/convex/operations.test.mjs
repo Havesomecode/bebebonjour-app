@@ -312,7 +312,7 @@ test("command requests are idempotent and bound to the exact aggregate state and
   );
 });
 
-test("a failed no-effect generate command can be replaced without reset or id reuse", async () => {
+test("failed no-effect generate commands can be replaced repeatedly without losing audit history", async () => {
   const convex = fixture();
   await seed(convex);
   const failedCommandId = "command_failed_no_effect_000001";
@@ -330,7 +330,7 @@ test("a failed no-effect generate command can be replaced without reset or id re
       state: "failed",
       attempts: 1,
       claim: null,
-      lastFailureReason: "stale_job_state",
+      lastFailureReason: "generation_approval_rejected",
       outcome: null,
       updatedAt: "2026-09-03T04:01:00.000Z",
     });
@@ -355,7 +355,7 @@ test("a failed no-effect generate command can be replaced without reset or id re
   const failed = detail.commands.find((command) => command.commandId === failedCommandId);
   assert.equal(failed.state, "failed");
   assert.equal(failed.attempts, 1);
-  assert.equal(failed.lastFailureReason, "stale_job_state");
+  assert.equal(failed.lastFailureReason, "generation_approval_rejected");
   assert.equal(failed.supersedesCommandId, undefined);
 
   const claimed = await convex.mutation(claimCommands, {
@@ -366,6 +366,35 @@ test("a failed no-effect generate command can be replaced without reset or id re
     leaseMs: 120_000,
   });
   assert.deepEqual(claimed.map((command) => command.commandId), [replacementCommandId]);
+
+  await convex.mutation(failCommand, {
+    workerToken,
+    commandId: replacementCommandId,
+    workerId: "replacement-worker",
+    leaseToken: claimed[0].claim.leaseToken,
+    reasonCode: "operation_failed",
+    retryable: false,
+  });
+  const secondReplacementCommandId = "command_failed_no_effect_000003";
+  const secondReplacement = await convex.mutation(requestCommand, {
+    operatorToken,
+    commandId: secondReplacementCommandId,
+    jobId: "job_ops_001",
+    action: "generate",
+    expectedState: "generation_queued",
+    expectedVersion: 3,
+    payload: {},
+  });
+  assert.equal(secondReplacement.created, true);
+  assert.equal(secondReplacement.command.supersedesCommandId, replacementCommandId);
+
+  const audited = await convex.query(getJob, { operatorToken, jobId: "job_ops_001" });
+  const firstReplacement = audited.commands.find(
+    (command) => command.commandId === replacementCommandId,
+  );
+  assert.equal(firstReplacement.state, "failed");
+  assert.equal(firstReplacement.lastFailureReason, "operation_failed");
+  assert.equal(firstReplacement.supersedesCommandId, failedCommandId);
 });
 
 test("generate replacement rejects active, completed, uncertain, and other failed commands", async () => {
@@ -391,7 +420,6 @@ test("generate replacement rejects active, completed, uncertain, and other faile
       outcome: { code: "review_prepared", revisionId: "revision_001", artifactSetId: "artifact_001", jobVersion: 4 },
     },
     { state: "reconciliation_required", attempts: 1, claim: null, lastFailureReason: "external_effect_lease_expired", outcome: null },
-    { state: "failed", attempts: 1, claim: null, lastFailureReason: "provider_rejected", outcome: null },
   ];
 
   for (const [index, blocked] of blockedStates.entries()) {

@@ -5,6 +5,11 @@ import {
 } from "convex/server";
 import { v } from "convex/values";
 
+import {
+  canonicalizeJobScopedEditorialApproval,
+  serializeCanonicalJobScopedEditorialApprovalRecord,
+} from "../src/fulfillment/job-scoped-editorial-approval-canonicalization.mjs";
+
 const DIGEST = /^[a-f0-9]{64}$/u;
 const JOB_ID = /^job_[A-Za-z0-9][A-Za-z0-9_-]{2,127}$/u;
 const REVISION_ID = /^r[1-9][0-9]*$/u;
@@ -150,18 +155,20 @@ export const saveEditorialApproval = mutationGeneric({
     assertBackendToken(args.backendToken);
     assertJobId(args.jobId);
     await assertEditorialApproval(args.approval, args.jobId);
+    const approval = canonicalizeJobScopedEditorialApproval(args.approval);
     const existing = await findEditorialApproval(context, args.jobId);
     if (existing) {
-      if (JSON.stringify(existing.approval) !== JSON.stringify(args.approval)) {
+      if (JSON.stringify(canonicalizeJobScopedEditorialApproval(existing.approval))
+        !== JSON.stringify(approval)) {
         throw new Error("Generation editorial approval is immutable once provisioned.");
       }
-      return { created: false, approval: existing.approval };
+      return { created: false, approval };
     }
     await context.db.insert("fulfillmentGenerationEditorialApprovals", {
       jobId: args.jobId,
-      approval: args.approval,
+      approval,
     });
-    return { created: true, approval: args.approval };
+    return { created: true, approval };
   },
 });
 
@@ -170,7 +177,7 @@ export const readEditorialApproval = queryGeneric({
   handler: async (context, args) => {
     await assertClaimedGenerationAuthority(context, args, { effectFenceRequired: false });
     const document = await findEditorialApproval(context, args.jobId);
-    return document?.approval || null;
+    return document ? canonicalizeJobScopedEditorialApproval(document.approval) : null;
   },
 });
 
@@ -497,7 +504,7 @@ async function assertEditorialApproval(value, jobId) {
     reference: sourceEvidence.reference,
   }));
   const expectedRecordDigest = await sha256Hex(
-    `${JSON.stringify(canonicalEditorialApprovalRecord(record), null, 2)}\n`,
+    serializeCanonicalJobScopedEditorialApprovalRecord(record),
   );
   if (record.sourceDigest !== expectedSourceDigest || value.recordDigest !== expectedRecordDigest) {
     throw new Error("Generation editorial approval is invalid.");
@@ -613,25 +620,4 @@ async function sha256Hex(value) {
   return [...new Uint8Array(digest)]
     .map((byte) => byte.toString(16).padStart(2, "0"))
     .join("");
-}
-
-function canonicalEditorialApprovalRecord(record) {
-  return {
-    schemaVersion: record.schemaVersion,
-    approvalType: record.approvalType,
-    jobId: record.jobId,
-    policy: {
-      id: record.policy.id,
-      preserveSubmittedName: record.policy.preserveSubmittedName,
-      meaningAllowed: record.policy.meaningAllowed,
-      scripturalNameAssociationAllowed: record.policy.scripturalNameAssociationAllowed,
-      genericBlessingsAllowed: record.policy.genericBlessingsAllowed,
-      maxStage: record.policy.maxStage,
-    },
-    sourceEvidence: {
-      kind: record.sourceEvidence.kind,
-      reference: record.sourceEvidence.reference,
-    },
-    sourceDigest: record.sourceDigest,
-  };
 }

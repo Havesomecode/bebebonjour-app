@@ -3,6 +3,10 @@ import { isDeepStrictEqual } from "node:util";
 
 import { ConvexHttpClient } from "convex/browser";
 
+import {
+  canonicalizeJobScopedEditorialApproval,
+  serializeCanonicalJobScopedEditorialApprovalRecord,
+} from "./job-scoped-editorial-approval-canonicalization.mjs";
 import { createFulfillmentOrchestrator } from "./job-orchestrator.mjs";
 import { TEST_A_PREPARE_REVIEW_RETRY_POLICY } from "./test-a-generation-policy.mjs";
 import { createLocalGenerationWorkspace } from "./local-generation-workspace.mjs";
@@ -174,7 +178,7 @@ function requireEditorialApproval(value) {
   if (
     !DIGEST.test(value?.recordDigest || "")
     || value.recordDigest !== createHash("sha256")
-      .update(`${JSON.stringify(value.record, null, 2)}\n`)
+      .update(serializeCanonicalJobScopedEditorialApprovalRecord(value.record))
       .digest("hex")
     || value.record.sourceDigest !== createHash("sha256")
       .update(JSON.stringify({
@@ -185,7 +189,7 @@ function requireEditorialApproval(value) {
   ) {
     throw safeError("generation_approval_rejected");
   }
-  return Object.freeze(structuredClone(value));
+  return Object.freeze(canonicalizeJobScopedEditorialApproval(value));
 }
 
 class TestAGenerationOperatorError extends Error {

@@ -1,6 +1,8 @@
 import { createHash } from "node:crypto";
 import { isDeepStrictEqual } from "node:util";
 
+import { serializeCanonicalJobScopedEditorialApprovalRecord } from "./job-scoped-editorial-approval-canonicalization.mjs";
+
 export const EDITORIAL_POLICY_VERSION = "bebebonjour-editorial-v1";
 export const RECOVERABLE_FAILED_PREPARE_REVIEW_JOB_ID =
   "job_c633aa4c-0039-4257-8913-eaa6f6197d0c";
@@ -377,7 +379,9 @@ export function recoverFailedPrepareReviewTransition(aggregate, recovery, at) {
       && DIGEST_PATTERN.test(recovery.editorialApproval.sourceDigest || "")
       && isValidFailedPrepareReviewApproval(recovery.editorialApproval.record)
       && recovery.editorialApproval.recordDigest === createHash("sha256")
-        .update(`${JSON.stringify(recovery.editorialApproval.record, null, 2)}\n`)
+        .update(serializeCanonicalJobScopedEditorialApprovalRecord(
+          recovery.editorialApproval.record,
+        ))
         .digest("hex")
       && recovery.editorialApproval.sourceDigest === recovery.editorialApproval.record.sourceDigest
       && isDeepStrictEqual(recovery.editorialApproval, expectedApproval);

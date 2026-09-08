@@ -296,10 +296,10 @@ export const requestCommand = mutationGeneric({
         .eq("action", args.action)
         .eq("expectedVersion", args.expectedVersion))
       .collect();
-    const replacementSource = commandsForActionVersion.length === 1
-      && isAuditedNoEffectGenerateFailure(commandsForActionVersion[0], aggregate)
-      ? commandsForActionVersion[0]
-      : null;
+    const replacementSource = findAuditedNoEffectGenerateReplacementSource(
+      commandsForActionVersion,
+      aggregate,
+    );
     const existingForVersion = args.action === "reconcile"
       ? commandsForActionVersion.find((command) => command.state !== "failed")
       : replacementSource ? null : commandsForActionVersion[0];
@@ -1070,16 +1070,40 @@ function commandConflictGroup(action) {
   return null;
 }
 
+function findAuditedNoEffectGenerateReplacementSource(commands, aggregate) {
+  if (
+    commands.length === 0
+    || !commands.every((command) => isAuditedNoEffectGenerateFailure(command, aggregate))
+  ) return null;
+  const byId = new Map(commands.map((command) => [command.commandId, command]));
+  const superseded = new Set(commands
+    .map((command) => command.supersedesCommandId)
+    .filter((commandId) => commandId !== undefined));
+  const tails = commands.filter((command) => !superseded.has(command.commandId));
+  if (tails.length !== 1) return null;
+
+  const visited = new Set();
+  let current = tails[0];
+  while (current) {
+    if (visited.has(current.commandId)) return null;
+    visited.add(current.commandId);
+    if (current.supersedesCommandId === undefined) break;
+    current = byId.get(current.supersedesCommandId);
+    if (!current) return null;
+  }
+  return visited.size === commands.length ? tails[0] : null;
+}
+
 function isAuditedNoEffectGenerateFailure(command, aggregate) {
   return command.action === "generate"
     && command.expectedState === "generation_queued"
     && command.expectedVersion === aggregate.version
     && command.state === "failed"
-    && command.attempts === 1
+    && Number.isInteger(command.attempts)
+    && command.attempts >= 1
     && command.claim === null
-    && command.lastFailureReason === "stale_job_state"
+    && REASON_CODE.test(command.lastFailureReason || "")
     && command.outcome === null
-    && command.supersedesCommandId === undefined
     && stableStringify(command.payload) === "{}"
     && !hasCommandProvenance(aggregate, command.commandId);
 }

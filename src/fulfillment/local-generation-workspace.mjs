@@ -16,6 +16,7 @@ import {
   assertValidJobScopedEditorialApproval,
   assertValidReviewDossier,
 } from "../../scripts/lib/schema-validation.mjs";
+import { serializeCanonicalJobScopedEditorialApprovalRecord } from "./job-scoped-editorial-approval-canonicalization.mjs";
 import {
   collectArtifactSnapshotFromRoot,
   readBoundedFileFromRoot,
@@ -389,7 +390,9 @@ function assertPersistedEditorialApproval(value, jobId) {
   if (
     value.record.jobId !== jobId
     || !/^[a-f0-9]{64}$/u.test(value?.recordDigest || "")
-    || value.recordDigest !== sha256(`${JSON.stringify(value.record, null, 2)}\n`)
+    || value.recordDigest !== sha256(
+      serializeCanonicalJobScopedEditorialApprovalRecord(value.record),
+    )
     || value.record.sourceDigest !== sha256(JSON.stringify({
       kind: value.record.sourceEvidence.kind,
       reference: value.record.sourceEvidence.reference,

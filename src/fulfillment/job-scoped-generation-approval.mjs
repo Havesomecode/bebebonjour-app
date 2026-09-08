@@ -3,6 +3,7 @@ import { realpath } from "node:fs/promises";
 import path from "node:path";
 
 import { assertValidJobScopedEditorialApproval } from "../../scripts/lib/schema-validation.mjs";
+import { serializeCanonicalJobScopedEditorialApprovalRecord } from "./job-scoped-editorial-approval-canonicalization.mjs";
 import { readBoundedFileFromRoot } from "./secure-filesystem-snapshot.mjs";
 
 const MAX_APPROVAL_BYTES = 16_384;
@@ -54,7 +55,10 @@ export async function loadJobScopedGenerationApproval({
     throw new Error("Job-scoped editorial approval is not valid JSON.");
   }
   assertValidJobScopedEditorialApproval(record);
-  const canonicalBytes = Buffer.from(`${JSON.stringify(record, null, 2)}\n`, "utf8");
+  const canonicalBytes = Buffer.from(
+    serializeCanonicalJobScopedEditorialApprovalRecord(record),
+    "utf8",
+  );
   if (!bytes.equals(canonicalBytes)) {
     throw new Error("Job-scoped editorial approval must use canonical JSON bytes.");
   }
