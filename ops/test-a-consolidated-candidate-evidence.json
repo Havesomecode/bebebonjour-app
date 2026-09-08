@@ -434,7 +434,7 @@
       },
       {
         "path": "package.json",
-        "sha256": "eb67eaf6360ca2f01a6a0b02ec80c98ab1e7248a6cdfa70e0abec9e7105e42fb"
+        "sha256": "29a2c85b9018646eb1b423ba39472b4f83e1115a18032a0aaeea97378eb0d396"
       },
       {
         "path": "public/404.html",
@@ -470,7 +470,7 @@
       },
       {
         "path": "scripts/lib/commands.mjs",
-        "sha256": "44270f29fb61466cdc481ffe6a53aa4c053696f5911d890190c20201ce85d94c"
+        "sha256": "760f4f48d41854944382802abd6f65c6959e53d5dc43de51ea8c083aa8ad929e"
       },
       {
         "path": "scripts/lib/common.mjs",
@@ -934,7 +934,7 @@
       },
       {
         "path": "test/private-review.test.mjs",
-        "sha256": "a9f6c837f99bee5519d9967d64daec5cc9fe9eb4a4937fccb4c800149a6e3bf6"
+        "sha256": "eacac4eea80191e10dd8c23aa9daf2083ce4b89a053c0e61b5aacd350b1ccb36"
       },
       {
         "path": "vercel.generation-worker.json",

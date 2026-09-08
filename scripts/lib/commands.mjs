@@ -69,6 +69,12 @@ const RENDERER_MATERIAL_PATHS = [
   path.join(PROJECT_ROOT, "scripts", "lib", "render-html.mjs"),
   path.join(PROJECT_ROOT, "scripts", "lib", "schema-validation.mjs"),
   path.join(PROJECT_ROOT, "scripts", "lib", "validators.mjs"),
+  path.join(
+    PROJECT_ROOT,
+    "src",
+    "fulfillment",
+    "job-scoped-editorial-approval-canonicalization.mjs",
+  ),
   path.join(PROJECT_ROOT, "schemas", "codex-subscription-composition.schema.json"),
   path.join(PROJECT_ROOT, "schemas", "job-scoped-editorial-approval.schema.json"),
   path.join(PROJECT_ROOT, "schemas", "name-resolution-evidence.schema.json"),

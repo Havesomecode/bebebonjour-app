@@ -1,10 +1,10 @@
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
-import { mkdir, mkdtemp, readFile, rm, symlink, writeFile } from "node:fs/promises";
+import { cp, mkdir, mkdtemp, readFile, rm, symlink, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 
 process.env.BEBEBONJOUR_APPROVAL_HMAC_KEY =
   "synthetic-fixture-approval-key-material-not-for-production";
@@ -333,6 +333,59 @@ test("prepare-review refuses replay when a material selection input changes", as
     /material inputs.*fresh output root/i,
   );
   assert.equal(await readFile(path.join(outputRoot, "review.json"), "utf8"), firstDossier);
+});
+
+test("approve-review rejects a dossier after canonical approval helper bytes drift", async (t) => {
+  const directory = await mkdtemp(path.join(os.tmpdir(), "bebebonjour-renderer-material-drift-"));
+  t.after(() => rm(directory, { recursive: true, force: true }));
+  const projectRoot = path.join(directory, "project");
+  for (const projectDirectory of ["data", "schemas", "scripts", "src", "template"]) {
+    await cp(
+      fileURLToPath(new URL(`../${projectDirectory}/`, import.meta.url)),
+      path.join(projectRoot, projectDirectory),
+      { recursive: true },
+    );
+  }
+  await symlink(
+    fileURLToPath(new URL("../node_modules/", import.meta.url)),
+    path.join(projectRoot, "node_modules"),
+    "dir",
+  );
+  const isolatedCommands = await import(pathToFileURL(
+    path.join(projectRoot, "scripts", "lib", "commands.mjs"),
+  ));
+  const intakePath = path.join(directory, "intake.json");
+  const reviewRoot = path.join(directory, "review");
+  const approvalRoot = path.join(directory, "approval");
+  await writeFile(intakePath, `${JSON.stringify(baseIntake, null, 2)}\n`, "utf8");
+  await captureConsole(() => isolatedCommands.commandPrepareReview({
+    input: intakePath,
+    output: reviewRoot,
+    select: "religious-bayane",
+  }));
+  const dossierPath = path.join(reviewRoot, "review.json");
+  const dossierRaw = await readFile(dossierPath, "utf8");
+  const dossier = JSON.parse(dossierRaw);
+  const helperPath = path.join(
+    projectRoot,
+    "src",
+    "fulfillment",
+    "job-scoped-editorial-approval-canonicalization.mjs",
+  );
+  await writeFile(helperPath, `${await readFile(helperPath, "utf8")}\n// synthetic byte drift\n`, "utf8");
+
+  await assert.rejects(
+    isolatedCommands.commandApproveReview({
+      review: dossierPath,
+      output: approvalRoot,
+      reviewer: "operator-demo",
+      acknowledge: dossier.review.requiredReasons.join(","),
+      demands: "not_applied",
+    }),
+    /material binding does not match the current generator/i,
+  );
+  assert.equal(await readFile(dossierPath, "utf8"), dossierRaw);
+  assert.equal(await pathExists(approvalRoot), false);
 });
 
 test("approve-review writes a dossier-bound approved page outside the immutable review root", async (t) => {
