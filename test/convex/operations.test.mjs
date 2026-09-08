@@ -346,6 +346,69 @@ test("completion aggregate writes require one active exact-worker command claim"
   assert.equal((await convex.mutation(replaceCompletionJob, input)).updated, true);
 });
 
+test("completion stage claims preserve distinct Operations and stage lease identities", async () => {
+  const convex = fixture();
+  const current = fulfillmentAggregate({
+    jobId: completionJobId,
+    state: "render_queued",
+    version: 8,
+    currentRevisionId: "r1",
+    narrationRequired: false,
+  });
+  const commandId = "command_completion_render_distinct_001";
+  const operationsLeaseToken = "lease_operations_render_distinct_001";
+  const stageLeaseToken = "lease_stage_render_distinct_001";
+  const next = claimStageTransition(current, {
+    commandId: `claim:${completionJobId}:r1:render_approved:1`,
+    stage: "render_approved",
+    leaseToken: stageLeaseToken,
+    leaseMs: 300_000,
+    maxAttempts: 2,
+    operationBinding: null,
+    operationsCommandId: commandId,
+  }, "2026-09-08T10:02:00.000Z");
+  await convex.run(async (context) => {
+    await context.db.insert("fulfillmentJobs", { jobId: completionJobId, aggregate: current });
+    await context.db.insert("customerFlowOperationsCommands", {
+      commandId,
+      jobId: completionJobId,
+      action: "render",
+      expectedState: "render_queued",
+      expectedVersion: current.version,
+      payload: {},
+      requestedAt: "2026-09-08T10:01:00.000Z",
+      requestedBy: "primary_operator",
+      state: "running",
+      attempts: 1,
+      claim: {
+        workerId: "test-a-completion-worker",
+        leaseToken: operationsLeaseToken,
+        claimedAtMs: Date.now(),
+        leaseExpiresAtMs: Date.now() + 300_000,
+      },
+      lastFailureReason: null,
+      outcome: null,
+      updatedAt: "2026-09-08T10:01:00.000Z",
+    });
+  });
+
+  const result = await convex.mutation(replaceCompletionJob, {
+    completionToken,
+    workerId: "test-a-completion-worker",
+    commandId,
+    leaseToken: operationsLeaseToken,
+    jobId: completionJobId,
+    expectedVersion: current.version,
+    aggregate: next,
+  });
+
+  assert.equal(result.updated, true);
+  assert.equal(result.aggregate.stageAttempts.at(-1).operationsCommandId, commandId);
+  assert.equal(result.aggregate.stageAttempts.at(-1).leaseToken, stageLeaseToken);
+  assert.notEqual(stageLeaseToken, operationsLeaseToken);
+  assert.equal(result.aggregate.events.at(-1).commandId, `claim:${completionJobId}:r1:render_approved:1`);
+});
+
 test("completion artifact reads require a fenced publish claim and canonical approved review record", async () => {
   const convex = fixture();
   const sourceFile = {

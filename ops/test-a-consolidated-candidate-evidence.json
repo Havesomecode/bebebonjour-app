@@ -32,6 +32,7 @@
       "test/config/hosted-provider-artifacts.test.mjs",
       "test/config/test-a-hosted-provider-manifest-policy.test.mjs",
       "test/config/test-a-operator-isolation-audit.test.mjs",
+      "test/convex/completion-store-seam.test.mjs",
       "test/convex/operations.test.mjs",
       "test/fulfillment/job-orchestration.test.mjs",
       "test/fulfillment/vercel-test-a-publication-provider.test.mjs",
@@ -69,6 +70,7 @@
       "test/config/hosted-provider-artifacts.test.mjs",
       "test/config/test-a-hosted-provider-manifest-policy.test.mjs",
       "test/config/test-a-operator-isolation-audit.test.mjs",
+      "test/convex/completion-store-seam.test.mjs",
       "test/convex/operations.test.mjs",
       "test/fulfillment/job-orchestration.test.mjs",
       "test/fulfillment/vercel-test-a-publication-provider.test.mjs",
@@ -96,7 +98,7 @@
       },
       {
         "path": "convex/fulfillment.js",
-        "sha256": "5d46cd08cb752c8cd9725027217fde5f00ce7ecd7008e7bc98f6bc5d2131ec8e"
+        "sha256": "6e277e2835198013007c3bf651c8366c997e4861010fa4710cd70b2d3c67a87d"
       },
       {
         "path": "convex/http.js",
@@ -128,7 +130,7 @@
       },
       {
         "path": "ops/test-a-consolidated-candidate-audit.mjs",
-        "sha256": "261f85dde238d0c2a038ea8b80624d57f05af99fc547b6c1255835ea49831014"
+        "sha256": "b13ea6574e75b927b28420b47f433eb868557b3b7526f7ad84b52159c02ddf12"
       },
       {
         "path": "ops/test-a-hosted-provider-manifest.json",
@@ -340,11 +342,15 @@
       },
       {
         "path": "test/config/test-a-operator-isolation-audit.test.mjs",
-        "sha256": "04c5e518c348be46344152ef0875a467bd14a828000094290700baba85e4e677"
+        "sha256": "ed1ae0881a3bbc90ae11452252fd0eae183f8f5099d794901ee9d108853d8eff"
+      },
+      {
+        "path": "test/convex/completion-store-seam.test.mjs",
+        "sha256": "d8d96bf92dd2e8c7c3d91a84521fd9ebd47ce29eaf2c1ae923725413d9a226f2"
       },
       {
         "path": "test/convex/operations.test.mjs",
-        "sha256": "91dab17a88abc4c70640eb46d0885e23bad07301e34735b9396c8250907b43ae"
+        "sha256": "57beb7d1372fa0f62f9ed2e4a3a664e6e1b621ed6fe7bfe459a31cac85da1165"
       },
       {
         "path": "test/fulfillment/job-orchestration.test.mjs",
@@ -447,8 +453,10 @@
     },
     {
       "id": "exact-synthetic-provider-completion-worker",
-      "requirement": "A separately packaged completion endpoint accepts only one fixed synthetic TEST-A job, a completion-only Convex token, an authenticated persisted approval, exact reviewed bytes, the inspected private publication identity, the Resend test sink, and bounded retry. Generation remains generate-only and no payment, intake, live-customer, DNS, or outreach authority is mounted.",
+      "requirement": "A separately packaged completion endpoint accepts only one fixed synthetic TEST-A job, a completion-only Convex token, an authenticated persisted approval, exact reviewed bytes, the inspected private publication identity, the Resend test sink, and bounded retry. Its Convex seam independently validates the active Operations command and canonical stage-attempt lease/event identity without collapsing either authority. Generation remains generate-only and no payment, intake, live-customer, DNS, or outreach authority is mounted.",
       "proofs": [
+        "test/convex/completion-store-seam.test.mjs: the real Convex store preserves distinct Operations and stage identities through render, publish, and deliver",
+        "test/convex/completion-store-seam.test.mjs: stale leases, wrong commands and jobs, duplicate claims, forged evidence, and failure recovery remain provider-effect free",
         "test/operations/completion-worker-boundary.test.mjs: completion policy rejects broadened job, action, lease, customer, payment, and intake authority before provider I/O",
         "test/operations/completion-worker-boundary.test.mjs: production completion startup claims the exact job using only completion-scoped Convex authority",
         "test/operations/completion-worker-boundary.test.mjs: reviewed private bytes are promoted without mutation and remain exact-revision bound",
@@ -638,6 +646,7 @@
       "test/config/test-a-operator-isolation.test.mjs",
       "test/convex/generation.test.mjs",
       "test/convex/generation-worker-authority.test.mjs",
+      "test/convex/completion-store-seam.test.mjs",
       "test/convex/operations.test.mjs",
       "test/fulfillment/exact-revision-publication-adapter.test.mjs",
       "test/fulfillment/failed-prepare-review-recovery.test.mjs",

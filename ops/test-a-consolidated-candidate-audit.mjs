@@ -23,6 +23,7 @@ const focusedTestFiles = [
   "test/config/test-a-operator-isolation.test.mjs",
   "test/convex/generation.test.mjs",
   "test/convex/generation-worker-authority.test.mjs",
+  "test/convex/completion-store-seam.test.mjs",
   "test/convex/operations.test.mjs",
   "test/fulfillment/exact-revision-publication-adapter.test.mjs",
   "test/fulfillment/failed-prepare-review-recovery.test.mjs",
@@ -110,8 +111,10 @@ const controls = Object.freeze([
   },
   {
     id: "exact-synthetic-provider-completion-worker",
-    requirement: "A separately packaged completion endpoint accepts only one fixed synthetic TEST-A job, a completion-only Convex token, an authenticated persisted approval, exact reviewed bytes, the inspected private publication identity, the Resend test sink, and bounded retry. Generation remains generate-only and no payment, intake, live-customer, DNS, or outreach authority is mounted.",
+    requirement: "A separately packaged completion endpoint accepts only one fixed synthetic TEST-A job, a completion-only Convex token, an authenticated persisted approval, exact reviewed bytes, the inspected private publication identity, the Resend test sink, and bounded retry. Its Convex seam independently validates the active Operations command and canonical stage-attempt lease/event identity without collapsing either authority. Generation remains generate-only and no payment, intake, live-customer, DNS, or outreach authority is mounted.",
     proofs: [
+      "test/convex/completion-store-seam.test.mjs: the real Convex store preserves distinct Operations and stage identities through render, publish, and deliver",
+      "test/convex/completion-store-seam.test.mjs: stale leases, wrong commands and jobs, duplicate claims, forged evidence, and failure recovery remain provider-effect free",
       "test/operations/completion-worker-boundary.test.mjs: completion policy rejects broadened job, action, lease, customer, payment, and intake authority before provider I/O",
       "test/operations/completion-worker-boundary.test.mjs: production completion startup claims the exact job using only completion-scoped Convex authority",
       "test/operations/completion-worker-boundary.test.mjs: reviewed private bytes are promoted without mutation and remain exact-revision bound",
