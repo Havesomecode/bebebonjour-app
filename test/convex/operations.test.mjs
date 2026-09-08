@@ -326,6 +326,18 @@ test("completion aggregate writes require one active exact-worker command claim"
       updatedAt: "2026-09-08T10:00:00.000Z",
     });
   });
+  for (const [label, forge] of [
+    ["decisionId", (aggregate) => { aggregate.reviewDecisions.at(-1).decisionId = "review_forged"; }],
+    ["extra field", (aggregate) => { aggregate.reviewDecisions.at(-1).extra = "forged"; }],
+  ]) {
+    const forgedAggregate = structuredClone(next);
+    forge(forgedAggregate);
+    await assert.rejects(
+      convex.mutation(replaceCompletionJob, { ...input, aggregate: forgedAggregate }),
+      /reviewed synthetic artifact/u,
+      label,
+    );
+  }
   await assert.rejects(
     convex.mutation(replaceCompletionJob, {
       ...input,

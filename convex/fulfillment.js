@@ -362,6 +362,12 @@ async function assertCompletionReplacement(context, current, next, expectedVersi
     "retry", "reviewDecisions", "stageAttempts", "state", "updatedAt", "version",
   ]);
   const transition = `${current.state}>${next?.state}`;
+  if (!isIsoTimestamp(next?.updatedAt)
+      || !isIsoTimestamp(current.updatedAt)
+      || Date.parse(next.updatedAt) < Date.parse(current.updatedAt)) {
+    throw new Error("Completion replacement requires a monotonic timestamp.");
+  }
+  assertExactCompletionTransitionBoundary(current, next, transition);
   const exactKeys = Object.keys(current).sort().join("\0") === Object.keys(next || {}).sort().join("\0");
   const immutableChanged = Object.keys(current).some((field) => (
     !mutableFields.has(field) && JSON.stringify(current[field]) !== JSON.stringify(next[field])
@@ -387,6 +393,42 @@ async function assertCompletionReplacement(context, current, next, expectedVersi
   await assertCompletionTransitionPayload(context, current, next, transition, args);
 }
 
+const COMPLETION_OWNED_FIELDS_BY_TRANSITION = Object.freeze({
+  "content_review_required>render_queued": ["reviewDecisions"],
+  "render_queued>rendering": ["stageAttempts"],
+  "rendering>publish_ready": ["artifactSets", "stageAttempts"],
+  "rendering>retry_wait": ["retry", "stageAttempts"],
+  "rendering>failed": ["retry", "stageAttempts"],
+  "publish_ready>publishing": ["stageAttempts"],
+  "publishing>publishing": ["stageAttempts"],
+  "publishing>published": ["publication", "publishedRevisionId", "stageAttempts"],
+  "publishing>retry_wait": ["retry", "stageAttempts"],
+  "publishing>failed": ["retry", "stageAttempts"],
+  "published>delivery_queued": [],
+  "delivery_queued>sending": ["stageAttempts"],
+  "sending>sending": ["stageAttempts"],
+  "sending>sent": ["deliveryAttempts", "stageAttempts"],
+  "sending>retry_wait": ["retry", "stageAttempts"],
+  "sending>failed": ["retry", "stageAttempts"],
+  "retry_wait>render_queued": ["retry"],
+  "retry_wait>publish_ready": ["retry"],
+  "retry_wait>delivery_queued": ["retry"],
+});
+
+function assertExactCompletionTransitionBoundary(current, next, transition) {
+  const transitionOwned = COMPLETION_OWNED_FIELDS_BY_TRANSITION[transition];
+  if (!next || !transitionOwned) return;
+  const owned = new Set(["events", "state", "updatedAt", "version", ...transitionOwned]);
+  const unrelatedChanged = Object.keys(current).some((field) => (
+    !owned.has(field) && JSON.stringify(current[field]) !== JSON.stringify(next[field])
+  ));
+  if (unrelatedChanged) {
+    throw new Error(
+      "Completion worker replacement exceeds its synthetic stage authority: exact transition mutation boundary.",
+    );
+  }
+}
+
 function appendDelta(current, next) {
   if (!Array.isArray(current) || !Array.isArray(next) || next.length < current.length) return -1;
   if (current.some((value, index) => JSON.stringify(value) !== JSON.stringify(next[index]))) return -1;
@@ -396,6 +438,23 @@ function appendDelta(current, next) {
 const COMPLETION_STAGE_LEASE_MS = 300_000;
 const COMPLETION_STAGE_MAX_ATTEMPTS = 2;
 const COMPLETION_RETRY_BACKOFF_MS = 60_000;
+const COMPLETION_STAGE_ATTEMPT_FIELDS = Object.freeze([
+  "attemptId", "stage", "revisionId", "attemptNumber", "operationNumber",
+  "idempotencyKey", "operationBinding", "operationsCommandId", "status", "leaseToken",
+  "leaseExpiresAt", "startedAt", "effectStartedAt", "completedAt", "failure",
+]);
+const COMPLETION_FAILURE_REASON_CODES_BY_STAGE = Object.freeze({
+  render_approved: new Set(["lease_expired", "provider_unavailable", "stage_error"]),
+  publish: new Set([
+    "lease_expired", "provider_outcome_unknown", "provider_receipt_invalid", "provider_unavailable",
+    "publication_binding_invalid", "publication_provider_unavailable", "publication_scope_invalid",
+    "publication_source_binding_invalid", "stage_error",
+  ]),
+  deliver: new Set([
+    "lease_expired", "provider_outcome_unknown", "provider_receipt_invalid", "provider_unavailable",
+    "resend_send_failed", "resend_status_failed", "stage_error",
+  ]),
+});
 
 async function validStageAttemptChange(currentAggregate, nextAggregate, transition, args) {
   const current = currentAggregate.stageAttempts;
@@ -440,11 +499,7 @@ async function validStageAttemptChange(currentAggregate, nextAggregate, transiti
     const expectedLeaseExpiry = new Date(
       Date.parse(nextAggregate.updatedAt) + COMPLETION_STAGE_LEASE_MS,
     ).toISOString();
-    return hasExactKeys(attempt, [
-      "attemptId", "stage", "revisionId", "attemptNumber", "operationNumber",
-      "idempotencyKey", "operationBinding", "operationsCommandId", "status", "leaseToken",
-      "leaseExpiresAt", "startedAt", "effectStartedAt", "completedAt", "failure",
-    ])
+    return hasExactKeys(attempt, COMPLETION_STAGE_ATTEMPT_FIELDS)
       && attempt.attemptId === expectedAttemptId
       && attempt.stage === expectedStage
       && attempt.revisionId === expectedRevisionId
@@ -452,7 +507,7 @@ async function validStageAttemptChange(currentAggregate, nextAggregate, transiti
       && expectedAttemptNumber <= COMPLETION_STAGE_MAX_ATTEMPTS
       && attempt.operationNumber === expectedOperationNumber
       && attempt.idempotencyKey === expectedIdempotencyKey
-      && validCompletionOperationBinding(expectedStage, attempt.operationBinding)
+      && await validCompletionOperationBinding(expectedStage, attempt.operationBinding)
       && attempt.operationsCommandId === args.commandId
       && attempt.status === "running"
       && typeof attempt.leaseToken === "string" && attempt.leaseToken.length >= 8
@@ -469,16 +524,24 @@ async function validStageAttemptChange(currentAggregate, nextAggregate, transiti
   }
   const prior = current.at(-1);
   const updated = next.at(-1);
+  const leaseExpiredFailure = updated.failure?.reasonCode === "lease_expired";
+  const transitionBeforeLeaseExpiry = isIsoTimestamp(prior.leaseExpiresAt)
+    && Date.parse(nextAggregate.updatedAt) < Date.parse(prior.leaseExpiresAt);
   const identifiersPreserved = current.slice(0, -1)
     .every((value, index) => JSON.stringify(value) === JSON.stringify(next[index]))
     && [
       "attemptId", "stage", "revisionId", "attemptNumber", "operationNumber",
       "idempotencyKey", "operationBinding", "operationsCommandId", "startedAt",
     ].every((field) => JSON.stringify(prior[field]) === JSON.stringify(updated[field]));
-  if (!identifiersPreserved
+  if (!hasExactKeys(prior, COMPLETION_STAGE_ATTEMPT_FIELDS)
+      || !hasExactKeys(updated, COMPLETION_STAGE_ATTEMPT_FIELDS)
+      || !identifiersPreserved
       || prior.status !== "running"
       || typeof prior.leaseToken !== "string" || prior.leaseToken.length < 8
       || prior.leaseToken === args.leaseToken
+      || (leaseExpiredFailure
+        ? Date.parse(nextAggregate.updatedAt) < Date.parse(prior.leaseExpiresAt)
+        : !transitionBeforeLeaseExpiry)
       || updated.operationsCommandId !== args.commandId) return false;
   if (transition === "publishing>publishing" || transition === "sending>sending") {
     const expectedLeaseExpiry = new Date(
@@ -498,8 +561,9 @@ async function validStageAttemptChange(currentAggregate, nextAggregate, transiti
       && updated.leaseExpiresAt === null
       && updated.completedAt === nextAggregate.updatedAt
       && hasExactKeys(updated.failure, ["reasonCode", "retryable"])
-      && /^[a-z0-9_]{1,64}$/.test(updated.failure.reasonCode)
+      && COMPLETION_FAILURE_REASON_CODES_BY_STAGE[updated.stage]?.has(updated.failure.reasonCode)
       && updated.failure.retryable === retrying
+      && updated.effectStartedAt === prior.effectStartedAt
       && (retrying
         ? hasExactKeys(nextAggregate.retry, ["availableAt", "stage"])
           && nextAggregate.retry.stage === prior.stage
@@ -512,14 +576,19 @@ async function validStageAttemptChange(currentAggregate, nextAggregate, transiti
     && updated.leaseToken === null
     && updated.leaseExpiresAt === null
     && updated.completedAt === nextAggregate.updatedAt
+    && updated.effectStartedAt === prior.effectStartedAt
     && updated.failure === null;
 }
 
-function validCompletionOperationBinding(stage, binding) {
+async function validCompletionOperationBinding(stage, binding) {
   if (stage !== "deliver") return binding === null;
+  const expectedTargetDigest = await sha256Hex(canonicalJson({
+    targetRef: "resend:test-a-sink",
+    email: "delivered@resend.dev",
+  }));
   return hasExactKeys(binding, ["targetDigest", "targetRef"])
     && binding.targetRef === "resend:test-a-sink"
-    && /^[a-f0-9]{64}$/.test(binding.targetDigest || "");
+    && binding.targetDigest === expectedTargetDigest;
 }
 
 const COMPLETION_EVENT_TYPES_BY_TRANSITION = Object.freeze({
@@ -728,7 +797,21 @@ async function assertCompletionTransitionPayload(context, current, next, transit
     const source = current.artifactSets.find((artifact) => (
       artifact.kind === "private_review" && artifact.revisionId === current.currentRevisionId
     ));
-    if (decision?.decisionType !== "content" || decision.outcome !== "approved"
+    const expectedDecisionId = `review_${(await sha256Hex([
+      current.jobId,
+      decision?.revisionId,
+      decision?.decisionType,
+      decision?.outcome,
+      decision?.decidedAt,
+      decision?.reviewer?.id,
+    ].join("\0"))).slice(0, 24)}`;
+    if (!hasExactKeys(decision, [
+      "decisionId", "approvalId", "operationsCommandId", "decisionType", "revisionId",
+      "outcome", "policyVersion", "rubricVersion", "reviewer", "decidedAt",
+      "artifactDigests", "reasons",
+    ])
+        || decision.decisionId !== expectedDecisionId
+        || decision.decisionType !== "content" || decision.outcome !== "approved"
         || decision.revisionId !== current.currentRevisionId
         || decision.operationsCommandId !== args.commandId
         || decision.artifactDigests?.pageDigest !== source?.pageDigest
@@ -759,24 +842,69 @@ async function assertCompletionTransitionPayload(context, current, next, transit
       artifact.kind === "private_review" && artifact.revisionId === current.currentRevisionId
     ));
     const prepared = next.artifactSets.at(-1);
-    if (!isExactCompletionPromotion(current, source, prepared)) {
-      throw new Error("Completion render does not preserve the approved synthetic artifact bytes.");
+    if (!await isExactCompletionPromotion(current, source, prepared, args.commandId)) {
+      throw new Error("Completion replacement lacks an exact artifact promotion.");
     }
   }
   if (transition === "publishing>published") {
     const origin = process.env.TEST_A_PUBLICATION_ORIGIN;
-    if (next.publication?.provider !== "vercel" || next.publication.status !== "published"
+    const attempt = current.stageAttempts.at(-1);
+    const releaseKind = current.narrationRequired ? "narration_review" : "prepared_bundle";
+    const releaseArtifact = [...current.artifactSets].reverse().find((artifact) => (
+      artifact.kind === releaseKind && artifact.revisionId === current.currentRevisionId
+    ));
+    if (!hasExactKeys(next.publication, [
+      "provider", "revisionId", "stableUrl", "artifactManifestDigest", "providerReceiptId",
+      "idempotencyKey", "operationsCommandId", "status",
+    ])
+        || next.publication.provider !== "vercel"
+        || next.publication.status !== "published"
         || next.publication.revisionId !== current.currentRevisionId
         || next.publication.stableUrl !== `${origin}/announcements/${current.jobId}`
+        || next.publication.artifactManifestDigest !== releaseArtifact?.assetManifestDigest
+        || !/^dpl_(?:[A-Za-z0-9]{28}|completion_store_(?:boundary|seam))$/.test(
+          next.publication.providerReceiptId || "",
+        )
+        || next.publication.idempotencyKey !== attempt?.idempotencyKey
+        || next.publication.operationsCommandId !== args.commandId
         || next.publishedRevisionId !== current.currentRevisionId) {
-      throw new Error("Completion publication exceeds the exact private synthetic target.");
+      throw new Error("Completion replacement lacks an exact publication result.");
     }
   }
   if (transition === "sending>sent") {
     const delivery = next.deliveryAttempts.at(-1);
-    if (delivery?.provider !== "resend" || delivery.targetRef !== "resend:test-a-sink"
-        || delivery.revisionId !== current.currentRevisionId || delivery.status !== "sent") {
-      throw new Error("Completion delivery exceeds the exact Resend test sink.");
+    const attempt = current.stageAttempts.at(-1);
+    if (!hasExactKeys(delivery, [
+      "provider", "revisionId", "providerMessageId", "idempotencyKey", "operationsCommandId",
+      "targetRef", "status", "deliveredAt", "lastOutcome",
+    ])
+        || delivery.provider !== "resend"
+        || delivery.targetRef !== "resend:test-a-sink"
+        || delivery.targetRef !== attempt?.operationBinding?.targetRef
+        || delivery.revisionId !== current.currentRevisionId
+        || !/^(?:[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}|email_completion_store_(?:boundary|seam))$/.test(
+          delivery.providerMessageId || "",
+        )
+        || delivery.idempotencyKey !== attempt?.idempotencyKey
+        || delivery.operationsCommandId !== args.commandId
+        || delivery.status !== "sent"
+        || delivery.deliveredAt !== null
+        || delivery.lastOutcome !== null) {
+      throw new Error("Completion replacement lacks an exact delivery result.");
+    }
+  }
+  if (transition.startsWith("retry_wait>")) {
+    const expectedState = {
+      render_approved: "render_queued",
+      publish: "publish_ready",
+      deliver: "delivery_queued",
+    }[current.retry?.stage];
+    if (!hasExactKeys(current.retry, ["availableAt", "stage"])
+        || !isIsoTimestamp(current.retry.availableAt)
+        || next.state !== expectedState
+        || next.retry !== null
+        || Date.parse(next.updatedAt) < Date.parse(current.retry.availableAt)) {
+      throw new Error("Completion replacement lacks an exact retry transition.");
     }
   }
   if (next.retry && !new Set(["render_approved", "publish", "deliver"]).has(next.retry.stage)) {
@@ -784,19 +912,42 @@ async function assertCompletionTransitionPayload(context, current, next, transit
   }
 }
 
-function isExactCompletionPromotion(current, source, prepared) {
-  if (!source || prepared?.kind !== "prepared_bundle" || prepared.revisionId !== current.currentRevisionId
+async function isExactCompletionPromotion(current, source, prepared, operationsCommandId) {
+  if (!source || !hasExactKeys(prepared, [
+    "artifactSetId", "kind", "revisionId", "pageDigest", "transcriptDigest",
+    "assetManifestDigest", "manifestRef", "files", "operationsCommandId",
+  ])
+      || prepared.kind !== "prepared_bundle" || prepared.revisionId !== current.currentRevisionId
       || prepared.pageDigest !== source.pageDigest || prepared.transcriptDigest !== source.transcriptDigest
+      || prepared.operationsCommandId !== operationsCommandId
       || prepared.manifestRef
         !== `jobs/${current.jobId}/revisions/${current.currentRevisionId}/manifests/prepared_bundle.json`
       || !Array.isArray(source.files) || source.files.length === 0
       || !Array.isArray(prepared.files) || prepared.files.length !== source.files.length) return false;
   const namespace = source.files[0].path.split("/")[1];
-  return Boolean(namespace) && source.files.every((file, index) => (
-    file.path.startsWith(`private-preview/${namespace}/`)
-    && JSON.stringify(prepared.files[index]) === JSON.stringify({
-      ...file,
-      path: `deploy/${file.path.slice(`private-preview/${namespace}/`.length)}`,
-    })
-  ));
+  if (!namespace || !source.files.every((file) => file.path.startsWith(`private-preview/${namespace}/`))) {
+    return false;
+  }
+  const expectedFiles = source.files.map((file) => ({
+    ...file,
+    path: `deploy/${file.path.slice(`private-preview/${namespace}/`.length)}`,
+  }));
+  if (JSON.stringify(prepared.files) !== JSON.stringify(expectedFiles)) return false;
+  const expectedAssetManifestDigest = await sha256Hex(`${JSON.stringify({
+    schemaVersion: "1.0",
+    kind: "prepared_bundle",
+    revisionId: current.currentRevisionId,
+    files: expectedFiles,
+  }, null, 2)}\n`);
+  if (prepared.assetManifestDigest !== expectedAssetManifestDigest) return false;
+  const expectedArtifactSetId = `artifacts_${(await sha256Hex([
+    current.jobId,
+    current.currentRevisionId,
+    prepared.kind,
+    prepared.pageDigest,
+    prepared.transcriptDigest,
+    prepared.assetManifestDigest,
+  ].join("\0"))).slice(0, 24)}`;
+  if (prepared.artifactSetId !== expectedArtifactSetId) return false;
+  return true;
 }

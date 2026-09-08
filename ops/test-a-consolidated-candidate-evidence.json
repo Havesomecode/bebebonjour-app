@@ -13,6 +13,7 @@
       "ops/test-a-consolidated-candidate-audit.mjs",
       "ops/test-a-consolidated-candidate-evidence.json",
       "ops/test-a-hosted-provider-manifest.json",
+      "package-lock.json",
       "package.json",
       "scripts/verify-vercel-routing.mjs",
       "src/config/test-a-hosted-provider-manifest.mjs",
@@ -51,6 +52,7 @@
       "ops/test-a-consolidated-candidate-audit.mjs",
       "ops/test-a-consolidated-candidate-evidence.json",
       "ops/test-a-hosted-provider-manifest.json",
+      "package-lock.json",
       "package.json",
       "scripts/verify-vercel-routing.mjs",
       "src/config/test-a-hosted-provider-manifest.mjs",
@@ -98,7 +100,7 @@
       },
       {
         "path": "convex/fulfillment.js",
-        "sha256": "6e277e2835198013007c3bf651c8366c997e4861010fa4710cd70b2d3c67a87d"
+        "sha256": "bdf51fbb1ea4e511685e7f1d83aa5a17cac1c5a84a90f412626d7a73392d09fa"
       },
       {
         "path": "convex/http.js",
@@ -130,7 +132,7 @@
       },
       {
         "path": "ops/test-a-consolidated-candidate-audit.mjs",
-        "sha256": "b13ea6574e75b927b28420b47f433eb868557b3b7526f7ad84b52159c02ddf12"
+        "sha256": "6dcfeee58845b61b8df92adf0d58b011c4ace49c4a659541c8c972cb8a955026"
       },
       {
         "path": "ops/test-a-hosted-provider-manifest.json",
@@ -138,11 +140,11 @@
       },
       {
         "path": "package-lock.json",
-        "sha256": "6ddf4e07cc43d750dd445951c9d32cb893e6fb406139685a84988943ec5e354a"
+        "sha256": "dae156b5ac255334cae2ec097d8c5ec0d4fc48e70a5e3a282f75c40f2981f3d4"
       },
       {
         "path": "package.json",
-        "sha256": "5122ac0a90d059436de6630be56e21a26cb48d353b9506867e601e7b1f9d003e"
+        "sha256": "0a56213cc118783eb80185b743fe202fe08503ba8b9a3dfb49b5e2c64fb0b889"
       },
       {
         "path": "scripts/lib/codex-subscription-composition.mjs",
@@ -346,11 +348,11 @@
       },
       {
         "path": "test/convex/completion-store-seam.test.mjs",
-        "sha256": "d8d96bf92dd2e8c7c3d91a84521fd9ebd47ce29eaf2c1ae923725413d9a226f2"
+        "sha256": "73c0f8f6e0a1e7f43184ccbe6acf1801e2a853558d123370fb4cb0274d8e2ff5"
       },
       {
         "path": "test/convex/operations.test.mjs",
-        "sha256": "57beb7d1372fa0f62f9ed2e4a3a664e6e1b621ed6fe7bfe459a31cac85da1165"
+        "sha256": "e9d131d5ec4b52d11b919d776c0bf4000a8f7891ad70d7d3ac277dee66b7686e"
       },
       {
         "path": "test/fulfillment/job-orchestration.test.mjs",
@@ -453,10 +455,12 @@
     },
     {
       "id": "exact-synthetic-provider-completion-worker",
-      "requirement": "A separately packaged completion endpoint accepts only one fixed synthetic TEST-A job, a completion-only Convex token, an authenticated persisted approval, exact reviewed bytes, the inspected private publication identity, the Resend test sink, and bounded retry. Its Convex seam independently validates the active Operations command and canonical stage-attempt lease/event identity without collapsing either authority. Generation remains generate-only and no payment, intake, live-customer, DNS, or outreach authority is mounted.",
+      "requirement": "A separately packaged completion endpoint accepts only one fixed synthetic TEST-A job, a completion-only Convex token, an authenticated persisted approval, exact reviewed bytes, the inspected private publication identity, the Resend test sink, and bounded retry. Its Convex seam independently validates the active Operations command, canonical stage-attempt lease/event identity, and the exact per-transition aggregate mutation boundary without collapsing either authority. Generation remains generate-only and no payment, intake, live-customer, DNS, or outreach authority is mounted.",
       "proofs": [
         "test/convex/completion-store-seam.test.mjs: the real Convex store preserves distinct Operations and stage identities through render, publish, and deliver",
         "test/convex/completion-store-seam.test.mjs: stale leases, wrong commands and jobs, duplicate claims, forged evidence, and failure recovery remain provider-effect free",
+        "test/convex/completion-store-seam.test.mjs: every unrelated mutable aggregate field is rejected across render, publish, delivery, retry, success, and failure transitions",
+        "test/convex/completion-store-seam.test.mjs: forged replay replacement fields are independently rejected without canonical aggregate mutation",
         "test/operations/completion-worker-boundary.test.mjs: completion policy rejects broadened job, action, lease, customer, payment, and intake authority before provider I/O",
         "test/operations/completion-worker-boundary.test.mjs: production completion startup claims the exact job using only completion-scoped Convex authority",
         "test/operations/completion-worker-boundary.test.mjs: reviewed private bytes are promoted without mutation and remain exact-revision bound",
