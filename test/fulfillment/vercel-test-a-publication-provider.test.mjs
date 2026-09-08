@@ -161,7 +161,7 @@ function authoritativeBuildInspection(overrides = {}) {
   })}\n`, "utf8"));
 }
 
-function createProvider({ calls, fixtureValue, fetchImpl }) {
+function createProvider({ calls, fixtureValue, fetchImpl, protectedProject = false }) {
   return createVercelTestAPublicationProvider({
     token: "vercel_test_token",
     buildInspection: authoritativeBuildInspection(),
@@ -171,9 +171,24 @@ function createProvider({ calls, fixtureValue, fetchImpl }) {
     stableOrigin: STABLE_ORIGIN,
     canaryJobId: JOB_ID,
     canaryRevisionId: REVISION_ID,
+    requirePrivateDeploymentProtection: protectedProject,
+    ...(protectedProject
+      ? { protectionBypassSecret: "protection-bypass-secret-at-least-32-bytes" }
+      : {}),
     artifactResolver: createLocalArtifactResolver({ rootPath: fixtureValue.rootPath }),
     fetch: async (url, init = {}) => {
       calls.push({ url: String(url), init });
+      if (protectedProject && String(url).includes("/v9/projects/")) {
+        return jsonResponse({
+          id: "prj_test_a_announcements",
+          vercelAuthentication: { deploymentType: "all" },
+        });
+      }
+      if (protectedProject
+          && !String(url).startsWith("https://api.vercel.com")
+          && init.headers?.["x-vercel-protection-bypass"] === undefined) {
+        return new Response("Authentication Required", { status: 401 });
+      }
       return fetchImpl(String(url), init);
     },
     pollIntervalMs: 0,
@@ -207,6 +222,126 @@ test("Vercel TEST-A provider parses exact deployment, revision, build, and proje
     revisionId: REVISION_ID,
   });
   assert.equal(Object.isFrozen(inspection), true);
+});
+
+test("completion publication refuses an unprotected Vercel project before reading artifacts", async () => {
+  let artifactReads = 0;
+  const provider = createVercelTestAPublicationProvider({
+    token: "vercel_test_token",
+    buildInspection: authoritativeBuildInspection(),
+    teamId: "team_test_a",
+    projectId: "prj_test_a_announcements",
+    projectName: "bebebonjour-test-a-announcements",
+    stableOrigin: STABLE_ORIGIN,
+    canaryJobId: JOB_ID,
+    canaryRevisionId: REVISION_ID,
+    requirePrivateDeploymentProtection: true,
+    protectionBypassSecret: "protection-bypass-secret-at-least-32-bytes",
+    artifactResolver: { async resolve() { artifactReads += 1; } },
+    fetch: async () => jsonResponse({ id: "prj_test_a_announcements" }),
+  });
+
+  await assert.rejects(
+    provider.publish({
+      jobId: JOB_ID,
+      environment: "test",
+      product: "announcement-page",
+      revisionId: REVISION_ID,
+      artifactSetId: "artifact-set-test-001",
+      artifactSet: {
+        artifactSetId: "artifact-set-test-001",
+        kind: "prepared_bundle",
+        revisionId: REVISION_ID,
+        assetManifestDigest: "a".repeat(64),
+      },
+      artifactManifestDigest: "a".repeat(64),
+      idempotencyKey: IDEMPOTENCY_KEY,
+    }),
+    /private deployment protection/u,
+  );
+  assert.equal(artifactReads, 0);
+});
+
+test("completion publication rejects an unbound manifest before provider or artifact I/O", async () => {
+  let providerCalls = 0;
+  let artifactReads = 0;
+  const provider = createVercelTestAPublicationProvider({
+    token: "vercel_test_token",
+    buildInspection: authoritativeBuildInspection(),
+    teamId: "team_test_a",
+    projectId: "prj_test_a_announcements",
+    projectName: "bebebonjour-test-a-announcements",
+    stableOrigin: STABLE_ORIGIN,
+    canaryJobId: JOB_ID,
+    canaryRevisionId: REVISION_ID,
+    requirePrivateDeploymentProtection: true,
+    protectionBypassSecret: "protection-bypass-secret-at-least-32-bytes",
+    artifactResolver: { async resolve() { artifactReads += 1; } },
+    fetch: async () => {
+      providerCalls += 1;
+      return jsonResponse({ id: "prj_test_a_announcements" });
+    },
+  });
+
+  await assert.rejects(
+    provider.publish({
+      jobId: JOB_ID,
+      environment: "test",
+      product: "announcement-page",
+      revisionId: REVISION_ID,
+      artifactSetId: "artifact-set-test-001",
+      artifactSet: {
+        artifactSetId: "artifact-set-test-001",
+        kind: "prepared_bundle",
+        revisionId: REVISION_ID,
+        assetManifestDigest: "b".repeat(64),
+      },
+      artifactManifestDigest: "a".repeat(64),
+      idempotencyKey: IDEMPOTENCY_KEY,
+    }),
+    /manifest digest/i,
+  );
+  assert.equal(providerCalls, 0);
+  assert.equal(artifactReads, 0);
+});
+
+test("completion publication bounds every Vercel provider request", async () => {
+  let requestSignal;
+  const provider = createVercelTestAPublicationProvider({
+    token: "vercel_test_token",
+    buildInspection: authoritativeBuildInspection(),
+    teamId: "team_test_a",
+    projectId: "prj_test_a_announcements",
+    projectName: "bebebonjour-test-a-announcements",
+    stableOrigin: STABLE_ORIGIN,
+    canaryJobId: JOB_ID,
+    canaryRevisionId: REVISION_ID,
+    requirePrivateDeploymentProtection: true,
+    protectionBypassSecret: "protection-bypass-secret-at-least-32-bytes",
+    requestTimeoutMs: 50,
+    artifactResolver: { async resolve() { throw new Error("unexpected artifact read"); } },
+    fetch: async (_url, init) => {
+      requestSignal = init.signal;
+      return jsonResponse({ id: "prj_test_a_announcements" }, 500);
+    },
+  });
+
+  await assert.rejects(provider.publish({
+    jobId: JOB_ID,
+    environment: "test",
+    product: "announcement-page",
+    revisionId: REVISION_ID,
+    artifactSetId: "artifact-set-test-001",
+    artifactSet: {
+      artifactSetId: "artifact-set-test-001",
+      kind: "prepared_bundle",
+      revisionId: REVISION_ID,
+      assetManifestDigest: "a".repeat(64),
+    },
+    artifactManifestDigest: "a".repeat(64),
+    idempotencyKey: IDEMPOTENCY_KEY,
+  }), /publication returned HTTP 500/i);
+  assert.ok(requestSignal instanceof AbortSignal);
 });
 
 test("Vercel TEST-A provider rejects unparsed or incomplete inspection assertions", () => {
@@ -263,6 +398,10 @@ function publicManifestFor(value) {
     artifactSetId: value.request.artifactSetId,
     artifactManifestDigest: value.request.artifactManifestDigest,
     idempotencyKey: IDEMPOTENCY_KEY,
+    completionBuild: {
+      deploymentId: "dpl_test_a_001",
+      buildId: "bld_test_a_001",
+    },
     vercelConfiguration: {
       sha256: sha256(configurationBytes),
       bytes: configurationBytes.byteLength,
@@ -409,6 +548,7 @@ test("Vercel TEST-A provider resolves exact source bytes before one scoped alias
   const provider = createProvider({
     calls,
     fixtureValue: value,
+    protectedProject: true,
     async fetchImpl(url, init) {
       if (url.includes("/v7/deployments")) return jsonResponse({ deployments: [], pagination: { next: null } });
       if (url.includes("/v2/files")) {
@@ -488,6 +628,16 @@ test("Vercel TEST-A provider resolves exact source bytes before one scoped alias
     artifactManifestDigest: value.request.artifactManifestDigest,
     idempotencyKey: IDEMPOTENCY_KEY,
   });
+  const protectedPublicationReads = calls.filter(({ url }) => !url.startsWith("https://api.vercel.com"));
+  assert.ok(protectedPublicationReads.length > 0);
+  assert.ok(protectedPublicationReads.some(({ init }) => (
+    init.headers?.["x-vercel-protection-bypass"] === undefined
+  )));
+  assert.ok(protectedPublicationReads.filter(({ init }) => (
+    init.headers?.["x-vercel-protection-bypass"] !== undefined
+  )).every(({ init }) => (
+    init.headers?.["x-vercel-protection-bypass"] === "protection-bypass-secret-at-least-32-bytes"
+  )));
   assert.ok(uploadedBodies.some((body) => body.equals(value.index)));
   assert.ok(uploadedBodies.some((body) => body.equals(value.asset)));
   const configurationUpload = uploadedBodies.find((body) => body.includes(Buffer.from('"redirects"')));
@@ -1799,7 +1949,7 @@ test("a stale Vercel worker cannot invoke its alias callback after its persisted
   now = "2026-08-26T12:00:02.000Z";
   try {
     const recovered = await recoveryWorker.runNext(JOB_ID);
-    assert.equal(recovered.state, "published");
+    assert.equal(recovered.state, "published", JSON.stringify(recovered.stageAttempts.at(-1)?.failure));
     assert.equal(deploymentCreates, 1);
     assert.equal(aliasMutations, 1);
   } finally {

@@ -190,8 +190,10 @@ test("production build syntax-checks every private TEST-A operator module", () =
     "./src/operations/operations-action-handlers.mjs",
     "./src/operations/operations-command-worker.mjs",
     "./src/operations/operations-worker-runtime.mjs",
+    "./src/operations/production-completion-worker.mjs",
     "./src/persistence/convex-operations-command-queue.mjs",
     "./src/fulfillment/exact-revision-publication-adapter.mjs",
+    "./src/fulfillment/test-a-completion-capabilities.mjs",
     "./src/fulfillment/local-artifact-resolver.mjs",
     "./src/fulfillment/vercel-test-a-publication-provider.mjs",
     "./src/fulfillment/persisted-review-decision.mjs",
@@ -220,7 +222,7 @@ test("production build syntax-checks every private TEST-A operator module", () =
   );
   assert.equal(
     packageJson.scripts["test:production-audit"],
-    "node ./ops/test-a-consolidated-candidate-audit.mjs",
+    "node ./ops/test-a-consolidated-candidate-audit.mjs && node ./ops/test-a-completion-worker-audit.mjs",
   );
   assert.match(packageJson.scripts.verify, /npm run test:production-audit/);
 });

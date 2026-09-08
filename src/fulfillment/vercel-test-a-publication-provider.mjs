@@ -1,3 +1,4 @@
+import { AsyncLocalStorage } from "node:async_hooks";
 import { createHash } from "node:crypto";
 
 const VERCEL_API_ORIGIN = "https://api.vercel.com";
@@ -63,11 +64,20 @@ export function createVercelTestAPublicationProvider(options = {}) {
   if (typeof fetchImpl !== "function") throw new Error("A fetch implementation is required for Vercel publication.");
   const pollIntervalMs = nonNegativeInteger(options.pollIntervalMs, 1_000);
   const maxPollAttempts = positiveInteger(options.maxPollAttempts, 30);
+  const requestTimeoutMs = positiveInteger(options.requestTimeoutMs, 15_000);
+  const operationTimeoutMs = positiveInteger(options.operationTimeoutMs, 240_000);
+  const requirePrivateDeploymentProtection = options.requirePrivateDeploymentProtection === true;
+  const protectionBypassSecret = requirePrivateDeploymentProtection
+    ? requireString(options.protectionBypassSecret, "Vercel deployment protection bypass secret")
+    : null;
   const stableUrl = `${stableOrigin}/announcements/${encodeURIComponent(canaryJobId)}`;
   const teamQuery = `teamId=${encodeURIComponent(teamId)}`;
 
-  async function reconcile(request) {
+  const operationContext = new AsyncLocalStorage();
+
+  async function reconcileInternal(request) {
     assertCanaryRequest(request, canaryJobId, canaryRevisionId);
+    await assertPrivateDeploymentProtection();
     const resolved = await artifactResolver.resolve(request);
     const attempts = request.reconciliationOnly === true ? maxPollAttempts : 1;
     for (let attempt = 0; attempt < attempts; attempt += 1) {
@@ -83,14 +93,20 @@ export function createVercelTestAPublicationProvider(options = {}) {
     return null;
   }
 
-  async function publish(request) {
+  async function publishInternal(request) {
     assertCanaryRequest(request, canaryJobId, canaryRevisionId);
+    await assertPrivateDeploymentProtection();
     const resolved = await artifactResolver.resolve(request);
     const existing = await findExactDeployment(request);
     if (existing) return finalizeDeployment(existing, request, resolved, { aliasMutationMode: "required" });
 
     const configurationBytes = vercelConfigurationBytes(canaryJobId, resolved.entrypointPath);
-    const publicationManifest = publicationManifestFor(request, resolved.files, configurationBytes);
+    const publicationManifest = publicationManifestFor(
+      request,
+      resolved.files,
+      configurationBytes,
+      inspectedIdentity,
+    );
     const generatedFiles = [
       {
         publicPath: `announcements/${canaryJobId}/.publication.json`,
@@ -140,6 +156,22 @@ export function createVercelTestAPublicationProvider(options = {}) {
       resolved,
       { aliasMutationMode: "required" },
     );
+  }
+
+  async function assertPrivateDeploymentProtection() {
+    if (!requirePrivateDeploymentProtection) return;
+    const project = await vercelJson(
+      `/v9/projects/${encodeURIComponent(projectId)}?${teamQuery}`,
+      { method: "GET" },
+    );
+    const protectedForAllDeployments = [
+      project?.vercelAuthentication,
+      project?.ssoProtection,
+      project?.passwordProtection,
+    ].some((policy) => policy?.deploymentType === "all");
+    if ((project?.id || project?.uid) !== projectId || !protectedForAllDeployments) {
+      throw providerError("Vercel project lacks required private deployment protection.", false);
+    }
   }
 
   async function findExactDeployment(request) {
@@ -284,8 +316,16 @@ export function createVercelTestAPublicationProvider(options = {}) {
   }
 
   async function verifyPublication(publicationUrl, request, resolved, verification) {
+    if (requirePrivateDeploymentProtection) {
+      await assertAnonymousPublicationBlocked(publicationUrl, verification);
+    }
     const configurationBytes = vercelConfigurationBytes(request.jobId, resolved.entrypointPath);
-    const expectedManifest = publicationManifestFor(request, resolved.files, configurationBytes);
+    const expectedManifest = publicationManifestFor(
+      request,
+      resolved.files,
+      configurationBytes,
+      inspectedIdentity,
+    );
     const expectedManifestBytes = publicationManifestBytes(expectedManifest);
     let lastError;
     for (let attempt = 0; attempt < maxPollAttempts; attempt += 1) {
@@ -307,7 +347,14 @@ export function createVercelTestAPublicationProvider(options = {}) {
         }
         const index = resolved.files.find(({ publicPath }) => publicPath === resolved.entrypointPath);
         const canonicalUrl = `${publicationUrl}/${resolved.entrypointPath.slice(0, -"index.html".length)}`;
-        const redirectResponse = await fetchImpl(publicationUrl, { method: "GET", redirect: "manual" });
+        const redirectResponse = await fetchImpl(publicationUrl, {
+          method: "GET",
+          redirect: "manual",
+          signal: providerRequestSignal(),
+          ...(protectionBypassSecret
+            ? { headers: { "x-vercel-protection-bypass": protectionBypassSecret } }
+            : {}),
+        });
         const redirectTarget = redirectResponse.headers.get("location");
         if (
           ![307, 308].includes(redirectResponse.status)
@@ -460,10 +507,33 @@ export function createVercelTestAPublicationProvider(options = {}) {
     }
   }
 
+  async function assertAnonymousPublicationBlocked(publicationUrl, verification) {
+    let response;
+    try {
+      response = await fetchImpl(publicationUrl, {
+        method: "GET",
+        redirect: "manual",
+        signal: providerRequestSignal(),
+      });
+    } catch (error) {
+      throw providerError(`${verification.label} anonymous protection read-back failed.`, true, error);
+    }
+    if (![401, 403].includes(response?.status)) {
+      throw providerError(`${verification.label} is anonymously accessible.`, false);
+    }
+  }
+
   async function publicFetch(url, verification) {
     let response;
     try {
-      response = await fetchImpl(url, { method: "GET", redirect: "error" });
+      response = await fetchImpl(url, {
+        method: "GET",
+        redirect: "error",
+        signal: providerRequestSignal(),
+        ...(protectionBypassSecret
+          ? { headers: { "x-vercel-protection-bypass": protectionBypassSecret } }
+          : {}),
+      });
     } catch (error) {
       throw providerError(`${verification.label} read-back failed.`, true, error);
     }
@@ -503,6 +573,7 @@ export function createVercelTestAPublicationProvider(options = {}) {
       response = await fetchImpl(`${VERCEL_API_ORIGIN}${resource}`, {
         ...init,
         redirect: "error",
+        signal: providerRequestSignal(),
         headers: {
           authorization: `Bearer ${token}`,
           ...(init.body && !Buffer.isBuffer(init.body) ? { "content-type": "application/json" } : {}),
@@ -519,7 +590,28 @@ export function createVercelTestAPublicationProvider(options = {}) {
     return response;
   }
 
-  return Object.freeze({ reconcile, publish });
+  async function runBoundedOperation(operation) {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), operationTimeoutMs);
+    try {
+      return await operationContext.run(controller.signal, operation);
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
+  function providerRequestSignal() {
+    const timeoutSignal = AbortSignal.timeout(requestTimeoutMs);
+    const operationSignal = operationContext.getStore();
+    return operationSignal
+      ? AbortSignal.any([operationSignal, timeoutSignal])
+      : timeoutSignal;
+  }
+
+  return Object.freeze({
+    reconcile: (request) => runBoundedOperation(() => reconcileInternal(request)),
+    publish: (request) => runBoundedOperation(() => publishInternal(request)),
+  });
 }
 
 function assertCanaryRequest(request, canaryJobId, canaryRevisionId) {
@@ -538,6 +630,14 @@ function assertCanaryRequest(request, canaryJobId, canaryRevisionId) {
     || request.artifactSet?.artifactSetId !== request.artifactSetId
   ) {
     throw providerError("Publication artifact set id does not match the exact persisted operation.", false);
+  }
+  if (
+    request.artifactSet?.revisionId !== request.revisionId
+    || !/^[a-f0-9]{64}$/u.test(request.artifactManifestDigest || "")
+    || request.artifactSet?.assetManifestDigest !== request.artifactManifestDigest
+    || !/^bb_[a-f0-9]{64}$/u.test(request.idempotencyKey || "")
+  ) {
+    throw providerError("Publication manifest digest is not bound to the exact persisted operation.", false);
   }
   if (
     request.priorEffectStartedAt !== undefined
@@ -576,7 +676,7 @@ function metadataMatches(metadata, request) {
   return Object.entries(expected).every(([key, value]) => metadata?.[key] === value);
 }
 
-function publicationManifestFor(request, files, configurationBytes) {
+function publicationManifestFor(request, files, configurationBytes, inspectedIdentity) {
   return {
     schemaVersion: "1.0",
     jobId: request.jobId,
@@ -584,6 +684,10 @@ function publicationManifestFor(request, files, configurationBytes) {
     artifactSetId: request.artifactSetId,
     artifactManifestDigest: request.artifactManifestDigest,
     idempotencyKey: request.idempotencyKey,
+    completionBuild: {
+      deploymentId: inspectedIdentity.deploymentId,
+      buildId: inspectedIdentity.buildId,
+    },
     vercelConfiguration: {
       sha256: sha256(configurationBytes),
       bytes: configurationBytes.byteLength,

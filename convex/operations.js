@@ -85,7 +85,7 @@ const OUTCOME_CONTRACT_BY_ACTION = Object.freeze({
   reject_narration: Object.freeze({ code: "review_recorded", fields: ["code", "decisionId", "jobVersion"] }),
   publish: Object.freeze({ code: "published", fields: ["code", "deploymentId", "jobVersion", "productionUrl", "publicationId"] }),
   queue_delivery: Object.freeze({ code: "delivery_queued", fields: ["code", "jobVersion"] }),
-  deliver: Object.freeze({ code: "delivered", fields: ["code", "deliveryAttemptId", "jobVersion", "providerMessageId"] }),
+  deliver: Object.freeze({ code: "delivery_accepted", fields: ["code", "deliveryAttemptId", "jobVersion", "providerMessageId"] }),
   retry: Object.freeze({ code: "retry_scheduled", fields: ["code", "jobVersion"] }),
   reconcile: Object.freeze({
     code: "reconciled",
@@ -104,8 +104,8 @@ export const operatorHealth = queryGeneric({
 export const workerHealth = queryGeneric({
   args: { workerToken: v.string() },
   handler: async (_context, args) => {
-    assertWorkerToken(args.workerToken);
-    return { protocolVersion: "1.0", scope: "worker" };
+    const scope = assertWorkerToken(args.workerToken);
+    return { protocolVersion: "1.0", scope };
   },
 });
 
@@ -350,28 +350,39 @@ export const claimCommands = mutationGeneric({
     actions: v.array(v.string()),
     limit: v.number(),
     leaseMs: v.number(),
+    jobId: v.optional(v.string()),
   },
   handler: async (context, args) => {
-    assertWorkerToken(args.workerToken);
+    const workerScope = assertWorkerToken(args.workerToken);
     assertWorkerClaimInput(args);
+    assertCompletionClaimScope(workerScope, args);
     if (args.actions.length === 0) return [];
     const nowMs = Date.now();
     const actions = [...args.actions].sort();
-    const pending = (await Promise.all(actions.map((action) => context.db
-      .query("customerFlowOperationsCommands")
-      .withIndex("by_state_action_requested_at", (query) => query
-        .eq("state", "pending")
-        .eq("action", action))
-      .order("asc")
-      .take(args.limit)))).flat();
-    const running = (await Promise.all(actions.map((action) => context.db
-      .query("customerFlowOperationsCommands")
-      .withIndex("by_state_action_claim_lease_expiry", (query) => query
-        .eq("state", "running")
-        .eq("action", action)
-        .lte("claim.leaseExpiresAtMs", nowMs))
-      .order("asc")
-      .take(args.limit)))).flat();
+    const pending = args.jobId
+      ? (await context.db.query("customerFlowOperationsCommands")
+        .withIndex("by_job_id_and_state", (query) => query.eq("jobId", args.jobId).eq("state", "pending"))
+        .collect()).filter((command) => actions.includes(command.action)).slice(0, args.limit)
+      : (await Promise.all(actions.map((action) => context.db
+        .query("customerFlowOperationsCommands")
+        .withIndex("by_state_action_requested_at", (query) => query
+          .eq("state", "pending")
+          .eq("action", action))
+        .order("asc")
+        .take(args.limit)))).flat();
+    const running = args.jobId
+      ? (await context.db.query("customerFlowOperationsCommands")
+        .withIndex("by_job_id_and_state", (query) => query.eq("jobId", args.jobId).eq("state", "running"))
+        .collect()).filter((command) => actions.includes(command.action)
+          && command.claim?.leaseExpiresAtMs <= nowMs).slice(0, args.limit)
+      : (await Promise.all(actions.map((action) => context.db
+        .query("customerFlowOperationsCommands")
+        .withIndex("by_state_action_claim_lease_expiry", (query) => query
+          .eq("state", "running")
+          .eq("action", action)
+          .lte("claim.leaseExpiresAtMs", nowMs))
+        .order("asc")
+        .take(args.limit)))).flat();
     const candidates = [...running, ...pending]
       .sort((left, right) => left.requestedAt.localeCompare(right.requestedAt)
         || left.commandId.localeCompare(right.commandId))
@@ -425,6 +436,7 @@ export const claimCommands = mutationGeneric({
         }
       }
       const fulfillment = await findFulfillmentJob(context, command.jobId);
+      if (!completionCommandMatchesAggregate(workerScope, command, fulfillment?.aggregate)) continue;
       const stateMatches = fulfillment
         && fulfillment.aggregate.state === command.expectedState
         && fulfillment.aggregate.version === command.expectedVersion;
@@ -475,7 +487,7 @@ export const fenceCommand = mutationGeneric({
     effectMayBeIssued: v.boolean(),
   },
   handler: async (context, args) => {
-    assertWorkerToken(args.workerToken);
+    const workerScope = assertWorkerToken(args.workerToken);
     assertCommandId(args.commandId);
     assertWorkerId(args.workerId);
     if (!Number.isInteger(args.leaseMs) || args.leaseMs < 1_000 || args.leaseMs > 600_000) {
@@ -483,6 +495,7 @@ export const fenceCommand = mutationGeneric({
     }
     const nowMs = Date.now();
     const command = await findCommand(context, args.commandId);
+    assertCompletionCommandScope(workerScope, command, args);
     if (command?.state !== "running"
       || command.claim?.workerId !== args.workerId
       || command.claim?.leaseToken !== args.leaseToken) {
@@ -536,6 +549,7 @@ export const fenceCommand = mutationGeneric({
       }
     }
     const fulfillment = await findFulfillmentJob(context, command.jobId);
+    assertCompletionAggregateScope(workerScope, command, fulfillment?.aggregate);
     const stateMatches = fulfillment
       && commandStateIsCurrent(command, fulfillment.aggregate, args.effectMayBeIssued, nowMs);
     let bindingMatches = false;
@@ -583,12 +597,13 @@ export const completeCommand = mutationGeneric({
     outcome: v.any(),
   },
   handler: async (context, args) => {
-    assertWorkerToken(args.workerToken);
+    const workerScope = assertWorkerToken(args.workerToken);
     assertCommandId(args.commandId);
     assertWorkerId(args.workerId);
     const completedAtMs = Date.now();
     const completedAt = new Date(completedAtMs).toISOString();
     const command = await findCommand(context, args.commandId);
+    assertCompletionCommandScope(workerScope, command, args);
     assertCommandOutcome(command, args.outcome);
     if (command?.state === "completed") {
       if (command.claim?.workerId !== args.workerId
@@ -609,6 +624,7 @@ export const completeCommand = mutationGeneric({
     if (!customerDocument || !fulfillmentDocument) {
       throw new Error("Operator command canonical job is missing.");
     }
+    assertCompletionAggregateScope(workerScope, command, fulfillmentDocument.aggregate);
 
     if (command.action === "reconcile") {
       await completeReconciliation(context, command, args.outcome, customerDocument.job, fulfillmentDocument.aggregate, completedAt);
@@ -645,13 +661,14 @@ export const failCommand = mutationGeneric({
     retryable: v.boolean(),
   },
   handler: async (context, args) => {
-    assertWorkerToken(args.workerToken);
+    const workerScope = assertWorkerToken(args.workerToken);
     assertCommandId(args.commandId);
     assertWorkerId(args.workerId);
     const failedAtMs = Date.now();
     const failedAt = new Date(failedAtMs).toISOString();
     if (!REASON_CODE.test(args.reasonCode)) throw new Error("Operator failure reason code is invalid.");
     const command = await findCommand(context, args.commandId);
+    assertCompletionCommandScope(workerScope, command, args);
     assertClaimIdentity(command, args.workerId, args.leaseToken);
     const effectMayHaveOccurred = EXTERNAL_EFFECT_ACTIONS.has(command.action)
       && command.claim.effectStartedAtMs !== undefined;
@@ -808,7 +825,7 @@ function canonicalOutcomeForCommand(command, customer, aggregate) {
       || typeof delivery.providerMessageId !== "string"
       || typeof delivery.idempotencyKey !== "string") return null;
     return {
-      code: "delivered",
+      code: "delivery_accepted",
       deliveryAttemptId: delivery.idempotencyKey,
       jobVersion: version,
       providerMessageId: delivery.providerMessageId,
@@ -1421,6 +1438,7 @@ function isHttpsUrl(value) {
 
 function assertWorkerClaimInput(args) {
   assertWorkerId(args.workerId);
+  if (args.jobId !== undefined) assertJobId(args.jobId);
   if (!Array.isArray(args.actions)
     || args.actions.length > ALL_ACTIONS.size
     || new Set(args.actions).size !== args.actions.length
@@ -1486,14 +1504,55 @@ function assertRateLimitToken(value) {
 
 function assertWorkerToken(value) {
   assertDistinctOperationsTokens();
-  assertScopedToken(value, process.env.BEBEBONJOUR_OPERATIONS_WORKER_TOKEN);
+  if (value === process.env.BEBEBONJOUR_OPERATIONS_WORKER_TOKEN
+      && typeof value === "string" && value.length >= 32) return "worker";
+  if (value === process.env.BEBEBONJOUR_COMPLETION_WORKER_TOKEN
+      && typeof value === "string" && value.length >= 32) return "completion";
+  throw new Error("Unauthorized.");
+}
+
+function assertCompletionClaimScope(scope, args) {
+  if (scope !== "completion") return;
+  const exactActions = ["approve_content", "deliver", "publish", "queue_delivery", "render", "retry"];
+  if (args.jobId !== "job_03c25b08-8476-4fe1-923b-43d73feab3ff"
+      || args.workerId !== "test-a-completion-worker"
+      || args.limit !== 1
+      || args.leaseMs !== 300_000
+      || JSON.stringify([...args.actions].sort()) !== JSON.stringify(exactActions)) {
+    throw new Error("Completion token exceeds its exact synthetic claim scope.");
+  }
+}
+
+function assertCompletionCommandScope(scope, command, args) {
+  if (scope !== "completion") return;
+  const actions = new Set(["approve_content", "render", "publish", "queue_delivery", "deliver", "retry"]);
+  if (!command
+      || command.jobId !== "job_03c25b08-8476-4fe1-923b-43d73feab3ff"
+      || !actions.has(command.action)
+      || args.workerId !== "test-a-completion-worker"
+      || (args.leaseMs !== undefined && args.leaseMs !== 300_000)) {
+    throw new Error("Completion token exceeds its exact synthetic command scope.");
+  }
+}
+
+function completionCommandMatchesAggregate(scope, command, aggregate) {
+  if (scope !== "completion" || command.action !== "retry") return true;
+  return new Set(["render_approved", "publish", "deliver"]).has(aggregate?.retry?.stage);
+}
+
+function assertCompletionAggregateScope(scope, command, aggregate) {
+  if (!completionCommandMatchesAggregate(scope, command, aggregate)) {
+    throw new Error("Completion retry exceeds the completion-only stages.");
+  }
 }
 
 function assertDistinctOperationsTokens() {
   const configured = [
     process.env.BEBEBONJOUR_OPERATIONS_TOKEN,
     process.env.BEBEBONJOUR_OPERATIONS_WORKER_TOKEN,
+    process.env.BEBEBONJOUR_COMPLETION_WORKER_TOKEN,
     process.env.BEBEBONJOUR_OPS_RATE_LIMIT_TOKEN,
+    process.env.CUSTOMER_FLOW_BACKEND_TOKEN,
   ].filter((token) => typeof token === "string" && token.length > 0);
   if (new Set(configured).size !== configured.length) {
     throw new Error("Operations credentials must be distinct.");

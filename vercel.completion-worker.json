@@ -1,0 +1,22 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "installCommand": "npm ci",
+  "builds": [
+    {
+      "src": "completion-worker/api/worker.mjs",
+      "use": "@vercel/node"
+    }
+  ],
+  "routes": [
+    {
+      "src": "/api/operations/completion-worker",
+      "dest": "completion-worker/api/worker.mjs"
+    }
+  ],
+  "crons": [
+    {
+      "path": "/api/operations/completion-worker",
+      "schedule": "*/5 * * * *"
+    }
+  ]
+}

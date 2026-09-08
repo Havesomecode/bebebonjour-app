@@ -671,9 +671,10 @@ function completeApprovedRender(next, result, attempt) {
   const contentDecision = assertApprovedContent(next);
   addArtifactSet(next, result?.artifactSet, "prepared_bundle", attempt.operationsCommandId);
   const preparedBundle = latestArtifactSet(next, "prepared_bundle", next.currentRevisionId);
-  if (!next.narrationRequired && !isDeepStrictEqual(
-    contentDecision.artifactDigests,
-    pickDigests(preparedBundle),
+  if (!next.narrationRequired && !preparedBundleMatchesContentApproval(
+    next,
+    contentDecision,
+    preparedBundle,
   )) {
     throw new Error("Non-narrated release requires the exact content-approved artifact digests.");
   }
@@ -814,9 +815,10 @@ function assertReleaseEligible(aggregate) {
   if (!preparedBundle) {
     throw new Error("Release requires the exact prepared bundle.");
   }
-  if (!aggregate.narrationRequired && !isDeepStrictEqual(
-    contentDecision.artifactDigests,
-    pickDigests(preparedBundle),
+  if (!aggregate.narrationRequired && !preparedBundleMatchesContentApproval(
+    aggregate,
+    contentDecision,
+    preparedBundle,
   )) {
     throw new Error("Non-narrated release requires the exact content-approved artifact digests.");
   }
@@ -831,6 +833,31 @@ function releaseArtifactSet(aggregate) {
   const artifactSet = latestArtifactSet(aggregate, kind, aggregate.currentRevisionId);
   if (!artifactSet) throw new Error(`Release requires the exact ${kind} artifacts.`);
   return artifactSet;
+}
+
+function preparedBundleMatchesContentApproval(aggregate, contentDecision, preparedBundle) {
+  if (isDeepStrictEqual(contentDecision.artifactDigests, pickDigests(preparedBundle))) return true;
+  const source = latestArtifactSet(aggregate, "private_review", aggregate.currentRevisionId);
+  if (
+    !source
+    || preparedBundle.pageDigest !== source.pageDigest
+    || preparedBundle.transcriptDigest !== source.transcriptDigest
+    || preparedBundle.manifestRef
+      !== `jobs/${aggregate.jobId}/revisions/${aggregate.currentRevisionId}/manifests/prepared_bundle.json`
+    || !Array.isArray(source.files)
+    || source.files.length === 0
+    || !Array.isArray(preparedBundle.files)
+    || preparedBundle.files.length !== source.files.length
+  ) return false;
+  const namespace = source.files[0].path.split("/")[1];
+  if (!namespace) return false;
+  return source.files.every((file, index) => (
+    file.path.startsWith(`private-preview/${namespace}/`)
+    && isDeepStrictEqual(preparedBundle.files[index], {
+      ...file,
+      path: `deploy/${file.path.slice(`private-preview/${namespace}/`.length)}`,
+    })
+  ));
 }
 
 function assertApprovedContent(aggregate) {

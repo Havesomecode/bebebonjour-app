@@ -172,8 +172,8 @@ function codexCompositionConfig(environment) {
     1_000,
     300_000,
   );
-  if (workerLeaseMs < authLeaseMs + 10_000) {
-    throw new Error("BEBEBONJOUR_OPERATIONS_WORKER_LEASE_MS is too short for Codex auth writeback.");
+  if (timeoutMs !== 240_000 || authLeaseMs !== 290_000 || workerLeaseMs !== 300_000) {
+    throw new Error("Generation timing must remain exactly 240000/290000/300000 ms.");
   }
   return Object.freeze({
     encryptionKey,

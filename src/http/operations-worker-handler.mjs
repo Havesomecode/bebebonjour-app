@@ -33,11 +33,11 @@ export function createOperationsWorkerHttpHandler(options = {}) {
   };
 }
 
-export function createLazyOperationsWorkerHttpHandler() {
+export function createLazyOperationsWorkerHttpHandler(options = {}) {
   let handler;
   return async function lazyOperationsWorkerHandler(request, response) {
     try {
-      handler ||= createOperationsWorkerHttpHandler();
+      handler ||= createOperationsWorkerHttpHandler(options);
       return await handler(request, response);
     } catch {
       response.setHeader("Cache-Control", "private, no-store");

@@ -74,13 +74,17 @@ export function createOperationsActionHandlers({
         commandId: command.commandId,
         revisionId: command.payload.revisionId,
         publicationId: command.payload.publicationId,
-      });
+      }, command.workerAuthority);
       return projectOutcome(command, await fulfillmentStore.getJob(command.jobId, command.workerAuthority));
     },
 
     async retry(command) {
       command = { ...command, action: "retry" };
-      await fulfillmentOrchestrator.resumeRetry(command.jobId, { commandId: command.commandId });
+      await fulfillmentOrchestrator.resumeRetry(
+        command.jobId,
+        { commandId: command.commandId },
+        command.workerAuthority,
+      );
       return projectOutcome(command, await fulfillmentStore.getJob(command.jobId, command.workerAuthority));
     },
 
@@ -125,6 +129,7 @@ export function createOperationsActionHandlers({
         jobId: command.jobId,
         expectedVersion: command.expectedVersion,
         payload: structuredClone(command.payload),
+        workerAuthority: command.workerAuthority,
         ...contract,
       }));
       if (decision?.commandId !== command.commandId
@@ -133,7 +138,11 @@ export function createOperationsActionHandlers({
         || decision?.outcome !== contract.outcome) {
         throw commandError("review_authorization_invalid", false);
       }
-      await fulfillmentOrchestrator.recordReviewDecision(command.jobId, decision);
+      await fulfillmentOrchestrator.recordReviewDecision(
+        command.jobId,
+        decision,
+        command.workerAuthority,
+      );
       return projectOutcome(command, await fulfillmentStore.getJob(command.jobId, command.workerAuthority));
     };
   }
@@ -218,7 +227,7 @@ function projectOutcome(command, aggregate) {
       throw commandError("canonical_provenance_missing", false);
     }
     return {
-      code: "delivered",
+      code: "delivery_accepted",
       deliveryAttemptId: delivery.idempotencyKey,
       providerMessageId: delivery.providerMessageId,
       jobVersion: aggregate.version,

@@ -411,6 +411,60 @@
       "prepare_review"
     ]
   },
+  "completionOperatorRuntime": {
+    "authorityInputs": [
+      "fixedSyntheticJobId",
+      "persistedSignedContentApproval",
+      "claimScopedConvexArtifactReads",
+      "authoritativePublicationInspection",
+      "fixedResendTestSink"
+    ],
+    "capabilities": [
+      "approve_content",
+      "render",
+      "publish",
+      "queue_delivery",
+      "deliver",
+      "retry"
+    ],
+    "deployment": {
+      "provider": "Vercel",
+      "projectName": "bebebonjour-completion-worker",
+      "configPath": "vercel.completion-worker.json",
+      "entrypoint": "completion-worker/api/worker.mjs",
+      "route": "GET /api/operations/completion-worker",
+      "schedule": "*/5 * * * *",
+      "minimumPlan": "pro"
+    },
+    "environmentVariables": [
+      "CONVEX_URL",
+      "BEBEBONJOUR_COMPLETION_WORKER_TOKEN",
+      "BEBEBONJOUR_OPERATIONS_WORKER_ID",
+      "BEBEBONJOUR_OPERATIONS_WORKER_ACTIONS",
+      "BEBEBONJOUR_OPERATIONS_WORKER_LIMIT",
+      "BEBEBONJOUR_OPERATIONS_WORKER_LEASE_MS",
+      "BEBEBONJOUR_TEST_A_COMPLETION_JOB_ID",
+      "BEBEBONJOUR_APPROVAL_HMAC_KEY",
+      "BEBEBONJOUR_TEST_A_APPROVAL_ID",
+      "VERCEL_TOKEN",
+      "VERCEL_PROTECTION_BYPASS_SECRET",
+      "VERCEL_BUILD_INSPECTION_B64",
+      "RESEND_API_KEY",
+      "RESEND_FROM",
+      "TEST_A_PUBLICATION_ORIGIN",
+      "TEST_A_PUBLICATION_VERCEL_TEAM_ID",
+      "TEST_A_PUBLICATION_VERCEL_PROJECT_ID",
+      "TEST_A_PUBLICATION_VERCEL_PROJECT_NAME",
+      "CRON_SECRET"
+    ],
+    "providerOperationsEnabled": "access-protected Vercel TEST-A publication and Resend test-sink delivery",
+    "publicApiAccess": false,
+    "stages": [
+      "render_approved",
+      "publish",
+      "deliver"
+    ]
+  },
   "generationArtifactStorage": {
     "provider": "Convex file storage and indexed metadata",
     "durabilityAuthority": "convex.identity",
@@ -557,11 +611,59 @@
         "TALLY_INTAKE_FIELD_MAP"
       ]
     },
+    "completionOperator": {
+      "owner": "isolated Vercel synthetic completion-only project",
+      "allowed": [
+        "CONVEX_URL",
+        "BEBEBONJOUR_COMPLETION_WORKER_TOKEN",
+        "BEBEBONJOUR_OPERATIONS_WORKER_ID",
+        "BEBEBONJOUR_OPERATIONS_WORKER_ACTIONS",
+        "BEBEBONJOUR_OPERATIONS_WORKER_LIMIT",
+        "BEBEBONJOUR_OPERATIONS_WORKER_LEASE_MS",
+        "BEBEBONJOUR_TEST_A_COMPLETION_JOB_ID",
+        "BEBEBONJOUR_APPROVAL_HMAC_KEY",
+        "BEBEBONJOUR_TEST_A_APPROVAL_ID",
+        "VERCEL_TOKEN",
+        "VERCEL_PROTECTION_BYPASS_SECRET",
+        "VERCEL_BUILD_INSPECTION_B64",
+        "RESEND_API_KEY",
+        "RESEND_FROM",
+        "TEST_A_PUBLICATION_ORIGIN",
+        "TEST_A_PUBLICATION_VERCEL_TEAM_ID",
+        "TEST_A_PUBLICATION_VERCEL_PROJECT_ID",
+        "TEST_A_PUBLICATION_VERCEL_PROJECT_NAME",
+        "CRON_SECRET"
+      ],
+      "forbidden": [
+        "BEBEBONJOUR_OPERATIONS_TOKEN",
+        "BEBEBONJOUR_OPS_RATE_LIMIT_TOKEN",
+        "BEBEBONJOUR_OPERATIONS_WORKER_TOKEN",
+        "CONVEX_DEPLOY_KEY",
+        "CUSTOMER_FLOW_BACKEND_TOKEN",
+        "CUSTOMER_FLOW_TOKEN_ENCRYPTION_KEY",
+        "CUSTOMER_FLOW_TEST_ACCESS_TOKEN",
+        "ELEVENLABS_API_KEY",
+        "OPENAI_API_KEY",
+        "STRIPE_SECRET_KEY",
+        "STRIPE_LIVE_SECRET_KEY",
+        "STRIPE_WEBHOOK_SECRET",
+        "STRIPE_CUSTOMER_FLOW_WEBHOOK_SECRET",
+        "TALLY_SIGNING_SECRET",
+        "TALLY_WEBHOOK_SECRET",
+        "TALLY_INTAKE_SIGNING_SECRET",
+        "TALLY_INTAKE_FIELD_MAP",
+        "BEBEBONJOUR_STRIPE_PRICE_ID",
+        "VITE_FULFILLMENT_API_BASE_URL",
+        "VITE_FULFILLMENT_API_APPROVED_HOSTED_ORIGIN"
+      ]
+    },
     "convexProduction": {
       "owner": "Canonical Convex production deployment convex.identity only",
       "allowed": [
         "CUSTOMER_FLOW_BACKEND_TOKEN",
-        "BEBEBONJOUR_OPERATIONS_WORKER_TOKEN"
+        "BEBEBONJOUR_OPERATIONS_WORKER_TOKEN",
+        "BEBEBONJOUR_COMPLETION_WORKER_TOKEN",
+        "TEST_A_PUBLICATION_ORIGIN"
       ],
       "forbidden": [
         "CONVEX_DEPLOY_KEY",

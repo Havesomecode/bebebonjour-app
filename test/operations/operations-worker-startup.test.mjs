@@ -14,12 +14,12 @@ const generationEnvironment = Object.freeze({
   ...environment,
   BEBEBONJOUR_OPERATIONS_WORKER_ACTIONS: "generate",
   BEBEBONJOUR_OPERATIONS_WORKER_LIMIT: "5",
-  BEBEBONJOUR_OPERATIONS_WORKER_LEASE_MS: "120000",
+  BEBEBONJOUR_OPERATIONS_WORKER_LEASE_MS: "300000",
   BEBEBONJOUR_CODEX_SUBSCRIPTION_ENABLED: "true",
   BEBEBONJOUR_CODEX_AUTH_ENCRYPTION_KEY: Buffer.alloc(32, 17).toString("base64url"),
   BEBEBONJOUR_CODEX_MODEL: "gpt-5.6-sol",
-  BEBEBONJOUR_CODEX_TIMEOUT_MS: "90000",
-  BEBEBONJOUR_CODEX_AUTH_LEASE_MS: "110000",
+  BEBEBONJOUR_CODEX_TIMEOUT_MS: "240000",
+  BEBEBONJOUR_CODEX_AUTH_LEASE_MS: "290000",
   CRON_SECRET: "cron-secret-with-at-least-thirty-two-bytes",
 });
 
@@ -158,7 +158,7 @@ test("production generation entrypoint composes job-scoped generation without fu
     claim: {
       workerId: "production-worker-1",
       leaseToken: "production-lease-token",
-      leaseExpiresAtMs: Date.now() + 120_000,
+      leaseExpiresAtMs: Date.now() + 300_000,
     },
   };
   const client = {
@@ -225,7 +225,7 @@ test("production generation entrypoint composes job-scoped generation without fu
       assert.equal(options.executable, "/synthetic/codex");
       assert.deepEqual(options.executableArgs, []);
       assert.equal(options.model, "gpt-5.6-sol");
-      assert.equal(options.timeoutMs, 90_000);
+      assert.equal(options.timeoutMs, 240_000);
       return { compose: async () => ({ synthetic: true }) };
     },
     createGenerationRunner(options) {
@@ -354,7 +354,7 @@ test("production generation rejects invalid Codex bootstrap and lease windows be
           async mutation() { calls += 1; },
         },
       }),
-      /(BOOTSTRAP_B64 is invalid|too short for Codex auth writeback)/u,
+      /(BOOTSTRAP_B64 is invalid|Generation timing must remain exactly)/u,
     );
     assert.equal(calls, 0);
   }

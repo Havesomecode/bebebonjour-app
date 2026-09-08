@@ -7,7 +7,7 @@ import { fileURLToPath } from "node:url";
 import { REVIEWED_TEST_A_OPERATOR_POLICY } from "../src/config/test-a-hosted-provider-manifest.mjs";
 import { createTestAOperatorIsolationInventory } from "../src/config/test-a-operator-isolation.mjs";
 
-const BASELINE_COMMIT = "c7abbb7338282b7bfba2616693f2a8d75285d8d3";
+const BASELINE_COMMIT = "82be6b29eab9245400e928623ec15a3f1ae1ca27";
 const EVIDENCE_RELATIVE_PATH = "ops/test-a-consolidated-candidate-evidence.json";
 const EXCLUDED_WORKTREE_PATHS = new Set(["ops/.tmp-hermes-simulate-test-payment.mjs"]);
 const EXCLUDED_DIGEST_PATHS = new Set([
@@ -45,6 +45,7 @@ const focusedTestFiles = [
   "test/operations/operations-worker-runtime.test.mjs",
   "test/operations/operations-worker-startup.test.mjs",
   "test/operations/hosted-generation-storage.test.mjs",
+  "test/operations/completion-worker-boundary.test.mjs",
 ];
 const controls = Object.freeze([
   {
@@ -107,6 +108,19 @@ const controls = Object.freeze([
       "test/fulfillment/vercel-test-a-publication-provider.test.mjs: Vercel TEST-A publication retry starts reconciliation at the supplied cursor after an interrupted deployment",
     ],
   },
+  {
+    id: "exact-synthetic-provider-completion-worker",
+    requirement: "A separately packaged completion endpoint accepts only one fixed synthetic TEST-A job, a completion-only Convex token, an authenticated persisted approval, exact reviewed bytes, the inspected private publication identity, the Resend test sink, and bounded retry. Generation remains generate-only and no payment, intake, live-customer, DNS, or outreach authority is mounted.",
+    proofs: [
+      "test/operations/completion-worker-boundary.test.mjs: completion policy rejects broadened job, action, lease, customer, payment, and intake authority before provider I/O",
+      "test/operations/completion-worker-boundary.test.mjs: production completion startup claims the exact job using only completion-scoped Convex authority",
+      "test/operations/completion-worker-boundary.test.mjs: reviewed private bytes are promoted without mutation and remain exact-revision bound",
+      "test/operations/completion-worker-boundary.test.mjs: hosted resolver rejects non-synthetic and non-private artifact reads before publication",
+      "test/fulfillment/resend-delivery-adapter.test.mjs: Resend delivery adapter rejects every non-canonical test sink before sending",
+      "test/fulfillment/vercel-test-a-publication-provider.test.mjs: Vercel publication reconciles exact idempotent private deployment effects",
+    ],
+  },
+
   {
     id: "persisted-provider-mutation-fencing",
     requirement: "Every Vercel upload, deployment, and alias mutation plus every Resend send rechecks persisted attempt ownership immediately before provider invocation.",

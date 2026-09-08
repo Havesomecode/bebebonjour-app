@@ -27,13 +27,16 @@ function normalizeRequest(request) {
   if (!request || request.environment !== "test" || request.product !== "announcement-page") {
     throw publicationError("Publication is restricted to the TEST-A announcement product.");
   }
-  const { fenceExternalEffect, ...serializableRequest } = request;
+  const { fenceExternalEffect, artifactReadAuthority, ...serializableRequest } = request;
   const exact = structuredClone(serializableRequest);
   if (fenceExternalEffect !== undefined) {
     if (typeof fenceExternalEffect !== "function") {
       throw publicationError("Publication external-effect fence is invalid.");
     }
     exact.fenceExternalEffect = fenceExternalEffect;
+  }
+  if (artifactReadAuthority !== undefined) {
+    exact.artifactReadAuthority = normalizeArtifactReadAuthority(artifactReadAuthority);
   }
   requireIdentifier(exact.jobId, "publication job id");
   requireIdentifier(exact.revisionId, "publication revision id");
@@ -79,6 +82,17 @@ function normalizeRequest(request) {
       throw publicationError("Publication artifact byte count is invalid.");
     }
     requireNonEmptyString(file?.storageId, "publication artifact storage id");
+  }
+  return Object.freeze(exact);
+}
+
+function normalizeArtifactReadAuthority(value) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    throw publicationError("Publication artifact read authority is invalid.");
+  }
+  const exact = {};
+  for (const name of ["workerId", "commandId", "leaseToken"]) {
+    exact[name] = requireNonEmptyString(value[name], `publication ${name}`);
   }
   return Object.freeze(exact);
 }

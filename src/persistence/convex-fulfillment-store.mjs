@@ -37,14 +37,20 @@ export function createConvexFulfillmentStore(options = {}) {
     throw new Error("Convex fulfillment authorization is required.");
   }
 
-  async function change(jobId, transition) {
+  const authorizationFor = (authority) => ({
+    ...authorization,
+    ...(authority || {}),
+  });
+
+  async function change(jobId, transition, authority) {
     for (let attempt = 0; attempt < 5; attempt += 1) {
-      const current = await client.query(functions.getJob, { ...authorization, jobId });
+      const scopedAuthorization = authorizationFor(authority);
+      const current = await client.query(functions.getJob, { ...scopedAuthorization, jobId });
       if (!current) throw new Error(`Unknown fulfillment job: ${jobId}`);
       const next = transition(structuredClone(current));
       if (next.version === current.version) return structuredClone(next);
       const result = await client.mutation(functions.replaceJob, {
-        ...authorization,
+        ...scopedAuthorization,
         jobId,
         expectedVersion: current.version,
         aggregate: next,
@@ -79,8 +85,8 @@ export function createConvexFulfillmentStore(options = {}) {
       throw new Error(`Fulfillment job already exists: ${input.jobId}`);
     },
 
-    getJob(jobId) {
-      return client.query(functions.getJob, { ...authorization, jobId });
+    getJob(jobId, authority) {
+      return client.query(functions.getJob, { ...authorizationFor(authority), jobId });
     },
 
     getReviewApproval(approvalId) {
@@ -99,47 +105,47 @@ export function createConvexFulfillmentStore(options = {}) {
       return change(jobId, (aggregate) => recordPaymentTransition(aggregate, payment, at));
     },
 
-    recordReviewDecision(jobId, decision, at) {
-      return change(jobId, (aggregate) => recordReviewDecisionTransition(aggregate, decision, at));
+    recordReviewDecision(jobId, decision, at, authority) {
+      return change(jobId, (aggregate) => recordReviewDecisionTransition(aggregate, decision, at), authority);
     },
 
-    async claimStage(jobId, claim, at) {
+    async claimStage(jobId, claim, at, authority) {
       let acquired = false;
       const aggregate = await change(jobId, (current) => {
         const replay = current.events.some((event) => event.commandId === claim.commandId);
         const next = claimStageTransition(current, claim, at);
         acquired = !replay;
         return next;
-      });
+      }, authority);
       return { aggregate, acquired };
     },
 
-    markExternalEffectStarted(jobId, command, at) {
-      return change(jobId, (aggregate) => markExternalEffectStartedTransition(aggregate, command, at));
+    markExternalEffectStarted(jobId, command, at, authority) {
+      return change(jobId, (aggregate) => markExternalEffectStartedTransition(aggregate, command, at), authority);
     },
 
-    fenceExternalEffect(jobId, command, at) {
-      return change(jobId, (aggregate) => fenceExternalEffectTransition(aggregate, command, at));
+    fenceExternalEffect(jobId, command, at, authority) {
+      return change(jobId, (aggregate) => fenceExternalEffectTransition(aggregate, command, at), authority);
     },
 
-    completeStage(jobId, completion, at) {
-      return change(jobId, (aggregate) => completeStageTransition(aggregate, completion, at));
+    completeStage(jobId, completion, at, authority) {
+      return change(jobId, (aggregate) => completeStageTransition(aggregate, completion, at), authority);
     },
 
-    failStage(jobId, failure, policy, at) {
-      return change(jobId, (aggregate) => failStageTransition(aggregate, failure, policy, at));
+    failStage(jobId, failure, policy, at, authority) {
+      return change(jobId, (aggregate) => failStageTransition(aggregate, failure, policy, at), authority);
     },
 
     recoverFailedPrepareReview(jobId, recovery, at) {
       return change(jobId, (aggregate) => recoverFailedPrepareReviewTransition(aggregate, recovery, at));
     },
 
-    resumeRetry(jobId, command, at) {
-      return change(jobId, (aggregate) => resumeRetryTransition(aggregate, command, at));
+    resumeRetry(jobId, command, at, authority) {
+      return change(jobId, (aggregate) => resumeRetryTransition(aggregate, command, at), authority);
     },
 
-    queueDelivery(jobId, command, at) {
-      return change(jobId, (aggregate) => queueDeliveryTransition(aggregate, command, at));
+    queueDelivery(jobId, command, at, authority) {
+      return change(jobId, (aggregate) => queueDeliveryTransition(aggregate, command, at), authority);
     },
 
     confirmDelivery(jobId, confirmation, at) {

@@ -38,6 +38,7 @@ export function createOperationsCommandWorker(options = {}) {
         actions: enabledActions,
         limit: input.limit,
         leaseMs: input.leaseMs,
+        ...(input.jobId ? { jobId: input.jobId } : {}),
       });
       if (!Array.isArray(claimed)) throw new Error("Operations queue claim response is invalid.");
 
@@ -94,11 +95,12 @@ export function createOperationsCommandWorker(options = {}) {
                   throw new OperationsCommandError("active_claim_expired");
                 }
                 if (fenced.command) command = fenced.command;
-                return providerMutation(Object.freeze({
+                const effectAuthority = Object.freeze({
                   idempotencyKey: command.commandId,
                   fencingToken: requiredLeaseToken(command),
                   leaseExpiresAtMs: command.claim.leaseExpiresAtMs,
-                }));
+                });
+                return providerMutation(effectAuthority);
               }
             : null;
           outcome = await handler({
@@ -183,6 +185,10 @@ function requiredLeaseToken(command) {
 
 function assertRunInput(input) {
   if (!WORKER_ID.test(input.workerId || "")) throw new Error("Operations worker id is invalid.");
+
+  if (input.jobId !== undefined && !/^job_[A-Za-z0-9][A-Za-z0-9_-]{2,127}$/u.test(input.jobId)) {
+    throw new Error("Operations worker job scope is invalid.");
+  }
 
   if (!Number.isInteger(input.limit) || input.limit < 1 || input.limit > 20) {
     throw new Error("Operations worker claim limit is invalid.");

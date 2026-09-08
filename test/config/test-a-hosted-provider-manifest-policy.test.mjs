@@ -113,12 +113,12 @@ test("reviewed generation runtime rejects broad or incomplete mounted authority"
     BEBEBONJOUR_OPERATIONS_WORKER_ID: "generation-worker-1",
     BEBEBONJOUR_OPERATIONS_WORKER_ACTIONS: "generate",
     BEBEBONJOUR_OPERATIONS_WORKER_LIMIT: "5",
-    BEBEBONJOUR_OPERATIONS_WORKER_LEASE_MS: "120000",
+    BEBEBONJOUR_OPERATIONS_WORKER_LEASE_MS: "300000",
     BEBEBONJOUR_CODEX_SUBSCRIPTION_ENABLED: "true",
     BEBEBONJOUR_CODEX_AUTH_ENCRYPTION_KEY: Buffer.alloc(32, 17).toString("base64url"),
     BEBEBONJOUR_CODEX_MODEL: "gpt-5.6-sol",
-    BEBEBONJOUR_CODEX_TIMEOUT_MS: "90000",
-    BEBEBONJOUR_CODEX_AUTH_LEASE_MS: "110000",
+    BEBEBONJOUR_CODEX_TIMEOUT_MS: "240000",
+    BEBEBONJOUR_CODEX_AUTH_LEASE_MS: "290000",
     CRON_SECRET: "cron-secret-with-at-least-thirty-two-bytes",
   };
 
@@ -136,6 +136,37 @@ test("reviewed generation runtime rejects broad or incomplete mounted authority"
       BEBEBONJOUR_OPERATIONS_WORKER_ACTIONS: "",
     }),
     /(is required|must equal generate)/u,
+  );
+});
+
+test("reviewed completion policy exposes only the fixed synthetic completion boundary", async () => {
+  const manifestBytes = await readFile(manifestUrl);
+  const {
+    REVIEWED_TEST_A_COMPLETION_POLICY,
+    loadReviewedTestACompletionPolicy,
+    requireReviewedTestACompletionEnvironment,
+  } = await import("../../src/config/test-a-hosted-provider-manifest.mjs");
+  const policy = loadReviewedTestACompletionPolicy(manifestBytes);
+
+  assert.deepEqual(policy, REVIEWED_TEST_A_COMPLETION_POLICY);
+  assert.deepEqual(policy.capabilities, [
+    "approve_content", "render", "publish", "queue_delivery", "deliver", "retry",
+  ]);
+  assert.equal(policy.deployment.minimumPlan, "pro");
+  assert.equal(policy.allowedEnvironmentVariables.includes("VERCEL_DEPLOYMENT_ID"), false);
+  const exactEnvironment = Object.fromEntries(policy.allowedEnvironmentVariables.map((name) => [name, name]));
+  exactEnvironment.CRON_SECRET = "cron-secret";
+  exactEnvironment.BEBEBONJOUR_COMPLETION_WORKER_TOKEN = "worker-secret";
+  exactEnvironment.UNRELATED_PLATFORM_VALUE = "must-not-cross-the-runtime-boundary";
+  const restricted = requireReviewedTestACompletionEnvironment(exactEnvironment);
+  assert.deepEqual(Object.keys(restricted), policy.allowedEnvironmentVariables);
+  assert.equal(Object.hasOwn(restricted, "UNRELATED_PLATFORM_VALUE"), false);
+  assert.throws(
+    () => requireReviewedTestACompletionEnvironment({
+      ...exactEnvironment,
+      CUSTOMER_FLOW_BACKEND_TOKEN: "forbidden",
+    }),
+    /CUSTOMER_FLOW_BACKEND_TOKEN is forbidden/u,
   );
 });
 

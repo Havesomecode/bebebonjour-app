@@ -38,8 +38,8 @@ export function createFulfillmentOrchestrator(options) {
       return statusFromAggregate(await store.recordPayment(jobId, payment, clock()));
     },
 
-    async recordReviewDecision(jobId, decision) {
-      const aggregate = await requireJob(store, jobId);
+    async recordReviewDecision(jobId, decision, workerAuthority) {
+      const aggregate = await requireJob(store, jobId, workerAuthority);
       const verifier = handlers.verify_review_decision;
       if (typeof verifier !== "function") {
         throw new Error("A trusted review decision verifier is required.");
@@ -48,18 +48,18 @@ export function createFulfillmentOrchestrator(options) {
         job: statusFromAggregate(aggregate),
         decision: structuredClone(decision),
       }));
-      return statusFromAggregate(await store.recordReviewDecision(jobId, verified, clock()));
+      return statusFromAggregate(await store.recordReviewDecision(jobId, verified, clock(), workerAuthority));
     },
 
-    async queueDelivery(jobId, command) {
-      return statusFromAggregate(await store.queueDelivery(jobId, command, clock()));
+    async queueDelivery(jobId, command, workerAuthority) {
+      return statusFromAggregate(await store.queueDelivery(jobId, command, clock(), workerAuthority));
     },
 
-    async resumeRetry(jobId, command) {
+    async resumeRetry(jobId, command, workerAuthority) {
       if (typeof command?.commandId !== "string" || command.commandId.trim() === "") {
         throw new Error("Retry resume requires a commandId.");
       }
-      return statusFromAggregate(await store.resumeRetry(jobId, command, clock()));
+      return statusFromAggregate(await store.resumeRetry(jobId, command, clock(), workerAuthority));
     },
 
     async confirmDelivery(jobId, confirmation) {
@@ -113,6 +113,7 @@ export function createFulfillmentOrchestrator(options) {
 
     async runNext(jobId, expectedStage = null, options = {}) {
       const operationsCommandId = normalizeOperationsCommandId(options.operationsCommandId);
+      const workerAuthority = options.workerAuthority;
       const operationsEffectBoundary = options.operationsEffectBoundary;
       if (operationsEffectBoundary !== undefined && typeof operationsEffectBoundary !== "function") {
         throw new Error("operationsEffectBoundary must be a function when provided.");
@@ -120,7 +121,7 @@ export function createFulfillmentOrchestrator(options) {
       if (operationsEffectBoundary && !operationsCommandId) {
         throw new Error("operationsEffectBoundary requires operationsCommandId provenance.");
       }
-      let aggregate = await requireJob(store, jobId);
+      let aggregate = await requireJob(store, jobId, workerAuthority);
       assertExpectedStageAuthority(aggregate, expectedStage);
       const now = clock();
       const expiredAttempt = findExpiredRunningAttempt(aggregate, now);
@@ -131,14 +132,14 @@ export function createFulfillmentOrchestrator(options) {
           leaseToken: expiredAttempt.leaseToken,
           retryable: true,
           reasonCode: "lease_expired",
-        }, retryPolicy, now);
+        }, retryPolicy, now, workerAuthority);
         return statusFromAggregate(aggregate);
       }
       if (aggregate.state === "retry_wait") {
         if (Date.parse(now) < Date.parse(aggregate.retry.availableAt)) return null;
         aggregate = await store.resumeRetry(jobId, {
           commandId: operationsCommandId || `resume:${jobId}:${aggregate.retry.stage}:${aggregate.retry.availableAt}`,
-        }, now);
+        }, now, workerAuthority);
       }
 
       const stage = nextStageForState(aggregate);
@@ -189,7 +190,7 @@ export function createFulfillmentOrchestrator(options) {
         maxAttempts,
         operationBinding,
         operationsCommandId,
-      }, clock());
+      }, clock(), workerAuthority);
       aggregate = claim.aggregate;
       if (!claim.acquired) return null;
       const attempt = [...aggregate.stageAttempts].reverse().find(
@@ -214,7 +215,7 @@ export function createFulfillmentOrchestrator(options) {
           stage,
           leaseToken,
           ...classification,
-        }, retryPolicy, at);
+        }, retryPolicy, at, workerAuthority);
         return statusFromAggregate(failed);
       };
 
@@ -233,8 +234,8 @@ export function createFulfillmentOrchestrator(options) {
               leaseToken,
               leaseMs,
               effectMayBeIssued,
-            }, clock());
-            aggregate = await store.getJob(jobId);
+            }, clock(), workerAuthority);
+            aggregate = await store.getJob(jobId, workerAuthority);
             const fencedAttempt = aggregate?.stageAttempts.find(
               (entry) => entry.attemptId === attempt.attemptId,
             );
@@ -260,11 +261,14 @@ export function createFulfillmentOrchestrator(options) {
           priorEffectStartedAt: priorEffectAttempt?.effectStartedAt,
           idempotencyKey: attempt.idempotencyKey,
           operationsCommandId: attempt.operationsCommandId || null,
+          ...(options.workerAuthority
+            ? { artifactReadAuthority: normalizeWorkerAuthority(options.workerAuthority) }
+            : {}),
           reconciliationOnly,
           fenceExternalEffect,
           async assertStageOwnership() {
             const checkedAt = clock();
-            const current = await requireJob(store, jobId);
+            const current = await requireJob(store, jobId, workerAuthority);
             const running = [...current.stageAttempts].reverse().find(
               (entry) => entry.attemptId === attempt.attemptId,
             );
@@ -313,7 +317,7 @@ export function createFulfillmentOrchestrator(options) {
           stage,
           leaseToken,
           result,
-        }, completedAt);
+        }, completedAt, workerAuthority);
         return statusFromAggregate(completed);
       } catch (error) {
         return failAttempt(error);
@@ -322,8 +326,8 @@ export function createFulfillmentOrchestrator(options) {
   };
 }
 
-async function requireJob(store, jobId) {
-  const aggregate = await store.getJob(jobId);
+async function requireJob(store, jobId, authority) {
+  const aggregate = await store.getJob(jobId, authority);
   if (!aggregate) throw new Error(`Unknown fulfillment job: ${jobId}`);
   return aggregate;
 }
@@ -345,6 +349,20 @@ function normalizeOperationsCommandId(value) {
     throw new Error("operationsCommandId must be a valid immutable operations command identifier.");
   }
   return value;
+}
+
+function normalizeWorkerAuthority(value) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    throw new Error("Completion artifact access requires worker claim authority.");
+  }
+  const normalized = {};
+  for (const name of ["workerId", "commandId", "leaseToken"]) {
+    if (typeof value[name] !== "string" || value[name].trim() === "") {
+      throw new Error("Completion artifact access requires worker claim authority.");
+    }
+    normalized[name] = value[name];
+  }
+  return Object.freeze(normalized);
 }
 
 function assertExpectedStageAuthority(aggregate, expectedStage) {

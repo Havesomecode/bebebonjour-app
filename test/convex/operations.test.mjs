@@ -7,7 +7,9 @@ import { makeFunctionReference } from "convex/server";
 import schema from "../../convex/schema.js";
 import {
   claimStageTransition,
+  EDITORIAL_POLICY_VERSION,
   failStageTransition,
+  recordReviewDecisionTransition,
 } from "../../src/fulfillment/job-machine.mjs";
 
 const listJobs = makeFunctionReference("operations:listJobs");
@@ -23,10 +25,15 @@ const resetLoginThrottle = makeFunctionReference("operations:resetLoginThrottle"
 const operatorHealth = makeFunctionReference("operations:operatorHealth");
 const workerHealth = makeFunctionReference("operations:workerHealth");
 const replaceClaimedFulfillmentJob = makeFunctionReference("generation:replaceClaimedFulfillmentJob");
+const replaceCompletionJob = makeFunctionReference("fulfillment:replaceCompletionJob");
+const authorizeCompletionArtifactRead = makeFunctionReference("fulfillment:authorizeCompletionArtifactRead");
 
 const operatorToken = "operator-token-at-least-32-characters";
 const workerToken = "worker-token-at-least-32-characters__";
+const completionToken = "completion-token-at-least-32-characters";
 const rateLimitToken = "rate-limit-token-at-least-32-characters";
+const completionJobId = "job_03c25b08-8476-4fe1-923b-43d73feab3ff";
+const completionActions = ["approve_content", "render", "publish", "queue_delivery", "deliver", "retry"];
 const allActions = Object.freeze([
   "create_checkout", "generate", "approve_content", "request_content_changes", "reject_content",
   "render", "generate_narration", "approve_narration", "request_narration_changes", "reject_narration",
@@ -36,10 +43,13 @@ const allActions = Object.freeze([
 function fixture() {
   process.env.BEBEBONJOUR_OPERATIONS_TOKEN = operatorToken;
   process.env.BEBEBONJOUR_OPERATIONS_WORKER_TOKEN = workerToken;
+  process.env.BEBEBONJOUR_COMPLETION_WORKER_TOKEN = completionToken;
   process.env.BEBEBONJOUR_OPS_RATE_LIMIT_TOKEN = rateLimitToken;
+  process.env.CUSTOMER_FLOW_BACKEND_TOKEN = "customer-backend-token-at-least-32-characters";
   return convexTest(schema, {
     "./_generated/server.js": () => import("convex/server"),
     "./generation.js": () => import("../../convex/generation.js"),
+    "./fulfillment.js": () => import("../../convex/fulfillment.js"),
     "./operations.js": () => import("../../convex/operations.js"),
   });
 }
@@ -132,6 +142,289 @@ test("scoped health probes authenticate without reading customer records", async
   const worker = await convex.query(workerHealth, { workerToken });
   assert.deepEqual(operator, { protocolVersion: "1.0", scope: "operator" });
   assert.deepEqual(worker, { protocolVersion: "1.0", scope: "worker" });
+});
+
+test("completion token is server-enforced to one synthetic job and exact action/lease scope", async () => {
+  const convex = fixture();
+  assert.deepEqual(
+    await convex.query(workerHealth, { workerToken: completionToken }),
+    { protocolVersion: "1.0", scope: "completion" },
+  );
+  const exact = {
+    workerToken: completionToken,
+    workerId: "test-a-completion-worker",
+    jobId: completionJobId,
+    actions: completionActions,
+    limit: 1,
+    leaseMs: 300_000,
+  };
+  assert.deepEqual(await convex.mutation(claimCommands, exact), []);
+  await assert.rejects(
+    convex.mutation(claimCommands, { ...exact, jobId: "job_real_customer_001" }),
+    /exact synthetic claim scope/u,
+  );
+  await assert.rejects(
+    convex.mutation(claimCommands, { ...exact, actions: [...completionActions, "reconcile"] }),
+    /exact synthetic claim scope/u,
+  );
+  await assert.rejects(
+    convex.mutation(claimCommands, { ...exact, leaseMs: 299_999 }),
+    /exact synthetic claim scope/u,
+  );
+});
+
+test("completion token cannot claim a retry owned by the generate-only worker", async () => {
+  const convex = fixture();
+  const aggregate = fulfillmentAggregate({
+    jobId: completionJobId,
+    state: "retry_wait",
+    version: 7,
+    retry: {
+      stage: "prepare_review",
+      revisionId: null,
+      availableAt: "2026-09-08T10:01:00.000Z",
+      attemptNumber: 1,
+      reasonCode: "generation_provider_unavailable",
+    },
+  });
+  await convex.run(async (context) => {
+    await context.db.insert("fulfillmentJobs", { jobId: completionJobId, aggregate });
+    await context.db.insert("customerFlowOperationsCommands", {
+      commandId: "command_completion_retry_generation_001",
+      jobId: completionJobId,
+      action: "retry",
+      expectedState: "retry_wait",
+      expectedVersion: 7,
+      payload: {},
+      requestedAt: "2026-09-08T10:02:00.000Z",
+      requestedBy: "primary_operator",
+      state: "pending",
+      attempts: 0,
+      claim: null,
+      lastFailureReason: null,
+      outcome: null,
+      updatedAt: "2026-09-08T10:02:00.000Z",
+    });
+  });
+
+  const claimed = await convex.mutation(claimCommands, {
+    workerToken: completionToken,
+    workerId: "test-a-completion-worker",
+    jobId: completionJobId,
+    actions: completionActions,
+    limit: 1,
+    leaseMs: 300_000,
+  });
+  assert.deepEqual(claimed, []);
+});
+
+test("completion aggregate writes require one active exact-worker command claim", async () => {
+  const convex = fixture();
+  const current = fulfillmentAggregate({
+    jobId: completionJobId,
+    state: "content_review_required",
+    version: 7,
+    currentRevisionId: "r1",
+    artifactSets: [{
+      artifactSetId: "artifacts_completion_review_001",
+      kind: "private_review",
+      revisionId: "r1",
+      pageDigest: "1".repeat(64),
+      transcriptDigest: "2".repeat(64),
+      assetManifestDigest: "3".repeat(64),
+    }],
+  });
+  const approvalId = `approval_${"d".repeat(24)}`;
+  const decision = {
+    commandId: "command_completion_approval_001",
+    operationsCommandId: "command_completion_approval_001",
+    approvalId,
+    decisionType: "content",
+    revisionId: "r1",
+    outcome: "approved",
+    policyVersion: EDITORIAL_POLICY_VERSION,
+    rubricVersion: "test-a-rubric-v1",
+    reviewer: {
+      id: "test-a-reviewer",
+      role: "human_reviewer",
+      competencies: ["content_review"],
+    },
+    decidedAt: "2026-09-08T10:01:00.000Z",
+    artifactDigests: {
+      pageDigest: "1".repeat(64),
+      transcriptDigest: "2".repeat(64),
+      assetManifestDigest: "3".repeat(64),
+    },
+    reasons: [],
+  };
+  const next = recordReviewDecisionTransition(current, decision, decision.decidedAt);
+  await convex.run(async (context) => {
+    await context.db.insert("fulfillmentJobs", { jobId: completionJobId, aggregate: current });
+    await context.db.insert("fulfillmentReviewApprovals", {
+      approvalId,
+      approval: {
+        schemaVersion: "1.0",
+        approvalId,
+        binding: {
+          jobId: completionJobId,
+          intakeDigest: current.intakeDigest,
+          environment: "test",
+          product: "announcement-page",
+          revisionId: "r1",
+          runId: "attempt_generation_001",
+          artifactManifestDigest: "3".repeat(64),
+        },
+        decision: {
+          commandId: `review:${approvalId}`,
+          decisionType: decision.decisionType,
+          revisionId: decision.revisionId,
+          outcome: decision.outcome,
+          policyVersion: decision.policyVersion,
+          rubricVersion: decision.rubricVersion,
+          reviewer: decision.reviewer,
+          decidedAt: decision.decidedAt,
+          artifactDigests: decision.artifactDigests,
+          reasons: decision.reasons,
+        },
+        signature: "e".repeat(64),
+      },
+    });
+  });
+  const input = {
+    completionToken,
+    workerId: "test-a-completion-worker",
+    commandId: "command_completion_approval_001",
+    leaseToken: "lease_completion_001",
+    jobId: completionJobId,
+    expectedVersion: 7,
+    aggregate: next,
+  };
+  await assert.rejects(
+    convex.mutation(replaceCompletionJob, input),
+    /command claim authorization/u,
+  );
+  await convex.run(async (context) => {
+    await context.db.insert("customerFlowOperationsCommands", {
+      commandId: "command_completion_approval_001",
+      jobId: completionJobId,
+      action: "approve_content",
+      expectedState: "content_review_required",
+      expectedVersion: 7,
+      payload: {},
+      requestedAt: "2026-09-08T10:00:00.000Z",
+      requestedBy: "primary_operator",
+      state: "running",
+      attempts: 1,
+      claim: {
+        workerId: "test-a-completion-worker",
+        leaseToken: "lease_completion_001",
+        claimedAtMs: Date.now(),
+        leaseExpiresAtMs: Date.now() + 300_000,
+      },
+      lastFailureReason: null,
+      outcome: null,
+      updatedAt: "2026-09-08T10:00:00.000Z",
+    });
+  });
+  await assert.rejects(
+    convex.mutation(replaceCompletionJob, {
+      ...input,
+      aggregate: { ...structuredClone(next), payment: { providerPaymentId: "pi_attacker" } },
+    }),
+    /synthetic stage authority/u,
+  );
+  await assert.rejects(
+    convex.mutation(replaceCompletionJob, {
+      ...input,
+      aggregate: {
+        ...structuredClone(next),
+        events: [...current.events, { arbitrary: "client-authored authority" }],
+      },
+    }),
+    /canonical transition evidence/u,
+  );
+  assert.equal((await convex.mutation(replaceCompletionJob, input)).updated, true);
+});
+
+test("completion artifact reads require a fenced publish claim and canonical approved review record", async () => {
+  const convex = fixture();
+  const sourceFile = {
+    path: "private-preview/canary/fr/index.html",
+    storageId: "storage_completion_index_001",
+    sha256: "4".repeat(64),
+    bytes: 42,
+  };
+  const aggregate = fulfillmentAggregate({
+    jobId: completionJobId,
+    state: "publishing",
+    version: 10,
+    currentRevisionId: "r1",
+    narrationRequired: false,
+    artifactSets: [{
+      artifactSetId: "artifacts_completion_review_001",
+      kind: "private_review",
+      revisionId: "r1",
+      pageDigest: "1".repeat(64),
+      transcriptDigest: "2".repeat(64),
+      assetManifestDigest: "3".repeat(64),
+      files: [sourceFile],
+    }],
+    reviewDecisions: [{
+      decisionType: "content",
+      revisionId: "r1",
+      outcome: "approved",
+      policyVersion: EDITORIAL_POLICY_VERSION,
+      artifactManifestDigest: "3".repeat(64),
+      artifactDigests: {
+        pageDigest: "1".repeat(64),
+        transcriptDigest: "2".repeat(64),
+        assetManifestDigest: "3".repeat(64),
+      },
+    }],
+  });
+  const commandId = "command_completion_publish_001";
+  const leaseToken = "lease_completion_publish_001";
+  await convex.run(async (context) => {
+    await context.db.insert("fulfillmentJobs", { jobId: completionJobId, aggregate });
+    await context.db.insert("customerFlowOperationsCommands", {
+      commandId,
+      jobId: completionJobId,
+      action: "publish",
+      expectedState: "publish_ready",
+      expectedVersion: 9,
+      payload: {},
+      requestedAt: "2026-09-08T10:02:00.000Z",
+      requestedBy: "primary_operator",
+      state: "running",
+      attempts: 1,
+      claim: {
+        workerId: "test-a-completion-worker",
+        leaseToken,
+        claimedAtMs: Date.now(),
+        leaseExpiresAtMs: Date.now() + 300_000,
+        effectStartedAtMs: Date.now(),
+      },
+      lastFailureReason: null,
+      outcome: null,
+      updatedAt: "2026-09-08T10:02:00.000Z",
+    });
+  });
+  const input = {
+    completionToken,
+    workerId: "test-a-completion-worker",
+    commandId,
+    leaseToken,
+    jobId: completionJobId,
+    revisionId: "r1",
+    storageId: sourceFile.storageId,
+  };
+  assert.deepEqual(await convex.query(authorizeCompletionArtifactRead, input), sourceFile);
+
+  await replaceFulfillment(convex, { ...aggregate, reviewDecisions: [] });
+  await assert.rejects(
+    convex.query(authorizeCompletionArtifactRead, input),
+    /synthetic identity|approved manifest/u,
+  );
 });
 
 test("worker claims only explicitly enabled actions", async () => {

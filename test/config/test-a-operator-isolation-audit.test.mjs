@@ -16,14 +16,14 @@ test("successor consolidated audit binds the complete reviewed source boundary",
   assert.ok(marker, audit.stdout);
   const result = JSON.parse(marker.slice("HERMES_VERIFY_RESULT=".length));
   assert.equal(result.status, "PASS");
-  assert.equal(result.baselineCommit, "c7abbb7338282b7bfba2616693f2a8d75285d8d3");
+  assert.equal(result.baselineCommit, "82be6b29eab9245400e928623ec15a3f1ae1ca27");
   assert.ok(result.changedPathCount > 0);
   assert.ok(result.pathAllowlistCount > 20);
   assert.equal(result.pathAllowlistCount, result.changedPathCount);
   assert.ok(result.reviewInputCount > 20);
-  assert.ok(result.reviewInputCount <= result.pathAllowlistCount);
-  assert.equal(result.controlCount, 6);
-  assert.equal(result.focusedTestFileCount, 27);
+  assert.ok(result.reviewInputCount >= result.pathAllowlistCount);
+  assert.equal(result.controlCount, 7);
+  assert.equal(result.focusedTestFileCount, 28);
   assert.match(result.reviewedManifestSha256, /^[a-f0-9]{64}$/u);
   assert.equal(result.providerMutation, "none-during-audit");
   const evidence = JSON.parse(readFileSync(

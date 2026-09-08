@@ -45,6 +45,9 @@ export function createExternalEffectStageHandlers(options = {}) {
         idempotencyKey: requireIdempotencyKey(context),
         reconciliationOnly: context.reconciliationOnly === true,
         fenceExternalEffect: requireEffectFence(context),
+        ...(context.artifactReadAuthority
+          ? { artifactReadAuthority: structuredClone(context.artifactReadAuthority) }
+          : {}),
       });
       const reconciled = await publicationAdapter.reconcile(request);
       if (!reconciled && context.reconciliationOnly) throw reconciliationPending("publication");

@@ -524,6 +524,51 @@ test("non-narrated release cannot substitute an unreviewed prepared artifact set
   assert.equal(failed.stageAttempts.at(-1).failure.reasonCode, "stage_error");
 });
 
+test("non-narrated release accepts a deterministic path-only promotion of approved source bytes", async (t) => {
+  const sourceFile = {
+    path: "private-preview/canary/fr/index.html",
+    storageId: "storage_reviewed_index",
+    sha256: "8".repeat(64),
+    bytes: 42,
+  };
+  const promotedDigest = "9".repeat(64);
+  const { orchestrator, store } = await fixture(t, {
+    handlers: {
+      async prepare_review() {
+        return {
+          revision: { revisionId: "r1", ordinal: 1, inputDigest: "a".repeat(64) },
+          artifactSet: {
+            kind: "private_review",
+            revisionId: "r1",
+            ...DIGESTS,
+            manifestRef: "jobs/job_synthetic_001/revisions/r1/manifests/private_review.json",
+            files: [sourceFile],
+          },
+        };
+      },
+      async render_approved() {
+        return {
+          artifactSet: {
+            kind: "prepared_bundle",
+            revisionId: "r1",
+            pageDigest: DIGESTS.pageDigest,
+            transcriptDigest: DIGESTS.transcriptDigest,
+            assetManifestDigest: promotedDigest,
+            manifestRef: "jobs/job_synthetic_001/revisions/r1/manifests/prepared_bundle.json",
+            files: [{ ...sourceFile, path: "deploy/fr/index.html" }],
+          },
+        };
+      },
+    },
+  });
+  await reachContentReview(orchestrator);
+  await orchestrator.recordReviewDecision("job_synthetic_001", approvedContentDecision());
+
+  const rendered = await orchestrator.runNext("job_synthetic_001");
+  assert.equal(rendered.state, "publish_ready");
+  assert.equal((await store.getJob("job_synthetic_001")).artifactSets.at(-1).assetManifestDigest, promotedDigest);
+});
+
 test("publish claims revalidate persisted non-narrated prepared digests", async (t) => {
   const { orchestrator, store } = await fixture(t);
   await reachPublishReady(orchestrator);
