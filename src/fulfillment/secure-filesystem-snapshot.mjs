@@ -290,16 +290,18 @@ async function runNativeCollectHelper(rootHandle, rootMetadata, request) {
     async function readItem(relativePath) {
       if (cache.has(relativePath)) return cache.get(relativePath);
       if (cache.size >= request.maximumFiles) throw boundaryError();
-      const bytes = await readNativeFile(root, relativePath, {
+      const captured = await captureNativeFile(root, relativePath, {
         maximumBytes: request.maximumFileBytes,
         exactMode: null,
       }, openedHandles, directoryCache);
+      const { bytes } = captured;
       totalBytes += bytes.byteLength;
       if (totalBytes > request.maximumTotalBytes) throw boundaryError();
       const item = Object.freeze({
         rootPath: relativePath,
         bytes: bytes.byteLength,
         sha256: createHash("sha256").update(bytes).digest("hex"),
+        metadata: captured.metadata,
       });
       cache.set(relativePath, item);
       return item;
@@ -324,6 +326,8 @@ async function runNativeCollectHelper(rootHandle, rootMetadata, request) {
     representNativeDigest(files, represented, page, request.pageManifestPath, request);
     representNativeDigest(files, represented, transcript, request.transcriptManifestPath, request);
     if (files.length === 0 || files.length !== represented.size) throw boundaryError();
+    await validateNativeHandles(root, openedHandles);
+    await validateNativeCollectedFiles(root, cache.values(), openedHandles, directoryCache, request.maximumFileBytes);
     await validateNativeHandles(root, openedHandles);
     files.sort((left, right) => compareCodePointStrings(left.path, right.path));
     return finalizeNativeResponse({ files, pageDigest: page.sha256, transcriptDigest: transcript.sha256 });
@@ -590,17 +594,37 @@ async function openNativeFile(root, relativePath, request, openedHandles, direct
 }
 
 async function readNativeFile(root, relativePath, request, openedHandles, directoryCache) {
+  return (await captureNativeFile(root, relativePath, request, openedHandles, directoryCache)).bytes;
+}
+
+async function captureNativeFile(root, relativePath, request, openedHandles, directoryCache) {
   const file = await openNativeFile(root, relativePath, request, openedHandles, directoryCache);
   try {
     const bytes = await readNativeBoundedHandle(file.handle, request.maximumBytes);
     assertNativeFingerprint(file.metadata, await file.handle.stat({ bigint: true }));
     if (BigInt(bytes.byteLength) !== file.metadata.size) throw boundaryError();
-    return bytes;
+    return Object.freeze({ bytes, metadata: file.metadata });
   } finally {
     const index = openedHandles.lastIndexOf(file);
     if (index === -1) throw boundaryError();
     await file.handle.close();
     openedHandles.splice(index, 1);
+  }
+}
+
+async function validateNativeCollectedFiles(root, items, openedHandles, directoryCache, maximumBytes) {
+  for (const item of items) {
+    const current = await captureNativeFile(root, item.rootPath, {
+      maximumBytes,
+      exactMode: null,
+    }, openedHandles, directoryCache);
+    assertNativeFingerprint(item.metadata, current.metadata);
+    if (
+      current.bytes.byteLength !== item.bytes
+      || createHash("sha256").update(current.bytes).digest("hex") !== item.sha256
+    ) {
+      throw boundaryError();
+    }
   }
 }
 

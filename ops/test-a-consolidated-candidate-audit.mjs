@@ -70,6 +70,7 @@ const controls = Object.freeze([
       "test/fulfillment/failed-prepare-review-recovery.test.mjs: recovery rejects every non-exact or ambiguous failed-state predicate without mutation",
       "test/fulfillment/failed-prepare-review-recovery.test.mjs: the isolated runner recovers only the exact job and advances only prepare_review",
       "test/fulfillment/test-a-generation-startup.test.mjs: generation startup rejects missing, mismatched, broadened, writable, and unsafe approval records before runner construction",
+      "test/fulfillment/secure-filesystem-snapshot.test.mjs: portable collection rejects mutation after an earlier file was locally validated",
       "test/fulfillment/secure-filesystem-snapshot.test.mjs: descriptor-relative reads stay bound to the opened root across ancestor substitution",
       "test/fulfillment/secure-filesystem-snapshot.test.mjs: artifact collection rejects a substituted stage ancestor after binding the workspace root",
       "test/fulfillment/generation-stage-workspace.test.mjs: persisted orchestration drives compose, render, and retryable test-mode TTS",
