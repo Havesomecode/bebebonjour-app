@@ -21,6 +21,7 @@
       "src/fulfillment/external-effect-stage-handlers.mjs",
       "src/fulfillment/job-machine.mjs",
       "src/fulfillment/job-orchestrator.mjs",
+      "src/fulfillment/secure-filesystem-snapshot.mjs",
       "src/fulfillment/test-a-completion-capabilities.mjs",
       "src/fulfillment/vercel-test-a-publication-provider.mjs",
       "src/http/operations-worker-handler.mjs",
@@ -36,6 +37,7 @@
       "test/convex/completion-store-seam.test.mjs",
       "test/convex/operations.test.mjs",
       "test/fulfillment/job-orchestration.test.mjs",
+      "test/fulfillment/secure-filesystem-snapshot.test.mjs",
       "test/fulfillment/vercel-test-a-publication-provider.test.mjs",
       "test/operations/completion-worker-boundary.test.mjs",
       "test/operations/hosted-generation-storage.test.mjs",
@@ -60,6 +62,7 @@
       "src/fulfillment/external-effect-stage-handlers.mjs",
       "src/fulfillment/job-machine.mjs",
       "src/fulfillment/job-orchestrator.mjs",
+      "src/fulfillment/secure-filesystem-snapshot.mjs",
       "src/fulfillment/test-a-completion-capabilities.mjs",
       "src/fulfillment/vercel-test-a-publication-provider.mjs",
       "src/http/operations-worker-handler.mjs",
@@ -75,6 +78,7 @@
       "test/convex/completion-store-seam.test.mjs",
       "test/convex/operations.test.mjs",
       "test/fulfillment/job-orchestration.test.mjs",
+      "test/fulfillment/secure-filesystem-snapshot.test.mjs",
       "test/fulfillment/vercel-test-a-publication-provider.test.mjs",
       "test/operations/completion-worker-boundary.test.mjs",
       "test/operations/hosted-generation-storage.test.mjs",
@@ -264,7 +268,7 @@
       },
       {
         "path": "src/fulfillment/secure-filesystem-snapshot.mjs",
-        "sha256": "9d757c2375c6573b80613c78bab03313d852d9871ee5240bbe5a82ff546cfac2"
+        "sha256": "a810b2c3137541ca7c02953c76ebe517bd938ebf0f38854c3db92b328023d540"
       },
       {
         "path": "src/fulfillment/test-a-completion-capabilities.mjs",
@@ -357,6 +361,10 @@
       {
         "path": "test/fulfillment/job-orchestration.test.mjs",
         "sha256": "ff1ec8f3b8e4456e0fc50a445308ccf54b09e65c57249b2001212332f6475f4b"
+      },
+      {
+        "path": "test/fulfillment/secure-filesystem-snapshot.test.mjs",
+        "sha256": "237ac226734943738c9aa2b861a0e7f89ac8d981f0de606b001f7f5842a8d185"
       },
       {
         "path": "test/fulfillment/vercel-test-a-publication-provider.test.mjs",
