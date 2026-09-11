@@ -290,13 +290,10 @@ async function runNativeCollectHelper(rootHandle, rootMetadata, request) {
     async function readItem(relativePath) {
       if (cache.has(relativePath)) return cache.get(relativePath);
       if (cache.size >= request.maximumFiles) throw boundaryError();
-      const file = await openNativeFile(root, relativePath, {
+      const bytes = await readNativeFile(root, relativePath, {
         maximumBytes: request.maximumFileBytes,
         exactMode: null,
       }, openedHandles, directoryCache);
-      const bytes = await readNativeBoundedHandle(file.handle, request.maximumFileBytes);
-      assertNativeFingerprint(file.metadata, await file.handle.stat({ bigint: true }));
-      if (BigInt(bytes.byteLength) !== file.metadata.size) throw boundaryError();
       totalBytes += bytes.byteLength;
       if (totalBytes > request.maximumTotalBytes) throw boundaryError();
       const item = Object.freeze({
@@ -442,11 +439,7 @@ async function runNativeReadHelper(rootHandle, rootMetadata, request) {
     assertNativeReadRequest(request);
     assertNativeRequestSize(request);
     root = await nativeRootBinding(rootHandle, rootMetadata, request.privateDirectories);
-    const file = await openNativeFile(root, request.relativePath, request, openedHandles);
-    const bytes = await readNativeBoundedHandle(file.handle, request.maximumBytes);
-    const after = await file.handle.stat({ bigint: true });
-    assertNativeFingerprint(file.metadata, after);
-    if (BigInt(bytes.byteLength) !== file.metadata.size) throw boundaryError();
+    const bytes = await readNativeFile(root, request.relativePath, request, openedHandles);
     await validateNativeHandles(root, openedHandles);
     return finalizeNativeResponse({ dataBase64: bytes.toString("base64") });
   } catch (error) {
@@ -594,6 +587,21 @@ async function openNativeFile(root, relativePath, request, openedHandles, direct
   const file = Object.freeze({ handle, metadata });
   openedHandles.push(file);
   return file;
+}
+
+async function readNativeFile(root, relativePath, request, openedHandles, directoryCache) {
+  const file = await openNativeFile(root, relativePath, request, openedHandles, directoryCache);
+  try {
+    const bytes = await readNativeBoundedHandle(file.handle, request.maximumBytes);
+    assertNativeFingerprint(file.metadata, await file.handle.stat({ bigint: true }));
+    if (BigInt(bytes.byteLength) !== file.metadata.size) throw boundaryError();
+    return bytes;
+  } finally {
+    const index = openedHandles.lastIndexOf(file);
+    if (index === -1) throw boundaryError();
+    await file.handle.close();
+    openedHandles.splice(index, 1);
+  }
 }
 
 function assertNativeRegularFile(metadata, maximumBytes, exactMode) {

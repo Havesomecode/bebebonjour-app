@@ -268,7 +268,7 @@
       },
       {
         "path": "src/fulfillment/secure-filesystem-snapshot.mjs",
-        "sha256": "a810b2c3137541ca7c02953c76ebe517bd938ebf0f38854c3db92b328023d540"
+        "sha256": "d0544a5e8466288e9158e899ca90326eff7e852e0dd83611e39408500bc5035f"
       },
       {
         "path": "src/fulfillment/test-a-completion-capabilities.mjs",
