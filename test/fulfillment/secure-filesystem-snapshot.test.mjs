@@ -53,10 +53,11 @@ test("bounded reads stay available when the deployment runtime has no Python hel
   );
   await chmod(filePath, 0o600);
   await writeFile(filePath, Buffer.alloc(3_200_000), { mode: 0o600 });
-  await assert.rejects(
-    portableSnapshot.readBoundedFileFromRoot({ ...input, maximumBytes: 4 * 1024 * 1024 }),
-    /Secure filesystem boundary rejected/u,
-  );
+  const largeSnapshot = await portableSnapshot.readBoundedFileFromRoot({
+    ...input,
+    maximumBytes: 4 * 1024 * 1024,
+  });
+  assert.equal(largeSnapshot.bytes.byteLength, 3_200_000);
 });
 
 test("artifact collection stays available when the deployment runtime has no Python helper", async (t) => {

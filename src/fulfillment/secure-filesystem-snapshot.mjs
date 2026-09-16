@@ -53,7 +53,7 @@ async function readBoundedFileFromRootWithRuntime({
       return await runHelper(rootHandle.fd, request, runtime);
     } catch (error) {
       if (error?.code !== "HERMES_HELPER_UNAVAILABLE") throw error;
-      return runNativeReadHelper(rootHandle, rootMetadata, request);
+      return runNativeReadHelper(rootHandle, rootMetadata, rootPath, request);
     }
   });
   if (result && Object.keys(result).join("\0") === "missing" && result.missing === true) return null;
@@ -117,7 +117,7 @@ async function collectArtifactSnapshotFromRootWithRuntime({
         return await runHelper(rootHandle.fd, request, runtime);
       } catch (error) {
         if (error?.code !== "HERMES_HELPER_UNAVAILABLE") throw error;
-        return runNativeCollectHelper(rootHandle, rootMetadata, request);
+        return runNativeCollectHelper(rootHandle, rootMetadata, rootPath, request);
       }
     },
   );
@@ -265,13 +265,13 @@ function runHelper(rootFd, request, runtime) {
   });
 }
 
-async function runNativeCollectHelper(rootHandle, rootMetadata, request) {
+async function runNativeCollectHelper(rootHandle, rootMetadata, rootPath, request) {
   const openedHandles = [];
   let root;
   try {
     assertNativeCollectionRequest(request);
     assertNativeRequestSize(request);
-    root = await nativeRootBinding(rootHandle, rootMetadata, false);
+    root = await nativeRootBinding(rootHandle, rootMetadata, rootPath, false);
     const directoryCache = new Map([["", root]]);
     const inventoryPaths = [];
     const traversal = { directories: 0, entries: 0 };
@@ -437,13 +437,13 @@ function joinRelative(left, right) {
   return left === "" ? right : `${left}/${right}`;
 }
 
-async function runNativeReadHelper(rootHandle, rootMetadata, request) {
+async function runNativeReadHelper(rootHandle, rootMetadata, rootPath, request) {
   const openedHandles = [];
   let root;
   try {
     assertNativeReadRequest(request);
     assertNativeRequestSize(request);
-    root = await nativeRootBinding(rootHandle, rootMetadata, request.privateDirectories);
+    root = await nativeRootBinding(rootHandle, rootMetadata, rootPath, request.privateDirectories);
     const bytes = await readNativeFile(root, request.relativePath, request, openedHandles);
     await validateNativeHandles(root, openedHandles);
     return finalizeNativeResponse({ dataBase64: bytes.toString("base64") });
@@ -513,9 +513,12 @@ function assertNativeDirectory(metadata, privateDirectories) {
   }
 }
 
-async function nativeRootBinding(rootHandle, rootMetadata, privateDirectories) {
+async function nativeRootBinding(rootHandle, rootMetadata, rootPath, privateDirectories) {
   if (process.platform !== "linux") throw boundaryError();
   assertNativeDirectory(rootMetadata, privateDirectories);
+  const pathname = await lstat(rootPath, { bigint: true });
+  assertNativeDirectory(pathname, privateDirectories);
+  assertNativeFingerprint(rootMetadata, pathname);
   const descriptorPath = `/proc/self/fd/${rootHandle.fd}`;
   let current;
   try {

@@ -296,7 +296,7 @@
       },
       {
         "path": "src/fulfillment/secure-filesystem-snapshot.mjs",
-        "sha256": "851a9bcc439c38d0fb2a54e83f8257415f99eee6ef1590c45c3bd679d81e7c24"
+        "sha256": "8a74618054932cab4e2ae2112d1bb425bff5d88d5364dba02287521da3701f92"
       },
       {
         "path": "src/fulfillment/test-a-completion-capabilities.mjs",
@@ -376,7 +376,7 @@
       },
       {
         "path": "test/config/test-a-operator-isolation-audit.test.mjs",
-        "sha256": "ed1ae0881a3bbc90ae11452252fd0eae183f8f5099d794901ee9d108853d8eff"
+        "sha256": "d45ac73425f90a541e8074cfba40d3a5065a72a20dec24d716075660dcb996a2"
       },
       {
         "path": "test/convex/completion-store-seam.test.mjs",
@@ -396,7 +396,7 @@
       },
       {
         "path": "test/fulfillment/secure-filesystem-snapshot.test.mjs",
-        "sha256": "586dd6bada4f2c6b9c8d05a9d615ccaf4c9cd768641926d99040b9dde0382bef"
+        "sha256": "2b58cbf6d9ba7ac3c3d5dbe2bfbc9987db6aa47ccbcf7650dcc2a03cd7107752"
       },
       {
         "path": "test/fulfillment/vercel-test-a-publication-provider.test.mjs",
