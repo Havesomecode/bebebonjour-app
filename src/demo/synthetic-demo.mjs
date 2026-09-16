@@ -1,5 +1,5 @@
+import { spawnSync } from "node:child_process";
 import {
-  cp,
   lstat,
   mkdtemp,
   mkdir,
@@ -14,6 +14,10 @@ import os from "node:os";
 import path from "node:path";
 
 import { commandApproveReview } from "../../scripts/lib/commands.mjs";
+import {
+  assertValidNarrationManifest,
+  assertValidTranscript,
+} from "../../scripts/lib/schema-validation.mjs";
 import { createCustomerFlowService } from "../customer-flow/service.mjs";
 import { createLocalPaymentGateway } from "../customer-flow/local-adapters.mjs";
 import { createInMemoryCustomerFlowStore } from "../customer-flow/memory-store.mjs";
@@ -24,6 +28,7 @@ import {
   createFulfillmentOrchestrator,
 } from "../fulfillment/job-orchestrator.mjs";
 import { createLocalTestFulfillmentStore } from "../persistence/local-test-fulfillment-store.mjs";
+import { syntheticNarrationFixtureBytes } from "./synthetic-narration-fixture.mjs";
 
 const DEMO_APPROVAL_KEY = "bebebonjour-public-synthetic-demo-key-v1-000000000000000000000000";
 const REVIEWED_AT = "2026-08-18T08:03:00.000Z";
@@ -351,14 +356,13 @@ async function buildInWorkspace(persona, outputRoot, workspaceRoot) {
   );
   if (renderStatus.state !== "tts_queued") {
     const failure = renderStatus.stageAttempts.at(-1)?.failure?.reasonCode || "unknown";
-    throw new Error(
-      `Synthetic rendering did not complete: ${renderStatus.state} (${failure}): ${stageFailure?.message || "unknown"}.`,
-    );
+    throw new Error(`Synthetic rendering did not complete: ${renderStatus.state} (${failure}).`);
   }
   now = "2026-08-18T08:04:15.000Z";
   const narrationStatus = await silenceConsole(() => orchestrator.runNext(jobId));
   if (narrationStatus.state !== "narration_review_required") {
-    throw new Error(`Synthetic narration artifacts did not complete: ${narrationStatus.state}.`);
+    const failure = narrationStatus.stageAttempts.at(-1)?.failure?.reasonCode || "unknown";
+    throw new Error(`Synthetic narration artifacts did not complete: ${narrationStatus.state} (${failure}).`);
   }
   const narrationAggregate = await generationStore.getJob(jobId);
   const narrationArtifacts = narrationAggregate.artifactSets.at(-1);
@@ -377,7 +381,7 @@ async function buildInWorkspace(persona, outputRoot, workspaceRoot) {
     },
     decidedAt: now,
     artifactDigests: pickDigests(narrationArtifacts),
-    reasons: ["Deterministic local placeholders verified; no TTS provider was called."],
+    reasons: ["Deterministic silent MP3 fixture verified; no TTS provider was called."],
   });
   if (publishReadyStatus.state !== "publish_ready") {
     throw new Error(`Synthetic exact-revision review did not complete: ${publishReadyStatus.state}.`);
@@ -389,7 +393,7 @@ async function buildInWorkspace(persona, outputRoot, workspaceRoot) {
     "utf8",
   ));
   const slug = assertGeneratedSlug(preparedPage.slug);
-  await copyAnnouncement(renderedPaths.preparedRoot, slug, outputRoot);
+  await copyAnnouncement(workspace, renderedPaths, slug, outputRoot);
 
   now = "2026-08-18T08:05:00.000Z";
   const publicationStatus = await silenceConsole(() => orchestrator.runNext(jobId));
@@ -455,14 +459,46 @@ function assertGeneratedSlug(value) {
   return value;
 }
 
-async function copyAnnouncement(preparedRoot, slug, outputRoot) {
-  const deployRoot = path.join(preparedRoot, "deploy");
+async function copyAnnouncement(workspace, renderedPaths, slug, outputRoot) {
   const targetRoot = path.join(outputRoot, "announcements");
   await mkdir(targetRoot, { recursive: true });
-  await cp(path.join(deployRoot, slug), path.join(targetRoot, slug), {
-    recursive: true,
-    force: true,
+  const captured = await workspace.captureArtifactSet({
+    kind: "narration_review",
+    paths: renderedPaths,
+    requirePersistedManifest: true,
   });
+  if (captured === null) {
+    throw new Error("Synthetic narrated release content is unavailable.");
+  }
+  const publicPrefix = `deploy/${slug}/`;
+  try {
+    if (
+      captured.artifactSet.files.length === 0
+      || captured.artifactSet.files.some(({ path: filePath }) => !filePath.startsWith(publicPrefix))
+    ) {
+      throw new Error("Synthetic narrated release content escaped its public slug namespace.");
+    }
+    const target = path.join(targetRoot, slug);
+    await mkdir(target);
+    for (const file of captured.artifactSet.files) {
+      const relativePath = file.path.slice(publicPrefix.length);
+      const segments = relativePath.split("/");
+      if (
+        path.posix.isAbsolute(relativePath)
+        || segments.some((segment) => segment === "" || segment === "." || segment === "..")
+      ) {
+        throw new Error("Synthetic narrated release content contains an unsafe public path.");
+      }
+      const targetPath = path.resolve(target, ...segments);
+      if (!targetPath.startsWith(`${path.resolve(target)}${path.sep}`)) {
+        throw new Error("Synthetic narrated release content escaped its export root.");
+      }
+      await mkdir(path.dirname(targetPath), { recursive: true });
+      await writeFile(targetPath, captured.readArtifact(file));
+    }
+  } finally {
+    captured.dispose();
+  }
 }
 
 async function installStagedExport({ outputRoot, slugs, stagingRoot }) {
@@ -560,28 +596,51 @@ async function writeDeterministicNarrationArtifacts(args) {
   const transcriptSource = path.join(args.prepared, "deploy", page.slug, "transcript.json");
   const artifactsRoot = path.join(args.output, "artifacts");
   const languages = args.lang === "all" ? page.languages : args.lang.split(",");
+  const audioBytes = syntheticNarrationFixtureBytes();
+  const manifests = {};
   for (const language of languages) {
     const languageRoot = path.join(artifactsRoot, "audio", "narration", language);
     await mkdir(languageRoot, { recursive: true });
-    const files = [];
+    const audioFiles = [];
     for (const [index, section] of page.sectionOrder.entries()) {
-      const filename = `${String(index + 1).padStart(2, "0")}-${section}.placeholder`;
-      await writeFile(
-        path.join(languageRoot, filename),
-        `synthetic-placeholder:${page.buildId}:${language}:${section}\n`,
-        "utf8",
-      );
-      files.push({ index: index + 1, section, file: filename });
+      const filename = `${String(index + 1).padStart(2, "0")}-${section}.mp3`;
+      const audioPath = path.join(languageRoot, filename);
+      await writeFile(audioPath, audioBytes);
+      audioFiles.push({ index: index + 1, section, filename, audioPath });
     }
+    const durationSeconds = probeSyntheticAudioDuration(audioFiles[0].audioPath);
+    let rollingSeconds = 0;
+    const files = audioFiles.map(({ index, section, filename }) => {
+      const entry = {
+        index,
+        section,
+        time: formatSecondsMmss(rollingSeconds),
+        seconds: rollingSeconds,
+        file: `../_assets/${page.buildId}/audio/narration/${language}/${filename}`,
+      };
+      rollingSeconds += durationSeconds;
+      return entry;
+    });
+    manifests[language] = { language, generatedAt: "2026-08-18T08:04:15.000Z", files };
+    assertValidNarrationManifest(manifests[language]);
     await writeFile(
       path.join(languageRoot, "manifest.json"),
-      `${JSON.stringify({ schemaVersion: "1.0", language, files }, null, 2)}\n`,
+      `${JSON.stringify(manifests[language], null, 2)}\n`,
       "utf8",
     );
   }
+  const transcript = JSON.parse(await readFile(transcriptSource, "utf8"));
+  for (const language of languages) {
+    transcript.tracks[language] = transcript.tracks[language].map((entry, index) => ({
+      ...entry,
+      time: manifests[language].files[index].time,
+      seconds: manifests[language].files[index].seconds,
+    }));
+  }
+  assertValidTranscript(transcript);
   await writeFile(
     path.join(artifactsRoot, "transcript.json"),
-    await readFile(transcriptSource),
+    `${JSON.stringify(transcript, null, 2)}\n`,
   );
   await writeFile(
     path.join(args.output, "review.json"),
@@ -593,10 +652,32 @@ async function writeDeterministicNarrationArtifacts(args) {
       generatedAt: "2026-08-18T08:04:15.000Z",
       languages,
       provider: null,
-      notice: "Synthetic placeholders only; no TTS provider call.",
+      notice: "Synthetic silent MP3 fixture only; no speech or TTS provider call.",
     }, null, 2)}\n`,
     "utf8",
   );
+}
+
+function probeSyntheticAudioDuration(filePath) {
+  const result = spawnSync("ffprobe", [
+    "-v",
+    "error",
+    "-show_entries",
+    "format=duration",
+    "-of",
+    "default=noprint_wrappers=1:nokey=1",
+    filePath,
+  ], { encoding: "utf8" });
+  const seconds = Number.parseFloat(result.stdout);
+  if (result.status !== 0 || !Number.isFinite(seconds) || seconds <= 0) {
+    throw new Error("The bundled synthetic narration fixture is not decodable by ffprobe.");
+  }
+  return seconds;
+}
+
+function formatSecondsMmss(seconds) {
+  const wholeSeconds = Math.floor(seconds);
+  return `${String(Math.floor(wholeSeconds / 60)).padStart(2, "0")}:${String(wholeSeconds % 60).padStart(2, "0")}`;
 }
 
 async function withDemoApprovalKey(operation) {

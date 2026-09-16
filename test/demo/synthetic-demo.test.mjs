@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { mkdir, mkdtemp, readFile, readdir, rm, symlink, writeFile } from "node:fs/promises";
 import os from "node:os";
@@ -78,6 +79,66 @@ test("synthetic demo exports two deterministic canonical workflows and reachable
       "styles.css",
     ), "utf8");
     assert.doesNotMatch(styles, /fonts\.(?:googleapis|gstatic)\.com/i);
+
+    const page = JSON.parse(await readFile(path.join(
+      first,
+      "announcements",
+      announcement.slug,
+      "page.json",
+    ), "utf8"));
+    const transcript = JSON.parse(await readFile(path.join(
+      first,
+      "announcements",
+      announcement.slug,
+      "transcript.json",
+    ), "utf8"));
+    for (const language of announcement.intake.languages) {
+      const narrationRoot = path.join(
+        first,
+        "announcements",
+        announcement.slug,
+        "_assets",
+        page.buildId,
+        "audio",
+        "narration",
+        language,
+      );
+      const narrationManifest = JSON.parse(await readFile(
+        path.join(narrationRoot, "manifest.json"),
+        "utf8",
+      ));
+      assert.equal(narrationManifest.language, language);
+      assert.equal(narrationManifest.files.length, page.sectionOrder.length);
+      assert.deepEqual(
+        transcript.tracks[language].map(({ section, time, seconds }) => ({ section, time, seconds })),
+        narrationManifest.files.map(({ section, time, seconds }) => ({ section, time, seconds })),
+      );
+      const audioFiles = await Promise.all(narrationManifest.files.map(async (entry, index) => {
+        const filename = `${String(index + 1).padStart(2, "0")}-${page.sectionOrder[index]}.mp3`;
+        assert.deepEqual(entry, {
+          index: index + 1,
+          section: page.sectionOrder[index],
+          time: entry.time,
+          seconds: entry.seconds,
+          file: `../_assets/${page.buildId}/audio/narration/${language}/${filename}`,
+        });
+        assert.match(entry.time, /^\d{2}:\d{2}$/u);
+        assert.equal(Number.isFinite(entry.seconds), true);
+        return readFile(path.join(narrationRoot, filename));
+      }));
+      assert.equal(audioFiles.every((bytes) => bytes.equals(audioFiles[0])), true);
+      const probe = spawnSync("ffprobe", [
+        "-v",
+        "error",
+        "-show_entries",
+        "format=duration",
+        "-of",
+        "default=noprint_wrappers=1:nokey=1",
+        path.join(narrationRoot, narrationManifest.files[0].file.split("/").at(-1)),
+      ], { encoding: "utf8" });
+      assert.equal(probe.status, 0, probe.stderr);
+      assert.equal(Number.parseFloat(probe.stdout) > 0, true);
+    }
   }
 
   assert.deepEqual(

@@ -19,6 +19,8 @@
       "scripts/lib/secure-filesystem-snapshot.py",
       "scripts/verify-vercel-routing.mjs",
       "src/config/test-a-hosted-provider-manifest.mjs",
+      "src/demo/synthetic-demo.mjs",
+      "src/demo/synthetic-narration-fixture.mjs",
       "src/fulfillment/committed-artifact-content-set.mjs",
       "src/fulfillment/exact-revision-publication-adapter.mjs",
       "src/fulfillment/external-effect-stage-handlers.mjs",
@@ -43,6 +45,7 @@
       "test/config/test-a-operator-isolation-audit.test.mjs",
       "test/convex/completion-store-seam.test.mjs",
       "test/convex/operations.test.mjs",
+      "test/demo/synthetic-demo.test.mjs",
       "test/fulfillment/committed-artifact-content-set.test.mjs",
       "test/fulfillment/generation-stage-workspace.test.mjs",
       "test/fulfillment/job-orchestration.test.mjs",
@@ -69,6 +72,8 @@
       "scripts/lib/secure-filesystem-snapshot.py",
       "scripts/verify-vercel-routing.mjs",
       "src/config/test-a-hosted-provider-manifest.mjs",
+      "src/demo/synthetic-demo.mjs",
+      "src/demo/synthetic-narration-fixture.mjs",
       "src/fulfillment/committed-artifact-content-set.mjs",
       "src/fulfillment/exact-revision-publication-adapter.mjs",
       "src/fulfillment/external-effect-stage-handlers.mjs",
@@ -93,6 +98,7 @@
       "test/config/test-a-operator-isolation-audit.test.mjs",
       "test/convex/completion-store-seam.test.mjs",
       "test/convex/operations.test.mjs",
+      "test/demo/synthetic-demo.test.mjs",
       "test/fulfillment/committed-artifact-content-set.test.mjs",
       "test/fulfillment/generation-stage-workspace.test.mjs",
       "test/fulfillment/job-orchestration.test.mjs",
@@ -253,6 +259,14 @@
         "sha256": "de73db43e20d51c232e3aa301a55b4452fa780aed1939275492084ccac063030"
       },
       {
+        "path": "src/demo/synthetic-demo.mjs",
+        "sha256": "a12d2a66342ba006aedd66dd3f8e055bf03b93c80a8cdbdb45749611dea2b56a"
+      },
+      {
+        "path": "src/demo/synthetic-narration-fixture.mjs",
+        "sha256": "4707f6ff6ef705bc4301fe7789675eaa5ac2c0a7f247598d7daa7a5c66e1f8b6"
+      },
+      {
         "path": "src/fulfillment/committed-artifact-content-set.mjs",
         "sha256": "c3f46c0296fdec31c98ff16828d2fe2166e1d3f149e2c7b63e9dc8f6ba9a2b87"
       },
@@ -399,6 +413,10 @@
       {
         "path": "test/convex/operations.test.mjs",
         "sha256": "e9d131d5ec4b52d11b919d776c0bf4000a8f7891ad70d7d3ac277dee66b7686e"
+      },
+      {
+        "path": "test/demo/synthetic-demo.test.mjs",
+        "sha256": "d7b5922bbb05c25d2219546c948cbeface1f768b5a1a7be661f43fc76382a0c2"
       },
       {
         "path": "test/fulfillment/committed-artifact-content-set.test.mjs",
