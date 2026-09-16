@@ -183,7 +183,7 @@ export function createLocalGenerationWorkspace({ rootPath }) {
     };
   }
 
-  async function captureArtifactSet({ kind, paths, requirePersistedManifest = false }) {
+  async function captureArtifactSet({ kind, paths, context = null, requirePersistedManifest = false }) {
     const layout = ARTIFACT_LAYOUTS[kind];
     if (!layout) throw new Error(`Unsupported local artifact kind: ${kind}`);
     const stageRoot = requiredResolvedPath(paths, layout.rootKey);
@@ -241,6 +241,12 @@ export function createLocalGenerationWorkspace({ rootPath }) {
         ) {
           throw new Error("prepared_bundle artifact manifest is invalid.");
         }
+        assertApprovedPreparedArtifactIdentity({
+          context,
+          paths,
+          preparedManifest,
+          preparedRaw,
+        });
       }
       content = kind === "narration_review"
         ? await captureNarratedReleaseContentSet({
@@ -445,6 +451,26 @@ export function createLocalGenerationWorkspace({ rootPath }) {
     cleanupStageOutput,
     validateGeneratedReplay,
   };
+}
+
+function assertApprovedPreparedArtifactIdentity({ context, paths, preparedManifest, preparedRaw }) {
+  const approved = context?.approvedInputArtifactSet;
+  if (!approved) {
+    throw new Error("Narration capture approved prepared artifact identity is missing.");
+  }
+  const revisionId = paths.revision?.revisionId;
+  if (
+    context?.job?.currentRevisionId !== revisionId
+    || approved.kind !== "prepared_bundle"
+    || approved.revisionId !== revisionId
+    || typeof approved.artifactSetId !== "string"
+    || !/^[a-f0-9]{64}$/u.test(approved.assetManifestDigest || "")
+    || approved.assetManifestDigest !== sha256(preparedRaw)
+    || !Array.isArray(approved.files)
+    || !isDeepStrictEqual(approved.files, preparedManifest.files)
+  ) {
+    throw new Error("Current prepared_bundle does not match the approved prepared artifact identity.");
+  }
 }
 
 function assertPersistedGenerationInput(record, job) {

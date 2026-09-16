@@ -47,11 +47,19 @@ async function fixture(t, options = {}) {
       return { artifactSet: { kind: "prepared_bundle", revisionId: "r1", ...DIGESTS } };
     },
     async generate_tts(context) {
-      calls.push({ stage: context.stage, idempotencyKey: context.idempotencyKey });
+      calls.push({
+        stage: context.stage,
+        idempotencyKey: context.idempotencyKey,
+        approvedInputArtifactSet: context.approvedInputArtifactSet,
+      });
       return { artifactSet: { kind: "narration_review", revisionId: "r1", ...DIGESTS } };
     },
     async publish(context) {
-      calls.push({ stage: context.stage, idempotencyKey: context.idempotencyKey });
+      calls.push({
+        stage: context.stage,
+        idempotencyKey: context.idempotencyKey,
+        approvedInputArtifactSet: context.approvedInputArtifactSet,
+      });
       return {
         publication: {
           provider: "local-verification",
@@ -412,7 +420,7 @@ test("payment, review, publication, and delivery bindings fail closed", async (t
 });
 
 test("narration jobs require exact content and audio approvals before publication or delivery", async (t) => {
-  const { calls, orchestrator } = await fixture(t);
+  const { calls, orchestrator, store } = await fixture(t);
   await orchestrator.createJob(syntheticNarrationJob(), { commandId: "create-job" });
   await orchestrator.recordPayment("job_synthetic_001", {
     commandId: "payment-succeeded",
@@ -424,6 +432,7 @@ test("narration jobs require exact content and audio approvals before publicatio
   await orchestrator.runNext("job_synthetic_001");
   await orchestrator.recordReviewDecision("job_synthetic_001", approvedContentDecision());
   await orchestrator.runNext("job_synthetic_001");
+  const approvedInputArtifactSet = (await store.getJob("job_synthetic_001")).artifactSets.at(-1);
   await orchestrator.runNext("job_synthetic_001");
 
   assert.equal((await orchestrator.status("job_synthetic_001")).state, "narration_review_required");
@@ -456,6 +465,14 @@ test("narration jobs require exact content and audio approvals before publicatio
     "publish",
     "deliver",
   ]);
+  assert.deepEqual(
+    calls.find(({ stage }) => stage === "generate_tts").approvedInputArtifactSet,
+    approvedInputArtifactSet,
+  );
+  assert.deepEqual(
+    calls.find(({ stage }) => stage === "publish").approvedInputArtifactSet,
+    approvedInputArtifactSet,
+  );
 });
 
 test("narration publication binds the exact approved narrated artifact manifest", async (t) => {

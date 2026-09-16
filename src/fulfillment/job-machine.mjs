@@ -589,6 +589,18 @@ export function statusFromAggregate(aggregate) {
   });
 }
 
+export function approvedInputArtifactSetFromAggregate(aggregate, stage) {
+  if (stage !== "generate_tts" && (stage !== "publish" || !aggregate.narrationRequired)) {
+    throw new Error(`Approved input artifacts are not available for stage ${stage}.`);
+  }
+  assertApprovedContent(aggregate);
+  const prepared = latestArtifactSet(aggregate, "prepared_bundle", aggregate.currentRevisionId);
+  if (!prepared) {
+    throw new Error("Narration generation requires the persisted approved prepared artifact identity.");
+  }
+  return clone(prepared);
+}
+
 export function externalEffectInputFromAggregate(aggregate, stage) {
   if (stage !== "publish" && stage !== "deliver") {
     throw new Error(`External effect input is not available for stage ${stage}.`);

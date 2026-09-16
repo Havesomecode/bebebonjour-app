@@ -157,9 +157,14 @@ async function narratedFixture(t, options = {}) {
     manifestRoot,
     revision: { revisionId: REVISION_ID },
   };
+  let approvedInputArtifactSet = null;
   if (!options.omitPreparedManifest) {
     const prepared = await workspace.captureArtifactSet({ kind: "prepared_bundle", paths });
     assert.ok(prepared);
+    approvedInputArtifactSet = {
+      artifactSetId: "artifacts_approved_prepared_test_001",
+      ...prepared.artifactSet,
+    };
     prepared.dispose();
   }
   if (options.malformedPreparedManifest) {
@@ -171,10 +176,40 @@ async function narratedFixture(t, options = {}) {
       Buffer.from("globalThis.__narrated = 'mutated-after-approval';\n", "utf8"),
     );
   }
+  if (options.rewritePreparedAppAndManifest) {
+    const rewrittenApp = Buffer.from("globalThis.__narrated = 'coordinated-rewrite';\n", "utf8");
+    await writeFile(
+      path.join(preparedRoot, "deploy", "canary", "_assets", buildId, "app.js"),
+      rewrittenApp,
+    );
+    const rewrittenFiles = approvedInputArtifactSet.files.map((file) => (
+      file.path === `deploy/canary/_assets/${buildId}/app.js`
+        ? {
+            ...file,
+            bytes: rewrittenApp.byteLength,
+            sha256: sha256(rewrittenApp),
+            storageId: `local-test:sha256:${sha256(rewrittenApp)}`,
+          }
+        : file
+    ));
+    await writeFile(path.join(manifestRoot, "prepared_bundle.json"), `${JSON.stringify({
+      schemaVersion: "1.0",
+      kind: "prepared_bundle",
+      revisionId: REVISION_ID,
+      files: rewrittenFiles,
+    }, null, 2)}\n`, "utf8");
+  }
 
   let captured;
   try {
-    captured = await workspace.captureArtifactSet({ kind: "narration_review", paths });
+    captured = await workspace.captureArtifactSet({
+      kind: "narration_review",
+      paths,
+      context: {
+        job: { jobId: JOB_ID, currentRevisionId: REVISION_ID },
+        ...(options.omitApprovedInputIdentity ? {} : { approvedInputArtifactSet }),
+      },
+    });
   } catch (error) {
     await assert.rejects(
       readFile(path.join(manifestRoot, "narration_review.json")),
@@ -941,6 +976,20 @@ test("narration capture rejects a prepared deploy mutation after its manifest wa
   await assert.rejects(
     () => narratedFixture(t, { mutatePreparedAppAfterManifest: true }),
     /prepared_bundle artifacts diverge from the persisted manifest/i,
+  );
+});
+
+test("narration capture rejects a coordinated prepared deploy and manifest rewrite", async (t) => {
+  await assert.rejects(
+    () => narratedFixture(t, { rewritePreparedAppAndManifest: true }),
+    /does not match the approved prepared artifact identity/i,
+  );
+});
+
+test("narration capture requires the approved prepared artifact identity", async (t) => {
+  await assert.rejects(
+    () => narratedFixture(t, { omitApprovedInputIdentity: true }),
+    /approved prepared artifact identity is missing/i,
   );
 });
 

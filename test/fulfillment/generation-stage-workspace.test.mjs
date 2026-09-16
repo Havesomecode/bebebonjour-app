@@ -373,6 +373,7 @@ test("persisted orchestration drives compose, render, and retryable test-mode TT
   const replay = await handlers.generate_tts({
     job: status,
     idempotencyKey: ttsAttempts.at(-1).idempotencyKey,
+    approvedInputArtifactSet: preparedArtifacts,
   });
   assert.deepEqual(replay.artifactSet, {
     kind: narrationArtifacts.kind,

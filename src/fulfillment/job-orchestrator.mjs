@@ -1,5 +1,6 @@
 import {
   EDITORIAL_POLICY_VERSION,
+  approvedInputArtifactSetFromAggregate,
   externalEffectInputFromAggregate,
   nextStageForState,
   statusFromAggregate,
@@ -261,6 +262,9 @@ export function createFulfillmentOrchestrator(options) {
           priorEffectStartedAt: priorEffectAttempt?.effectStartedAt,
           idempotencyKey: attempt.idempotencyKey,
           operationsCommandId: attempt.operationsCommandId || null,
+          ...((stage === "generate_tts" || (stage === "publish" && aggregate.narrationRequired))
+            ? { approvedInputArtifactSet: approvedInputArtifactSetFromAggregate(aggregate, stage) }
+            : {}),
           ...(options.workerAuthority
             ? { artifactReadAuthority: normalizeWorkerAuthority(options.workerAuthority) }
             : {}),

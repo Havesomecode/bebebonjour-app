@@ -260,7 +260,7 @@
       },
       {
         "path": "src/demo/synthetic-demo.mjs",
-        "sha256": "a12d2a66342ba006aedd66dd3f8e055bf03b93c80a8cdbdb45749611dea2b56a"
+        "sha256": "120e3b2026f180cbe3c6ac2a797c67b72f8798401cbdc4ee8ca9de03d7cca72c"
       },
       {
         "path": "src/demo/synthetic-narration-fixture.mjs",
@@ -284,11 +284,11 @@
       },
       {
         "path": "src/fulfillment/job-machine.mjs",
-        "sha256": "0600896728e6696c560a18e8f9f60e103bd119dc1a77c23f937ffb08f1d09200"
+        "sha256": "f5d2dc433b04ec42e708e210df01b88f981d3d246850f6418a446809d2dedf22"
       },
       {
         "path": "src/fulfillment/job-orchestrator.mjs",
-        "sha256": "7c34442eb7c746744fe2643597731dd6611287a080bc6e2fc74693900bd2ab3e"
+        "sha256": "06b87e20fd4004a9cb08369e8566ded87a660ba375d056cdc93cf490ea34cc60"
       },
       {
         "path": "src/fulfillment/job-scoped-editorial-approval-canonicalization.mjs",
@@ -304,7 +304,7 @@
       },
       {
         "path": "src/fulfillment/local-generation-workspace.mjs",
-        "sha256": "4997a5f665e339cbb827f45ffab5d40232a006e560f8e99cec8149f56ae701ef"
+        "sha256": "f75fccc64ccd168e3e0cdc442d5701ad19db6a82635a3498b4fbabb71488d330"
       },
       {
         "path": "src/fulfillment/local-prepare-review-stage-handler.mjs",
@@ -424,11 +424,11 @@
       },
       {
         "path": "test/fulfillment/generation-stage-workspace.test.mjs",
-        "sha256": "cdb6695210a67da9c18e5a041b6d8d8f8c3336799cc7d16b92f27b1a79c944fa"
+        "sha256": "2db66b5eb547624fcbdfde275591a0ec18de2d414ce7229557dc6b02ad0a616d"
       },
       {
         "path": "test/fulfillment/job-orchestration.test.mjs",
-        "sha256": "ff1ec8f3b8e4456e0fc50a445308ccf54b09e65c57249b2001212332f6475f4b"
+        "sha256": "5a7cfe0c855c670b15c1c39eec940e90a52f4f13585d6e93df96bf357ce4b4f6"
       },
       {
         "path": "test/fulfillment/secure-filesystem-snapshot.test.mjs",
@@ -436,7 +436,7 @@
       },
       {
         "path": "test/fulfillment/vercel-test-a-publication-provider.test.mjs",
-        "sha256": "b9f887ece6d34fc3675c75dd4500941730f6de0fa4ff28087533bb1bb56a7337"
+        "sha256": "08f5185d756680c0131910ccd41f925bfd6c5e229f225951544766d5d367f9c1"
       },
       {
         "path": "test/operations/completion-worker-boundary.test.mjs",

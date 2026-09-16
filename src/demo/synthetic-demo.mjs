@@ -366,6 +366,10 @@ async function buildInWorkspace(persona, outputRoot, workspaceRoot) {
   }
   const narrationAggregate = await generationStore.getJob(jobId);
   const narrationArtifacts = narrationAggregate.artifactSets.at(-1);
+  const approvedInputArtifactSet = [...narrationAggregate.artifactSets].reverse().find((artifactSet) => (
+    artifactSet.kind === "prepared_bundle"
+    && artifactSet.revisionId === narrationAggregate.currentRevisionId
+  ));
   now = "2026-08-18T08:04:30.000Z";
   const publishReadyStatus = await orchestrator.recordReviewDecision(jobId, {
     commandId: `demo-narration-review-${persona.key}`,
@@ -393,7 +397,10 @@ async function buildInWorkspace(persona, outputRoot, workspaceRoot) {
     "utf8",
   ));
   const slug = assertGeneratedSlug(preparedPage.slug);
-  await copyAnnouncement(workspace, renderedPaths, slug, outputRoot);
+  await copyAnnouncement(workspace, renderedPaths, slug, outputRoot, {
+    job: narrationAggregate,
+    approvedInputArtifactSet,
+  });
 
   now = "2026-08-18T08:05:00.000Z";
   const publicationStatus = await silenceConsole(() => orchestrator.runNext(jobId));
@@ -459,12 +466,13 @@ function assertGeneratedSlug(value) {
   return value;
 }
 
-async function copyAnnouncement(workspace, renderedPaths, slug, outputRoot) {
+async function copyAnnouncement(workspace, renderedPaths, slug, outputRoot, context) {
   const targetRoot = path.join(outputRoot, "announcements");
   await mkdir(targetRoot, { recursive: true });
   const captured = await workspace.captureArtifactSet({
     kind: "narration_review",
     paths: renderedPaths,
+    context,
     requirePersistedManifest: true,
   });
   if (captured === null) {
