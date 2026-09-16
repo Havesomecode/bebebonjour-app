@@ -24,22 +24,27 @@ export async function captureNarratedReleaseContentSet(input) {
   const maximumJsonBytes = input.maximumJsonBytes ?? MAX_JSON_BYTES;
   const maximumTotalBytes = input.maximumTotalBytes ?? MAX_TOTAL_BYTES;
   const maximumFiles = input.maximumFiles ?? MAX_FILES;
-  const prepared = await captureCommittedArtifactContentSet({
-    authority: { type: "producer-owned" },
-    rootPath: input.rootPath,
-    inventoryRoot: input.preparedRoot,
-    inventoryPrefix: "",
-    excludedPaths: ["job.json"],
-    pagePath: path.join(input.preparedRoot, "artifacts", "current", "page.json"),
-    pageManifestPath: null,
-    transcriptPath: path.join(input.preparedRoot, "artifacts", "current", "transcript.json"),
-    transcriptManifestPath: null,
-    requiredPaths: [],
-    maximumFileBytes,
-    maximumJsonBytes,
-    maximumTotalBytes,
-    maximumFiles,
-  });
+  let prepared;
+  try {
+    prepared = await captureCommittedArtifactContentSet({
+      authority: { type: "persisted-manifest", files: input.preparedFiles },
+      rootPath: input.rootPath,
+      inventoryRoot: input.preparedRoot,
+      inventoryPrefix: "",
+      excludedPaths: ["job.json"],
+      pagePath: path.join(input.preparedRoot, "artifacts", "current", "page.json"),
+      pageManifestPath: null,
+      transcriptPath: path.join(input.preparedRoot, "artifacts", "current", "transcript.json"),
+      transcriptManifestPath: null,
+      requiredPaths: [],
+      maximumFileBytes,
+      maximumJsonBytes,
+      maximumTotalBytes,
+      maximumFiles,
+    });
+  } catch (error) {
+    throw narratedReleaseError("Prepared_bundle artifacts diverge from the persisted manifest.", error);
+  }
   if (!prepared) return null;
 
   let narration;
@@ -123,6 +128,12 @@ function composeNarratedRelease({ prepared, narration, expectedFiles, maximumFil
   const publicPagePath = `${deployPrefix}page.json`;
   if (!publicBytes.has(publicPagePath)) {
     throw narratedReleaseError("Narrated release has no public page artifact.");
+  }
+  if (!publicPageMatchesApproved(
+    publicBytes.get(publicPagePath),
+    narration.read("approved/page.json"),
+  )) {
+    throw narratedReleaseError("Prepared public page artifact does not match the narration-approved page.");
   }
 
   const files = [...publicBytes.entries()]
@@ -221,8 +232,39 @@ function sha256(value) {
   return createHash("sha256").update(value).digest("hex");
 }
 
-function narratedReleaseError(message) {
-  const error = new Error(message);
+function publicPageMatchesApproved(publicBytes, approvedBytes) {
+  let publicPage;
+  let approvedPage;
+  try {
+    publicPage = JSON.parse(publicBytes.toString("utf8"));
+    approvedPage = JSON.parse(approvedBytes.toString("utf8"));
+  } catch {
+    return false;
+  }
+  const fields = [
+    "schemaVersion",
+    "pageId",
+    "slug",
+    "languages",
+    "defaultLanguage",
+    "templateFamily",
+    "templateVersion",
+    "rendererVersion",
+    "pageRevision",
+    "buildId",
+    "sectionOrder",
+    "identity",
+    "seo",
+    "sections",
+  ];
+  const expected = Object.fromEntries(fields
+    .filter((field) => Object.hasOwn(approvedPage, field))
+    .map((field) => [field, approvedPage[field]]));
+  return isDeepStrictEqual(publicPage, expected);
+}
+
+function narratedReleaseError(message, cause) {
+  const error = new Error(message, cause ? { cause } : undefined);
   error.reasonCode = "artifact_content_commitment_invalid";
   error.retryable = false;
   return error;

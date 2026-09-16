@@ -222,10 +222,31 @@ export function createLocalGenerationWorkspace({ rootPath }) {
 
     let content;
     try {
+      let preparedManifest = null;
+      if (kind === "narration_review") {
+        const preparedManifestPath = path.join(manifestRoot, "prepared_bundle.json");
+        await assertSafeWorkspacePath(resolvedRoot, preparedManifestPath);
+        const preparedRaw = await readWorkspaceTextIfPresent(resolvedRoot, preparedManifestPath);
+        if (preparedRaw === null) throw new Error("prepared_bundle artifact manifest is missing.");
+        try {
+          preparedManifest = JSON.parse(preparedRaw);
+        } catch {
+          throw new Error("prepared_bundle artifact manifest is invalid.");
+        }
+        if (
+          preparedManifest?.schemaVersion !== "1.0"
+          || preparedManifest.kind !== "prepared_bundle"
+          || preparedManifest.revisionId !== paths.revision?.revisionId
+          || !Array.isArray(preparedManifest.files)
+        ) {
+          throw new Error("prepared_bundle artifact manifest is invalid.");
+        }
+      }
       content = kind === "narration_review"
         ? await captureNarratedReleaseContentSet({
             rootPath: resolvedRoot,
             preparedRoot: requiredResolvedPath(paths, "preparedRoot"),
+            preparedFiles: preparedManifest.files,
             narrationArtifactsRoot: inventoryRoot,
             approvedPagePath: pagePath,
             expectedFiles: existingManifest?.files,

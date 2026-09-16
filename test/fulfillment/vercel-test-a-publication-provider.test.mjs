@@ -138,7 +138,7 @@ async function narratedFixture(t, options = {}) {
     [path.join(preparedRoot, "artifacts", "current", "page.json"), options.preparedPageBytes || pageBytes],
     [path.join(preparedRoot, "artifacts", "current", "transcript.json"), baseTranscript],
     [path.join(preparedRoot, "deploy", "canary", "fr", "index.html"), index],
-    [path.join(preparedRoot, "deploy", "canary", "page.json"), pageBytes],
+    [path.join(preparedRoot, "deploy", "canary", "page.json"), options.deployPageBytes || pageBytes],
     [path.join(preparedRoot, "deploy", "canary", "transcript.json"), baseTranscript],
     [path.join(preparedRoot, "deploy", "canary", "_assets", buildId, "app.js"), app],
     [path.join(narrationArtifactsRoot, "transcript.json"), narratedTranscript],
@@ -148,17 +148,40 @@ async function narratedFixture(t, options = {}) {
   await Promise.all(staged.map(async ([filePath]) => mkdir(path.dirname(filePath), { recursive: true })));
   await Promise.all(staged.map(([filePath, bytes]) => writeFile(filePath, bytes)));
 
-  const captured = await createLocalGenerationWorkspace({ rootPath }).captureArtifactSet({
-    kind: "narration_review",
-    paths: {
-      approvedRoot,
-      preparedRoot,
-      narrationReviewRoot,
-      narrationArtifactsRoot,
-      manifestRoot,
-      revision: { revisionId: REVISION_ID },
-    },
-  });
+  const workspace = createLocalGenerationWorkspace({ rootPath });
+  const paths = {
+    approvedRoot,
+    preparedRoot,
+    narrationReviewRoot,
+    narrationArtifactsRoot,
+    manifestRoot,
+    revision: { revisionId: REVISION_ID },
+  };
+  if (!options.omitPreparedManifest) {
+    const prepared = await workspace.captureArtifactSet({ kind: "prepared_bundle", paths });
+    assert.ok(prepared);
+    prepared.dispose();
+  }
+  if (options.malformedPreparedManifest) {
+    await writeFile(path.join(manifestRoot, "prepared_bundle.json"), "{not-json\n", "utf8");
+  }
+  if (options.mutatePreparedAppAfterManifest) {
+    await writeFile(
+      path.join(preparedRoot, "deploy", "canary", "_assets", buildId, "app.js"),
+      Buffer.from("globalThis.__narrated = 'mutated-after-approval';\n", "utf8"),
+    );
+  }
+
+  let captured;
+  try {
+    captured = await workspace.captureArtifactSet({ kind: "narration_review", paths });
+  } catch (error) {
+    await assert.rejects(
+      readFile(path.join(manifestRoot, "narration_review.json")),
+      { code: "ENOENT" },
+    );
+    throw error;
+  }
   assert.ok(captured);
   const artifactSet = {
     artifactSetId: "artifact-set-narrated-test-001",
@@ -187,6 +210,7 @@ async function narratedFixture(t, options = {}) {
     narrationAudioPath,
     narrationManifest,
     narratedTranscript,
+    preparedAppPath: path.join(preparedRoot, "deploy", "canary", "_assets", buildId, "app.js"),
     request,
     rootPath,
   };
@@ -890,6 +914,13 @@ test("narration-reviewed files resolve and publish as one exact Vercel deploymen
     && digest === sha256(value.narrationAudio)
   )));
 
+  await writeFile(value.preparedAppPath, Buffer.from("tampered prepared app", "utf8"));
+  await assert.rejects(
+    () => createLocalArtifactResolver({ rootPath: value.rootPath }).resolve(value.request),
+    (error) => error?.reasonCode === "publication_source_binding_invalid",
+  );
+  await writeFile(value.preparedAppPath, value.app);
+
   await writeFile(value.narrationAudioPath, Buffer.from("tampered narration", "utf8"));
   await assert.rejects(
     () => createLocalArtifactResolver({ rootPath: value.rootPath }).resolve(value.request),
@@ -903,6 +934,33 @@ test("narration release rejects a prepared page outside the approved narration b
       preparedPageBytes: Buffer.from('{"pageId":"different-prepared-page"}\n', "utf8"),
     }),
     /not bound to the narration-approved page/i,
+  );
+});
+
+test("narration capture rejects a prepared deploy mutation after its manifest was persisted", async (t) => {
+  await assert.rejects(
+    () => narratedFixture(t, { mutatePreparedAppAfterManifest: true }),
+    /prepared_bundle artifacts diverge from the persisted manifest/i,
+  );
+});
+
+test("narration capture requires a valid persisted prepared-bundle manifest", async (t) => {
+  await assert.rejects(
+    () => narratedFixture(t, { omitPreparedManifest: true }),
+    /prepared_bundle artifact manifest is missing/i,
+  );
+  await assert.rejects(
+    () => narratedFixture(t, { malformedPreparedManifest: true }),
+    /prepared_bundle artifact manifest is invalid/i,
+  );
+});
+
+test("narration capture binds the public deploy page to the approved page", async (t) => {
+  await assert.rejects(
+    () => narratedFixture(t, {
+      deployPageBytes: Buffer.from('{"pageId":"different-public-page"}\n', "utf8"),
+    }),
+    /public page artifact does not match the narration-approved page/i,
   );
 });
 

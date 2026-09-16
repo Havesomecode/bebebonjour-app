@@ -59,10 +59,38 @@ export function createLocalArtifactResolver({ rootPath } = {}) {
 
       let capture;
       try {
+        let preparedManifest = null;
+        if (artifactSet.kind === "narration_review") {
+          const preparedManifestPath = path.join(
+            configuredRoot,
+            ...revisionPrefix.split("/"),
+            "manifests",
+            "prepared_bundle.json",
+          );
+          const preparedManifestBytes = await readRegularFileInside(
+            rootRealPath,
+            preparedManifestPath,
+            "persisted prepared_bundle manifest",
+          );
+          try {
+            preparedManifest = JSON.parse(preparedManifestBytes.toString("utf8"));
+          } catch {
+            throw bindingError("The persisted prepared_bundle manifest is not valid JSON.");
+          }
+          if (
+            preparedManifest?.schemaVersion !== "1.0"
+            || preparedManifest.kind !== "prepared_bundle"
+            || preparedManifest.revisionId !== request.revisionId
+            || !Array.isArray(preparedManifest.files)
+          ) {
+            throw bindingError("The persisted prepared_bundle manifest does not match the exact job revision.");
+          }
+        }
         capture = artifactSet.kind === "narration_review"
           ? await captureNarratedReleaseContentSet({
               rootPath: configuredRoot,
               preparedRoot: path.join(configuredRoot, ...revisionPrefix.split("/"), "prepared"),
+              preparedFiles: preparedManifest.files,
               narrationArtifactsRoot: path.join(
                 configuredRoot,
                 ...revisionPrefix.split("/"),
