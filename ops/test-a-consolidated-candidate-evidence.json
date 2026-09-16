@@ -300,11 +300,11 @@
       },
       {
         "path": "src/fulfillment/local-artifact-resolver.mjs",
-        "sha256": "f4e386201f1aea6e58b5163fd7129e3a98d31bad24cb967a5aab1905cba2d0da"
+        "sha256": "f7da387c44bcca2f22150deebe3700fe5a0e2e7d7ab62986b74269ab5a2ee4a7"
       },
       {
         "path": "src/fulfillment/local-generation-workspace.mjs",
-        "sha256": "bacea0ff757e6ac01dac28bdd1182d613cf31d7974afd0f8d5c85c43163ca0b0"
+        "sha256": "4997a5f665e339cbb827f45ffab5d40232a006e560f8e99cec8149f56ae701ef"
       },
       {
         "path": "src/fulfillment/local-prepare-review-stage-handler.mjs",
@@ -312,7 +312,7 @@
       },
       {
         "path": "src/fulfillment/narrated-release-content-set.mjs",
-        "sha256": "4400c68cafa83311ba6771a73fcc4d3baafae723eda7112c200ad0bfc1c8d5ed"
+        "sha256": "c99d7d8502c880cabbc991c9b9f17825e6fe3bd3e5f794787f96335bc512d658"
       },
       {
         "path": "src/fulfillment/operator-runner-test-a.mjs",
@@ -436,7 +436,7 @@
       },
       {
         "path": "test/fulfillment/vercel-test-a-publication-provider.test.mjs",
-        "sha256": "53de0b2dcf11eb4eba108df3bd9342b47ea572eebe944fc93f739fe0d2c90b6d"
+        "sha256": "b9f887ece6d34fc3675c75dd4500941730f6de0fa4ff28087533bb1bb56a7337"
       },
       {
         "path": "test/operations/completion-worker-boundary.test.mjs",
