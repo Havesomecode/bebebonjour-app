@@ -4,6 +4,7 @@
   "baselineCommit": "82be6b29eab9245400e928623ec15a3f1ae1ca27",
   "candidateBoundary": {
     "changedPaths": [
+      "README.md",
       "completion-worker/api/worker.mjs",
       "convex/fulfillment.js",
       "convex/http.js",
@@ -26,6 +27,7 @@
       "src/fulfillment/job-orchestrator.mjs",
       "src/fulfillment/local-artifact-resolver.mjs",
       "src/fulfillment/local-generation-workspace.mjs",
+      "src/fulfillment/narrated-release-content-set.mjs",
       "src/fulfillment/secure-filesystem-snapshot.mjs",
       "src/fulfillment/test-a-completion-capabilities.mjs",
       "src/fulfillment/vercel-test-a-publication-provider.mjs",
@@ -42,6 +44,7 @@
       "test/convex/completion-store-seam.test.mjs",
       "test/convex/operations.test.mjs",
       "test/fulfillment/committed-artifact-content-set.test.mjs",
+      "test/fulfillment/generation-stage-workspace.test.mjs",
       "test/fulfillment/job-orchestration.test.mjs",
       "test/fulfillment/secure-filesystem-snapshot.test.mjs",
       "test/fulfillment/vercel-test-a-publication-provider.test.mjs",
@@ -51,6 +54,7 @@
       "vercel.completion-worker.json"
     ],
     "pathAllowlist": [
+      "README.md",
       "completion-worker/api/worker.mjs",
       "convex/fulfillment.js",
       "convex/http.js",
@@ -73,6 +77,7 @@
       "src/fulfillment/job-orchestrator.mjs",
       "src/fulfillment/local-artifact-resolver.mjs",
       "src/fulfillment/local-generation-workspace.mjs",
+      "src/fulfillment/narrated-release-content-set.mjs",
       "src/fulfillment/secure-filesystem-snapshot.mjs",
       "src/fulfillment/test-a-completion-capabilities.mjs",
       "src/fulfillment/vercel-test-a-publication-provider.mjs",
@@ -89,6 +94,7 @@
       "test/convex/completion-store-seam.test.mjs",
       "test/convex/operations.test.mjs",
       "test/fulfillment/committed-artifact-content-set.test.mjs",
+      "test/fulfillment/generation-stage-workspace.test.mjs",
       "test/fulfillment/job-orchestration.test.mjs",
       "test/fulfillment/secure-filesystem-snapshot.test.mjs",
       "test/fulfillment/vercel-test-a-publication-provider.test.mjs",
@@ -101,6 +107,10 @@
       {
         "path": ".env.example",
         "sha256": "2e92d12f27b4c18076cad7ddae18237b04c936dd7165771ec52673d4b5150339"
+      },
+      {
+        "path": "README.md",
+        "sha256": "af5363afa3b70d45f1e783a9066fe8d7b4d97774c89b3950a5c7b3f887103f30"
       },
       {
         "path": "api/customer-flow/[...route].mjs",
@@ -160,7 +170,7 @@
       },
       {
         "path": "package.json",
-        "sha256": "4b79f3087b3ce2305b919eb58be601817e4dab32e2e0f25ee44950236b8d715a"
+        "sha256": "36809d5af17a405ee35d799c63361fe58372cf77fc4a49b5693edce236b8d140"
       },
       {
         "path": "scripts/lib/codex-subscription-composition.mjs",
@@ -276,15 +286,19 @@
       },
       {
         "path": "src/fulfillment/local-artifact-resolver.mjs",
-        "sha256": "62f5cd69cf9c2a2d22b22735d72059ac572e2293f357ac5240ce0b0527eca44e"
+        "sha256": "f4e386201f1aea6e58b5163fd7129e3a98d31bad24cb967a5aab1905cba2d0da"
       },
       {
         "path": "src/fulfillment/local-generation-workspace.mjs",
-        "sha256": "d553d8ff096bb70a25fac35321c1d66e06b9633bff9a8c2882a61b7832a2ba76"
+        "sha256": "bacea0ff757e6ac01dac28bdd1182d613cf31d7974afd0f8d5c85c43163ca0b0"
       },
       {
         "path": "src/fulfillment/local-prepare-review-stage-handler.mjs",
         "sha256": "addd080cf32cd4dd1e06402e55dfe00cb656da64a6164e885f91f5e921c6977a"
+      },
+      {
+        "path": "src/fulfillment/narrated-release-content-set.mjs",
+        "sha256": "4400c68cafa83311ba6771a73fcc4d3baafae723eda7112c200ad0bfc1c8d5ed"
       },
       {
         "path": "src/fulfillment/operator-runner-test-a.mjs",
@@ -324,7 +338,7 @@
       },
       {
         "path": "src/fulfillment/vercel-test-a-publication-provider.mjs",
-        "sha256": "168eb247f3ce98821bc055ad6a15357a3145c68abb2b657c3e787a7addc9ab7c"
+        "sha256": "eed20403b25b8f198014a37876566ff848273be2fe733ee2df9dbd06c43235d4"
       },
       {
         "path": "src/http/operations-worker-handler.mjs",
@@ -391,6 +405,10 @@
         "sha256": "6d6e0322b3d9d33975fe7e486f83e9797158796259c12055ce6519021a94a12c"
       },
       {
+        "path": "test/fulfillment/generation-stage-workspace.test.mjs",
+        "sha256": "cdb6695210a67da9c18e5a041b6d8d8f8c3336799cc7d16b92f27b1a79c944fa"
+      },
+      {
         "path": "test/fulfillment/job-orchestration.test.mjs",
         "sha256": "ff1ec8f3b8e4456e0fc50a445308ccf54b09e65c57249b2001212332f6475f4b"
       },
@@ -400,7 +418,7 @@
       },
       {
         "path": "test/fulfillment/vercel-test-a-publication-provider.test.mjs",
-        "sha256": "da6de4e341202c56e8b415060820319b859bb7f144394ddbb37f28e3927210c8"
+        "sha256": "53de0b2dcf11eb4eba108df3bd9342b47ea572eebe944fc93f739fe0d2c90b6d"
       },
       {
         "path": "test/operations/completion-worker-boundary.test.mjs",
@@ -585,6 +603,7 @@
       "src/fulfillment/job-scoped-generation-approval.mjs",
       "src/fulfillment/local-generation-workspace.mjs",
       "src/fulfillment/local-prepare-review-stage-handler.mjs",
+      "src/fulfillment/narrated-release-content-set.mjs",
       "src/fulfillment/secure-filesystem-snapshot.mjs",
       "src/fulfillment/test-a-generation-policy.mjs",
       "src/fulfillment/test-a-generation-runner.mjs",
@@ -622,6 +641,7 @@
       "src/fulfillment/job-scoped-editorial-approval-canonicalization.mjs",
       "src/fulfillment/local-generation-workspace.mjs",
       "src/fulfillment/local-prepare-review-stage-handler.mjs",
+      "src/fulfillment/narrated-release-content-set.mjs",
       "src/fulfillment/secure-filesystem-snapshot.mjs",
       "src/fulfillment/test-a-generation-policy.mjs",
       "src/fulfillment/test-a-generation-runner.mjs",

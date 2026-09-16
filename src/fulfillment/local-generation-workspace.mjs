@@ -18,6 +18,7 @@ import {
 } from "../../scripts/lib/schema-validation.mjs";
 import { serializeCanonicalJobScopedEditorialApprovalRecord } from "./job-scoped-editorial-approval-canonicalization.mjs";
 import { captureCommittedArtifactContentSet } from "./committed-artifact-content-set.mjs";
+import { captureNarratedReleaseContentSet } from "./narrated-release-content-set.mjs";
 import { readBoundedFileFromRoot } from "./secure-filesystem-snapshot.mjs";
 
 const MAX_JSON_BYTES = 4 * 1024 * 1024;
@@ -221,24 +222,36 @@ export function createLocalGenerationWorkspace({ rootPath }) {
 
     let content;
     try {
-      content = await captureCommittedArtifactContentSet({
-        rootPath: resolvedRoot,
-        inventoryRoot,
-        inventoryPrefix: layout.inventoryPrefix,
-        excludedPaths: [...layout.excludedPaths],
-        pagePath,
-        pageManifestPath: layout.pageManifestPath || null,
-        transcriptPath,
-        transcriptManifestPath: layout.transcriptManifestPath || null,
-        requiredPaths,
-        maximumFileBytes: MAX_ARTIFACT_BYTES,
-        maximumJsonBytes: MAX_JSON_BYTES,
-        maximumTotalBytes: MAX_ARTIFACT_TOTAL_BYTES,
-        maximumFiles: MAX_ARTIFACT_FILES,
-        authority: existingManifest
-          ? { type: "persisted-manifest", files: existingManifest.files }
-          : { type: "producer-owned" },
-      });
+      content = kind === "narration_review"
+        ? await captureNarratedReleaseContentSet({
+            rootPath: resolvedRoot,
+            preparedRoot: requiredResolvedPath(paths, "preparedRoot"),
+            narrationArtifactsRoot: inventoryRoot,
+            approvedPagePath: pagePath,
+            expectedFiles: existingManifest?.files,
+            maximumFileBytes: MAX_ARTIFACT_BYTES,
+            maximumJsonBytes: MAX_JSON_BYTES,
+            maximumTotalBytes: MAX_ARTIFACT_TOTAL_BYTES,
+            maximumFiles: MAX_ARTIFACT_FILES,
+          })
+        : await captureCommittedArtifactContentSet({
+            rootPath: resolvedRoot,
+            inventoryRoot,
+            inventoryPrefix: layout.inventoryPrefix,
+            excludedPaths: [...layout.excludedPaths],
+            pagePath,
+            pageManifestPath: layout.pageManifestPath || null,
+            transcriptPath,
+            transcriptManifestPath: layout.transcriptManifestPath || null,
+            requiredPaths,
+            maximumFileBytes: MAX_ARTIFACT_BYTES,
+            maximumJsonBytes: MAX_JSON_BYTES,
+            maximumTotalBytes: MAX_ARTIFACT_TOTAL_BYTES,
+            maximumFiles: MAX_ARTIFACT_FILES,
+            authority: existingManifest
+              ? { type: "persisted-manifest", files: existingManifest.files }
+              : { type: "producer-owned" },
+          });
     } catch (error) {
       if (existingManifest && error?.reasonCode === "artifact_content_commitment_invalid") {
         throw new Error(`${kind} artifacts diverge from the persisted manifest.`, { cause: error });

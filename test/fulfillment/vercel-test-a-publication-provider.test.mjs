@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
-import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
@@ -8,11 +8,13 @@ import test from "node:test";
 import { createExternalEffectStageHandlers } from "../../src/fulfillment/external-effect-stage-handlers.mjs";
 import { createFulfillmentOrchestrator } from "../../src/fulfillment/job-orchestrator.mjs";
 import { createLocalArtifactResolver } from "../../src/fulfillment/local-artifact-resolver.mjs";
+import { createLocalGenerationWorkspace } from "../../src/fulfillment/local-generation-workspace.mjs";
 import {
   createVercelTestAPublicationProvider,
   parseAuthoritativeVercelBuildInspection,
 } from "../../src/fulfillment/vercel-test-a-publication-provider.mjs";
 import { createLocalTestFulfillmentStore } from "../../src/persistence/local-test-fulfillment-store.mjs";
+import { buildIdFromPage } from "../../scripts/lib/common.mjs";
 
 const JOB_ID = "job_test_001";
 const REVISION_ID = "r1";
@@ -93,6 +95,101 @@ async function fixture(t) {
     },
   };
   return { asset, index, manifestPath, preparedRoot, request, rootPath };
+}
+
+async function narratedFixture(t, options = {}) {
+  const rootPath = await mkdtemp(path.join(os.tmpdir(), "bebebonjour-narrated-publication-"));
+  t.after(() => rm(rootPath, { recursive: true, force: true }));
+  const revisionRoot = path.join(rootPath, "jobs", JOB_ID, "revisions", REVISION_ID);
+  const approvedRoot = path.join(revisionRoot, "approved");
+  const preparedRoot = path.join(revisionRoot, "prepared");
+  const narrationReviewRoot = path.join(revisionRoot, "narration-review");
+  const narrationArtifactsRoot = path.join(narrationReviewRoot, "artifacts");
+  const manifestRoot = path.join(revisionRoot, "manifests");
+  const page = {
+    pageId: "page_test_a_narrated",
+    pageRevision: REVISION_ID,
+    slug: "canary",
+    templateFamily: "storybook",
+    templateVersion: "1.0.0",
+  };
+  const buildId = buildIdFromPage(page);
+  const pageBytes = Buffer.from(`${JSON.stringify(page, null, 2)}\n`, "utf8");
+  const baseTranscript = Buffer.from('{"segments":[]}\n', "utf8");
+  const narratedTranscript = Buffer.from('{"segments":[{"audio":"intro.mp3"}]}\n', "utf8");
+  const index = Buffer.from(`<!doctype html><audio src="../_assets/${buildId}/audio/narration/fr/intro.mp3"></audio>`, "utf8");
+  const app = Buffer.from("globalThis.__narrated = true;\n", "utf8");
+  const narrationAudio = Buffer.from([0x49, 0x44, 0x33, 0x04, 0, 0, 0, 0, 0, 7, 0x54, 0x45, 0x53, 0x54]);
+  const narrationManifest = Buffer.from(`${JSON.stringify({
+    schemaVersion: "1.0",
+    language: "fr",
+    files: [{ path: "intro.mp3", sha256: sha256(narrationAudio) }],
+  }, null, 2)}\n`, "utf8");
+
+  const narrationAudioPath = path.join(
+    narrationArtifactsRoot,
+    "audio",
+    "narration",
+    "fr",
+    "intro.mp3",
+  );
+  const staged = [
+    [path.join(approvedRoot, "page.json"), pageBytes],
+    [path.join(preparedRoot, "artifacts", "current", "page.json"), options.preparedPageBytes || pageBytes],
+    [path.join(preparedRoot, "artifacts", "current", "transcript.json"), baseTranscript],
+    [path.join(preparedRoot, "deploy", "canary", "fr", "index.html"), index],
+    [path.join(preparedRoot, "deploy", "canary", "page.json"), pageBytes],
+    [path.join(preparedRoot, "deploy", "canary", "transcript.json"), baseTranscript],
+    [path.join(preparedRoot, "deploy", "canary", "_assets", buildId, "app.js"), app],
+    [path.join(narrationArtifactsRoot, "transcript.json"), narratedTranscript],
+    [path.join(narrationArtifactsRoot, "audio", "narration", "fr", "manifest.json"), narrationManifest],
+    ...(!options.omitAudioMedia ? [[narrationAudioPath, narrationAudio]] : []),
+  ];
+  await Promise.all(staged.map(async ([filePath]) => mkdir(path.dirname(filePath), { recursive: true })));
+  await Promise.all(staged.map(([filePath, bytes]) => writeFile(filePath, bytes)));
+
+  const captured = await createLocalGenerationWorkspace({ rootPath }).captureArtifactSet({
+    kind: "narration_review",
+    paths: {
+      approvedRoot,
+      preparedRoot,
+      narrationReviewRoot,
+      narrationArtifactsRoot,
+      manifestRoot,
+      revision: { revisionId: REVISION_ID },
+    },
+  });
+  assert.ok(captured);
+  const artifactSet = {
+    artifactSetId: "artifact-set-narrated-test-001",
+    ...captured.artifactSet,
+  };
+  captured.dispose();
+  const manifestBytes = await readFile(path.join(manifestRoot, "narration_review.json"));
+  const request = {
+    jobId: JOB_ID,
+    environment: "test",
+    product: "announcement-page",
+    revisionId: REVISION_ID,
+    artifactSetId: artifactSet.artifactSetId,
+    artifactManifestDigest: sha256(manifestBytes),
+    artifactSet,
+    idempotencyKey: IDEMPOTENCY_KEY,
+    async fenceExternalEffect(_fence, providerMutation) {
+      return providerMutation();
+    },
+  };
+  return {
+    app,
+    buildId,
+    index,
+    narrationAudio,
+    narrationAudioPath,
+    narrationManifest,
+    narratedTranscript,
+    request,
+    rootPath,
+  };
 }
 
 function jsonResponse(body, status = 200) {
@@ -485,6 +582,29 @@ function deploymentFileTreeFor(value, manifest, options = {}) {
   return { configurationBytes, files };
 }
 
+function deploymentFileTreeFromEntries(entries) {
+  const roots = [];
+  for (const entry of entries) {
+    const segments = entry.path.split("/");
+    let children = roots;
+    for (const segment of segments.slice(0, -1)) {
+      let directory = children.find((candidate) => candidate.type === "directory" && candidate.name === segment);
+      if (!directory) {
+        directory = { name: segment, type: "directory", mode: 16877, children: [] };
+        children.push(directory);
+      }
+      children = directory.children;
+    }
+    children.push({
+      name: segments.at(-1),
+      type: "file",
+      mode: 33188,
+      uid: sha1(entry.bytes),
+    });
+  }
+  return roots;
+}
+
 function deploymentEvidenceResponse(url, value, manifest, deployment, options = {}) {
   const parsed = new URL(url);
   const deploymentId = deployment.id || deployment.uid;
@@ -672,6 +792,125 @@ test("Vercel TEST-A provider resolves exact source bytes before one scoped alias
   assert.equal(calls.filter(({ url }) => url.includes("/v2/deployments/dpl_test_a_001/aliases")).length, 1);
   assert.equal(providerMutationFences.filter(({ effectMayBeIssued }) => !effectMayBeIssued).length, 4);
   assert.equal(providerMutationFences.filter(({ effectMayBeIssued }) => effectMayBeIssued).length, 2);
+});
+
+test("narration-reviewed files resolve and publish as one exact Vercel deployment", async (t) => {
+  const value = await narratedFixture(t);
+  const uploadedBySha = new Map();
+  let deployedEntries = [];
+  const deploymentId = "dpl_test_a_narrated";
+  const deploymentOrigin = "https://dpl-test-a-narrated.vercel.app";
+  const provider = createProvider({
+    calls: [],
+    fixtureValue: value,
+    async fetchImpl(url, init) {
+      const parsed = new URL(url);
+      if (parsed.pathname === "/v7/deployments") {
+        return jsonResponse({ deployments: [], pagination: { next: null } });
+      }
+      if (parsed.pathname === "/v2/files") {
+        uploadedBySha.set(init.headers["x-vercel-digest"], Buffer.from(await new Response(init.body).arrayBuffer()));
+        return jsonResponse({});
+      }
+      if (parsed.pathname === "/v13/deployments" && init.method === "POST") {
+        const payload = JSON.parse(init.body);
+        deployedEntries = payload.files.map((file) => ({
+          path: file.file,
+          bytes: uploadedBySha.get(file.sha),
+        }));
+        assert.ok(deployedEntries.every((entry) => Buffer.isBuffer(entry.bytes)));
+        return jsonResponse({
+          id: deploymentId,
+          url: new URL(deploymentOrigin).hostname,
+          projectId: "prj_test_a_announcements",
+          readyState: "READY",
+        });
+      }
+      if (parsed.pathname === `/v13/deployments/${deploymentId}`) {
+        return jsonResponse({
+          id: deploymentId,
+          url: new URL(deploymentOrigin).hostname,
+          projectId: "prj_test_a_announcements",
+          readyState: "READY",
+          createdAt: Date.parse("2026-08-26T12:00:00.500Z"),
+          meta: {
+            bbCanaryJobId: JOB_ID,
+            bbRevisionId: REVISION_ID,
+            bbArtifactSetId: value.request.artifactSetId,
+            bbArtifactManifestDigest: value.request.artifactManifestDigest,
+            bbIdempotencyKey: IDEMPOTENCY_KEY,
+          },
+        });
+      }
+      if (parsed.pathname === `/v6/deployments/${deploymentId}/files`) {
+        return jsonResponse(deploymentFileTreeFromEntries(deployedEntries));
+      }
+      const configuration = deployedEntries.find((entry) => entry.path === "vercel.json");
+      if (configuration && parsed.pathname === `/v8/deployments/${deploymentId}/files/${sha1(configuration.bytes)}`) {
+        return jsonResponse({ content: configuration.bytes.toString("base64"), encoding: "base64" });
+      }
+      if (parsed.pathname === `/v2/deployments/${deploymentId}/aliases`) {
+        return jsonResponse(aliasMutationResponse());
+      }
+      const aliasEvidence = aliasEvidenceResponse(url, deploymentId);
+      if (aliasEvidence) return aliasEvidence;
+
+      const publicationPrefix = `/announcements/${JOB_ID}`;
+      if (parsed.pathname === publicationPrefix) {
+        return new Response(null, {
+          status: 307,
+          headers: { location: `${publicationPrefix}/fr/` },
+        });
+      }
+      const relativePath = parsed.pathname.slice(`${publicationPrefix}/`.length);
+      const deployedRelativePath = relativePath.endsWith("/") ? `${relativePath}index.html` : relativePath;
+      const published = deployedEntries.find(
+        (entry) => entry.path === `${publicationPrefix.slice(1)}/${deployedRelativePath}`,
+      );
+      if (published) return publicationBytesResponse(published.bytes);
+      throw new Error(`Unexpected fetch: ${init.method || "GET"} ${url}`);
+    },
+  });
+
+  const receipt = await provider.publish(value.request);
+
+  assert.equal(receipt.providerReceiptId, deploymentId);
+  const publishedPaths = deployedEntries.map(({ path: filePath }) => filePath);
+  assert.ok(publishedPaths.includes(`announcements/${JOB_ID}/fr/index.html`));
+  assert.ok(publishedPaths.includes(
+    `announcements/${JOB_ID}/_assets/${value.buildId}/audio/narration/fr/intro.mp3`,
+  ));
+  assert.ok(deployedEntries.some(({ bytes }) => bytes.equals(value.narrationAudio)));
+  const publicationManifest = JSON.parse(
+    deployedEntries.find(({ path: filePath }) => filePath.endsWith("/.publication.json")).bytes.toString("utf8"),
+  );
+  assert.equal(publicationManifest.artifactSetId, value.request.artifactSetId);
+  assert.ok(publicationManifest.files.some(({ path: filePath, sha256: digest }) => (
+    filePath === `_assets/${value.buildId}/audio/narration/fr/intro.mp3`
+    && digest === sha256(value.narrationAudio)
+  )));
+
+  await writeFile(value.narrationAudioPath, Buffer.from("tampered narration", "utf8"));
+  await assert.rejects(
+    () => createLocalArtifactResolver({ rootPath: value.rootPath }).resolve(value.request),
+    (error) => error?.reasonCode === "publication_source_binding_invalid",
+  );
+});
+
+test("narration release rejects a prepared page outside the approved narration binding", async (t) => {
+  await assert.rejects(
+    () => narratedFixture(t, {
+      preparedPageBytes: Buffer.from('{"pageId":"different-prepared-page"}\n', "utf8"),
+    }),
+    /not bound to the narration-approved page/i,
+  );
+});
+
+test("narration release requires media bytes, not only audio metadata", async (t) => {
+  await assert.rejects(
+    () => narratedFixture(t, { omitAudioMedia: true }),
+    /no deployable transcript or audio media/i,
+  );
 });
 
 test("Vercel TEST-A provider reconciles a fully aliased deployment without provider mutation", async (t) => {

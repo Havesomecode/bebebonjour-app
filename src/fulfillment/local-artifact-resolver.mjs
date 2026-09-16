@@ -4,6 +4,7 @@ import path from "node:path";
 import { isDeepStrictEqual } from "node:util";
 
 import { captureCommittedArtifactContentSet } from "./committed-artifact-content-set.mjs";
+import { captureNarratedReleaseContentSet } from "./narrated-release-content-set.mjs";
 
 const KIND_ROOTS = Object.freeze({
   prepared_bundle: "prepared",
@@ -58,17 +59,39 @@ export function createLocalArtifactResolver({ rootPath } = {}) {
 
       let capture;
       try {
-        capture = await captureCommittedArtifactContentSet({
-          ...artifactCaptureInput(configuredRoot, revisionPrefix, kindRoot, artifactSet.kind, manifest.files),
-          maximumFileBytes: 64 * 1024 * 1024,
-          // Publication inventory may begin with binary media; this role is only
-          // a descriptor-bound representative because the persisted manifest
-          // authenticates the complete set.
-          maximumJsonBytes: 64 * 1024 * 1024,
-          maximumTotalBytes: MAX_TOTAL_BYTES,
-          maximumFiles: MAX_FILES,
-          authority: { type: "persisted-manifest", files: manifest.files },
-        });
+        capture = artifactSet.kind === "narration_review"
+          ? await captureNarratedReleaseContentSet({
+              rootPath: configuredRoot,
+              preparedRoot: path.join(configuredRoot, ...revisionPrefix.split("/"), "prepared"),
+              narrationArtifactsRoot: path.join(
+                configuredRoot,
+                ...revisionPrefix.split("/"),
+                "narration-review",
+                "artifacts",
+              ),
+              approvedPagePath: path.join(
+                configuredRoot,
+                ...revisionPrefix.split("/"),
+                "approved",
+                "page.json",
+              ),
+              expectedFiles: manifest.files,
+              maximumFileBytes: 64 * 1024 * 1024,
+              maximumJsonBytes: 64 * 1024 * 1024,
+              maximumTotalBytes: MAX_TOTAL_BYTES,
+              maximumFiles: MAX_FILES,
+            })
+          : await captureCommittedArtifactContentSet({
+              ...artifactCaptureInput(configuredRoot, revisionPrefix, kindRoot, artifactSet.kind, manifest.files),
+              maximumFileBytes: 64 * 1024 * 1024,
+              // Publication inventory may begin with binary media; this role is only
+              // a descriptor-bound representative because the persisted manifest
+              // authenticates the complete set.
+              maximumJsonBytes: 64 * 1024 * 1024,
+              maximumTotalBytes: MAX_TOTAL_BYTES,
+              maximumFiles: MAX_FILES,
+              authority: { type: "persisted-manifest", files: manifest.files },
+            });
       } catch (error) {
         throw bindingError("Artifact source bytes do not match the persisted digest and count.", error);
       }

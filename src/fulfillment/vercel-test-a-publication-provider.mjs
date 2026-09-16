@@ -5,6 +5,7 @@ const VERCEL_API_ORIGIN = "https://api.vercel.com";
 const PUBLICATION_CACHE_CONTROL = "private, no-store, max-age=0";
 const PENDING_STATES = new Set(["QUEUED", "INITIALIZING", "BUILDING"]);
 const TERMINAL_FAILURE_STATES = new Set(["ERROR", "CANCELED", "DELETED", "BLOCKED"]);
+const PUBLICATION_ARTIFACT_KINDS = new Set(["prepared_bundle", "narration_review"]);
 const parsedBuildInspections = new WeakSet();
 
 export function parseAuthoritativeVercelBuildInspection(input) {
@@ -620,7 +621,7 @@ function assertCanaryRequest(request, canaryJobId, canaryRevisionId) {
     || request?.product !== "announcement-page"
     || request.jobId !== canaryJobId
     || request.revisionId !== canaryRevisionId
-    || request.artifactSet?.kind !== "prepared_bundle"
+    || !PUBLICATION_ARTIFACT_KINDS.has(request.artifactSet?.kind)
   ) {
     throw providerError("Publication is restricted to the configured TEST-A canary job and revision.", false);
   }

@@ -258,7 +258,12 @@ Public page data and deployable narration manifests omit operator-only TTS
 provider, model, voice, and instruction metadata.
 TTS never mutates the content-approved prepared base. It writes audio,
 browser-only manifests, updated timing data, and private provider evidence to a
-fresh narration-review root. `approve-narration` requires exact language
+fresh narration-review root. The narration-review artifact manifest commits the
+exact public overlay as one `deploy/<slug>/...` namespace: prepared HTML/assets
+plus the reviewed transcript and audio. Publication reconstructs that projection
+from the two immutable roots and verifies every byte against the persisted
+manifest; private review evidence is never included in the deploy tree.
+`approve-narration` requires exact language
 acknowledgement, validates the complete managed media inventory and cumulative
 timeline against durations decoded by `ffprobe`, and creates a
 fresh final prepared root with an HMAC-authenticated narration approval bound to

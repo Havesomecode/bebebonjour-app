@@ -359,9 +359,14 @@ test("persisted orchestration drives compose, render, and retryable test-mode TT
   const narrationArtifacts = finalAggregate.artifactSets.at(-1);
   assert.equal(narrationArtifacts.kind, "narration_review");
   assert.equal(narrationArtifacts.pageDigest, preparedArtifacts.pageDigest);
+  assert.equal(narrationArtifacts.files.every((file) => file.path.startsWith("deploy/")), true);
   assert.equal(
-    narrationArtifacts.files.find((file) => file.path === "approved/page.json")?.sha256,
-    narrationArtifacts.pageDigest,
+    narrationArtifacts.files.find((file) => file.path.endsWith("/transcript.json"))?.sha256,
+    narrationArtifacts.transcriptDigest,
+  );
+  assert.equal(
+    narrationArtifacts.files.some((file) => file.path.includes("/_assets/") && file.path.includes("/audio/")),
+    true,
   );
   assert.match(narrationArtifacts.transcriptDigest, /^[a-f0-9]{64}$/);
   assert.match(narrationArtifacts.assetManifestDigest, /^[a-f0-9]{64}$/);
