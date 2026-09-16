@@ -15,12 +15,17 @@
       "ops/test-a-hosted-provider-manifest.json",
       "package-lock.json",
       "package.json",
+      "scripts/lib/secure-filesystem-snapshot.py",
       "scripts/verify-vercel-routing.mjs",
       "src/config/test-a-hosted-provider-manifest.mjs",
+      "src/fulfillment/committed-artifact-content-set.mjs",
       "src/fulfillment/exact-revision-publication-adapter.mjs",
       "src/fulfillment/external-effect-stage-handlers.mjs",
+      "src/fulfillment/hosted-generation-workspace.mjs",
       "src/fulfillment/job-machine.mjs",
       "src/fulfillment/job-orchestrator.mjs",
+      "src/fulfillment/local-artifact-resolver.mjs",
+      "src/fulfillment/local-generation-workspace.mjs",
       "src/fulfillment/secure-filesystem-snapshot.mjs",
       "src/fulfillment/test-a-completion-capabilities.mjs",
       "src/fulfillment/vercel-test-a-publication-provider.mjs",
@@ -36,6 +41,7 @@
       "test/config/test-a-operator-isolation-audit.test.mjs",
       "test/convex/completion-store-seam.test.mjs",
       "test/convex/operations.test.mjs",
+      "test/fulfillment/committed-artifact-content-set.test.mjs",
       "test/fulfillment/job-orchestration.test.mjs",
       "test/fulfillment/secure-filesystem-snapshot.test.mjs",
       "test/fulfillment/vercel-test-a-publication-provider.test.mjs",
@@ -56,12 +62,17 @@
       "ops/test-a-hosted-provider-manifest.json",
       "package-lock.json",
       "package.json",
+      "scripts/lib/secure-filesystem-snapshot.py",
       "scripts/verify-vercel-routing.mjs",
       "src/config/test-a-hosted-provider-manifest.mjs",
+      "src/fulfillment/committed-artifact-content-set.mjs",
       "src/fulfillment/exact-revision-publication-adapter.mjs",
       "src/fulfillment/external-effect-stage-handlers.mjs",
+      "src/fulfillment/hosted-generation-workspace.mjs",
       "src/fulfillment/job-machine.mjs",
       "src/fulfillment/job-orchestrator.mjs",
+      "src/fulfillment/local-artifact-resolver.mjs",
+      "src/fulfillment/local-generation-workspace.mjs",
       "src/fulfillment/secure-filesystem-snapshot.mjs",
       "src/fulfillment/test-a-completion-capabilities.mjs",
       "src/fulfillment/vercel-test-a-publication-provider.mjs",
@@ -77,6 +88,7 @@
       "test/config/test-a-operator-isolation-audit.test.mjs",
       "test/convex/completion-store-seam.test.mjs",
       "test/convex/operations.test.mjs",
+      "test/fulfillment/committed-artifact-content-set.test.mjs",
       "test/fulfillment/job-orchestration.test.mjs",
       "test/fulfillment/secure-filesystem-snapshot.test.mjs",
       "test/fulfillment/vercel-test-a-publication-provider.test.mjs",
@@ -136,7 +148,7 @@
       },
       {
         "path": "ops/test-a-consolidated-candidate-audit.mjs",
-        "sha256": "690fb9f468010cea6c773317317f4012f729f8781096ccbbff57e1398823a21d"
+        "sha256": "1a9fb4026ec6b3457244fdfb482c0328947af1921864beff4571565ac6c3fd35"
       },
       {
         "path": "ops/test-a-hosted-provider-manifest.json",
@@ -148,7 +160,7 @@
       },
       {
         "path": "package.json",
-        "sha256": "0a56213cc118783eb80185b743fe202fe08503ba8b9a3dfb49b5e2c64fb0b889"
+        "sha256": "4b79f3087b3ce2305b919eb58be601817e4dab32e2e0f25ee44950236b8d715a"
       },
       {
         "path": "scripts/lib/codex-subscription-composition.mjs",
@@ -173,6 +185,10 @@
       {
         "path": "scripts/lib/schema-validation.mjs",
         "sha256": "4d3a6fa7e95050be49e319db00ab4f6ee88747cfdfbab4e00d4ebe8cbf2f7167"
+      },
+      {
+        "path": "scripts/lib/secure-filesystem-snapshot.py",
+        "sha256": "0f005825c6bf3c8004e98b1776f0b52348a3f0f60d2333ee83250d0b4ea1a775"
       },
       {
         "path": "scripts/lib/validators.mjs",
@@ -227,12 +243,20 @@
         "sha256": "de73db43e20d51c232e3aa301a55b4452fa780aed1939275492084ccac063030"
       },
       {
+        "path": "src/fulfillment/committed-artifact-content-set.mjs",
+        "sha256": "c3f46c0296fdec31c98ff16828d2fe2166e1d3f149e2c7b63e9dc8f6ba9a2b87"
+      },
+      {
         "path": "src/fulfillment/exact-revision-publication-adapter.mjs",
         "sha256": "cc6baedfdbe82deddf1c9cd6e4f828d24b9dff5cf1e21b80c2bc9a9a3e48ca17"
       },
       {
         "path": "src/fulfillment/external-effect-stage-handlers.mjs",
         "sha256": "7af448bee2fe57dd450605a3daa89f2460197f984aefea17b1f24e760adccacf"
+      },
+      {
+        "path": "src/fulfillment/hosted-generation-workspace.mjs",
+        "sha256": "fc25f77c4ad9f8168c6b9e0a8921d7a500ca655578854ccbc1de5bee0ff4d88e"
       },
       {
         "path": "src/fulfillment/job-machine.mjs",
@@ -251,8 +275,12 @@
         "sha256": "fbd23fae795ccb159efe45e06cf34e18ef76f8f1f0a47fcacd442412f7a58d5d"
       },
       {
+        "path": "src/fulfillment/local-artifact-resolver.mjs",
+        "sha256": "62f5cd69cf9c2a2d22b22735d72059ac572e2293f357ac5240ce0b0527eca44e"
+      },
+      {
         "path": "src/fulfillment/local-generation-workspace.mjs",
-        "sha256": "68dccf05a0ccca37d772ccc2784fff119c4ab67c7d51365ac1c27e1f6407d3a1"
+        "sha256": "d553d8ff096bb70a25fac35321c1d66e06b9633bff9a8c2882a61b7832a2ba76"
       },
       {
         "path": "src/fulfillment/local-prepare-review-stage-handler.mjs",
@@ -268,7 +296,7 @@
       },
       {
         "path": "src/fulfillment/secure-filesystem-snapshot.mjs",
-        "sha256": "89f08d4ad74640edfe5817a468e25ecb3c80129e004fcc8afad401eea272bb1f"
+        "sha256": "851a9bcc439c38d0fb2a54e83f8257415f99eee6ef1590c45c3bd679d81e7c24"
       },
       {
         "path": "src/fulfillment/test-a-completion-capabilities.mjs",
@@ -359,12 +387,16 @@
         "sha256": "e9d131d5ec4b52d11b919d776c0bf4000a8f7891ad70d7d3ac277dee66b7686e"
       },
       {
+        "path": "test/fulfillment/committed-artifact-content-set.test.mjs",
+        "sha256": "6d6e0322b3d9d33975fe7e486f83e9797158796259c12055ce6519021a94a12c"
+      },
+      {
         "path": "test/fulfillment/job-orchestration.test.mjs",
         "sha256": "ff1ec8f3b8e4456e0fc50a445308ccf54b09e65c57249b2001212332f6475f4b"
       },
       {
         "path": "test/fulfillment/secure-filesystem-snapshot.test.mjs",
-        "sha256": "fd48dc8029c10474301987ed5d1f1cbc9bf79cc63c0dbc93d7baaf66a079c298"
+        "sha256": "586dd6bada4f2c6b9c8d05a9d615ccaf4c9cd768641926d99040b9dde0382bef"
       },
       {
         "path": "test/fulfillment/vercel-test-a-publication-provider.test.mjs",
@@ -546,6 +578,7 @@
       "scripts/lib/render-html.mjs",
       "scripts/lib/schema-validation.mjs",
       "scripts/lib/validators.mjs",
+      "src/fulfillment/committed-artifact-content-set.mjs",
       "src/fulfillment/job-machine.mjs",
       "src/fulfillment/job-orchestrator.mjs",
       "src/fulfillment/job-scoped-editorial-approval-canonicalization.mjs",
@@ -582,6 +615,7 @@
       "scripts/lib/validators.mjs",
       "src/config/test-a-hosted-provider-manifest.mjs",
       "src/fulfillment/codex-subscription-composer.mjs",
+      "src/fulfillment/committed-artifact-content-set.mjs",
       "src/fulfillment/hosted-generation-workspace.mjs",
       "src/fulfillment/job-machine.mjs",
       "src/fulfillment/job-orchestrator.mjs",
@@ -664,6 +698,7 @@
       "test/fulfillment/exact-revision-publication-adapter.test.mjs",
       "test/fulfillment/failed-prepare-review-recovery.test.mjs",
       "test/fulfillment/codex-subscription-composer.test.mjs",
+      "test/fulfillment/committed-artifact-content-set.test.mjs",
       "test/fulfillment/generation-stage-workspace.test.mjs",
       "test/fulfillment/job-orchestration.test.mjs",
       "test/fulfillment/local-command-stage-handlers.test.mjs",

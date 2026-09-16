@@ -1,12 +1,9 @@
 import { createHash } from "node:crypto";
-import { constants } from "node:fs";
-import { lstat, mkdir, open, writeFile } from "node:fs/promises";
+import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { isDeepStrictEqual } from "node:util";
 
 import { createLocalGenerationWorkspace } from "./local-generation-workspace.mjs";
-
-const MAX_FILE_BYTES = 20 * 1024 * 1024;
 
 export function createHostedGenerationWorkspace(options = {}) {
   const rootPath = options.rootPath;
@@ -41,13 +38,17 @@ export function createHostedGenerationWorkspace(options = {}) {
         return remote.artifactSet;
       }
 
-      const localArtifactSet = await local.collectArtifactSet(input);
-      if (!localArtifactSet) return null;
-      return artifactStore.uploadArtifactSet({
-        jobId,
-        artifactSet: localArtifactSet,
-        readArtifact: (file) => readLocalArtifact(rootPath, input.paths.reviewRoot, file),
-      });
+      const captured = await local.captureArtifactSet(input);
+      if (!captured) return null;
+      try {
+        return await artifactStore.uploadArtifactSet({
+          jobId,
+          artifactSet: captured.artifactSet,
+          readArtifact: captured.readArtifact,
+        });
+      } finally {
+        captured.dispose();
+      }
     },
 
     cleanupStageOutput: local.cleanupStageOutput,
@@ -111,37 +112,6 @@ export function createHostedGenerationWorkspace(options = {}) {
       throw new Error("Durable artifact hydration did not reproduce the local generation manifest.");
     }
     return { hosted: remote.artifactSet, local: localArtifactSet };
-  }
-}
-
-async function readLocalArtifact(boundaryRoot, artifactRoot, file) {
-  const filePath = safeArtifactPath(artifactRoot, file.path);
-  const boundaryRelative = path.relative(path.resolve(boundaryRoot), filePath);
-  if (boundaryRelative === "" || boundaryRelative.startsWith("..") || path.isAbsolute(boundaryRelative)) {
-    throw new Error("Hosted generation artifact path escapes its private staging root.");
-  }
-  let handle;
-  try {
-    handle = await open(filePath, constants.O_RDONLY | constants.O_NOFOLLOW);
-    const [opened, pathname] = await Promise.all([handle.stat(), lstat(filePath)]);
-    if (
-      !opened.isFile()
-      || !pathname.isFile()
-      || pathname.isSymbolicLink()
-      || opened.dev !== pathname.dev
-      || opened.ino !== pathname.ino
-      || opened.size !== file.bytes
-      || opened.size > MAX_FILE_BYTES
-    ) {
-      throw new Error("Hosted generation artifact changed after secure collection.");
-    }
-    const bytes = await handle.readFile();
-    if (bytes.byteLength !== file.bytes || sha256(bytes) !== file.sha256) {
-      throw new Error("Hosted generation artifact changed after secure collection.");
-    }
-    return bytes;
-  } finally {
-    await handle?.close();
   }
 }
 

@@ -28,6 +28,7 @@ const focusedTestFiles = [
   "test/fulfillment/exact-revision-publication-adapter.test.mjs",
   "test/fulfillment/failed-prepare-review-recovery.test.mjs",
   "test/fulfillment/codex-subscription-composer.test.mjs",
+  "test/fulfillment/committed-artifact-content-set.test.mjs",
   "test/fulfillment/generation-stage-workspace.test.mjs",
   "test/fulfillment/job-orchestration.test.mjs",
   "test/fulfillment/local-command-stage-handlers.test.mjs",

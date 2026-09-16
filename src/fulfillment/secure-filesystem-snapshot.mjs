@@ -7,7 +7,8 @@ import { fileURLToPath } from "node:url";
 
 const PYTHON_BINARY = "/usr/bin/python3";
 const HELPER_PATH = fileURLToPath(new URL("../../scripts/lib/secure-filesystem-snapshot.py", import.meta.url));
-const MAX_HELPER_OUTPUT_BYTES = 4 * 1024 * 1024;
+// A bounded read may return one 64 MiB file as base64 plus its JSON envelope.
+const MAX_HELPER_OUTPUT_BYTES = 88 * 1024 * 1024;
 const HELPER_TIMEOUT_MS = 30_000;
 const NATIVE_MAX_REQUEST_BYTES = 64 * 1024;
 const NATIVE_MAX_FILE_BYTES = 64 * 1024 * 1024;

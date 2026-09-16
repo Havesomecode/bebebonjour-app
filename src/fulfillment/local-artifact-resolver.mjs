@@ -3,6 +3,8 @@ import { lstat, readFile, realpath } from "node:fs/promises";
 import path from "node:path";
 import { isDeepStrictEqual } from "node:util";
 
+import { captureCommittedArtifactContentSet } from "./committed-artifact-content-set.mjs";
+
 const KIND_ROOTS = Object.freeze({
   prepared_bundle: "prepared",
   narration_review: "narration-review",
@@ -54,36 +56,52 @@ export function createLocalArtifactResolver({ rootPath } = {}) {
         throw bindingError("The persisted artifact manifest does not match the exact artifact set.");
       }
 
+      let capture;
+      try {
+        capture = await captureCommittedArtifactContentSet({
+          ...artifactCaptureInput(configuredRoot, revisionPrefix, kindRoot, artifactSet.kind, manifest.files),
+          maximumFileBytes: 64 * 1024 * 1024,
+          // Publication inventory may begin with binary media; this role is only
+          // a descriptor-bound representative because the persisted manifest
+          // authenticates the complete set.
+          maximumJsonBytes: 64 * 1024 * 1024,
+          maximumTotalBytes: MAX_TOTAL_BYTES,
+          maximumFiles: MAX_FILES,
+          authority: { type: "persisted-manifest", files: manifest.files },
+        });
+      } catch (error) {
+        throw bindingError("Artifact source bytes do not match the persisted digest and count.", error);
+      }
+      if (!capture) throw bindingError("The persisted artifact content is unavailable.");
       const seenPaths = new Set();
-      const sourceRoot = path.join(configuredRoot, ...revisionPrefix.split("/"), kindRoot);
       let totalBytes = 0;
       const resolvedFiles = [];
-      for (const file of artifactSet.files) {
-        assertSafeRelativePath(file?.path, "artifact source path");
-        if (seenPaths.has(file.path)) throw bindingError("The artifact manifest contains duplicate source paths.");
-        seenPaths.add(file.path);
-        if (file.storageId !== `local-test:sha256:${file.sha256}`) {
-          throw bindingError("The artifact storage id is not bound to its exact source digest.");
+      try {
+        for (const file of artifactSet.files) {
+          assertSafeRelativePath(file?.path, "artifact source path");
+          if (seenPaths.has(file.path)) throw bindingError("The artifact manifest contains duplicate source paths.");
+          seenPaths.add(file.path);
+          if (file.storageId !== `local-test:sha256:${file.sha256}`) {
+            throw bindingError("The artifact storage id is not bound to its exact source digest.");
+          }
+          const bytes = capture.read(file.path);
+          totalBytes += bytes.byteLength;
+          if (!Number.isSafeInteger(totalBytes) || totalBytes > MAX_TOTAL_BYTES) {
+            throw bindingError("The resolved artifact bytes exceed the TEST-A publication limit.");
+          }
+          if (file.path.startsWith("deploy/")) {
+            const publicPath = file.path.slice("deploy/".length);
+            assertSafeRelativePath(publicPath, "public artifact path");
+            resolvedFiles.push(Object.freeze({
+              sourcePath: file.path,
+              publicPath,
+              sha256: file.sha256,
+              bytes,
+            }));
+          }
         }
-        const sourcePath = path.join(sourceRoot, ...file.path.split("/"));
-        const bytes = await readRegularFileInside(rootRealPath, sourcePath, `artifact source ${file.path}`);
-        if (bytes.byteLength !== file.bytes || sha256(bytes) !== file.sha256) {
-          throw bindingError(`Artifact source bytes do not match the persisted digest and count: ${file.path}`);
-        }
-        totalBytes += bytes.byteLength;
-        if (!Number.isSafeInteger(totalBytes) || totalBytes > MAX_TOTAL_BYTES) {
-          throw bindingError("The resolved artifact bytes exceed the TEST-A publication limit.");
-        }
-        if (file.path.startsWith("deploy/")) {
-          const publicPath = file.path.slice("deploy/".length);
-          assertSafeRelativePath(publicPath, "public artifact path");
-          resolvedFiles.push(Object.freeze({
-            sourcePath: file.path,
-            publicPath,
-            sha256: file.sha256,
-            bytes,
-          }));
-        }
+      } finally {
+        capture.dispose();
       }
       const slug = resolvedFiles[0]?.publicPath.split("/")[0];
       if (!slug || resolvedFiles.some(({ publicPath }) => !publicPath.startsWith(`${slug}/`))) {
@@ -105,6 +123,43 @@ export function createLocalArtifactResolver({ rootPath } = {}) {
       });
     },
   });
+}
+
+function artifactCaptureInput(configuredRoot, revisionPrefix, kindRoot, kind, files) {
+  const revisionRoot = path.join(configuredRoot, ...revisionPrefix.split("/"));
+  const stageRoot = path.join(revisionRoot, kindRoot);
+  const inventoryPrefix = kind === "prepared_bundle" ? "" : "artifacts";
+  const representative = files.find((file) => (
+    inventoryPrefix === "" || file.path.startsWith(`${inventoryPrefix}/`)
+  ));
+  if (!representative) throw bindingError("The artifact manifest has no inventory-backed content.");
+  if (kind === "prepared_bundle") {
+    const representativePath = path.join(stageRoot, ...representative.path.split("/"));
+    return {
+      rootPath: configuredRoot,
+      inventoryRoot: stageRoot,
+      inventoryPrefix: "",
+      excludedPaths: ["job.json"],
+      pagePath: representativePath,
+      pageManifestPath: null,
+      transcriptPath: representativePath,
+      transcriptManifestPath: null,
+      requiredPaths: [],
+    };
+  }
+  const inventoryRoot = path.join(stageRoot, "artifacts");
+  const representativePath = path.join(stageRoot, ...representative.path.split("/"));
+  return {
+    rootPath: configuredRoot,
+    inventoryRoot,
+    inventoryPrefix: "artifacts",
+    excludedPaths: [],
+    pagePath: representativePath,
+    pageManifestPath: null,
+    transcriptPath: representativePath,
+    transcriptManifestPath: null,
+    requiredPaths: [],
+  };
 }
 
 async function readRegularFileInside(rootRealPath, filePath, label) {

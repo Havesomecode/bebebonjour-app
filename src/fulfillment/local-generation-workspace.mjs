@@ -17,10 +17,8 @@ import {
   assertValidReviewDossier,
 } from "../../scripts/lib/schema-validation.mjs";
 import { serializeCanonicalJobScopedEditorialApprovalRecord } from "./job-scoped-editorial-approval-canonicalization.mjs";
-import {
-  collectArtifactSnapshotFromRoot,
-  readBoundedFileFromRoot,
-} from "./secure-filesystem-snapshot.mjs";
+import { captureCommittedArtifactContentSet } from "./committed-artifact-content-set.mjs";
+import { readBoundedFileFromRoot } from "./secure-filesystem-snapshot.mjs";
 
 const MAX_JSON_BYTES = 4 * 1024 * 1024;
 const MAX_ARTIFACT_BYTES = 64 * 1024 * 1024;
@@ -184,7 +182,7 @@ export function createLocalGenerationWorkspace({ rootPath }) {
     };
   }
 
-  async function collectArtifactSet({ kind, paths, requirePersistedManifest = false }) {
+  async function captureArtifactSet({ kind, paths, requirePersistedManifest = false }) {
     const layout = ARTIFACT_LAYOUTS[kind];
     if (!layout) throw new Error(`Unsupported local artifact kind: ${kind}`);
     const stageRoot = requiredResolvedPath(paths, layout.rootKey);
@@ -195,27 +193,63 @@ export function createLocalGenerationWorkspace({ rootPath }) {
     const pagePath = path.join(pageRoot, ...layout.page);
     const transcriptPath = path.join(stageRoot, ...layout.transcript);
     const requiredPaths = (layout.required || []).map((segments) => path.join(stageRoot, ...segments));
-    const collection = await collectArtifactSnapshotFromRoot({
-      rootPath: resolvedRoot,
-      inventoryRoot,
-      inventoryPrefix: layout.inventoryPrefix,
-      excludedPaths: [...layout.excludedPaths],
-      pagePath,
-      pageManifestPath: layout.pageManifestPath || null,
-      transcriptPath,
-      transcriptManifestPath: layout.transcriptManifestPath || null,
-      requiredPaths,
-      maximumFileBytes: MAX_ARTIFACT_BYTES,
-      maximumJsonBytes: MAX_JSON_BYTES,
-      maximumTotalBytes: MAX_ARTIFACT_TOTAL_BYTES,
-      maximumFiles: MAX_ARTIFACT_FILES,
-    });
-    if (collection === null) return null;
-    const files = collection.files.map((file) => ({
+    const manifestRoot = requiredResolvedPath(paths, "manifestRoot");
+    assertInsideRoot(resolvedRoot, manifestRoot);
+    await assertSafeWorkspacePath(resolvedRoot, manifestRoot);
+    const manifestPath = path.join(manifestRoot, `${kind}.json`);
+    await assertSafeWorkspacePath(resolvedRoot, manifestPath);
+    const existingRaw = await readWorkspaceTextIfPresent(resolvedRoot, manifestPath);
+    if (existingRaw === null && requirePersistedManifest) {
+      throw new Error(`${kind} artifact manifest is missing.`);
+    }
+    let existingManifest = null;
+    if (existingRaw !== null) {
+      try {
+        existingManifest = JSON.parse(existingRaw);
+      } catch {
+        throw new Error(`${kind} artifact manifest is invalid.`);
+      }
+      if (
+        existingManifest?.schemaVersion !== "1.0"
+        || existingManifest.kind !== kind
+        || existingManifest.revisionId !== paths.revision?.revisionId
+        || !Array.isArray(existingManifest.files)
+      ) {
+        throw new Error(`${kind} artifact manifest is invalid.`);
+      }
+    }
+
+    let content;
+    try {
+      content = await captureCommittedArtifactContentSet({
+        rootPath: resolvedRoot,
+        inventoryRoot,
+        inventoryPrefix: layout.inventoryPrefix,
+        excludedPaths: [...layout.excludedPaths],
+        pagePath,
+        pageManifestPath: layout.pageManifestPath || null,
+        transcriptPath,
+        transcriptManifestPath: layout.transcriptManifestPath || null,
+        requiredPaths,
+        maximumFileBytes: MAX_ARTIFACT_BYTES,
+        maximumJsonBytes: MAX_JSON_BYTES,
+        maximumTotalBytes: MAX_ARTIFACT_TOTAL_BYTES,
+        maximumFiles: MAX_ARTIFACT_FILES,
+        authority: existingManifest
+          ? { type: "persisted-manifest", files: existingManifest.files }
+          : { type: "producer-owned" },
+      });
+    } catch (error) {
+      if (existingManifest && error?.reasonCode === "artifact_content_commitment_invalid") {
+        throw new Error(`${kind} artifacts diverge from the persisted manifest.`, { cause: error });
+      }
+      throw error;
+    }
+    if (content === null) return null;
+    const files = content.manifest.files.map((file) => ({
       ...file,
       storageId: `local-test:sha256:${file.sha256}`,
     }));
-    if (files.length === 0) return null;
     const manifest = {
       schemaVersion: "1.0",
       kind,
@@ -223,31 +257,49 @@ export function createLocalGenerationWorkspace({ rootPath }) {
       files,
     };
     const manifestRaw = `${JSON.stringify(manifest, null, 2)}\n`;
-    const manifestRoot = requiredResolvedPath(paths, "manifestRoot");
-    assertInsideRoot(resolvedRoot, manifestRoot);
-    await assertSafeWorkspacePath(resolvedRoot, manifestRoot);
-    const manifestPath = path.join(manifestRoot, `${kind}.json`);
-    await assertSafeWorkspacePath(resolvedRoot, manifestPath);
-    const existingRaw = await readWorkspaceTextIfPresent(resolvedRoot, manifestPath);
-    if (existingRaw !== null && existingRaw !== manifestRaw) {
-      throw new Error(`${kind} artifacts diverge from the persisted manifest.`);
+    try {
+      if (existingRaw !== null && existingRaw !== manifestRaw) {
+        throw new Error(`${kind} artifacts diverge from the persisted manifest.`);
+      }
+      if (existingRaw === null) {
+        await mkdir(path.dirname(manifestPath), { recursive: true, mode: 0o700 });
+        await atomicWrite(resolvedRoot, manifestPath, manifestRaw, 0o600);
+      }
+      const artifactSet = Object.freeze({
+        kind,
+        revisionId: paths.revision.revisionId,
+        pageDigest: content.manifest.pageDigest,
+        transcriptDigest: content.manifest.transcriptDigest,
+        assetManifestDigest: sha256(manifestRaw),
+        manifestRef: relativePosix(resolvedRoot, manifestPath),
+        files,
+      });
+      return Object.freeze({
+        artifactSet,
+        readArtifact(file) {
+          if (!files.some((candidate) => (
+            candidate.path === file?.path && candidate.sha256 === file?.sha256
+          ))) {
+            throw new Error("Artifact read is outside the committed content set.");
+          }
+          return content.read(file.path);
+        },
+        dispose: content.dispose,
+      });
+    } catch (error) {
+      content.dispose();
+      throw error;
     }
-    if (existingRaw === null && requirePersistedManifest) {
-      throw new Error(`${kind} artifact manifest is missing.`);
+  }
+
+  async function collectArtifactSet(input) {
+    const captured = await captureArtifactSet(input);
+    if (captured === null) return null;
+    try {
+      return captured.artifactSet;
+    } finally {
+      captured.dispose();
     }
-    if (existingRaw === null) {
-      await mkdir(path.dirname(manifestPath), { recursive: true, mode: 0o700 });
-      await atomicWrite(resolvedRoot, manifestPath, manifestRaw, 0o600);
-    }
-    return {
-      kind,
-      revisionId: paths.revision.revisionId,
-      pageDigest: collection.pageDigest,
-      transcriptDigest: collection.transcriptDigest,
-      assetManifestDigest: sha256(manifestRaw),
-      manifestRef: relativePosix(resolvedRoot, manifestPath),
-      files,
-    };
   }
 
   async function validateGeneratedReplay({
@@ -287,48 +339,51 @@ export function createLocalGenerationWorkspace({ rootPath }) {
     if (paths.revision.revisionId !== job.currentRevisionId) {
       throw new Error("Persisted generation revision does not match the terminal job revision.");
     }
-    const dossierPath = path.join(paths.reviewRoot, "review.json");
-    await assertSafeWorkspacePath(resolvedRoot, dossierPath);
-    const dossier = await readCanonicalJsonRequired(
-      resolvedRoot,
-      dossierPath,
-      "Private-review dossier",
-    );
-    assertValidReviewDossier(dossier);
-    const expectedApprovalBinding = {
-      approvalType: editorialApproval.record.approvalType,
-      jobId: editorialApproval.record.jobId,
-      policy: editorialApproval.record.policy,
-      recordDigest: editorialApproval.recordDigest,
-      sourceDigest: editorialApproval.record.sourceDigest,
-    };
-    if (
-      dossier.inputDigest !== sha256(canonicalIntakeRaw)
-      || dossier.materialDigest !== sha256(JSON.stringify(dossier.generationMaterials))
-      || !isDeepStrictEqual(
-        dossier.generationMaterials.editorialApproval,
-        expectedApprovalBinding,
-      )
-    ) {
-      throw new Error("Private-review dossier does not match the exact persisted generation materials.");
-    }
-
-    const reconstructed = await collectArtifactSet({
+    const captured = await captureArtifactSet({
       kind: "private_review",
       paths,
       requirePersistedManifest: true,
     });
-    assertPersistedArtifactSet(expectedArtifactSet, job.jobId);
-    if (
-      !reconstructed
-      || !isDeepStrictEqual(
+    if (!captured) throw new Error("Private-review artifacts are missing.");
+    try {
+      const dossier = parseCanonicalJson(
+        captured.readArtifact({
+          path: "review.json",
+          sha256: captured.artifactSet.files.find((file) => file.path === "review.json")?.sha256,
+        }).toString("utf8"),
+        "Private-review dossier",
+      );
+      assertValidReviewDossier(dossier);
+      const expectedApprovalBinding = {
+        approvalType: editorialApproval.record.approvalType,
+        jobId: editorialApproval.record.jobId,
+        policy: editorialApproval.record.policy,
+        recordDigest: editorialApproval.recordDigest,
+        sourceDigest: editorialApproval.record.sourceDigest,
+      };
+      if (
+        dossier.inputDigest !== sha256(canonicalIntakeRaw)
+        || dossier.materialDigest !== sha256(JSON.stringify(dossier.generationMaterials))
+        || !isDeepStrictEqual(
+          dossier.generationMaterials.editorialApproval,
+          expectedApprovalBinding,
+        )
+      ) {
+        throw new Error("Private-review dossier does not match the exact persisted generation materials.");
+      }
+
+      const reconstructed = captured.artifactSet;
+      assertPersistedArtifactSet(expectedArtifactSet, job.jobId);
+      if (!isDeepStrictEqual(
         artifactSetBinding(reconstructed),
         artifactSetBinding(expectedArtifactSet),
-      )
-    ) {
-      throw new Error("Private-review artifacts do not match the exact persisted terminal artifact set.");
+      )) {
+        throw new Error("Private-review artifacts do not match the exact persisted terminal artifact set.");
+      }
+      return Object.freeze({ approvalMatches: true });
+    } finally {
+      captured.dispose();
     }
-    return Object.freeze({ approvalMatches: true });
   }
 
   async function cleanupStageOutput({ kind, paths }) {
@@ -351,6 +406,7 @@ export function createLocalGenerationWorkspace({ rootPath }) {
     rootPath: resolvedRoot,
     persistJobInput,
     resolveJobPaths,
+    captureArtifactSet,
     collectArtifactSet,
     cleanupStageOutput,
     validateGeneratedReplay,
