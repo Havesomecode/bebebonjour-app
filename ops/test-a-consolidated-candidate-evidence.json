@@ -392,7 +392,7 @@
       },
       {
         "path": "src/fulfillment/owner-completion-capabilities.mjs",
-        "sha256": "04c7cbac28a413a34155eb7fa0e43d2bb18e134cc78345297ab21eae3621e0f1"
+        "sha256": "d59f7f49b4e17381dc800f9519d32f14278e7f73efbfe215c2caa36f15944a23"
       },
       {
         "path": "src/fulfillment/persisted-review-decision.mjs",
@@ -552,7 +552,7 @@
       },
       {
         "path": "test/operations/owner-completion-boundary.test.mjs",
-        "sha256": "92eb2cc8057268f028f79f045ca777da8a17b335d6c5c2038907a3ec3c351993"
+        "sha256": "5374658ed200f3fb03417ff6db90758937953e251a948ef9d795f88635954270"
       },
       {
         "path": "vercel.completion-worker.json",

@@ -130,13 +130,13 @@ test("owner capabilities construct with production defaults and no automatic ret
   );
 });
 
-test("owner artifact resolver verifies and publishes exact page plus approved audio", async () => {
-  const page = Buffer.from("page");
+test("owner artifact resolver publishes exact page and audio behind a playable stable entrypoint", async () => {
+  const page = Buffer.from("<!doctype html><html><body>Approved page</body></html>");
   const audio = Buffer.alloc(173568, 7);
   const audioDigest = (await import("node:crypto")).createHash("sha256").update(audio).digest("hex");
   const files = [
-    { path: "deploy/index.html", storageId: "page", bytes: page.length, sha256: (await import("node:crypto")).createHash("sha256").update(page).digest("hex") },
-    { path: "artifacts/audio/fr/welcome.mp3", storageId: "audio", bytes: audio.length, sha256: audioDigest },
+    { path: "deploy/fr/index.html", storageId: "page", bytes: page.length, sha256: (await import("node:crypto")).createHash("sha256").update(page).digest("hex") },
+    { path: "artifacts/audio/fr/intro.mp3", storageId: "audio", bytes: audio.length, sha256: audioDigest },
   ];
   const manifestBytes = Buffer.from(`${JSON.stringify({
     schemaVersion: "1.0",
@@ -166,8 +166,17 @@ test("owner artifact resolver verifies and publishes exact page plus approved au
     artifactReadAuthority: { workerId: "owner-completion-worker", commandId: "command_123", leaseToken: "lease_123" },
   });
   assert.equal(result.entrypointPath, "index.html");
-  assert.deepEqual(result.files.map(({ publicPath }) => publicPath), ["index.html", "audio/fr/welcome.mp3"]);
+  assert.deepEqual(result.files.map(({ publicPath }) => publicPath), [
+    "fr/index.html",
+    "audio/fr/intro.mp3",
+    "index.html",
+  ]);
   assert.equal(result.files[1].sha256, audioDigest);
+  assert.deepEqual(result.files[0].bytes, page, "approved page bytes must stay exact");
+  const shell = result.files[2].bytes.toString("utf8");
+  assert.match(shell, /<iframe[^>]+src="\.\/fr\/index\.html"/u);
+  assert.match(shell, /<audio[^>]+controls[^>]+src="\.\/audio\/fr\/intro\.mp3"/u);
+  assert.equal(result.files[2].sha256, (await import("node:crypto")).createHash("sha256").update(result.files[2].bytes).digest("hex"));
   assert.deepEqual(result.manifestBytes, manifestBytes);
 });
 

@@ -201,14 +201,22 @@ export function createOwnerCompletionArtifactResolver(options = {}) {
       const entrypointPath = ["fr/index.html", "ar/index.html", "index.html"]
         .find((candidate) => selected.some((file) => file.publicPath === candidate));
       const audio = selected.filter((file) => file.publicPath.startsWith("audio/") && file.publicPath.endsWith(".mp3"));
-      if (!entrypointPath || audio.length !== 1
+      if (entrypointPath !== "fr/index.html" || audio.length !== 1
+          || audio[0].publicPath !== "audio/fr/intro.mp3"
           || audio[0].bytes.length !== OWNER_COMPLETION_AUDIO_BYTES
           || audio[0].sha256 !== expectedAudioSha256) {
         throw new Error("Owner publication must contain the exact approved page and audio bytes.");
       }
+      const shellBytes = ownerPlayableEntrypointBytes(entrypointPath, audio[0].publicPath);
+      selected.push(Object.freeze({
+        sourcePath: "generated/owner-playable-entrypoint.html",
+        publicPath: "index.html",
+        sha256: sha256(shellBytes),
+        bytes: shellBytes,
+      }));
       return Object.freeze({
         manifestBytes,
-        entrypointPath,
+        entrypointPath: "index.html",
         files: Object.freeze(selected),
       });
     },
@@ -241,6 +249,34 @@ function ownerManifestBytes(artifactSet) {
     revisionId: artifactSet.revisionId,
     files: artifactSet.files.map(({ path, storageId, bytes, sha256 }) => ({ path, storageId, bytes, sha256 })),
   }, null, 2)}\n`, "utf8");
+}
+
+function ownerPlayableEntrypointBytes(pagePath, audioPath) {
+  return Buffer.from(`<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Bébé Bonjour — Votre annonce</title>
+  <style>
+    :root { color-scheme: light; font-family: Georgia, "Times New Roman", serif; background: #f5f0e7; color: #20241f; }
+    * { box-sizing: border-box; }
+    body { margin: 0; min-height: 100vh; display: grid; grid-template-rows: 1fr auto; }
+    iframe { width: 100%; min-height: calc(100vh - 7.5rem); border: 0; background: #f5f0e7; }
+    footer { position: sticky; bottom: 0; padding: 1rem clamp(1rem, 4vw, 3rem); border-top: 1px solid #c9c0af; background: #f5f0e7; }
+    p { margin: 0 0 .6rem; font-size: .9rem; color: #4b5548; }
+    audio { display: block; width: 100%; }
+  </style>
+</head>
+<body>
+  <iframe title="Annonce Bébé Bonjour" src="./${pagePath}"></iframe>
+  <footer>
+    <p>Écouter l’annonce</p>
+    <audio controls preload="metadata" src="./${audioPath}"></audio>
+  </footer>
+</body>
+</html>
+`, "utf8");
 }
 
 function publicPathFor(sourcePath) {
