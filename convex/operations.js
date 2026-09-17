@@ -1511,11 +1511,24 @@ function assertWorkerToken(value) {
       && typeof value === "string" && value.length >= 32) return "worker";
   if (value === process.env.BEBEBONJOUR_COMPLETION_WORKER_TOKEN
       && typeof value === "string" && value.length >= 32) return "completion";
+  if (value === process.env.BEBEBONJOUR_OWNER_COMPLETION_WORKER_TOKEN
+      && typeof value === "string" && value.length >= 32) return "owner_completion";
   throw new Error("Unauthorized.");
 }
 
 function assertCompletionClaimScope(scope, args) {
   if (scope === "narration") return assertNarrationClaim(args);
+  if (scope === "owner_completion") {
+    const exactActions = ["deliver", "publish", "queue_delivery"];
+    if (args.jobId !== "job_narration_test_650a15d1-39bd-4dec-bc0d-3519ace71aa7"
+        || args.workerId !== "owner-completion-worker"
+        || args.limit !== 1
+        || args.leaseMs !== 300_000
+        || JSON.stringify([...args.actions].sort()) !== JSON.stringify(exactActions)) {
+      throw new Error("Owner completion token exceeds its exact narrated-job claim scope.");
+    }
+    return;
+  }
   if (scope !== "completion") return;
   const exactActions = ["approve_content", "deliver", "publish", "queue_delivery", "render", "retry"];
   if (args.jobId !== "job_03c25b08-8476-4fe1-923b-43d73feab3ff"
@@ -1529,6 +1542,16 @@ function assertCompletionClaimScope(scope, args) {
 
 function assertCompletionCommandScope(scope, command, args) {
   if (scope === "narration") return assertNarrationCommand(command, args);
+  if (scope === "owner_completion") {
+    if (!command
+        || command.jobId !== "job_narration_test_650a15d1-39bd-4dec-bc0d-3519ace71aa7"
+        || !new Set(["publish", "queue_delivery", "deliver"]).has(command.action)
+        || args.workerId !== "owner-completion-worker"
+        || (args.leaseMs !== undefined && args.leaseMs !== 300_000)) {
+      throw new Error("Owner completion token exceeds its exact narrated-job command scope.");
+    }
+    return;
+  }
   if (scope !== "completion") return;
   const actions = new Set(["approve_content", "render", "publish", "queue_delivery", "deliver", "retry"]);
   if (!command
@@ -1556,6 +1579,7 @@ function assertDistinctOperationsTokens() {
     process.env.BEBEBONJOUR_OPERATIONS_TOKEN,
     process.env.BEBEBONJOUR_OPERATIONS_WORKER_TOKEN,
     process.env.BEBEBONJOUR_COMPLETION_WORKER_TOKEN,
+    process.env.BEBEBONJOUR_OWNER_COMPLETION_WORKER_TOKEN,
     process.env.BEBEBONJOUR_NARRATION_WORKER_TOKEN,
     process.env.BEBEBONJOUR_OPS_RATE_LIMIT_TOKEN,
     process.env.CUSTOMER_FLOW_BACKEND_TOKEN,

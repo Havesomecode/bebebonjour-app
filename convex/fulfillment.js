@@ -94,11 +94,15 @@ export const replaceCompletionJob = mutationGeneric({
     aggregate: v.any(),
   },
   handler: async (context, args) => {
-    assertCompletionAuthority(args.completionToken, args.jobId);
+    const completionScope = assertCompletionAuthority(args.completionToken, args.jobId);
     assertAggregateIdentity(args.jobId, args.aggregate);
     const document = await findJob(context, args.jobId);
     if (!document || document.aggregate.version !== args.expectedVersion) {
       return { updated: false, current: document?.aggregate || null };
+    }
+    if (completionScope === "owner_completion") {
+      assertOwnerCompletionAggregate(document.aggregate);
+      assertOwnerCompletionAggregate(args.aggregate);
     }
     const command = await assertActiveCompletionTransition(context, args, document.aggregate, args.aggregate);
     await assertCompletionReplacement(
@@ -125,10 +129,18 @@ export const authorizeCompletionArtifactRead = internalQueryGeneric({
     storageId: v.string(),
   },
   handler: async (context, args) => {
-    assertCompletionAuthority(args.completionToken, args.jobId);
+    const completionScope = assertCompletionAuthority(args.completionToken, args.jobId);
     await assertClaimedCompletionAuthority(context, args, "publish", { effectFenceRequired: true });
     const document = await findJob(context, args.jobId);
     const aggregate = document?.aggregate;
+    if (completionScope === "owner_completion") {
+      const source = assertOwnerCompletionAggregate(aggregate);
+      const file = source.files?.find((entry) => entry.storageId === args.storageId);
+      if (!file || args.revisionId !== "r1") {
+        throw new Error("Owner completion artifact is not bound to the exact approved narration manifest.");
+      }
+      return file;
+    }
     const contentDecision = [...(aggregate?.reviewDecisions || [])].reverse().find((decision) => (
       decision.decisionType === "content" && decision.revisionId === args.revisionId
     ));
@@ -328,11 +340,50 @@ async function assertActiveCompletionTransition(context, args, current, next) {
 }
 
 function assertCompletionAuthority(token, jobId) {
-  const expected = process.env.BEBEBONJOUR_COMPLETION_WORKER_TOKEN;
-  if (!expected || expected.length < 32 || token !== expected
-      || jobId !== "job_03c25b08-8476-4fe1-923b-43d73feab3ff") {
-    throw new Error("Completion worker authorization failed.");
+  const syntheticToken = process.env.BEBEBONJOUR_COMPLETION_WORKER_TOKEN;
+  if (syntheticToken && syntheticToken.length >= 32 && token === syntheticToken
+      && jobId === "job_03c25b08-8476-4fe1-923b-43d73feab3ff") {
+    return "completion";
   }
+  const ownerToken = process.env.BEBEBONJOUR_OWNER_COMPLETION_WORKER_TOKEN;
+  if (ownerToken && ownerToken.length >= 32 && token === ownerToken
+      && jobId === "job_narration_test_650a15d1-39bd-4dec-bc0d-3519ace71aa7") {
+    return "owner_completion";
+  }
+  throw new Error("Completion worker authorization failed.");
+}
+
+function assertOwnerCompletionAggregate(aggregate) {
+  const manifestDigest = "182a2b2d6d99a3a1887aed9b7ae84c4dae9be3cef04b7c563122144ed8095209";
+  const source = [...(aggregate?.artifactSets || [])].reverse().find((artifact) => (
+    artifact.kind === "narration_review" && artifact.revisionId === "r1"
+  ));
+  const decision = [...(aggregate?.reviewDecisions || [])].reverse().find((entry) => (
+    entry.decisionId === "review_c4c5a7589bf08d2f674671d0"
+  ));
+  const audio = source?.files?.filter((file) => (
+    file.path?.startsWith("artifacts/audio/") && file.path.endsWith(".mp3")
+  ));
+  const expectedAudioSha256 = process.env.OWNER_APPROVED_AUDIO_SHA256;
+  if (!aggregate
+      || aggregate.jobId !== "job_narration_test_650a15d1-39bd-4dec-bc0d-3519ace71aa7"
+      || aggregate.environment !== "test"
+      || aggregate.product !== "announcement-page"
+      || aggregate.narrationRequired !== true
+      || aggregate.currentRevisionId !== "r1"
+      || aggregate.version < 8
+      || source?.assetManifestDigest !== manifestDigest
+      || decision?.decisionType !== "narration"
+      || decision.revisionId !== "r1"
+      || decision.outcome !== "approved"
+      || decision.artifactDigests?.assetManifestDigest !== manifestDigest
+      || !/^[a-f0-9]{64}$/.test(expectedAudioSha256 || "")
+      || audio?.length !== 1
+      || audio[0].bytes !== 173568
+      || audio[0].sha256 !== expectedAudioSha256) {
+    throw new Error("Owner completion aggregate is outside the exact approved narrated release.");
+  }
+  return source;
 }
 
 async function assertCompletionReplacement(context, current, next, expectedVersion, args, command) {

@@ -31,9 +31,12 @@ const authorizeCompletionArtifactRead = makeFunctionReference("fulfillment:autho
 const operatorToken = "operator-token-at-least-32-characters";
 const workerToken = "worker-token-at-least-32-characters__";
 const completionToken = "completion-token-at-least-32-characters";
+const ownerCompletionToken = "owner-completion-token-at-least-32-characters";
 const rateLimitToken = "rate-limit-token-at-least-32-characters";
 const completionJobId = "job_03c25b08-8476-4fe1-923b-43d73feab3ff";
+const ownerCompletionJobId = "job_narration_test_650a15d1-39bd-4dec-bc0d-3519ace71aa7";
 const completionActions = ["approve_content", "render", "publish", "queue_delivery", "deliver", "retry"];
+const ownerCompletionActions = ["publish", "queue_delivery", "deliver"];
 const allActions = Object.freeze([
   "create_checkout", "generate", "approve_content", "request_content_changes", "reject_content",
   "render", "generate_narration", "approve_narration", "request_narration_changes", "reject_narration",
@@ -44,6 +47,7 @@ function fixture() {
   process.env.BEBEBONJOUR_OPERATIONS_TOKEN = operatorToken;
   process.env.BEBEBONJOUR_OPERATIONS_WORKER_TOKEN = workerToken;
   process.env.BEBEBONJOUR_COMPLETION_WORKER_TOKEN = completionToken;
+  process.env.BEBEBONJOUR_OWNER_COMPLETION_WORKER_TOKEN = ownerCompletionToken;
   process.env.BEBEBONJOUR_OPS_RATE_LIMIT_TOKEN = rateLimitToken;
   process.env.CUSTOMER_FLOW_BACKEND_TOKEN = "customer-backend-token-at-least-32-characters";
   return convexTest(schema, {
@@ -170,6 +174,31 @@ test("completion token is server-enforced to one synthetic job and exact action/
   await assert.rejects(
     convex.mutation(claimCommands, { ...exact, leaseMs: 299_999 }),
     /exact synthetic claim scope/u,
+  );
+});
+
+test("owner completion token is server-enforced to the exact narrated job without retry", async () => {
+  const convex = fixture();
+  assert.deepEqual(
+    await convex.query(workerHealth, { workerToken: ownerCompletionToken }),
+    { protocolVersion: "1.0", scope: "owner_completion" },
+  );
+  const exact = {
+    workerToken: ownerCompletionToken,
+    workerId: "owner-completion-worker",
+    jobId: ownerCompletionJobId,
+    actions: ownerCompletionActions,
+    limit: 1,
+    leaseMs: 300_000,
+  };
+  assert.deepEqual(await convex.mutation(claimCommands, exact), []);
+  await assert.rejects(
+    convex.mutation(claimCommands, { ...exact, jobId: completionJobId }),
+    /exact narrated-job claim scope/u,
+  );
+  await assert.rejects(
+    convex.mutation(claimCommands, { ...exact, actions: [...ownerCompletionActions, "retry"] }),
+    /exact narrated-job claim scope/u,
   );
 });
 

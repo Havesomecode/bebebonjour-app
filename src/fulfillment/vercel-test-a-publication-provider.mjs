@@ -68,6 +68,7 @@ export function createVercelTestAPublicationProvider(options = {}) {
   const requestTimeoutMs = positiveInteger(options.requestTimeoutMs, 15_000);
   const operationTimeoutMs = positiveInteger(options.operationTimeoutMs, 240_000);
   const requirePrivateDeploymentProtection = options.requirePrivateDeploymentProtection === true;
+  const requireExistingAliasProject = options.requireExistingAliasProject === true;
   const protectionBypassSecret = requirePrivateDeploymentProtection
     ? requireString(options.protectionBypassSecret, "Vercel deployment protection bypass secret")
     : null;
@@ -97,6 +98,7 @@ export function createVercelTestAPublicationProvider(options = {}) {
   async function publishInternal(request) {
     assertCanaryRequest(request, canaryJobId, canaryRevisionId);
     await assertPrivateDeploymentProtection();
+    if (requireExistingAliasProject) await assertExistingAliasProject();
     const resolved = await artifactResolver.resolve(request);
     const existing = await findExactDeployment(request);
     if (existing) return finalizeDeployment(existing, request, resolved, { aliasMutationMode: "required" });
@@ -172,6 +174,20 @@ export function createVercelTestAPublicationProvider(options = {}) {
     ].some((policy) => policy?.deploymentType === "all");
     if ((project?.id || project?.uid) !== projectId || !protectedForAllDeployments) {
       throw providerError("Vercel project lacks required private deployment protection.", false);
+    }
+  }
+
+  async function assertExistingAliasProject() {
+    const alias = await vercelJson(
+      `/v4/aliases/${encodeURIComponent(stableHostname)}`
+      + `?projectId=${encodeURIComponent(projectId)}&${teamQuery}`,
+      { method: "GET" },
+    );
+    if (alias?.alias !== stableHostname || alias.projectId !== projectId) {
+      throw providerError(
+        "Vercel stable alias is not already bound to the inspected publication project.",
+        false,
+      );
     }
   }
 

@@ -4,18 +4,26 @@
   "baselineCommit": "82be6b29eab9245400e928623ec15a3f1ae1ca27",
   "candidateBoundary": {
     "changedPaths": [
+      "OWNER_PUBLICATION_DELIVERY_RUNBOOK.md",
       "README.md",
       "completion-worker/api/worker.mjs",
       "convex/fulfillment.js",
       "convex/http.js",
+      "convex/narration.js",
+      "convex/narrationHttp.js",
+      "convex/narrationRuntime.js",
+      "convex/narrationScope.js",
       "convex/operations.js",
+      "docs/hosted-narration.md",
       "ops/test-a-completion-candidate-preflight.md",
       "ops/test-a-completion-worker-audit.mjs",
       "ops/test-a-consolidated-candidate-audit.mjs",
       "ops/test-a-consolidated-candidate-evidence.json",
       "ops/test-a-hosted-provider-manifest.json",
+      "owner-completion-worker/api/worker.mjs",
       "package-lock.json",
       "package.json",
+      "scripts/create-fictional-narration-test.mjs",
       "scripts/lib/secure-filesystem-snapshot.py",
       "scripts/verify-vercel-routing.mjs",
       "src/config/test-a-hosted-provider-manifest.mjs",
@@ -25,25 +33,33 @@
       "src/fulfillment/exact-revision-publication-adapter.mjs",
       "src/fulfillment/external-effect-stage-handlers.mjs",
       "src/fulfillment/hosted-generation-workspace.mjs",
+      "src/fulfillment/hosted-narration-transitions.mjs",
       "src/fulfillment/job-machine.mjs",
       "src/fulfillment/job-orchestrator.mjs",
       "src/fulfillment/local-artifact-resolver.mjs",
       "src/fulfillment/local-generation-workspace.mjs",
       "src/fulfillment/narrated-release-content-set.mjs",
+      "src/fulfillment/owner-completion-capabilities.mjs",
+      "src/fulfillment/resend-owner-delivery-adapter.mjs",
       "src/fulfillment/secure-filesystem-snapshot.mjs",
       "src/fulfillment/test-a-completion-capabilities.mjs",
       "src/fulfillment/vercel-test-a-publication-provider.mjs",
       "src/http/operations-worker-handler.mjs",
       "src/operations/operations-action-handlers.mjs",
       "src/operations/operations-command-worker.mjs",
+      "src/operations/owner-completion-policy.mjs",
       "src/operations/production-completion-worker.mjs",
       "src/operations/production-generation-worker.mjs",
+      "src/operations/production-owner-completion-worker.mjs",
       "src/persistence/convex-fulfillment-store.mjs",
       "test/api/webhook-entrypoints.test.mjs",
       "test/config/hosted-provider-artifacts.test.mjs",
       "test/config/test-a-hosted-provider-manifest-policy.test.mjs",
       "test/config/test-a-operator-isolation-audit.test.mjs",
       "test/convex/completion-store-seam.test.mjs",
+      "test/convex/hosted-narration-contract.test.mjs",
+      "test/convex/narration-lifecycle.test.mjs",
+      "test/convex/narration.test.mjs",
       "test/convex/operations.test.mjs",
       "test/demo/synthetic-demo.test.mjs",
       "test/fulfillment/committed-artifact-content-set.test.mjs",
@@ -54,21 +70,31 @@
       "test/operations/completion-worker-boundary.test.mjs",
       "test/operations/hosted-generation-storage.test.mjs",
       "test/operations/operations-worker-startup.test.mjs",
-      "vercel.completion-worker.json"
+      "test/operations/owner-completion-boundary.test.mjs",
+      "vercel.completion-worker.json",
+      "vercel.owner-completion-worker.json"
     ],
     "pathAllowlist": [
+      "OWNER_PUBLICATION_DELIVERY_RUNBOOK.md",
       "README.md",
       "completion-worker/api/worker.mjs",
       "convex/fulfillment.js",
       "convex/http.js",
+      "convex/narration.js",
+      "convex/narrationHttp.js",
+      "convex/narrationRuntime.js",
+      "convex/narrationScope.js",
       "convex/operations.js",
+      "docs/hosted-narration.md",
       "ops/test-a-completion-candidate-preflight.md",
       "ops/test-a-completion-worker-audit.mjs",
       "ops/test-a-consolidated-candidate-audit.mjs",
       "ops/test-a-consolidated-candidate-evidence.json",
       "ops/test-a-hosted-provider-manifest.json",
+      "owner-completion-worker/api/worker.mjs",
       "package-lock.json",
       "package.json",
+      "scripts/create-fictional-narration-test.mjs",
       "scripts/lib/secure-filesystem-snapshot.py",
       "scripts/verify-vercel-routing.mjs",
       "src/config/test-a-hosted-provider-manifest.mjs",
@@ -78,25 +104,33 @@
       "src/fulfillment/exact-revision-publication-adapter.mjs",
       "src/fulfillment/external-effect-stage-handlers.mjs",
       "src/fulfillment/hosted-generation-workspace.mjs",
+      "src/fulfillment/hosted-narration-transitions.mjs",
       "src/fulfillment/job-machine.mjs",
       "src/fulfillment/job-orchestrator.mjs",
       "src/fulfillment/local-artifact-resolver.mjs",
       "src/fulfillment/local-generation-workspace.mjs",
       "src/fulfillment/narrated-release-content-set.mjs",
+      "src/fulfillment/owner-completion-capabilities.mjs",
+      "src/fulfillment/resend-owner-delivery-adapter.mjs",
       "src/fulfillment/secure-filesystem-snapshot.mjs",
       "src/fulfillment/test-a-completion-capabilities.mjs",
       "src/fulfillment/vercel-test-a-publication-provider.mjs",
       "src/http/operations-worker-handler.mjs",
       "src/operations/operations-action-handlers.mjs",
       "src/operations/operations-command-worker.mjs",
+      "src/operations/owner-completion-policy.mjs",
       "src/operations/production-completion-worker.mjs",
       "src/operations/production-generation-worker.mjs",
+      "src/operations/production-owner-completion-worker.mjs",
       "src/persistence/convex-fulfillment-store.mjs",
       "test/api/webhook-entrypoints.test.mjs",
       "test/config/hosted-provider-artifacts.test.mjs",
       "test/config/test-a-hosted-provider-manifest-policy.test.mjs",
       "test/config/test-a-operator-isolation-audit.test.mjs",
       "test/convex/completion-store-seam.test.mjs",
+      "test/convex/hosted-narration-contract.test.mjs",
+      "test/convex/narration-lifecycle.test.mjs",
+      "test/convex/narration.test.mjs",
       "test/convex/operations.test.mjs",
       "test/demo/synthetic-demo.test.mjs",
       "test/fulfillment/committed-artifact-content-set.test.mjs",
@@ -107,12 +141,18 @@
       "test/operations/completion-worker-boundary.test.mjs",
       "test/operations/hosted-generation-storage.test.mjs",
       "test/operations/operations-worker-startup.test.mjs",
-      "vercel.completion-worker.json"
+      "test/operations/owner-completion-boundary.test.mjs",
+      "vercel.completion-worker.json",
+      "vercel.owner-completion-worker.json"
     ],
     "reviewedFileDigests": [
       {
         "path": ".env.example",
         "sha256": "2e92d12f27b4c18076cad7ddae18237b04c936dd7165771ec52673d4b5150339"
+      },
+      {
+        "path": "OWNER_PUBLICATION_DELIVERY_RUNBOOK.md",
+        "sha256": "4d9e48e353f059d0844bca2f5001178535717b7f98336a4a8089a9e38c61e4b7"
       },
       {
         "path": "README.md",
@@ -132,15 +172,35 @@
       },
       {
         "path": "convex/fulfillment.js",
-        "sha256": "bdf51fbb1ea4e511685e7f1d83aa5a17cac1c5a84a90f412626d7a73392d09fa"
+        "sha256": "87dcfa2fc52fea647dfe2209a6b89b4cd2a964feb46ac4d94c6da99bdc63aeb9"
       },
       {
         "path": "convex/http.js",
-        "sha256": "f73a131a077162d458d12ec958f571d5a8998df7fa81bfb21dc6845e90707a65"
+        "sha256": "0084176305e51778c4aaf1f1840e61160544e01ecc4dcd5577507e4d6cd8578d"
+      },
+      {
+        "path": "convex/narration.js",
+        "sha256": "e8d6c3c986a3aa67f961aaa8d3cbcdbdc56f6aae02fee94f618ffa8b6403d4eb"
+      },
+      {
+        "path": "convex/narrationHttp.js",
+        "sha256": "1577313c5c818c3e3e15269a71fde2b7fc8f1e5981cefe1da478980f4186fa6a"
+      },
+      {
+        "path": "convex/narrationRuntime.js",
+        "sha256": "de2e32a81c81b0a1182b4507e204204e2abf03eddb145d4ad23799bbdf70eed7"
+      },
+      {
+        "path": "convex/narrationScope.js",
+        "sha256": "633768d019100a217a2c1a66d32605daa9c89a7787f6c9f1930eef1addcc5c03"
       },
       {
         "path": "convex/operations.js",
-        "sha256": "683e563f2c7bacd13e4a474addcf2d206886eb3dabb08f4356e9c6ca62abb792"
+        "sha256": "405d6511aeddbd8d1d7c2ccb38665ff60c547b8c226aedb5d52de226bc26ccb7"
+      },
+      {
+        "path": "docs/hosted-narration.md",
+        "sha256": "eb76e56cc068c9e257f4eeba9b95f841ee06eb54f1569ba2f0146631a38d9e22"
       },
       {
         "path": "ops/persist-test-a-generation-approval.mjs",
@@ -171,12 +231,20 @@
         "sha256": "3605fb59dc51fd7cb9713ee4e8154026cf00bbded6f0b0d7b2800f2da23d224a"
       },
       {
+        "path": "owner-completion-worker/api/worker.mjs",
+        "sha256": "2a53c47b3da5a46a3fedb664b3681b65df6a6b8744d27716ba5585c2957c8799"
+      },
+      {
         "path": "package-lock.json",
         "sha256": "dae156b5ac255334cae2ec097d8c5ec0d4fc48e70a5e3a282f75c40f2981f3d4"
       },
       {
         "path": "package.json",
         "sha256": "36809d5af17a405ee35d799c63361fe58372cf77fc4a49b5693edce236b8d140"
+      },
+      {
+        "path": "scripts/create-fictional-narration-test.mjs",
+        "sha256": "fc9c20985205e1f6947e57fa5132149c7be14ed046303063954587f5e8b62b74"
       },
       {
         "path": "scripts/lib/codex-subscription-composition.mjs",
@@ -283,8 +351,12 @@
         "sha256": "fc25f77c4ad9f8168c6b9e0a8921d7a500ca655578854ccbc1de5bee0ff4d88e"
       },
       {
+        "path": "src/fulfillment/hosted-narration-transitions.mjs",
+        "sha256": "8c7050fe01b9d8d975d366334e8d89472bf65b3a8a6e964d58048a7f9f62b88e"
+      },
+      {
         "path": "src/fulfillment/job-machine.mjs",
-        "sha256": "f5d2dc433b04ec42e708e210df01b88f981d3d246850f6418a446809d2dedf22"
+        "sha256": "109b627f2c2532a44962988d36edb363300fd53925ad475b7669b7653acf9786"
       },
       {
         "path": "src/fulfillment/job-orchestrator.mjs",
@@ -319,8 +391,16 @@
         "sha256": "8be72b1530c4d6172a2ae3d8c81e835003db5c3b5c2a9db451081c0f8d8abbb2"
       },
       {
+        "path": "src/fulfillment/owner-completion-capabilities.mjs",
+        "sha256": "04c7cbac28a413a34155eb7fa0e43d2bb18e134cc78345297ab21eae3621e0f1"
+      },
+      {
         "path": "src/fulfillment/persisted-review-decision.mjs",
         "sha256": "8205892867650843273eff9de97307ea55302ceee023e35b299e542419ef9798"
+      },
+      {
+        "path": "src/fulfillment/resend-owner-delivery-adapter.mjs",
+        "sha256": "ddf582af84bf2f25368a2015f3111aa97e6b54b539e1dd503a9f37b5889d3e21"
       },
       {
         "path": "src/fulfillment/secure-filesystem-snapshot.mjs",
@@ -352,7 +432,7 @@
       },
       {
         "path": "src/fulfillment/vercel-test-a-publication-provider.mjs",
-        "sha256": "eed20403b25b8f198014a37876566ff848273be2fe733ee2df9dbd06c43235d4"
+        "sha256": "6fcb44c194c65c7192ae3124bb5cee81e460a786fbd32fdd63884de96635dd67"
       },
       {
         "path": "src/http/operations-worker-handler.mjs",
@@ -375,12 +455,20 @@
         "sha256": "78e890ab2cb3d7086cc9bcf6ddab43ebbca538f6937c97e27f690fbf71254c07"
       },
       {
+        "path": "src/operations/owner-completion-policy.mjs",
+        "sha256": "0fff9a5a1ec98ba33d5f28021dfc62ddadbd92eac7af6ad18b837c9738ee3210"
+      },
+      {
         "path": "src/operations/production-completion-worker.mjs",
         "sha256": "474e9c1be17d5b6a39564653bc75bafe12e06d1ab2708472bfbad8ef1d023093"
       },
       {
         "path": "src/operations/production-generation-worker.mjs",
         "sha256": "070584b7129e0b8cad84d6a156e1fb4f791a0ffeb6040429305e8e393577ad65"
+      },
+      {
+        "path": "src/operations/production-owner-completion-worker.mjs",
+        "sha256": "4684759388b03831f52324d082ab349b8fc9b51b60924f3e2ab6efca46b81526"
       },
       {
         "path": "src/persistence/convex-customer-flow-store.mjs",
@@ -411,8 +499,20 @@
         "sha256": "73c0f8f6e0a1e7f43184ccbe6acf1801e2a853558d123370fb4cb0274d8e2ff5"
       },
       {
+        "path": "test/convex/hosted-narration-contract.test.mjs",
+        "sha256": "ab52237b57a01a78dedbc1dfc0951b98a64946b83e5baab70417f6c87083cd84"
+      },
+      {
+        "path": "test/convex/narration-lifecycle.test.mjs",
+        "sha256": "82f35e87daa73bd2c803c7f547dddb28e90ee6419422b0553162b624bee054a6"
+      },
+      {
+        "path": "test/convex/narration.test.mjs",
+        "sha256": "c2b02a61ae16f2ae83615a43410e27037ce08eabebe8deead04dc19fa88f5545"
+      },
+      {
         "path": "test/convex/operations.test.mjs",
-        "sha256": "e9d131d5ec4b52d11b919d776c0bf4000a8f7891ad70d7d3ac277dee66b7686e"
+        "sha256": "ed773ac54f176d6dc1d92f0cf9d7f125f399b8bd3505275b452db5123fb6ef78"
       },
       {
         "path": "test/demo/synthetic-demo.test.mjs",
@@ -436,7 +536,7 @@
       },
       {
         "path": "test/fulfillment/vercel-test-a-publication-provider.test.mjs",
-        "sha256": "08f5185d756680c0131910ccd41f925bfd6c5e229f225951544766d5d367f9c1"
+        "sha256": "8c7b0cee648bbafa7664c1d45a18ad3c0bc8877cf4917b6821660d927020d95c"
       },
       {
         "path": "test/operations/completion-worker-boundary.test.mjs",
@@ -451,6 +551,10 @@
         "sha256": "569f7944df9ff4df0547f461234b0a7c4b1e4d53675dc7c0f5438be11dbb530f"
       },
       {
+        "path": "test/operations/owner-completion-boundary.test.mjs",
+        "sha256": "92eb2cc8057268f028f79f045ca777da8a17b335d6c5c2038907a3ec3c351993"
+      },
+      {
         "path": "vercel.completion-worker.json",
         "sha256": "0d5107dcb612ed9b1dad6e4ee52a86e49fc57f361364eb80f9db973c4fe4dd07"
       },
@@ -461,6 +565,10 @@
       {
         "path": "vercel.json",
         "sha256": "f96a1746744ed6a26d1916d960b1615c4e1ea5df6fb93ed02ba1af1a6b5585a3"
+      },
+      {
+        "path": "vercel.owner-completion-worker.json",
+        "sha256": "354ea57de130dc7feb88b866e89b0b080047f4ff1efa6b86388d15dd451a2499"
       }
     ]
   },

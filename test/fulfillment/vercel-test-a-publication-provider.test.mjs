@@ -352,6 +352,34 @@ function createProvider({ calls, fixtureValue, fetchImpl, protectedProject = fal
   });
 }
 
+test("Vercel publication requiring an existing alias rejects a different project before artifact reads", async (t) => {
+  const fixtureValue = await fixture(t);
+  let artifactReads = 0;
+  const provider = createVercelTestAPublicationProvider({
+    token: "vercel_test_token",
+    buildInspection: authoritativeBuildInspection(),
+    teamId: "team_test_a",
+    projectId: "prj_test_a_announcements",
+    projectName: "bebebonjour-test-a-announcements",
+    stableOrigin: STABLE_ORIGIN,
+    canaryJobId: JOB_ID,
+    canaryRevisionId: REVISION_ID,
+    requireExistingAliasProject: true,
+    artifactResolver: { async resolve() { artifactReads += 1; throw new Error("must not read"); } },
+    fetch: async () => jsonResponse({
+      alias: new URL(STABLE_ORIGIN).hostname,
+      projectId: "prj_unrelated",
+      deploymentId: "dpl_unrelated",
+    }),
+  });
+
+  await assert.rejects(
+    provider.publish(fixtureValue.request),
+    /not already bound to the inspected publication project/u,
+  );
+  assert.equal(artifactReads, 0);
+});
+
 test("Vercel TEST-A provider rejects raw configured identity without authoritative build inspection", async (t) => {
   await fixture(t);
   assert.throws(
