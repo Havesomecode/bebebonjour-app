@@ -17,6 +17,11 @@ const GLOBAL_WINDOW_MS = 60 * 1_000;
 const GLOBAL_LIMIT = 300;
 const GLOBAL_BLOCK_MS = 30 * 1_000;
 const EXTERNAL_EFFECT_ACTIONS = new Set(["create_checkout", "generate", "generate_narration", "publish", "deliver"]);
+const OWNER_COMPLETION_JOB_ID = "job_narration_test_650a15d1-39bd-4dec-bc0d-3519ace71aa7";
+const OWNER_COMPLETION_ACTIONS = new Set(["publish", "queue_delivery", "deliver"]);
+const SYNTHETIC_FORBIDDEN_ACTIONS = new Set([
+  "publish", "queue_delivery", "deliver", "create_checkout", "generate", "retry",
+]);
 const ACTIONS_BY_STATE = Object.freeze({
   awaiting_payment: Object.freeze(["create_checkout"]),
   generation_queued: Object.freeze(["generate"]),
@@ -1072,7 +1077,11 @@ async function closeRejectedGenerateStage(context, fulfillment, command, nowMs) 
 
 function availableActions(customer, aggregate) {
   const actions = [...(ACTIONS_BY_STATE[aggregate?.state] || [])]
-    .filter(action => aggregate?.product !== "operator_narration_test" || !["publish", "queue_delivery", "deliver", "create_checkout", "generate", "retry"].includes(action));
+    .filter((action) => {
+      if (aggregate?.product !== "operator_narration_test") return true;
+      if (aggregate.jobId === OWNER_COMPLETION_JOB_ID && OWNER_COMPLETION_ACTIONS.has(action)) return true;
+      return !SYNTHETIC_FORBIDDEN_ACTIONS.has(action);
+    });
   if (aggregate?.state === "awaiting_payment" && customer?.payment?.checkout) {
     return actions.filter((action) => action !== "create_checkout");
   }
@@ -1520,7 +1529,7 @@ function assertCompletionClaimScope(scope, args) {
   if (scope === "narration") return assertNarrationClaim(args);
   if (scope === "owner_completion") {
     const exactActions = ["deliver", "publish", "queue_delivery"];
-    if (args.jobId !== "job_narration_test_650a15d1-39bd-4dec-bc0d-3519ace71aa7"
+    if (args.jobId !== OWNER_COMPLETION_JOB_ID
         || args.workerId !== "owner-completion-worker"
         || args.limit !== 1
         || args.leaseMs !== 300_000
@@ -1544,7 +1553,7 @@ function assertCompletionCommandScope(scope, command, args) {
   if (scope === "narration") return assertNarrationCommand(command, args);
   if (scope === "owner_completion") {
     if (!command
-        || command.jobId !== "job_narration_test_650a15d1-39bd-4dec-bc0d-3519ace71aa7"
+        || command.jobId !== OWNER_COMPLETION_JOB_ID
         || !new Set(["publish", "queue_delivery", "deliver"]).has(command.action)
         || args.workerId !== "owner-completion-worker"
         || (args.leaseMs !== undefined && args.leaseMs !== 300_000)) {

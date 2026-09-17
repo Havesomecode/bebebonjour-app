@@ -196,7 +196,7 @@
       },
       {
         "path": "convex/operations.js",
-        "sha256": "405d6511aeddbd8d1d7c2ccb38665ff60c547b8c226aedb5d52de226bc26ccb7"
+        "sha256": "082d3c23ef19406a7eee4fe3e971f558edd083e6ee8e1c310bd8f33a0e5b12ec"
       },
       {
         "path": "docs/hosted-narration.md",
@@ -512,7 +512,7 @@
       },
       {
         "path": "test/convex/operations.test.mjs",
-        "sha256": "ed773ac54f176d6dc1d92f0cf9d7f125f399b8bd3505275b452db5123fb6ef78"
+        "sha256": "ac2068fa3a73815f4c991984beb84b04fa639748bc842aaa132ed9e020b0eaca"
       },
       {
         "path": "test/demo/synthetic-demo.test.mjs",

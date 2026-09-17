@@ -202,6 +202,47 @@ test("owner completion token is server-enforced to the exact narrated job withou
   );
 });
 
+test("only the exact owner narration job exposes its three completion actions", async () => {
+  const convex = fixture();
+  const exactCustomer = customerJob({
+    jobId: ownerCompletionJobId,
+    intake: { ...customerJob().intake, requestId: ownerCompletionJobId },
+  });
+  let aggregate = fulfillmentAggregate({
+    jobId: ownerCompletionJobId,
+    product: "operator_narration_test",
+    state: "publish_ready",
+    version: 8,
+  });
+  await seed(convex, { customer: exactCustomer, fulfillment: aggregate });
+
+  let job = await convex.query(getJob, { operatorToken, jobId: ownerCompletionJobId });
+  assert.deepEqual(job.availableActions, ["publish"]);
+
+  aggregate = { ...aggregate, state: "published", version: 9 };
+  await replaceFulfillment(convex, aggregate);
+  job = await convex.query(getJob, { operatorToken, jobId: ownerCompletionJobId });
+  assert.deepEqual(job.availableActions, ["queue_delivery"]);
+
+  aggregate = { ...aggregate, state: "delivery_queued", version: 10 };
+  await replaceFulfillment(convex, aggregate);
+  job = await convex.query(getJob, { operatorToken, jobId: ownerCompletionJobId });
+  assert.deepEqual(job.availableActions, ["deliver"]);
+
+  const otherJobId = "job_narration_test_other_001";
+  await seed(convex, {
+    customer: customerJob({ jobId: otherJobId, intake: { ...customerJob().intake, requestId: otherJobId } }),
+    fulfillment: fulfillmentAggregate({
+      jobId: otherJobId,
+      product: "operator_narration_test",
+      state: "publish_ready",
+      version: 8,
+    }),
+  });
+  const other = await convex.query(getJob, { operatorToken, jobId: otherJobId });
+  assert.deepEqual(other.availableActions, []);
+});
+
 test("completion token cannot claim a retry owned by the generate-only worker", async () => {
   const convex = fixture();
   const aggregate = fulfillmentAggregate({
