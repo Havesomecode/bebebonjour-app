@@ -89,7 +89,8 @@ export const createFictionalTest = actionGeneric({
     const files = [];
     for (const [path, raw] of values) {
       const bytes = Buffer.from(raw);
-      const storageId = await ctx.storage.store(new Blob([bytes]));
+      const type = path.endsWith(".json") ? "application/json" : "text/html; charset=utf-8";
+      const storageId = await ctx.storage.store(new Blob([bytes], { type }));
       files.push({ path, storageId, bytes: bytes.length, sha256: hash(bytes) });
     }
     const artifactSet = manifest(

@@ -190,6 +190,14 @@ test("supported fictional bootstrap creates an unpaid operator-authored narrated
   assert.equal(view.customer.payment.status, "not_applicable");
   assert.equal(view.fulfillment.reviewDecisions.length, 0);
   assert.equal(view.fulfillment.artifactSets.length, 1);
+  for (const file of view.fulfillment.artifactSets[0].files) {
+    const contentType = await t.run(async (ctx) => (await ctx.storage.get(file.storageId)).type);
+    assert.equal(
+      contentType,
+      file.path.endsWith(".json") ? "application/json" : "text/html; charset=utf-8",
+      "Production Convex storage requires an explicit non-empty Content-Type",
+    );
+  }
   assert.equal((await read(t)).version, 4);
   assert.ok(
     view.fulfillment.events.some(
