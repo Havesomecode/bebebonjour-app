@@ -86,6 +86,33 @@ export function createJobAggregate(input, { commandId, at }) {
   };
 }
 
+// Explicit creation path for an unpaid fictional narration check. Never imports customer data,
+// claims payment/generation, or modifies an existing aggregate.
+export function createOperatorNarrationTestAggregate({ jobId, artifactSet, at }) {
+  const intakeDigest = artifactSet.pageDigest;
+  const product = "operator_narration_test";
+  const base = createJobAggregate({
+    jobId,
+    environment: "test",
+    product,
+    intakeDigest,
+    narrationRequired: true,
+    customerRef: "fictional-operator-authored",
+    paymentCorrelation: { project: "bebebonjour", product, environment: "test", jobId, intakeDigest },
+  }, { commandId: `create:${jobId}`, at });
+  return withCommand(base, { commandId: `author:${jobId}` }, "operator_test_content_authored", at, (next) => {
+    const revision = {
+      revisionId: "r1", ordinal: 1, inputDigest: intakeDigest, createdAt: at,
+      source: "operator_authored_fictional_test", providerGeneration: false,
+    };
+    assertRevision(revision, next);
+    next.revisions.push(revision);
+    next.currentRevisionId = "r1";
+    addArtifactSet(next, { ...artifactSet, kind: "private_review", revisionId: "r1" }, "private_review");
+    next.state = "content_review_required";
+  });
+}
+
 export function recordPaymentTransition(aggregate, payment, at) {
   return withCommand(aggregate, payment, "payment_recorded", at, (next) => {
     requireState(next, "awaiting_payment", "record payment");

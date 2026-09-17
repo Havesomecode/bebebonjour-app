@@ -1,5 +1,6 @@
 import { mutationGeneric, paginationOptsValidator, queryGeneric } from "convex/server";
 import { v } from "convex/values";
+import { assertNarrationToken, assertNarrationClaim, assertNarrationCommand } from "./narrationScope.js";
 
 import { TEST_A_PREPARE_REVIEW_RETRY_POLICY } from "../src/fulfillment/test-a-generation-policy.mjs";
 
@@ -871,8 +872,8 @@ function latestArtifactForRevision(aggregate, kind) {
 }
 
 function reviewOutcomeForAction(action) {
-  const decisionType = action.endsWith("_content") ? "content"
-    : action.endsWith("_narration") ? "narration" : null;
+  const decisionType = ["approve_content", "request_content_changes", "reject_content"].includes(action) ? "content"
+    : ["approve_narration", "request_narration_changes", "reject_narration"].includes(action) ? "narration" : null;
   if (!decisionType) return null;
   const outcome = action.startsWith("approve_") ? "approved"
     : action.startsWith("request_") ? "request_changes"
@@ -1070,7 +1071,8 @@ async function closeRejectedGenerateStage(context, fulfillment, command, nowMs) 
 }
 
 function availableActions(customer, aggregate) {
-  const actions = [...(ACTIONS_BY_STATE[aggregate?.state] || [])];
+  const actions = [...(ACTIONS_BY_STATE[aggregate?.state] || [])]
+    .filter(action => aggregate?.product !== "operator_narration_test" || !["publish", "queue_delivery", "deliver", "create_checkout", "generate", "retry"].includes(action));
   if (aggregate?.state === "awaiting_payment" && customer?.payment?.checkout) {
     return actions.filter((action) => action !== "create_checkout");
   }
@@ -1504,6 +1506,7 @@ function assertRateLimitToken(value) {
 
 function assertWorkerToken(value) {
   assertDistinctOperationsTokens();
+  if (value && value === process.env.BEBEBONJOUR_NARRATION_WORKER_TOKEN) { assertNarrationToken(value); return "narration"; }
   if (value === process.env.BEBEBONJOUR_OPERATIONS_WORKER_TOKEN
       && typeof value === "string" && value.length >= 32) return "worker";
   if (value === process.env.BEBEBONJOUR_COMPLETION_WORKER_TOKEN
@@ -1512,6 +1515,7 @@ function assertWorkerToken(value) {
 }
 
 function assertCompletionClaimScope(scope, args) {
+  if (scope === "narration") return assertNarrationClaim(args);
   if (scope !== "completion") return;
   const exactActions = ["approve_content", "deliver", "publish", "queue_delivery", "render", "retry"];
   if (args.jobId !== "job_03c25b08-8476-4fe1-923b-43d73feab3ff"
@@ -1524,6 +1528,7 @@ function assertCompletionClaimScope(scope, args) {
 }
 
 function assertCompletionCommandScope(scope, command, args) {
+  if (scope === "narration") return assertNarrationCommand(command, args);
   if (scope !== "completion") return;
   const actions = new Set(["approve_content", "render", "publish", "queue_delivery", "deliver", "retry"]);
   if (!command
@@ -1551,6 +1556,7 @@ function assertDistinctOperationsTokens() {
     process.env.BEBEBONJOUR_OPERATIONS_TOKEN,
     process.env.BEBEBONJOUR_OPERATIONS_WORKER_TOKEN,
     process.env.BEBEBONJOUR_COMPLETION_WORKER_TOKEN,
+    process.env.BEBEBONJOUR_NARRATION_WORKER_TOKEN,
     process.env.BEBEBONJOUR_OPS_RATE_LIMIT_TOKEN,
     process.env.CUSTOMER_FLOW_BACKEND_TOKEN,
   ].filter((token) => typeof token === "string" && token.length > 0);

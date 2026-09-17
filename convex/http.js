@@ -7,7 +7,10 @@ import {
 const MAX_PRIVATE_ARTIFACT_BYTES = 20 * 1024 * 1024;
 const authorizeArtifactRead = makeFunctionReference("generation:authorizeArtifactRead");
 const authorizeCompletionArtifactRead = makeFunctionReference("fulfillment:authorizeCompletionArtifactRead");
+import { narrationArtifact } from "./narrationHttp.js";
+
 const http = httpRouter();
+http.route({path:"/narration/artifact",method:"GET",handler:narrationArtifact});
 
 http.route({
   path: "/generation/artifact",
