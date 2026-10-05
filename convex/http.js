@@ -7,9 +7,17 @@ import {
 const MAX_PRIVATE_ARTIFACT_BYTES = 20 * 1024 * 1024;
 const authorizeArtifactRead = makeFunctionReference("generation:authorizeArtifactRead");
 const authorizeCompletionArtifactRead = makeFunctionReference("fulfillment:authorizeCompletionArtifactRead");
+const authorizeOwnerTrialArtifactRead = makeFunctionReference("ownerTrialCompletion:authorizeArtifactRead");
 import { narrationArtifact } from "./narrationHttp.js";
 
+import { intakePage, intakeSubmit, reviewPage, reviewSubmit, announcement } from "./deliveryLoopHttp.js";
+
 const http = httpRouter();
+http.route({ path: "/delivery", method: "GET", handler: intakePage });
+http.route({ path: "/delivery/intake", method: "POST", handler: intakeSubmit });
+http.route({ path: "/delivery/review", method: "GET", handler: reviewPage });
+http.route({ path: "/delivery/review", method: "POST", handler: reviewSubmit });
+http.route({ pathPrefix: "/announcements/", method: "GET", handler: announcement });
 http.route({path:"/narration/artifact",method:"GET",handler:narrationArtifact});
 
 http.route({
@@ -58,8 +66,11 @@ http.route({
     try {
       const url = new URL(request.url);
       const authorization = request.headers.get("authorization") || "";
-      const file = await context.runQuery(authorizeCompletionArtifactRead, {
-        completionToken: authorization.startsWith("Bearer ") ? authorization.slice(7) : "",
+      const completionToken = authorization.startsWith("Bearer ") ? authorization.slice(7) : "";
+      const trialToken = process.env.BEBEBONJOUR_OWNER_TRIAL_COMPLETION_WORKER_TOKEN;
+      const file = await context.runQuery(completionToken && completionToken === trialToken
+        ? authorizeOwnerTrialArtifactRead : authorizeCompletionArtifactRead, {
+        completionToken,
         workerId: request.headers.get("x-bebebonjour-worker-id") || "",
         commandId: request.headers.get("x-bebebonjour-command-id") || "",
         leaseToken: request.headers.get("x-bebebonjour-lease-token") || "",

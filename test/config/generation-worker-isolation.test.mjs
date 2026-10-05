@@ -20,21 +20,22 @@ test("generation worker is deployed only by its isolated Vercel project", async 
     src: "generation-worker/api/worker.mjs",
     use: "@vercel/node",
     config: {
-      includeFiles: [".codex-runtime/**"],
+      includeFiles: [
+        ".codex-runtime/manifest.json", ".codex-runtime/codex.gz", "data/reference-catalog.json",
+        "template/runtime/app.js", "template/runtime/phrase-progress.mjs",
+        "template/runtime/styles.css", "template/assets/og-image.svg",
+      ],
     },
   }]);
   assert.equal(
     workerConfig.installCommand,
-    "npm ci && node scripts/package-codex-runtime.mjs",
+    "npm ci",
   );
   assert.deepEqual(workerConfig.routes, [{
     src: "/api/operations/worker",
     dest: "generation-worker/api/worker.mjs",
   }]);
-  assert.deepEqual(workerConfig.crons, [{
-    path: "/api/operations/worker",
-    schedule: "*/5 * * * *",
-  }]);
+  assert.deepEqual(workerConfig.crons, []);
   await access(new URL("generation-worker/api/worker.mjs", root));
   await assert.rejects(access(new URL("api/operations/worker.mjs", root)));
   assert.deepEqual(

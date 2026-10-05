@@ -17,6 +17,8 @@ export function createFulfillmentOrchestrator(options) {
   const clock = options.clock;
   const tokenFactory = options.tokenFactory;
   const retryPolicy = options.retryPolicy;
+  const publicationRecovery = options.ownerTrialPublicationRecovery
+    ? structuredClone(options.ownerTrialPublicationRecovery) : null;
   if (typeof clock !== "function" || typeof tokenFactory !== "function") {
     throw new Error("Explicit clock and tokenFactory dependencies are required.");
   }
@@ -205,7 +207,28 @@ export function createFulfillmentOrchestrator(options) {
           && entry.idempotencyKey === attempt.idempotencyKey
           && typeof entry.effectStartedAt === "string",
       );
-      const reconciliationOnly = Boolean(priorEffectAttempt);
+      // Only a stored-backend-verified owner-trial receipt may remove an exact historical fence from reconciliation-only mode.
+      const allowedAbsent = stage === "publish" && attempt.attemptNumber > 1
+        && publicationRecovery?.receiptId?.startsWith("recovery_")
+        && publicationRecovery.jobId === aggregate.jobId
+        && publicationRecovery.revisionId === attempt.revisionId
+        && publicationRecovery.sourceCommandId === operationsCommandId
+        && publicationRecovery.idempotencyKey === attempt.idempotencyKey
+        && Number.isSafeInteger(publicationRecovery.maxAttempts)
+        && publicationRecovery.maxAttempts === attempt.attemptNumber
+        && Array.isArray(publicationRecovery.reconciledAttemptIds)
+        && publicationRecovery.reconciledAttemptIds.length === attempt.attemptNumber - 1
+        && new Set(publicationRecovery.reconciledAttemptIds).size === publicationRecovery.reconciledAttemptIds.length
+        && aggregate.stageAttempts.filter(entry => entry.stage === stage && entry.revisionId === attempt.revisionId
+          && entry.attemptId !== attempt.attemptId).every((entry, i) => entry.attemptNumber === i + 1
+            && entry.operationsCommandId === operationsCommandId && entry.idempotencyKey === attempt.idempotencyKey
+            && entry.status === "reconciled_absent" && entry.attemptId === publicationRecovery.reconciledAttemptIds[i])
+        ? publicationRecovery.reconciledAttemptIds : [];
+      const unresolvedPriorEffect = externalEffectStage && aggregate.stageAttempts.find(entry =>
+        entry.attemptId !== attempt.attemptId && entry.stage === stage && entry.revisionId === attempt.revisionId
+        && entry.idempotencyKey === attempt.idempotencyKey && typeof entry.effectStartedAt === "string"
+        && !(entry.status === "reconciled_absent" && allowedAbsent.includes(entry.attemptId)));
+      const reconciliationOnly = Boolean(unresolvedPriorEffect);
 
       const failAttempt = async (error, at = clock()) => {
         const classification = hasLeaseExpired(attempt, at)

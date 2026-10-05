@@ -19,10 +19,26 @@ const rootPath = path.resolve(path.dirname(fileURLToPath(import.meta.url)), ".."
 const evidencePath = path.join(rootPath, EVIDENCE_RELATIVE_PATH);
 const focusedTestFiles = [
   "test/config/generation-worker-isolation.test.mjs",
+  "test/config/narration-worker-isolation.test.mjs",
   "test/config/test-a-hosted-provider-manifest-policy.test.mjs",
   "test/config/test-a-operator-isolation.test.mjs",
   "test/convex/generation.test.mjs",
   "test/convex/generation-worker-authority.test.mjs",
+  "test/convex/private-generation.test.mjs",
+  "test/convex/private-generation-containment.test.mjs",
+  "test/convex/private-generation-retry.test.mjs",
+  "test/convex/owner-trial.test.mjs",
+  "test/convex/owner-trial-completion.test.mjs",
+  "test/convex/owner-trial-completion-continuation.test.mjs",
+  "test/convex/owner-trial-publication-recovery.test.mjs",
+  "test/convex/owner-trial-publication-present.test.mjs",
+  "test/convex/delivery-loop.test.mjs",
+  "test/convex/forward-coexistence.test.mjs",
+  "test/fulfillment/owner-trial-public-artifacts.test.mjs",
+  "test/fulfillment/owner-trial-playback-projection.test.mjs",
+  "test/http/owner-trial-completion-handler.test.mjs",
+  "test/convex/narration.test.mjs",
+  "test/convex/narration-lifecycle.test.mjs",
   "test/convex/completion-store-seam.test.mjs",
   "test/convex/operations.test.mjs",
   "test/fulfillment/exact-revision-publication-adapter.test.mjs",
@@ -41,19 +57,55 @@ const focusedTestFiles = [
   "test/fulfillment/test-a-operator-startup.test.mjs",
   "test/fulfillment/vercel-test-a-publication-provider.test.mjs",
   "test/http/operations-worker-handler.test.mjs",
+  "test/narration/narration-media.test.mjs",
   "test/operations/operations-command-worker.test.mjs",
   "test/operations/codex-packaged-response-schema.test.mjs",
   "test/operations/codex-packaged-runtime.test.mjs",
   "test/operations/operations-worker-runtime.test.mjs",
   "test/operations/operations-worker-startup.test.mjs",
   "test/operations/hosted-generation-storage.test.mjs",
+  "test/operations/production-narration-worker.test.mjs",
   "test/operations/completion-worker-boundary.test.mjs",
 ];
 const controls = Object.freeze([
   {
-    id: "isolated-generation-only-authority",
-    requirement: "The generation-only Operations worker is packaged in a separate Vercel project with only its exact worker inventory and no customer-flow backend, payment, email, publication, provider-management, or model credentials. Every canonical read, prepare_review transition, artifact upload, commit, and byte read is bound to the active claimed generate command. Private artifacts are streamed through an authenticated Convex HTTP action without direct storage URLs. Invocation-scoped staging is ephemeral and immutable job-scoped approvals and review artifacts persist durably in Convex. Pre-effect generation failures persist only a bounded trusted reason code, and an Operations fence rejection before provider I/O atomically moves the exact claimed prepare_review attempt to retry_wait or failed without artifact or auth-state mutation. Checkout, review mutation, publication, delivery, retry, and reconciliation remain unavailable. The lower-level private generation entrypoint retains its closed approval, canonical paid-record, filesystem, replay, and exact failed-state recovery gates.",
+    id: "owner-trial-signed-source-only-public-playback-repair",
+    requirement: "Exact published op2 history remains fully verified and immutable while a separate dual-role, recovery-signed op3 authority binds approved storage descriptors, source-only 21-file projection and a fresh provider identity. Ordinary claimers cannot execute the op3 command or unchanged pending attempt0 old-publication queue commands. Every artifact read and provider call revalidates the signed lease and historical chain; canonical transcript selection is fenced, all original runtime/audio bytes stay unchanged, and no generation or email capability is granted. Raw complete census and full deployment detail retain actual provider shapes; conflicting id/uid, metadata, READY/project/url drift and key collisions reject before uploads/create. Commit requires one new receipt, exact alias and actual successful body hash/count evidence for every file at both deployment and stable targets. Historical recovery receipts validate their original aggregate; ordinary completion policy/queue remains valid after repair without fabricated owner acceptance or delivery.",
     proofs: [
+      "test/convex/owner-trial-publication-present.test.mjs: real offline Convex/exporter/internal artifact/projector/Vercel worker op3 seam, raw uid census/full-detail RED/GREEN, all21 actual bodies at both targets, transcript fence, collision/tamper/stale/receipt-reuse/pagination denial, unchanged old command and startup/queue continuation",
+      "test/fulfillment/owner-trial-playback-projection.test.mjs: approved-only deterministic source projection, unchanged runtime/audio, sanitized transcript/manifests and private provenance rejection",
+    ],
+  },
+  {
+    id: "owner-trial-positive-present-runtime-supersession",
+    requirement: "Exact-job dual-role authorization and independently signed fresh positive-presence evidence permit one distinct corrected-source publication for the approved four-file runtime omission only. The expired original PRESENT invocation must be proven closed before alias mutation; original deployment, commands, authorizations, leases and attempts remain immutable. New source, runtime closure, idempotency, leases and signed success are fenced at every artifact, provider, canonical transition and subsequent owner-only delivery boundary. The actual complete census is bound to its signed digest and rejects any existing new-key deployment before authorization, irrespective of other metadata; every subsequent provider census is guarded so a collision, duplicate or omitted known effect cannot authorize another create or alias. Unrelated unresolved commands and uncertain replacement effects remain nonretryable. Non-auth toolbar suppression is confined to exact public GET hosts; approved bytes are unchanged. Fresh 404 responses retain their hashes but compare missing-path/status/inventory facts rather than request-specific error bodies.",
+    proofs: [
+      "test/convex/owner-trial-publication-present.test.mjs: real 18-file approved exporter, internal Convex artifact HTTP, corrected provider inventory/public bytes, owner-only delivery, dynamic404 RED/GREEN, separated signatures, uncertainty/replay and queued delivery integrity regressions",
+      "test/convex/forward-coexistence.test.mjs: forward-only current schema, function ABI and HTTP preservation, approved trial routing and immutable provider bytes",
+      "test/convex/delivery-loop.test.mjs: existing complimentary delivery-loop authority, immutable publication, narration receipts, bounded leases and uncertain-email reconciliation remain intact",
+    ],
+  },
+  {
+    id: "owner-trial-exact-present-effect-reconciliation",
+    requirement: "Separate append-only exact authorization, one non-reissuable bounded dual-fenced lease and recovery-role signed fresh verified receipt reconcile only the existing deployment. Trusted signing occurs after strict provider census, inventory, configuration, public bytes and alias readback. No upload, new deployment, publication replay or false absence is allowed; immutable failed history remains unchanged and receipt-backed normal owner delivery retains completion continuation expiry and drift fences.",
+    proofs: ["test/convex/owner-trial-publication-present.test.mjs: real offline Convex/storage/provider/worker continuation-backed published-to-sent path, ambiguous/wrong census, SSO302, bytes, uncertain alias, proof binding/role/freshness and no-write denial"],
+  },
+  {
+    id: "append-only-owner-authorized-completion-continuation",
+    requirement: "Only the pinned already-redeemed, reviewed complimentary owner trial may acquire an immutable HMAC-signed completion continuation through both the existing owner Operations role and the separated owner-trial completion role. Inspection commits exact original ticket/customer/revision/artifact/review/provider-policy bytes before issuance. Each nonoverlapping window is at most 24 hours, chained append-only, expiry-enforced at every existing completion policy fence, and grants publication plus owner-only delivery only. Issuance changes no canonical job, ticket, approval, payment, artifact, command, event, counter or recovery receipt. Uncertain provider effects still require fresh independent signed absence recovery for every failed attempt; continuation grants no retry, generation, narration, approval, owner acceptance or delivered claim.",
+    proofs: [
+      "test/convex/owner-trial-completion-continuation.test.mjs: behavior-level RED/GREEN expired-ticket seam, immutable issuance/replay, exact inspected binding, dual-role/finite-window/concurrency/drift denial, historical receipt preservation and default rejection",
+      "test/convex/owner-trial-completion-continuation.test.mjs: real offline completion worker publishes only after per-attempt signed recovery and both persisted fences, sends only to unchanged owner recipient, and stops at continuation expiry without provider callbacks",
+      "test/convex/owner-trial-publication-recovery.test.mjs: iterative fresh absence proofs retain historical receipts and reject unbacked next attempts",
+    ],
+  },
+  {
+    id: "isolated-generation-only-authority",
+    requirement: "The generation-only Operations worker is packaged in a separate Vercel project with only its exact worker inventory and no customer-flow backend, payment, email, publication, provider-management, or model credentials. Every canonical read, prepare_review transition, artifact upload, commit, and byte read is bound to the active claimed generate command. Private artifacts are streamed through an authenticated Convex HTTP action without direct storage URLs. Invocation-scoped staging is ephemeral and immutable job-scoped approvals and review artifacts persist durably in Convex. Pre-effect generation failures persist only a bounded trusted reason code, and an Operations fence rejection before provider I/O atomically moves the exact claimed prepare_review attempt to retry_wait or failed without artifact or auth-state mutation. Checkout, review mutation, publication, delivery, retry, and reconciliation remain unavailable to the generation worker. Normal generation retains its closed approval, canonical paid-record, filesystem, replay, and exact failed-state recovery gates. An operator-authenticated, feature-flagged creation action admits only the fixed fictional intake under a separate durable job/digest/environment/product-bound private-test authority, with payment explicitly not applicable rather than paid. Private fictional jobs have no checkout, publication, customer delivery, or blind retry actions, and still require distinct editorial policy and exact human content/narration review decisions.",
+    proofs: [
+      "test/convex/private-generation.test.mjs: private fictional creation, exact authority, real offline worker seam, immutable artifact replay and forged marker rejection; production failed generate command follows pre-fence rejection without composer or stage writes; successful composer followed by prepareReview failure cannot authorize pre-effect retry",
+      "test/convex/private-generation-containment.test.mjs: generation-only private checkout/narration/publication/delivery/retry denial, injected claim/effect rejection, metadata/storage capability rejection and post-claim authority drift rejection",
+      "test/convex/private-generation-retry.test.mjs: reconciliation_required sources reject before writes or replay because no independent durable provider-specific composer-absence evidence exists; captured live-shape failure preserves every stored byte and the reconciliation block, not an invented ENOENT receipt; legacy unsafe reconciliation dispositions cannot authorize replay. Existing failed-command recovery validates canonical editorial approval, all generation artifacts, distinct credentials, persisted intake and authority, and CAS; preserves failed attempt and command history, returns an exact inert replay, and creates no command or broader capability. Failed terminal-stage fixtures are synthetic gate/security tests, not live provider-absence proof",
       "test/fulfillment/test-a-generation-runner.test.mjs: generation-only runner persists canonical intake, advances only prepare_review, and returns PII-free output",
       "test/fulfillment/test-a-generation-runner.test.mjs: generation-only end to end produces the approved neutral unknown-name dossier and stops for review",
       "test/fulfillment/test-a-generation-runner.test.mjs: legacy generation input is enriched once with the exact job-scoped approval",
@@ -92,6 +144,21 @@ const controls = Object.freeze([
       "test/fulfillment/test-a-generation-approval-startup.test.mjs: generation approval startup persists exact immutable approval bytes through Convex",
       "test/config/generation-worker-isolation.test.mjs: generation worker is deployed only by its isolated Vercel project",
       "test/config/test-a-operator-isolation.test.mjs: the authenticated Operations worker graph contains only the reviewed generation subset while customer routes contain no private capability",
+    ],
+  },
+  {
+    id: "isolated-narration-generation-authority",
+    requirement: "The narration provider boundary is a separate Vercel project whose only operations capability is generate_narration. A distinct Convex token cannot review, render, publish or deliver; OPENAI_API_KEY is mounted only with that token and a distinct cron secret. The worker requires a genuine content approval, preserves exact source-private and prepared-bundle manifest commitments, verifies the approved page bytes before one-attempt Cedar TTS, decodes bounded MP3 bytes, uploads typed private objects, and commits only after Convex storage readback. Provider, timeout, oversized, malformed, truncated and uncertain upload failures are redacted and never blindly retried. A running attempt with no aggregate effect fence is automatically recovered as known absent, but an explicit failed disposition is requeued only when the persisted Operations claim proves that the queue fence was issued; deterministic failures before that fence remain terminal and unclaimable.",
+    proofs: [
+      "test/config/narration-worker-isolation.test.mjs: reviewed manifest pins the isolated generate_narration deployment and secret store",
+      "test/convex/narration.test.mjs: TTS credential can claim only generate_narration work",
+      "test/convex/narration-lifecycle.test.mjs: durable narration commits before review and private playback survives approval",
+      "test/convex/narration-lifecycle.test.mjs: a deterministic narration failure before the queue fence remains terminal and unclaimable",
+      "test/convex/narration-lifecycle.test.mjs: a handled failure after the queue fence requeues with the original provider idempotency identity",
+      "test/narration/narration-media.test.mjs: Cedar request is exact, single-attempt, bounded, and independently ffprobe-decodable",
+      "test/narration/narration-media.test.mjs: provider, timeout, oversized, malformed, and truncated failures are redacted and terminal",
+      "test/operations/production-narration-worker.test.mjs: worker fences exactly one generation, reads exact approved page, uploads typed bytes, and completes durably",
+      "test/operations/production-narration-worker.test.mjs: uncertain provider failures are redacted, non-retryable, and never completed",
     ],
   },
   {
@@ -175,7 +242,7 @@ const reviewedFileDigests = await Promise.all(reviewInputs.map(async (filePath) 
 })));
 const generatedEvidence = {
   schemaVersion: "1.0",
-  auditId: "test-a-consolidated-candidate-successor-2026-08-26",
+  auditId: "test-a-consolidated-candidate-successor-2026-09-29",
   baselineCommit: BASELINE_COMMIT,
   candidateBoundary: {
     changedPaths,

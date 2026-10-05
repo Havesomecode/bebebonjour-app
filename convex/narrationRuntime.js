@@ -1,10 +1,14 @@
 "use node";
+import * as live from "../src/forward-coexistence/live/convex/narrationRuntime.js";
+import { coexistDefinition } from "../src/forward-coexistence/dispatch.mjs";
+
 import { actionGeneric, makeFunctionReference as ref } from "convex/server";
 import { v } from "convex/values";
 import { randomUUID } from "node:crypto";
 import {
   reviewTransition,
   beginTransition,
+  fenceNarrationProviderTransition,
   promote,
   completeTransition,
   failTransition,
@@ -23,7 +27,7 @@ const authorityArgs = {
   leaseToken: v.string(),
   jobId: v.string(),
 };
-export const createFictionalTest = actionGeneric({
+export const createFictionalTest = actionGeneric(coexistDefinition({
   args: {
     operatorToken: v.string(),
     language: v.string(),
@@ -36,7 +40,8 @@ export const createFictionalTest = actionGeneric({
       !args.operatorToken ||
       args.operatorToken.length < 32 ||
       args.operatorToken !== process.env.BEBEBONJOUR_OPERATIONS_TOKEN ||
-      args.operatorToken === process.env.BEBEBONJOUR_NARRATION_WORKER_TOKEN
+      args.operatorToken === process.env.BEBEBONJOUR_NARRATION_WORKER_TOKEN ||
+      args.operatorToken === process.env.BEBEBONJOUR_TTS_WORKER_TOKEN
     )
       throw new Error("Fictional test creation disabled or unauthorized.");
     if (
@@ -111,8 +116,8 @@ export const createFictionalTest = actionGeneric({
       language,
     });
   },
-});
-export const advance = actionGeneric({
+}, live.createFictionalTest, "createFictionalTest", "narrationRuntime"));
+export const advance = actionGeneric(coexistDefinition({
   args: {
     ...authorityArgs,
     operation: v.string(),
@@ -120,7 +125,10 @@ export const advance = actionGeneric({
   },
   handler: async (ctx, args) => {
     const { operation, artifactSet, ...auth } = args;
-    let { job, command } = await ctx.runQuery(ref("narration:readClaim"), auth);
+    let { job, command } = await ctx.runQuery(
+      ref(operation === "fence" ? "narration:readEffectClaim" : "narration:readClaim"),
+      auth,
+    );
     async function persist(next) {
       await ctx.runMutation(ref("narration:commitTransition"), {
         ...auth,
@@ -148,6 +156,12 @@ export const advance = actionGeneric({
       await persist(beginTransition(job, command, now(), randomUUID()));
       return { state: job.state };
     } else if (
+      operation === "fence" &&
+      command.action === "generate_narration"
+    ) {
+      await persist(fenceNarrationProviderTransition(job, command, now()));
+      return { state: job.state };
+    } else if (
       operation === "complete" &&
       command.action === "generate_narration" &&
       Number.isFinite(command.claim.effectStartedAtMs)
@@ -172,4 +186,4 @@ export const advance = actionGeneric({
       jobVersion: job.version,
     };
   },
-});
+}, live.advance, "advance", "narrationRuntime"));

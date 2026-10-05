@@ -14,14 +14,16 @@ test(
       pathToFileURL(`${ops}/src/server/narration-worker.mjs`)
     );
     const { generateNarration, decodeMp3Duration } = await import(
-      pathToFileURL(`${ops}/src/server/narration-media.mjs`)
+      "../../src/narration/narration-media.mjs"
     );
     const { deriveCommandRequest, commandPrecondition } = await import(
       pathToFileURL(`${ops}/src/server/derive-command.mjs`)
     );
-    const workerToken = "contract-narration-worker-test-32-characters";
+    const controlToken = "contract-narration-control-test-32-characters";
+    const workerToken = "contract-tts-worker-test-32-characters-long";
     const operatorToken = "contract-operator-token-test-32-characters";
-    process.env.BEBEBONJOUR_NARRATION_WORKER_TOKEN = workerToken;
+    process.env.BEBEBONJOUR_NARRATION_WORKER_TOKEN = controlToken;
+    process.env.BEBEBONJOUR_TTS_WORKER_TOKEN = workerToken;
     process.env.BEBEBONJOUR_OPERATIONS_TOKEN = operatorToken;
     process.env.BEBEBONJOUR_NARRATION_TESTS_ENABLED = "true";
     const t = convexTest(schema, {
@@ -62,34 +64,50 @@ test(
     );
     const tone = await readFile(`${ops}/test/fixtures/narration-tone.mp3`);
     let requests = 0;
-    const worker = createNarrationWorker({
+    const createWorker = (token) => createNarrationWorker({
       client,
-      workerToken,
+      workerToken: token,
       generate: async (auth) => {
-        const prepared = await client.query("narration:readPrepared", auth);
-        const file = prepared.files.find(
-          (f) => f.path === "artifacts/current/page.json",
-        );
-        const page = await t.run(async (ctx) =>
-          JSON.parse(await (await ctx.storage.get(file.storageId)).text()),
-        );
-        return generateNarration({
-          jobId,
-          prepared,
-          page,
-          apiKey: "test-only",
-          signal: AbortSignal.timeout(5000),
-          fetch: async () => {
-            requests++;
-            return new Response(tone);
-          },
-          upload: async (_path, bytes) => {
-            await client.mutation("narration:createUploadUrl", auth);
-            return t.run((ctx) => ctx.storage.store(new Blob([bytes])));
-          },
-        });
+        try {
+          const prepared = await client.query("narration:readPrepared", auth);
+          const file = prepared.files.find(
+            (f) => f.path === "artifacts/current/page.json",
+          );
+          const page = await t.run(async (ctx) =>
+            JSON.parse(await (await ctx.storage.get(file.storageId)).text()),
+          );
+          return await generateNarration({
+            jobId,
+            prepared,
+            page,
+            apiKey: "not-a-real-provider-key-with-32-bytes",
+            idempotencyKey: auth.commandId,
+            signal: AbortSignal.timeout(5000),
+            fetch: async () => {
+              requests++;
+              return new Response(tone, {
+                headers: { "content-type": "audio/mpeg" },
+              });
+            },
+            upload: async (_path, bytes) => {
+              await client.mutation("narration:createUploadUrl", auth);
+              return t.run((ctx) =>
+                ctx.storage.store(new Blob([bytes], {
+                  type: _path.endsWith(".mp3")
+                    ? "audio/mpeg"
+                    : "application/json",
+                })),
+              );
+            },
+          });
+        } catch (error) {
+          errors.push(`generate: ${error.message}`);
+          throw error;
+        }
       },
     });
+    const controlWorker = createWorker(controlToken);
+    const generationWorker = createWorker(workerToken);
     for (const [index, action] of [
       "approve_content",
       "render",
@@ -114,8 +132,11 @@ test(
         operatorToken,
         commandId: `command_contract_${index}`,
       });
+      const step = await (action === "generate_narration"
+        ? generationWorker
+        : controlWorker).runOnce(jobId, [action]);
       assert.deepEqual(
-        await worker.runOnce(jobId),
+        step,
         {
           claimed: 1,
           completed: 1,
@@ -123,6 +144,21 @@ test(
         },
         `${action}: ${errors.join("; ")}`,
       );
+      if (action === "render") {
+        const rendered = await t.run(
+          async (ctx) => (await ctx.db.query("fulfillmentJobs").first()).aggregate,
+        );
+        const privateReview = rendered.artifactSets.find(
+          (artifact) => artifact.kind === "private_review",
+        );
+        const prepared = rendered.artifactSets.find(
+          (artifact) => artifact.kind === "prepared_bundle",
+        );
+        assert.equal(
+          prepared?.sourcePrivateReviewManifestDigest,
+          privateReview?.assetManifestDigest,
+        );
+      }
     }
     assert.equal(requests, 2);
     const job = await client.query("operations:getJob", {
@@ -143,7 +179,7 @@ test(
       (await decodeMp3Duration(Buffer.from(await response.arrayBuffer()))) >
         0.4,
     );
-    assert.deepEqual(await worker.runOnce(jobId), {
+    assert.deepEqual(await generationWorker.runOnce(jobId, ["generate_narration"]), {
       claimed: 0,
       completed: 0,
       failed: 0,

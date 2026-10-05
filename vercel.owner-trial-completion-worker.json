@@ -1,0 +1,14 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "installCommand": "npm ci",
+  "builds": [
+    { "src": "owner-completion-worker/api/worker.mjs", "use": "@vercel/node" },
+    { "src": "owner-trial-completion-worker/api/worker.mjs", "use": "@vercel/node" },
+    { "src": "owner-trial-completion-worker/api/publication-diagnostics.mjs", "use": "@vercel/node" }
+  ],
+  "routes": [
+    { "src": "/api/operations/owner-completion-worker", "dest": "owner-completion-worker/api/worker.mjs" },
+    { "src": "/api/operations/owner-trial-completion-worker", "dest": "owner-trial-completion-worker/api/worker.mjs" },
+    { "src": "/api/operations/owner-trial-publication-diagnostics", "dest": "owner-trial-completion-worker/api/publication-diagnostics.mjs" }
+  ]
+}

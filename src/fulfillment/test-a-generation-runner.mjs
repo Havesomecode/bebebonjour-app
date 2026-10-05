@@ -1,5 +1,7 @@
 import { createHash, randomUUID } from "node:crypto";
 import { isDeepStrictEqual } from "node:util";
+import { isOwnerTrialJob, matchesOwnerTrialAuthority } from "./owner-trial-authority.mjs";
+import { isPrivateGenerationJob, matchesPrivateGenerationAuthority, stablePrivateValue } from "./private-generation-authority.mjs";
 
 import { ConvexHttpClient } from "convex/browser";
 
@@ -236,6 +238,18 @@ function restrictGenerationStore(store) {
 }
 
 function assertCanonicalAuthority({ customer, fulfillment, jobId }) {
+  if (isOwnerTrialJob(customer, fulfillment)) {
+    const digest = createHash("sha256").update(stablePrivateValue(customer?.intake) || "").digest("hex");
+    if (customer?.jobId !== jobId || !matchesOwnerTrialAuthority(customer, fulfillment, digest)) throw safeError("generation_authority_rejected");
+    return;
+  }
+  if (isPrivateGenerationJob(customer, fulfillment)) {
+    const digest = createHash("sha256").update(stablePrivateValue(customer?.intake) || "").digest("hex");
+    if (customer?.jobId !== jobId || !matchesPrivateGenerationAuthority(customer, fulfillment, digest)) {
+      throw safeError("generation_authority_rejected");
+    }
+    return;
+  }
   const expectedCorrelation = {
     project: "bebebonjour",
     product: "announcement-page",

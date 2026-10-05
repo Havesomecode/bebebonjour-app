@@ -1,149 +1,311 @@
 {
   "schemaVersion": "1.0",
-  "auditId": "test-a-consolidated-candidate-successor-2026-08-26",
+  "auditId": "test-a-consolidated-candidate-successor-2026-09-29",
   "baselineCommit": "82be6b29eab9245400e928623ec15a3f1ae1ca27",
   "candidateBoundary": {
     "changedPaths": [
       "OWNER_PUBLICATION_DELIVERY_RUNBOOK.md",
       "README.md",
       "completion-worker/api/worker.mjs",
+      "convex/automaticGeneration.js",
+      "convex/canonicalCompletionScope.js",
+      "convex/convex.config.js",
+      "convex/customerFlow.js",
+      "convex/deliveryLoop.js",
+      "convex/deliveryLoopHttp.js",
+      "convex/deliveryLoopProviders.js",
       "convex/fulfillment.js",
+      "convex/generation.js",
       "convex/http.js",
       "convex/narration.js",
       "convex/narrationHttp.js",
       "convex/narrationRuntime.js",
       "convex/narrationScope.js",
       "convex/operations.js",
+      "convex/ownerTrial.js",
+      "convex/ownerTrialCompletion.js",
+      "convex/ownerTrialCompletionContinuation.js",
+      "convex/ownerTrialPublicPlaybackRepair.js",
+      "convex/ownerTrialPublicationPresent.js",
+      "convex/ownerTrialPublicationRecovery.js",
+      "convex/ownerTrialPublicationSupersession.js",
+      "convex/ownerTrialRuntime.js",
+      "convex/privateGeneration.js",
+      "convex/privateGenerationRuntime.js",
+      "convex/schema.js",
       "docs/hosted-narration.md",
+      "docs/owner-trial-completion-continuation-contract.md",
+      "docs/owner-trial-publication-recovery-contract.md",
+      "narration-worker/api/worker.mjs",
       "ops/test-a-completion-candidate-preflight.md",
       "ops/test-a-completion-worker-audit.mjs",
       "ops/test-a-consolidated-candidate-audit.mjs",
       "ops/test-a-consolidated-candidate-evidence.json",
       "ops/test-a-hosted-provider-manifest.json",
       "owner-completion-worker/api/worker.mjs",
+      "owner-trial-completion-worker/api/publication-diagnostics.mjs",
+      "owner-trial-completion-worker/api/worker.mjs",
       "package-lock.json",
       "package.json",
+      "schemas/fulfillment-job-store.schema.json",
       "scripts/create-fictional-narration-test.mjs",
       "scripts/lib/secure-filesystem-snapshot.py",
       "scripts/verify-vercel-routing.mjs",
       "src/config/test-a-hosted-provider-manifest.mjs",
+      "src/delivery-loop/provider-transport.mjs",
       "src/demo/synthetic-demo.mjs",
       "src/demo/synthetic-narration-fixture.mjs",
+      "src/forward-coexistence/dispatch.mjs",
+      "src/forward-coexistence/live/convex/generation.js",
+      "src/forward-coexistence/live/convex/narration.js",
+      "src/forward-coexistence/live/convex/narrationRuntime.js",
+      "src/forward-coexistence/live/convex/narrationScope.js",
+      "src/forward-coexistence/live/convex/operations.js",
+      "src/forward-coexistence/live/src/fulfillment/hosted-narration-transitions.mjs",
+      "src/forward-coexistence/live/src/fulfillment/job-machine.mjs",
+      "src/fulfillment/codex-subscription-composer.mjs",
       "src/fulfillment/committed-artifact-content-set.mjs",
+      "src/fulfillment/convex-job-effect-transitions.mjs",
       "src/fulfillment/exact-revision-publication-adapter.mjs",
       "src/fulfillment/external-effect-stage-handlers.mjs",
       "src/fulfillment/hosted-generation-workspace.mjs",
       "src/fulfillment/hosted-narration-transitions.mjs",
+      "src/fulfillment/job-effect-transitions.mjs",
       "src/fulfillment/job-machine.mjs",
       "src/fulfillment/job-orchestrator.mjs",
       "src/fulfillment/local-artifact-resolver.mjs",
       "src/fulfillment/local-generation-workspace.mjs",
       "src/fulfillment/narrated-release-content-set.mjs",
       "src/fulfillment/owner-completion-capabilities.mjs",
+      "src/fulfillment/owner-trial-authority.mjs",
+      "src/fulfillment/owner-trial-completion-capabilities.mjs",
+      "src/fulfillment/owner-trial-playback-projection.mjs",
+      "src/fulfillment/owner-trial-publication-recovery-proof.mjs",
+      "src/fulfillment/prepared-narration-source.mjs",
+      "src/fulfillment/private-generation-authority.mjs",
       "src/fulfillment/resend-owner-delivery-adapter.mjs",
       "src/fulfillment/secure-filesystem-snapshot.mjs",
       "src/fulfillment/test-a-completion-capabilities.mjs",
+      "src/fulfillment/test-a-generation-runner.mjs",
       "src/fulfillment/vercel-test-a-publication-provider.mjs",
       "src/http/operations-worker-handler.mjs",
+      "src/narration/narration-media.mjs",
       "src/operations/operations-action-handlers.mjs",
       "src/operations/operations-command-worker.mjs",
       "src/operations/owner-completion-policy.mjs",
+      "src/operations/owner-trial-completion-worker.mjs",
+      "src/operations/owner-trial-present-reconciliation-worker.mjs",
+      "src/operations/owner-trial-public-playback-repair-worker.mjs",
+      "src/operations/owner-trial-publication-supersession-worker.mjs",
       "src/operations/production-completion-worker.mjs",
       "src/operations/production-generation-worker.mjs",
+      "src/operations/production-narration-worker.mjs",
       "src/operations/production-owner-completion-worker.mjs",
       "src/persistence/convex-fulfillment-store.mjs",
+      "src/persistence/convex-generation-artifact-store.mjs",
       "test/api/webhook-entrypoints.test.mjs",
+      "test/config/generation-worker-isolation.test.mjs",
       "test/config/hosted-provider-artifacts.test.mjs",
+      "test/config/narration-worker-isolation.test.mjs",
       "test/config/test-a-hosted-provider-manifest-policy.test.mjs",
       "test/config/test-a-operator-isolation-audit.test.mjs",
       "test/convex/completion-store-seam.test.mjs",
+      "test/convex/delivery-loop.test.mjs",
+      "test/convex/forward-coexistence.test.mjs",
       "test/convex/hosted-narration-contract.test.mjs",
+      "test/convex/live-compatible-retention.test.mjs",
       "test/convex/narration-lifecycle.test.mjs",
       "test/convex/narration.test.mjs",
       "test/convex/operations.test.mjs",
+      "test/convex/owner-trial-completion-continuation.test.mjs",
+      "test/convex/owner-trial-completion.test.mjs",
+      "test/convex/owner-trial-publication-present.test.mjs",
+      "test/convex/owner-trial-publication-recovery.test.mjs",
+      "test/convex/owner-trial.test.mjs",
+      "test/convex/private-generation-containment.test.mjs",
+      "test/convex/private-generation-retry.test.mjs",
+      "test/convex/private-generation.test.mjs",
+      "test/convex/production-bundle.test.mjs",
       "test/demo/synthetic-demo.test.mjs",
+      "test/fixtures/private-generation-failed-live-readback.json",
+      "test/fixtures/supersession-forward-live-schema.json",
+      "test/fixtures/supersession-predeploy-current-function-spec.json",
+      "test/fulfillment/codex-subscription-composer.test.mjs",
       "test/fulfillment/committed-artifact-content-set.test.mjs",
+      "test/fulfillment/convex-job-effect-transitions.test.mjs",
       "test/fulfillment/generation-stage-workspace.test.mjs",
       "test/fulfillment/job-orchestration.test.mjs",
+      "test/fulfillment/owner-trial-playback-projection.test.mjs",
+      "test/fulfillment/owner-trial-public-artifacts.test.mjs",
       "test/fulfillment/secure-filesystem-snapshot.test.mjs",
       "test/fulfillment/vercel-test-a-publication-provider.test.mjs",
+      "test/http/owner-trial-completion-handler.test.mjs",
+      "test/http/owner-trial-publication-diagnostics.test.mjs",
+      "test/narration/narration-media.test.mjs",
       "test/operations/completion-worker-boundary.test.mjs",
       "test/operations/hosted-generation-storage.test.mjs",
       "test/operations/operations-worker-startup.test.mjs",
       "test/operations/owner-completion-boundary.test.mjs",
+      "test/operations/production-narration-worker.test.mjs",
+      "test/packaging/codex-install-lifecycle.test.mjs",
+      "test/packaging/generation-worker-bundle.test.mjs",
       "vercel.completion-worker.json",
-      "vercel.owner-completion-worker.json"
+      "vercel.generation-worker.json",
+      "vercel.narration-worker.json",
+      "vercel.owner-completion-worker.json",
+      "vercel.owner-trial-completion-worker.json"
     ],
     "pathAllowlist": [
       "OWNER_PUBLICATION_DELIVERY_RUNBOOK.md",
       "README.md",
       "completion-worker/api/worker.mjs",
+      "convex/automaticGeneration.js",
+      "convex/canonicalCompletionScope.js",
+      "convex/convex.config.js",
+      "convex/customerFlow.js",
+      "convex/deliveryLoop.js",
+      "convex/deliveryLoopHttp.js",
+      "convex/deliveryLoopProviders.js",
       "convex/fulfillment.js",
+      "convex/generation.js",
       "convex/http.js",
       "convex/narration.js",
       "convex/narrationHttp.js",
       "convex/narrationRuntime.js",
       "convex/narrationScope.js",
       "convex/operations.js",
+      "convex/ownerTrial.js",
+      "convex/ownerTrialCompletion.js",
+      "convex/ownerTrialCompletionContinuation.js",
+      "convex/ownerTrialPublicPlaybackRepair.js",
+      "convex/ownerTrialPublicationPresent.js",
+      "convex/ownerTrialPublicationRecovery.js",
+      "convex/ownerTrialPublicationSupersession.js",
+      "convex/ownerTrialRuntime.js",
+      "convex/privateGeneration.js",
+      "convex/privateGenerationRuntime.js",
+      "convex/schema.js",
       "docs/hosted-narration.md",
+      "docs/owner-trial-completion-continuation-contract.md",
+      "docs/owner-trial-publication-recovery-contract.md",
+      "narration-worker/api/worker.mjs",
       "ops/test-a-completion-candidate-preflight.md",
       "ops/test-a-completion-worker-audit.mjs",
       "ops/test-a-consolidated-candidate-audit.mjs",
       "ops/test-a-consolidated-candidate-evidence.json",
       "ops/test-a-hosted-provider-manifest.json",
       "owner-completion-worker/api/worker.mjs",
+      "owner-trial-completion-worker/api/publication-diagnostics.mjs",
+      "owner-trial-completion-worker/api/worker.mjs",
       "package-lock.json",
       "package.json",
+      "schemas/fulfillment-job-store.schema.json",
       "scripts/create-fictional-narration-test.mjs",
       "scripts/lib/secure-filesystem-snapshot.py",
       "scripts/verify-vercel-routing.mjs",
       "src/config/test-a-hosted-provider-manifest.mjs",
+      "src/delivery-loop/provider-transport.mjs",
       "src/demo/synthetic-demo.mjs",
       "src/demo/synthetic-narration-fixture.mjs",
+      "src/forward-coexistence/dispatch.mjs",
+      "src/forward-coexistence/live/convex/generation.js",
+      "src/forward-coexistence/live/convex/narration.js",
+      "src/forward-coexistence/live/convex/narrationRuntime.js",
+      "src/forward-coexistence/live/convex/narrationScope.js",
+      "src/forward-coexistence/live/convex/operations.js",
+      "src/forward-coexistence/live/src/fulfillment/hosted-narration-transitions.mjs",
+      "src/forward-coexistence/live/src/fulfillment/job-machine.mjs",
+      "src/fulfillment/codex-subscription-composer.mjs",
       "src/fulfillment/committed-artifact-content-set.mjs",
+      "src/fulfillment/convex-job-effect-transitions.mjs",
       "src/fulfillment/exact-revision-publication-adapter.mjs",
       "src/fulfillment/external-effect-stage-handlers.mjs",
       "src/fulfillment/hosted-generation-workspace.mjs",
       "src/fulfillment/hosted-narration-transitions.mjs",
+      "src/fulfillment/job-effect-transitions.mjs",
       "src/fulfillment/job-machine.mjs",
       "src/fulfillment/job-orchestrator.mjs",
       "src/fulfillment/local-artifact-resolver.mjs",
       "src/fulfillment/local-generation-workspace.mjs",
       "src/fulfillment/narrated-release-content-set.mjs",
       "src/fulfillment/owner-completion-capabilities.mjs",
+      "src/fulfillment/owner-trial-authority.mjs",
+      "src/fulfillment/owner-trial-completion-capabilities.mjs",
+      "src/fulfillment/owner-trial-playback-projection.mjs",
+      "src/fulfillment/owner-trial-publication-recovery-proof.mjs",
+      "src/fulfillment/prepared-narration-source.mjs",
+      "src/fulfillment/private-generation-authority.mjs",
       "src/fulfillment/resend-owner-delivery-adapter.mjs",
       "src/fulfillment/secure-filesystem-snapshot.mjs",
       "src/fulfillment/test-a-completion-capabilities.mjs",
+      "src/fulfillment/test-a-generation-runner.mjs",
       "src/fulfillment/vercel-test-a-publication-provider.mjs",
       "src/http/operations-worker-handler.mjs",
+      "src/narration/narration-media.mjs",
       "src/operations/operations-action-handlers.mjs",
       "src/operations/operations-command-worker.mjs",
       "src/operations/owner-completion-policy.mjs",
+      "src/operations/owner-trial-completion-worker.mjs",
+      "src/operations/owner-trial-present-reconciliation-worker.mjs",
+      "src/operations/owner-trial-public-playback-repair-worker.mjs",
+      "src/operations/owner-trial-publication-supersession-worker.mjs",
       "src/operations/production-completion-worker.mjs",
       "src/operations/production-generation-worker.mjs",
+      "src/operations/production-narration-worker.mjs",
       "src/operations/production-owner-completion-worker.mjs",
       "src/persistence/convex-fulfillment-store.mjs",
+      "src/persistence/convex-generation-artifact-store.mjs",
       "test/api/webhook-entrypoints.test.mjs",
+      "test/config/generation-worker-isolation.test.mjs",
       "test/config/hosted-provider-artifacts.test.mjs",
+      "test/config/narration-worker-isolation.test.mjs",
       "test/config/test-a-hosted-provider-manifest-policy.test.mjs",
       "test/config/test-a-operator-isolation-audit.test.mjs",
       "test/convex/completion-store-seam.test.mjs",
+      "test/convex/delivery-loop.test.mjs",
+      "test/convex/forward-coexistence.test.mjs",
       "test/convex/hosted-narration-contract.test.mjs",
+      "test/convex/live-compatible-retention.test.mjs",
       "test/convex/narration-lifecycle.test.mjs",
       "test/convex/narration.test.mjs",
       "test/convex/operations.test.mjs",
+      "test/convex/owner-trial-completion-continuation.test.mjs",
+      "test/convex/owner-trial-completion.test.mjs",
+      "test/convex/owner-trial-publication-present.test.mjs",
+      "test/convex/owner-trial-publication-recovery.test.mjs",
+      "test/convex/owner-trial.test.mjs",
+      "test/convex/private-generation-containment.test.mjs",
+      "test/convex/private-generation-retry.test.mjs",
+      "test/convex/private-generation.test.mjs",
+      "test/convex/production-bundle.test.mjs",
       "test/demo/synthetic-demo.test.mjs",
+      "test/fixtures/private-generation-failed-live-readback.json",
+      "test/fixtures/supersession-forward-live-schema.json",
+      "test/fixtures/supersession-predeploy-current-function-spec.json",
+      "test/fulfillment/codex-subscription-composer.test.mjs",
       "test/fulfillment/committed-artifact-content-set.test.mjs",
+      "test/fulfillment/convex-job-effect-transitions.test.mjs",
       "test/fulfillment/generation-stage-workspace.test.mjs",
       "test/fulfillment/job-orchestration.test.mjs",
+      "test/fulfillment/owner-trial-playback-projection.test.mjs",
+      "test/fulfillment/owner-trial-public-artifacts.test.mjs",
       "test/fulfillment/secure-filesystem-snapshot.test.mjs",
       "test/fulfillment/vercel-test-a-publication-provider.test.mjs",
+      "test/http/owner-trial-completion-handler.test.mjs",
+      "test/http/owner-trial-publication-diagnostics.test.mjs",
+      "test/narration/narration-media.test.mjs",
       "test/operations/completion-worker-boundary.test.mjs",
       "test/operations/hosted-generation-storage.test.mjs",
       "test/operations/operations-worker-startup.test.mjs",
       "test/operations/owner-completion-boundary.test.mjs",
+      "test/operations/production-narration-worker.test.mjs",
+      "test/packaging/codex-install-lifecycle.test.mjs",
+      "test/packaging/generation-worker-bundle.test.mjs",
       "vercel.completion-worker.json",
-      "vercel.owner-completion-worker.json"
+      "vercel.generation-worker.json",
+      "vercel.narration-worker.json",
+      "vercel.owner-completion-worker.json",
+      "vercel.owner-trial-completion-worker.json"
     ],
     "reviewedFileDigests": [
       {
@@ -171,16 +333,48 @@
         "sha256": "50952e33035e1a1a94a95e81f17613fa60609723bf2fa488509b204f66c408e7"
       },
       {
+        "path": "convex/automaticGeneration.js",
+        "sha256": "9ab6c36d422bbd468da5cdad7cb5f71e3a6543ff231c8d0ce88a6ac8609526e6"
+      },
+      {
+        "path": "convex/canonicalCompletionScope.js",
+        "sha256": "0223b16dc6d1996677050edc01105898500079d78ac023d732aa5091f2428fc1"
+      },
+      {
+        "path": "convex/convex.config.js",
+        "sha256": "1b27c32ee289e4bacfc2650718f0031618a9c786c1ca1b1793084040a659caf8"
+      },
+      {
+        "path": "convex/customerFlow.js",
+        "sha256": "016bff95d19d36735245882d3e63addc2c09e88209887eae37e0d14995db1243"
+      },
+      {
+        "path": "convex/deliveryLoop.js",
+        "sha256": "625b4e71b929b1f19bbc8b03e15ba774c62f7649c6c82eafdcf797c5672948e3"
+      },
+      {
+        "path": "convex/deliveryLoopHttp.js",
+        "sha256": "00b8a57f5dd93b0aa3b888529860043fbcd229a64e582957f4ea68c6c9d1f6f8"
+      },
+      {
+        "path": "convex/deliveryLoopProviders.js",
+        "sha256": "7f7c9b97e781f3c99693c658c1f73120c49a918dcdfd4e6f9977170f04be1714"
+      },
+      {
         "path": "convex/fulfillment.js",
-        "sha256": "87dcfa2fc52fea647dfe2209a6b89b4cd2a964feb46ac4d94c6da99bdc63aeb9"
+        "sha256": "9b77c5a1716794f5c1b1b6e03a7597be603dbf125b8161fad088204e8f7d9de1"
+      },
+      {
+        "path": "convex/generation.js",
+        "sha256": "9843fa1b9bd4fe121f6427062382a9b13c36384ef9a5ecd64730a022c354b684"
       },
       {
         "path": "convex/http.js",
-        "sha256": "0084176305e51778c4aaf1f1840e61160544e01ecc4dcd5577507e4d6cd8578d"
+        "sha256": "0b8f4ee079b3df7e7eaa17680dd1619bdf7d80d7a524cfa94367411c53b50362"
       },
       {
         "path": "convex/narration.js",
-        "sha256": "e8d6c3c986a3aa67f961aaa8d3cbcdbdc56f6aae02fee94f618ffa8b6403d4eb"
+        "sha256": "5e88afc6824d0afb2351dc391389ef0fdd412ba772245f29d1e92c30ca65e700"
       },
       {
         "path": "convex/narrationHttp.js",
@@ -188,19 +382,75 @@
       },
       {
         "path": "convex/narrationRuntime.js",
-        "sha256": "de2e32a81c81b0a1182b4507e204204e2abf03eddb145d4ad23799bbdf70eed7"
+        "sha256": "20960096ceaa6b90c1712d1fb8f7434bae00d0c0463eaf910cb42d6f6c185867"
       },
       {
         "path": "convex/narrationScope.js",
-        "sha256": "633768d019100a217a2c1a66d32605daa9c89a7787f6c9f1930eef1addcc5c03"
+        "sha256": "83af0a6293c997fe370d0477dc1551de1a526ed82c8999d6fff4784094850e1a"
       },
       {
         "path": "convex/operations.js",
-        "sha256": "082d3c23ef19406a7eee4fe3e971f558edd083e6ee8e1c310bd8f33a0e5b12ec"
+        "sha256": "4911dfbceb03710d1b9338091d3f4dca160aefe0483bd13e0945e67f5c8c343d"
+      },
+      {
+        "path": "convex/ownerTrial.js",
+        "sha256": "a6f05a50975a20b7eee15ea7887fab2cda6a7f015a7c3067dced63d4c4f6f575"
+      },
+      {
+        "path": "convex/ownerTrialCompletion.js",
+        "sha256": "f1e487a34c9e650dcea2fe1b17ba30db321a75bbf2868d510c7df334abdfb641"
+      },
+      {
+        "path": "convex/ownerTrialCompletionContinuation.js",
+        "sha256": "167f63562970bbb2aeb11562de2406fdc274ef72264bd19aecd4daf4cad1d3bb"
+      },
+      {
+        "path": "convex/ownerTrialPublicPlaybackRepair.js",
+        "sha256": "4a5a7af0ae6f85eaad0452b3bc5812417dfa7930b3574833a7b26fcc39396491"
+      },
+      {
+        "path": "convex/ownerTrialPublicationPresent.js",
+        "sha256": "a0d7bfb5d8881e2060a61a1665370e95d97d96deabf149a66505d9fc96a80f74"
+      },
+      {
+        "path": "convex/ownerTrialPublicationRecovery.js",
+        "sha256": "f2f493b82bf7bbfe98652e18e37b405702726cbf43f91c8e16aa2dd5a6770469"
+      },
+      {
+        "path": "convex/ownerTrialPublicationSupersession.js",
+        "sha256": "ce28b16745fe2493f0834d85aeab70ca5b798057d8ef03b2c86fdfc515d2bf85"
+      },
+      {
+        "path": "convex/ownerTrialRuntime.js",
+        "sha256": "6fb74ea1e58115988c206a83b6dae3809bc5e1007a5192331d47ce06b84fda2d"
+      },
+      {
+        "path": "convex/privateGeneration.js",
+        "sha256": "d22380a6bb62a20285210a73df0f9bd49bfc46b2e973a04571a78eecbe097d01"
+      },
+      {
+        "path": "convex/privateGenerationRuntime.js",
+        "sha256": "38a7e541a4a0537bb57f7be14045f6055d0e67b4d6ee6faa8a3cbaa6e0a50510"
+      },
+      {
+        "path": "convex/schema.js",
+        "sha256": "f7c53dd7e90d79b05f519e8056dfbd6a68bb0195b6a7323e16cd267470c93b01"
       },
       {
         "path": "docs/hosted-narration.md",
-        "sha256": "eb76e56cc068c9e257f4eeba9b95f841ee06eb54f1569ba2f0146631a38d9e22"
+        "sha256": "696507c9e515626c26e3a67cdb7b9dedf55a322caa214a0ebb5cf4004d6a13a3"
+      },
+      {
+        "path": "docs/owner-trial-completion-continuation-contract.md",
+        "sha256": "f758201195109724fab13bd9b3b1981d09d6ff67ff7080278f7d2d54b1b7b24b"
+      },
+      {
+        "path": "docs/owner-trial-publication-recovery-contract.md",
+        "sha256": "4f4b49378cca32a8c9b065b20655b2f4998ac31b468169d0cc30a066498fb2f9"
+      },
+      {
+        "path": "narration-worker/api/worker.mjs",
+        "sha256": "7d027b9c3338e7eb6dbf04b898be6749e377b3d3f597c62ceefa1ae008d9f6f3"
       },
       {
         "path": "ops/persist-test-a-generation-approval.mjs",
@@ -224,23 +474,35 @@
       },
       {
         "path": "ops/test-a-consolidated-candidate-audit.mjs",
-        "sha256": "1a9fb4026ec6b3457244fdfb482c0328947af1921864beff4571565ac6c3fd35"
+        "sha256": "fcd478624233b99d2ff25e3f5643067a5b5057985c9369e5597683f58fe17500"
       },
       {
         "path": "ops/test-a-hosted-provider-manifest.json",
-        "sha256": "3605fb59dc51fd7cb9713ee4e8154026cf00bbded6f0b0d7b2800f2da23d224a"
+        "sha256": "41c87cf2fa843c164aa048b36faa2195b50563a7c303b18b602da9180de54aa1"
       },
       {
         "path": "owner-completion-worker/api/worker.mjs",
         "sha256": "2a53c47b3da5a46a3fedb664b3681b65df6a6b8744d27716ba5585c2957c8799"
       },
       {
+        "path": "owner-trial-completion-worker/api/publication-diagnostics.mjs",
+        "sha256": "c68d1813defe1fa540b5b7ab070b9f1078fc08d5d2de444b1b04e1d42230514a"
+      },
+      {
+        "path": "owner-trial-completion-worker/api/worker.mjs",
+        "sha256": "175a8802a0363e64b67fce47f57a33b033b3730bddfd38bc2d04848c4e50294f"
+      },
+      {
         "path": "package-lock.json",
-        "sha256": "dae156b5ac255334cae2ec097d8c5ec0d4fc48e70a5e3a282f75c40f2981f3d4"
+        "sha256": "2607c7eb7caa2133345b1a3dddbe001a5428df7b273305b457cff3ffba9384f1"
       },
       {
         "path": "package.json",
-        "sha256": "36809d5af17a405ee35d799c63361fe58372cf77fc4a49b5693edce236b8d140"
+        "sha256": "0afb05aaca5496bd205cae4daa0fafac42c2d4702180ef2d4108ed5696f5a1a6"
+      },
+      {
+        "path": "schemas/fulfillment-job-store.schema.json",
+        "sha256": "cc289c2c568c28ed5f1a1619569e5d74ef7a0729c0825863d1749e4eae2f026c"
       },
       {
         "path": "scripts/create-fictional-narration-test.mjs",
@@ -280,7 +542,7 @@
       },
       {
         "path": "scripts/verify-vercel-routing.mjs",
-        "sha256": "9273ea07ff32816e00e651a80845e60eaa4b61dd9d91cb25013b6a03cf06ae57"
+        "sha256": "e602632455d96cdd83d1a261d3e36e469914a1ea0a4f2f442e3188cb86655d0b"
       },
       {
         "path": "src/config/hosted-customer-flow-config.mjs",
@@ -288,7 +550,7 @@
       },
       {
         "path": "src/config/test-a-hosted-provider-manifest.mjs",
-        "sha256": "3e87c750c8f49ccd7b23acd54848882d4ed3a51566631bbecaf7b727f328ef16"
+        "sha256": "20518344c226a523388b8ee03d1300ac9e820d13eabc2832c53245ece331d947"
       },
       {
         "path": "src/customer-flow/hosted-http-api.mjs",
@@ -327,6 +589,10 @@
         "sha256": "de73db43e20d51c232e3aa301a55b4452fa780aed1939275492084ccac063030"
       },
       {
+        "path": "src/delivery-loop/provider-transport.mjs",
+        "sha256": "a04cafc8d8991927ee5ea53fbb951298465c4a9a844a0a74232159e3d75ead4d"
+      },
+      {
         "path": "src/demo/synthetic-demo.mjs",
         "sha256": "120e3b2026f180cbe3c6ac2a797c67b72f8798401cbdc4ee8ca9de03d7cca72c"
       },
@@ -335,8 +601,48 @@
         "sha256": "4707f6ff6ef705bc4301fe7789675eaa5ac2c0a7f247598d7daa7a5c66e1f8b6"
       },
       {
+        "path": "src/forward-coexistence/dispatch.mjs",
+        "sha256": "b058be1dea24170d87cc3aeadb753f064e51840992391fed6c6459d3b1def273"
+      },
+      {
+        "path": "src/forward-coexistence/live/convex/generation.js",
+        "sha256": "9a2e4e830d87235f08948fb26750830e74eb61145bb8250d327808982bf26249"
+      },
+      {
+        "path": "src/forward-coexistence/live/convex/narration.js",
+        "sha256": "f37d22c6514973dea642d4fd79c05d7844482f2c9468bdf750719817c090548f"
+      },
+      {
+        "path": "src/forward-coexistence/live/convex/narrationRuntime.js",
+        "sha256": "de2e32a81c81b0a1182b4507e204204e2abf03eddb145d4ad23799bbdf70eed7"
+      },
+      {
+        "path": "src/forward-coexistence/live/convex/narrationScope.js",
+        "sha256": "633768d019100a217a2c1a66d32605daa9c89a7787f6c9f1930eef1addcc5c03"
+      },
+      {
+        "path": "src/forward-coexistence/live/convex/operations.js",
+        "sha256": "1c19ad74f7815abc01382d5e03c31b65a2b724c9e76b733c4425fc93d5e8221a"
+      },
+      {
+        "path": "src/forward-coexistence/live/src/fulfillment/hosted-narration-transitions.mjs",
+        "sha256": "2b6067fc610717b58126774315217d1ce9dc459c6a108e8366c5523ffc71fdc4"
+      },
+      {
+        "path": "src/forward-coexistence/live/src/fulfillment/job-machine.mjs",
+        "sha256": "e0bf4955b0d9a2542f05fd7079cbc69126de39515b54bba02cd690ffc7b7ad92"
+      },
+      {
+        "path": "src/fulfillment/codex-subscription-composer.mjs",
+        "sha256": "73b246f54d0ed8938bec26dbf70d9a616386daf5f6e66b13bee8a6639cc083b2"
+      },
+      {
         "path": "src/fulfillment/committed-artifact-content-set.mjs",
         "sha256": "c3f46c0296fdec31c98ff16828d2fe2166e1d3f149e2c7b63e9dc8f6ba9a2b87"
+      },
+      {
+        "path": "src/fulfillment/convex-job-effect-transitions.mjs",
+        "sha256": "098c0ca3da13566277a7b81d84d5b669cb8c2758aa6ccbb9638bcabc9eaceb83"
       },
       {
         "path": "src/fulfillment/exact-revision-publication-adapter.mjs",
@@ -352,15 +658,19 @@
       },
       {
         "path": "src/fulfillment/hosted-narration-transitions.mjs",
-        "sha256": "8c7050fe01b9d8d975d366334e8d89472bf65b3a8a6e964d58048a7f9f62b88e"
+        "sha256": "228e8ba726255710e2d7e0d5a4328aa7989b5f1e065c619cff9c0d670755306f"
+      },
+      {
+        "path": "src/fulfillment/job-effect-transitions.mjs",
+        "sha256": "9d437022a11c6f037eff16e0c4478be2b80eb75b9615886ee2d847f097f15b33"
       },
       {
         "path": "src/fulfillment/job-machine.mjs",
-        "sha256": "109b627f2c2532a44962988d36edb363300fd53925ad475b7669b7653acf9786"
+        "sha256": "a323a1d0149bebd6c457a404183aee9a6484cbebd53fbab456882b19a7424cbb"
       },
       {
         "path": "src/fulfillment/job-orchestrator.mjs",
-        "sha256": "06b87e20fd4004a9cb08369e8566ded87a660ba375d056cdc93cf490ea34cc60"
+        "sha256": "5dbb395e397d76e3284fe932b045e850adad727eaf3e6f6824b9d92c33890568"
       },
       {
         "path": "src/fulfillment/job-scoped-editorial-approval-canonicalization.mjs",
@@ -395,8 +705,32 @@
         "sha256": "d59f7f49b4e17381dc800f9519d32f14278e7f73efbfe215c2caa36f15944a23"
       },
       {
+        "path": "src/fulfillment/owner-trial-authority.mjs",
+        "sha256": "2540866cd4a1605641e72d5686e2af8bb04e08e964fb43fa4e9f3fe4df2fbe38"
+      },
+      {
+        "path": "src/fulfillment/owner-trial-completion-capabilities.mjs",
+        "sha256": "8c2711eea848ca84f914669afec281134644ede82804fc463b88e3d2a845d483"
+      },
+      {
+        "path": "src/fulfillment/owner-trial-playback-projection.mjs",
+        "sha256": "70249dc474e6cf5b29f4a888f5b3920746e3983288a71284c3c1fb3bbac9909e"
+      },
+      {
+        "path": "src/fulfillment/owner-trial-publication-recovery-proof.mjs",
+        "sha256": "245debd035d6d6b4f3af650972373f0c07db08df6e172646d75f891aae5296a7"
+      },
+      {
         "path": "src/fulfillment/persisted-review-decision.mjs",
         "sha256": "8205892867650843273eff9de97307ea55302ceee023e35b299e542419ef9798"
+      },
+      {
+        "path": "src/fulfillment/prepared-narration-source.mjs",
+        "sha256": "c7ff6091b5234746eda52538ccdee382ee6c61f6f0da2e06d79644fbf9f64815"
+      },
+      {
+        "path": "src/fulfillment/private-generation-authority.mjs",
+        "sha256": "d9cc0c9a79345a5534116d71ca0c879f6313de17201a8fd4c91fb416c6c3469a"
       },
       {
         "path": "src/fulfillment/resend-owner-delivery-adapter.mjs",
@@ -420,7 +754,7 @@
       },
       {
         "path": "src/fulfillment/test-a-generation-runner.mjs",
-        "sha256": "9adc5dd58d5dd3e74d11be541da3b97a8a32593ab2a4f55920874e7b7999612d"
+        "sha256": "85b42cd75025d12c9a6ae5a44b113f59b88f1c957e74e50465703862ff630185"
       },
       {
         "path": "src/fulfillment/test-a-generation-startup.mjs",
@@ -432,7 +766,7 @@
       },
       {
         "path": "src/fulfillment/vercel-test-a-publication-provider.mjs",
-        "sha256": "6fcb44c194c65c7192ae3124bb5cee81e460a786fbd32fdd63884de96635dd67"
+        "sha256": "fceb4e9418f7df42cc662e8e5c3cc138a169aa2dcf42e00734392de60c84a5c7"
       },
       {
         "path": "src/http/operations-worker-handler.mjs",
@@ -443,8 +777,12 @@
         "sha256": "e72cb33a4de0290944adcb6bb58ee50ab0ed282a7b4420ddcf487023909e788c"
       },
       {
+        "path": "src/narration/narration-media.mjs",
+        "sha256": "2ad0aa915bd7b1ff37af679f061645d0d05ec5f72b5dc2383b26ef85478f8086"
+      },
+      {
         "path": "src/operations/operations-action-handlers.mjs",
-        "sha256": "fd910b550306fcfc1c069f5241aee2400bc7810671fb4f56767a86fd75b9ad2e"
+        "sha256": "2f92963038567f6af992a5261b436502999ed5b820f5326264b0561d05392520"
       },
       {
         "path": "src/operations/operations-command-error.mjs",
@@ -459,12 +797,32 @@
         "sha256": "0fff9a5a1ec98ba33d5f28021dfc62ddadbd92eac7af6ad18b837c9738ee3210"
       },
       {
+        "path": "src/operations/owner-trial-completion-worker.mjs",
+        "sha256": "64e53b2cb26380543d5496f70d02f34e86dd2da564fdbcee3789fcdc150eed85"
+      },
+      {
+        "path": "src/operations/owner-trial-present-reconciliation-worker.mjs",
+        "sha256": "8cafc5d30abe8c20f968df895b07afae2293eda938162d84c7691dd3e973819f"
+      },
+      {
+        "path": "src/operations/owner-trial-public-playback-repair-worker.mjs",
+        "sha256": "1417df4f84c1fd501b73ce8e5e2c5065dbeb8cb87ad654c21764341d397fa981"
+      },
+      {
+        "path": "src/operations/owner-trial-publication-supersession-worker.mjs",
+        "sha256": "73d97e8a0b727db1340a1dd5c4d73a24771e4c868bf783d2553ac411a68fd8bf"
+      },
+      {
         "path": "src/operations/production-completion-worker.mjs",
         "sha256": "474e9c1be17d5b6a39564653bc75bafe12e06d1ab2708472bfbad8ef1d023093"
       },
       {
         "path": "src/operations/production-generation-worker.mjs",
         "sha256": "070584b7129e0b8cad84d6a156e1fb4f791a0ffeb6040429305e8e393577ad65"
+      },
+      {
+        "path": "src/operations/production-narration-worker.mjs",
+        "sha256": "f48661e2da019e1740a229aea3222c4066da499791ae8e09a98a1d74267c3d27"
       },
       {
         "path": "src/operations/production-owner-completion-worker.mjs",
@@ -479,12 +837,24 @@
         "sha256": "e09c49c91b6d6186555dd024c2926370e0c4932209079d544503fad99df06b9e"
       },
       {
+        "path": "src/persistence/convex-generation-artifact-store.mjs",
+        "sha256": "d7dfd1946a6ff0fbf0227bc0341dc7c13cd0f3f654ed55a0a61a6120c0989b86"
+      },
+      {
         "path": "test/api/webhook-entrypoints.test.mjs",
         "sha256": "3297b72943d5ca67f5fe267ae3647c8ea1077ae422bdd2ffef18e6d56856a970"
       },
       {
+        "path": "test/config/generation-worker-isolation.test.mjs",
+        "sha256": "b66a730f7f8ffe7f0a344f4ee440b45e3ec42492bcd5c6e984ffa8a92efdca5d"
+      },
+      {
         "path": "test/config/hosted-provider-artifacts.test.mjs",
         "sha256": "a02e9d592f1a7b6bd7fcc6fca6e7f2ef08bab8c3757af8d6915b05dc12ba17a2"
+      },
+      {
+        "path": "test/config/narration-worker-isolation.test.mjs",
+        "sha256": "48a4f3ad1c43365e0a2d895ad4a926ae9f98a76eec0aaccba64f9abb9c6431ca"
       },
       {
         "path": "test/config/test-a-hosted-provider-manifest-policy.test.mjs",
@@ -492,35 +862,103 @@
       },
       {
         "path": "test/config/test-a-operator-isolation-audit.test.mjs",
-        "sha256": "d45ac73425f90a541e8074cfba40d3a5065a72a20dec24d716075660dcb996a2"
+        "sha256": "2060e531479bef2b35da9b72034a47bfca7b4f45fa4fe60f4003078f879f0e46"
       },
       {
         "path": "test/convex/completion-store-seam.test.mjs",
         "sha256": "73c0f8f6e0a1e7f43184ccbe6acf1801e2a853558d123370fb4cb0274d8e2ff5"
       },
       {
+        "path": "test/convex/delivery-loop.test.mjs",
+        "sha256": "d365116a4222eacfe7d47328d93f4152c075bbf9a9833558ec4f5ef70fdf011f"
+      },
+      {
+        "path": "test/convex/forward-coexistence.test.mjs",
+        "sha256": "d81eb494bc7ea66b5bc1aac112d285bc48933792f21b85aaf7460ec717996f8b"
+      },
+      {
         "path": "test/convex/hosted-narration-contract.test.mjs",
-        "sha256": "ab52237b57a01a78dedbc1dfc0951b98a64946b83e5baab70417f6c87083cd84"
+        "sha256": "4538f05f830957d1bfb633614261019fd1e82630548d2af71073950563a0da22"
+      },
+      {
+        "path": "test/convex/live-compatible-retention.test.mjs",
+        "sha256": "c2bf4c6dc5292177a8445f77670459c567da8bb4a25c3d68ea13075cd7d8f988"
       },
       {
         "path": "test/convex/narration-lifecycle.test.mjs",
-        "sha256": "82f35e87daa73bd2c803c7f547dddb28e90ee6419422b0553162b624bee054a6"
+        "sha256": "59154c49d67dc06503da29e3fbf57b3140b703841376104ab98e418ba5b830b0"
       },
       {
         "path": "test/convex/narration.test.mjs",
-        "sha256": "c2b02a61ae16f2ae83615a43410e27037ce08eabebe8deead04dc19fa88f5545"
+        "sha256": "b46ef0dcc4b1b97f22be68a12e53c15d6eb82aeb06c81da19752b06672bb4476"
       },
       {
         "path": "test/convex/operations.test.mjs",
         "sha256": "ac2068fa3a73815f4c991984beb84b04fa639748bc842aaa132ed9e020b0eaca"
       },
       {
+        "path": "test/convex/owner-trial-completion-continuation.test.mjs",
+        "sha256": "9bbb69a2672f2313a986873c8a87f1250a2be6caaecfcc7518ddb43acb9e3843"
+      },
+      {
+        "path": "test/convex/owner-trial-completion.test.mjs",
+        "sha256": "1e8858105583de427d6290eb57a34d07ec726e3c5b5f1f5258a9d042a7929844"
+      },
+      {
+        "path": "test/convex/owner-trial-publication-present.test.mjs",
+        "sha256": "2f7ca1d145fc3543f2424f2dce212a93cb1ab4817f3d072e71dd78f7d0b40f91"
+      },
+      {
+        "path": "test/convex/owner-trial-publication-recovery.test.mjs",
+        "sha256": "5e4a36b9842b8250f5cc2afb6e84cb2925befbbf2314433f48d9f759c21b045d"
+      },
+      {
+        "path": "test/convex/owner-trial.test.mjs",
+        "sha256": "5c16a40a7dfdf27902a2581194540184f0dc634b424eedfcdea6f425b6921122"
+      },
+      {
+        "path": "test/convex/private-generation-containment.test.mjs",
+        "sha256": "aa8a1d97c9a68414fe2d847ac28e1eeea3579cbc8e3fbfb6e2816f45b6cbc627"
+      },
+      {
+        "path": "test/convex/private-generation-retry.test.mjs",
+        "sha256": "0b9951db4cffe4941c06ba37db4f45ffbbc1bdc043226e5b457292a1f6364699"
+      },
+      {
+        "path": "test/convex/private-generation.test.mjs",
+        "sha256": "a56b8605c58d0f70896f9f811cb68fcedb64abbc75e25a0dffc0b0f539288af4"
+      },
+      {
+        "path": "test/convex/production-bundle.test.mjs",
+        "sha256": "095720d4a16a5c45d439149eae08573235e2d743f4b3690aa19315354c9d2051"
+      },
+      {
         "path": "test/demo/synthetic-demo.test.mjs",
         "sha256": "d7b5922bbb05c25d2219546c948cbeface1f768b5a1a7be661f43fc76382a0c2"
       },
       {
+        "path": "test/fixtures/private-generation-failed-live-readback.json",
+        "sha256": "0fb72967ea5e6ec35e74290a92b301a3e0ac5e206fe452b68239a1fa914a2b80"
+      },
+      {
+        "path": "test/fixtures/supersession-forward-live-schema.json",
+        "sha256": "3ef79300295f1c4ae261a78192dc429e74fb857684b30a06ca0fd727755c0c98"
+      },
+      {
+        "path": "test/fixtures/supersession-predeploy-current-function-spec.json",
+        "sha256": "fd53f73700c1f30f87aa234bde9e3a9856080e5dd2838665c25ebfb604f3016c"
+      },
+      {
+        "path": "test/fulfillment/codex-subscription-composer.test.mjs",
+        "sha256": "4b1c0cb2ebf299a2f617d728e2221e4db1061995e7649657261421f92b81d723"
+      },
+      {
         "path": "test/fulfillment/committed-artifact-content-set.test.mjs",
         "sha256": "6d6e0322b3d9d33975fe7e486f83e9797158796259c12055ce6519021a94a12c"
+      },
+      {
+        "path": "test/fulfillment/convex-job-effect-transitions.test.mjs",
+        "sha256": "49a84fac648070d377af8a2bc34f16bce273213f56cb4e5221edee01c0702d5e"
       },
       {
         "path": "test/fulfillment/generation-stage-workspace.test.mjs",
@@ -531,12 +969,32 @@
         "sha256": "5a7cfe0c855c670b15c1c39eec940e90a52f4f13585d6e93df96bf357ce4b4f6"
       },
       {
+        "path": "test/fulfillment/owner-trial-playback-projection.test.mjs",
+        "sha256": "70d15ba52f87b880feacce98a9e25cc42e8243a154b0e8801cee6a99ca1783b0"
+      },
+      {
+        "path": "test/fulfillment/owner-trial-public-artifacts.test.mjs",
+        "sha256": "e55942248e4da6767932093ae15efeba375594fa952112ff2e6378f079f9bd48"
+      },
+      {
         "path": "test/fulfillment/secure-filesystem-snapshot.test.mjs",
         "sha256": "2b58cbf6d9ba7ac3c3d5dbe2bfbc9987db6aa47ccbcf7650dcc2a03cd7107752"
       },
       {
         "path": "test/fulfillment/vercel-test-a-publication-provider.test.mjs",
-        "sha256": "8c7b0cee648bbafa7664c1d45a18ad3c0bc8877cf4917b6821660d927020d95c"
+        "sha256": "64c760d55072a45a9cde17a73b09d42c38c1908ccd6bde476c02388fb308c6fa"
+      },
+      {
+        "path": "test/http/owner-trial-completion-handler.test.mjs",
+        "sha256": "81e78bb151c2635582bf17b8619bf6be61820978e5e5f3202179ff9cb0fccf4c"
+      },
+      {
+        "path": "test/http/owner-trial-publication-diagnostics.test.mjs",
+        "sha256": "9ea59e978bde8b01885e5d6789bdda0050f4e8b141020f3e27fc7c84abf64a13"
+      },
+      {
+        "path": "test/narration/narration-media.test.mjs",
+        "sha256": "a8f6fbe575fe14ad8c12f37786b2a0242047ac2459fce9611a6d6f23bfde84d3"
       },
       {
         "path": "test/operations/completion-worker-boundary.test.mjs",
@@ -555,32 +1013,88 @@
         "sha256": "5374658ed200f3fb03417ff6db90758937953e251a948ef9d795f88635954270"
       },
       {
+        "path": "test/operations/production-narration-worker.test.mjs",
+        "sha256": "ccbb115c885c230714da17a423561a80a5c156d05cfcd5333c5ba46dfc9608c0"
+      },
+      {
+        "path": "test/packaging/codex-install-lifecycle.test.mjs",
+        "sha256": "535fec98b3ab4b01d64c0fad43dfb8c38b5b85faf9763c351067388036a18f3f"
+      },
+      {
+        "path": "test/packaging/generation-worker-bundle.test.mjs",
+        "sha256": "7c8a61e205ce8a6af3f6fe1950a18c9730a81d92cfaaabd073bb0cc48a2f0960"
+      },
+      {
         "path": "vercel.completion-worker.json",
         "sha256": "0d5107dcb612ed9b1dad6e4ee52a86e49fc57f361364eb80f9db973c4fe4dd07"
       },
       {
         "path": "vercel.generation-worker.json",
-        "sha256": "8afde19b10e14b4b18be4f9516af8855c46d5c019064cc00e72a2d7d4612b841"
+        "sha256": "59df8a062d28dd30be9d4e5a216c5ac7d2ede76fb20b5e52da28323378a40fbe"
       },
       {
         "path": "vercel.json",
         "sha256": "f96a1746744ed6a26d1916d960b1615c4e1ea5df6fb93ed02ba1af1a6b5585a3"
       },
       {
+        "path": "vercel.narration-worker.json",
+        "sha256": "b635f62c4d51a50e565169eccb69a1db79f5c5c0382a0df36dc2c85e418055a6"
+      },
+      {
         "path": "vercel.owner-completion-worker.json",
         "sha256": "354ea57de130dc7feb88b866e89b0b080047f4ff1efa6b86388d15dd451a2499"
+      },
+      {
+        "path": "vercel.owner-trial-completion-worker.json",
+        "sha256": "984dba1e119814e4f951bf9ab57ed60aa92b7dd2f28d87bbe350435efdbcdc8b"
       }
     ]
   },
   "reviewedManifest": {
     "path": "ops/test-a-hosted-provider-manifest.json",
-    "sha256": "3605fb59dc51fd7cb9713ee4e8154026cf00bbded6f0b0d7b2800f2da23d224a"
+    "sha256": "41c87cf2fa843c164aa048b36faa2195b50563a7c303b18b602da9180de54aa1"
   },
   "controls": [
     {
-      "id": "isolated-generation-only-authority",
-      "requirement": "The generation-only Operations worker is packaged in a separate Vercel project with only its exact worker inventory and no customer-flow backend, payment, email, publication, provider-management, or model credentials. Every canonical read, prepare_review transition, artifact upload, commit, and byte read is bound to the active claimed generate command. Private artifacts are streamed through an authenticated Convex HTTP action without direct storage URLs. Invocation-scoped staging is ephemeral and immutable job-scoped approvals and review artifacts persist durably in Convex. Pre-effect generation failures persist only a bounded trusted reason code, and an Operations fence rejection before provider I/O atomically moves the exact claimed prepare_review attempt to retry_wait or failed without artifact or auth-state mutation. Checkout, review mutation, publication, delivery, retry, and reconciliation remain unavailable. The lower-level private generation entrypoint retains its closed approval, canonical paid-record, filesystem, replay, and exact failed-state recovery gates.",
+      "id": "owner-trial-signed-source-only-public-playback-repair",
+      "requirement": "Exact published op2 history remains fully verified and immutable while a separate dual-role, recovery-signed op3 authority binds approved storage descriptors, source-only 21-file projection and a fresh provider identity. Ordinary claimers cannot execute the op3 command or unchanged pending attempt0 old-publication queue commands. Every artifact read and provider call revalidates the signed lease and historical chain; canonical transcript selection is fenced, all original runtime/audio bytes stay unchanged, and no generation or email capability is granted. Raw complete census and full deployment detail retain actual provider shapes; conflicting id/uid, metadata, READY/project/url drift and key collisions reject before uploads/create. Commit requires one new receipt, exact alias and actual successful body hash/count evidence for every file at both deployment and stable targets. Historical recovery receipts validate their original aggregate; ordinary completion policy/queue remains valid after repair without fabricated owner acceptance or delivery.",
       "proofs": [
+        "test/convex/owner-trial-publication-present.test.mjs: real offline Convex/exporter/internal artifact/projector/Vercel worker op3 seam, raw uid census/full-detail RED/GREEN, all21 actual bodies at both targets, transcript fence, collision/tamper/stale/receipt-reuse/pagination denial, unchanged old command and startup/queue continuation",
+        "test/fulfillment/owner-trial-playback-projection.test.mjs: approved-only deterministic source projection, unchanged runtime/audio, sanitized transcript/manifests and private provenance rejection"
+      ]
+    },
+    {
+      "id": "owner-trial-positive-present-runtime-supersession",
+      "requirement": "Exact-job dual-role authorization and independently signed fresh positive-presence evidence permit one distinct corrected-source publication for the approved four-file runtime omission only. The expired original PRESENT invocation must be proven closed before alias mutation; original deployment, commands, authorizations, leases and attempts remain immutable. New source, runtime closure, idempotency, leases and signed success are fenced at every artifact, provider, canonical transition and subsequent owner-only delivery boundary. The actual complete census is bound to its signed digest and rejects any existing new-key deployment before authorization, irrespective of other metadata; every subsequent provider census is guarded so a collision, duplicate or omitted known effect cannot authorize another create or alias. Unrelated unresolved commands and uncertain replacement effects remain nonretryable. Non-auth toolbar suppression is confined to exact public GET hosts; approved bytes are unchanged. Fresh 404 responses retain their hashes but compare missing-path/status/inventory facts rather than request-specific error bodies.",
+      "proofs": [
+        "test/convex/owner-trial-publication-present.test.mjs: real 18-file approved exporter, internal Convex artifact HTTP, corrected provider inventory/public bytes, owner-only delivery, dynamic404 RED/GREEN, separated signatures, uncertainty/replay and queued delivery integrity regressions",
+        "test/convex/forward-coexistence.test.mjs: forward-only current schema, function ABI and HTTP preservation, approved trial routing and immutable provider bytes",
+        "test/convex/delivery-loop.test.mjs: existing complimentary delivery-loop authority, immutable publication, narration receipts, bounded leases and uncertain-email reconciliation remain intact"
+      ]
+    },
+    {
+      "id": "owner-trial-exact-present-effect-reconciliation",
+      "requirement": "Separate append-only exact authorization, one non-reissuable bounded dual-fenced lease and recovery-role signed fresh verified receipt reconcile only the existing deployment. Trusted signing occurs after strict provider census, inventory, configuration, public bytes and alias readback. No upload, new deployment, publication replay or false absence is allowed; immutable failed history remains unchanged and receipt-backed normal owner delivery retains completion continuation expiry and drift fences.",
+      "proofs": [
+        "test/convex/owner-trial-publication-present.test.mjs: real offline Convex/storage/provider/worker continuation-backed published-to-sent path, ambiguous/wrong census, SSO302, bytes, uncertain alias, proof binding/role/freshness and no-write denial"
+      ]
+    },
+    {
+      "id": "append-only-owner-authorized-completion-continuation",
+      "requirement": "Only the pinned already-redeemed, reviewed complimentary owner trial may acquire an immutable HMAC-signed completion continuation through both the existing owner Operations role and the separated owner-trial completion role. Inspection commits exact original ticket/customer/revision/artifact/review/provider-policy bytes before issuance. Each nonoverlapping window is at most 24 hours, chained append-only, expiry-enforced at every existing completion policy fence, and grants publication plus owner-only delivery only. Issuance changes no canonical job, ticket, approval, payment, artifact, command, event, counter or recovery receipt. Uncertain provider effects still require fresh independent signed absence recovery for every failed attempt; continuation grants no retry, generation, narration, approval, owner acceptance or delivered claim.",
+      "proofs": [
+        "test/convex/owner-trial-completion-continuation.test.mjs: behavior-level RED/GREEN expired-ticket seam, immutable issuance/replay, exact inspected binding, dual-role/finite-window/concurrency/drift denial, historical receipt preservation and default rejection",
+        "test/convex/owner-trial-completion-continuation.test.mjs: real offline completion worker publishes only after per-attempt signed recovery and both persisted fences, sends only to unchanged owner recipient, and stops at continuation expiry without provider callbacks",
+        "test/convex/owner-trial-publication-recovery.test.mjs: iterative fresh absence proofs retain historical receipts and reject unbacked next attempts"
+      ]
+    },
+    {
+      "id": "isolated-generation-only-authority",
+      "requirement": "The generation-only Operations worker is packaged in a separate Vercel project with only its exact worker inventory and no customer-flow backend, payment, email, publication, provider-management, or model credentials. Every canonical read, prepare_review transition, artifact upload, commit, and byte read is bound to the active claimed generate command. Private artifacts are streamed through an authenticated Convex HTTP action without direct storage URLs. Invocation-scoped staging is ephemeral and immutable job-scoped approvals and review artifacts persist durably in Convex. Pre-effect generation failures persist only a bounded trusted reason code, and an Operations fence rejection before provider I/O atomically moves the exact claimed prepare_review attempt to retry_wait or failed without artifact or auth-state mutation. Checkout, review mutation, publication, delivery, retry, and reconciliation remain unavailable to the generation worker. Normal generation retains its closed approval, canonical paid-record, filesystem, replay, and exact failed-state recovery gates. An operator-authenticated, feature-flagged creation action admits only the fixed fictional intake under a separate durable job/digest/environment/product-bound private-test authority, with payment explicitly not applicable rather than paid. Private fictional jobs have no checkout, publication, customer delivery, or blind retry actions, and still require distinct editorial policy and exact human content/narration review decisions.",
+      "proofs": [
+        "test/convex/private-generation.test.mjs: private fictional creation, exact authority, real offline worker seam, immutable artifact replay and forged marker rejection; production failed generate command follows pre-fence rejection without composer or stage writes; successful composer followed by prepareReview failure cannot authorize pre-effect retry",
+        "test/convex/private-generation-containment.test.mjs: generation-only private checkout/narration/publication/delivery/retry denial, injected claim/effect rejection, metadata/storage capability rejection and post-claim authority drift rejection",
+        "test/convex/private-generation-retry.test.mjs: reconciliation_required sources reject before writes or replay because no independent durable provider-specific composer-absence evidence exists; captured live-shape failure preserves every stored byte and the reconciliation block, not an invented ENOENT receipt; legacy unsafe reconciliation dispositions cannot authorize replay. Existing failed-command recovery validates canonical editorial approval, all generation artifacts, distinct credentials, persisted intake and authority, and CAS; preserves failed attempt and command history, returns an exact inert replay, and creates no command or broader capability. Failed terminal-stage fixtures are synthetic gate/security tests, not live provider-absence proof",
         "test/fulfillment/test-a-generation-runner.test.mjs: generation-only runner persists canonical intake, advances only prepare_review, and returns PII-free output",
         "test/fulfillment/test-a-generation-runner.test.mjs: generation-only end to end produces the approved neutral unknown-name dossier and stops for review",
         "test/fulfillment/test-a-generation-runner.test.mjs: legacy generation input is enriched once with the exact job-scoped approval",
@@ -619,6 +1133,21 @@
         "test/fulfillment/test-a-generation-approval-startup.test.mjs: generation approval startup persists exact immutable approval bytes through Convex",
         "test/config/generation-worker-isolation.test.mjs: generation worker is deployed only by its isolated Vercel project",
         "test/config/test-a-operator-isolation.test.mjs: the authenticated Operations worker graph contains only the reviewed generation subset while customer routes contain no private capability"
+      ]
+    },
+    {
+      "id": "isolated-narration-generation-authority",
+      "requirement": "The narration provider boundary is a separate Vercel project whose only operations capability is generate_narration. A distinct Convex token cannot review, render, publish or deliver; OPENAI_API_KEY is mounted only with that token and a distinct cron secret. The worker requires a genuine content approval, preserves exact source-private and prepared-bundle manifest commitments, verifies the approved page bytes before one-attempt Cedar TTS, decodes bounded MP3 bytes, uploads typed private objects, and commits only after Convex storage readback. Provider, timeout, oversized, malformed, truncated and uncertain upload failures are redacted and never blindly retried. A running attempt with no aggregate effect fence is automatically recovered as known absent, but an explicit failed disposition is requeued only when the persisted Operations claim proves that the queue fence was issued; deterministic failures before that fence remain terminal and unclaimable.",
+      "proofs": [
+        "test/config/narration-worker-isolation.test.mjs: reviewed manifest pins the isolated generate_narration deployment and secret store",
+        "test/convex/narration.test.mjs: TTS credential can claim only generate_narration work",
+        "test/convex/narration-lifecycle.test.mjs: durable narration commits before review and private playback survives approval",
+        "test/convex/narration-lifecycle.test.mjs: a deterministic narration failure before the queue fence remains terminal and unclaimable",
+        "test/convex/narration-lifecycle.test.mjs: a handled failure after the queue fence requeues with the original provider idempotency identity",
+        "test/narration/narration-media.test.mjs: Cedar request is exact, single-attempt, bounded, and independently ffprobe-decodable",
+        "test/narration/narration-media.test.mjs: provider, timeout, oversized, malformed, and truncated failures are redacted and terminal",
+        "test/operations/production-narration-worker.test.mjs: worker fences exactly one generation, reads exact approved page, uploads typed bytes, and completes durably",
+        "test/operations/production-narration-worker.test.mjs: uncertain provider failures are redacted, non-retryable, and never completed"
       ]
     },
     {
@@ -696,6 +1225,7 @@
       "src/customer-flow/stripe-test-gateway.mjs",
       "src/customer-flow/tally-intake-webhook.mjs",
       "src/customer-flow/tally-intake.mjs",
+      "src/fulfillment/job-effect-transitions.mjs",
       "src/fulfillment/job-machine.mjs",
       "src/fulfillment/job-orchestrator.mjs",
       "src/fulfillment/job-scoped-editorial-approval-canonicalization.mjs",
@@ -723,6 +1253,7 @@
       "scripts/lib/schema-validation.mjs",
       "scripts/lib/validators.mjs",
       "src/fulfillment/committed-artifact-content-set.mjs",
+      "src/fulfillment/job-effect-transitions.mjs",
       "src/fulfillment/job-machine.mjs",
       "src/fulfillment/job-orchestrator.mjs",
       "src/fulfillment/job-scoped-editorial-approval-canonicalization.mjs",
@@ -730,6 +1261,8 @@
       "src/fulfillment/local-generation-workspace.mjs",
       "src/fulfillment/local-prepare-review-stage-handler.mjs",
       "src/fulfillment/narrated-release-content-set.mjs",
+      "src/fulfillment/owner-trial-authority.mjs",
+      "src/fulfillment/private-generation-authority.mjs",
       "src/fulfillment/secure-filesystem-snapshot.mjs",
       "src/fulfillment/test-a-generation-policy.mjs",
       "src/fulfillment/test-a-generation-runner.mjs",
@@ -762,12 +1295,15 @@
       "src/fulfillment/codex-subscription-composer.mjs",
       "src/fulfillment/committed-artifact-content-set.mjs",
       "src/fulfillment/hosted-generation-workspace.mjs",
+      "src/fulfillment/job-effect-transitions.mjs",
       "src/fulfillment/job-machine.mjs",
       "src/fulfillment/job-orchestrator.mjs",
       "src/fulfillment/job-scoped-editorial-approval-canonicalization.mjs",
       "src/fulfillment/local-generation-workspace.mjs",
       "src/fulfillment/local-prepare-review-stage-handler.mjs",
       "src/fulfillment/narrated-release-content-set.mjs",
+      "src/fulfillment/owner-trial-authority.mjs",
+      "src/fulfillment/private-generation-authority.mjs",
       "src/fulfillment/secure-filesystem-snapshot.mjs",
       "src/fulfillment/test-a-generation-policy.mjs",
       "src/fulfillment/test-a-generation-runner.mjs",
@@ -802,6 +1338,7 @@
       "src/customer-flow/stripe-test-gateway.mjs",
       "src/customer-flow/tally-intake-webhook.mjs",
       "src/customer-flow/tally-intake.mjs",
+      "src/fulfillment/job-effect-transitions.mjs",
       "src/fulfillment/job-machine.mjs",
       "src/fulfillment/job-orchestrator.mjs",
       "src/fulfillment/job-scoped-editorial-approval-canonicalization.mjs",
@@ -835,10 +1372,26 @@
   "verification": {
     "focusedTestFiles": [
       "test/config/generation-worker-isolation.test.mjs",
+      "test/config/narration-worker-isolation.test.mjs",
       "test/config/test-a-hosted-provider-manifest-policy.test.mjs",
       "test/config/test-a-operator-isolation.test.mjs",
       "test/convex/generation.test.mjs",
       "test/convex/generation-worker-authority.test.mjs",
+      "test/convex/private-generation.test.mjs",
+      "test/convex/private-generation-containment.test.mjs",
+      "test/convex/private-generation-retry.test.mjs",
+      "test/convex/owner-trial.test.mjs",
+      "test/convex/owner-trial-completion.test.mjs",
+      "test/convex/owner-trial-completion-continuation.test.mjs",
+      "test/convex/owner-trial-publication-recovery.test.mjs",
+      "test/convex/owner-trial-publication-present.test.mjs",
+      "test/convex/delivery-loop.test.mjs",
+      "test/convex/forward-coexistence.test.mjs",
+      "test/fulfillment/owner-trial-public-artifacts.test.mjs",
+      "test/fulfillment/owner-trial-playback-projection.test.mjs",
+      "test/http/owner-trial-completion-handler.test.mjs",
+      "test/convex/narration.test.mjs",
+      "test/convex/narration-lifecycle.test.mjs",
       "test/convex/completion-store-seam.test.mjs",
       "test/convex/operations.test.mjs",
       "test/fulfillment/exact-revision-publication-adapter.test.mjs",
@@ -857,12 +1410,14 @@
       "test/fulfillment/test-a-operator-startup.test.mjs",
       "test/fulfillment/vercel-test-a-publication-provider.test.mjs",
       "test/http/operations-worker-handler.test.mjs",
+      "test/narration/narration-media.test.mjs",
       "test/operations/operations-command-worker.test.mjs",
       "test/operations/codex-packaged-response-schema.test.mjs",
       "test/operations/codex-packaged-runtime.test.mjs",
       "test/operations/operations-worker-runtime.test.mjs",
       "test/operations/operations-worker-startup.test.mjs",
       "test/operations/hosted-generation-storage.test.mjs",
+      "test/operations/production-narration-worker.test.mjs",
       "test/operations/completion-worker-boundary.test.mjs"
     ],
     "providerMutation": "none-during-audit"

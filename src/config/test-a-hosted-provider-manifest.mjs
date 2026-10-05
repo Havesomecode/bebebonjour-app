@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 
 export const EXPECTED_TEST_A_HOSTED_PROVIDER_MANIFEST_SHA256 =
-  "3605fb59dc51fd7cb9713ee4e8154026cf00bbded6f0b0d7b2800f2da23d224a";
+  "41c87cf2fa843c164aa048b36faa2195b50563a7c303b18b602da9180de54aa1";
 
 const manifestUrl = new URL("../../ops/test-a-hosted-provider-manifest.json", import.meta.url);
 
@@ -212,6 +212,183 @@ export const REVIEWED_TEST_A_GENERATION_POLICY = loadReviewedTestAGenerationPoli
   readFileSync(manifestUrl),
 );
 
+export function loadReviewedNarrationPolicy(
+  manifestBytes,
+  { expectedDigest = EXPECTED_TEST_A_HOSTED_PROVIDER_MANIFEST_SHA256 } = {},
+) {
+  const bytes = Buffer.isBuffer(manifestBytes) ? manifestBytes : Buffer.from(manifestBytes);
+  const manifestSha256 = createHash("sha256").update(bytes).digest("hex");
+  if (manifestSha256 !== expectedDigest) {
+    throw new Error("TEST-A hosted provider manifest digest does not match narration authority.");
+  }
+  let manifest;
+  try {
+    manifest = JSON.parse(bytes);
+  } catch (error) {
+    throw new Error("TEST-A hosted provider manifest is not valid JSON.", { cause: error });
+  }
+  if (manifest?.schemaVersion !== "2.0") {
+    throw new Error("TEST-A hosted provider manifest schema version is not supported.");
+  }
+
+  const runtime = requireRecord(
+    manifest.narrationOperatorRuntime,
+    "narration operator runtime policy",
+  );
+  requireExactKeys(runtime, [
+    "authorityInputs",
+    "capabilities",
+    "deployment",
+    "environmentVariables",
+    "providerOperationsEnabled",
+    "publicApiAccess",
+    "stages",
+  ], "narration operator runtime policy");
+  const authorityInputs = requireUniqueStringArray(
+    runtime.authorityInputs,
+    "narration authority inputs",
+  );
+  const capabilities = requireUniqueStringArray(
+    runtime.capabilities,
+    "narration capabilities",
+  );
+  const deployment = requireRecord(runtime.deployment, "narration deployment");
+  requireExactKeys(deployment, [
+    "configPath",
+    "entrypoint",
+    "minimumPlan",
+    "projectName",
+    "provider",
+    "route",
+    "schedule",
+  ], "narration deployment");
+  const runtimeEnvironmentVariables = requireUniqueStringArray(
+    runtime.environmentVariables,
+    "narration runtime environment variables",
+  );
+  const stages = requireUniqueStringArray(runtime.stages, "narration stages");
+  const expectedEnvironmentVariables = [
+    "CONVEX_URL",
+    "CONVEX_SITE_URL",
+    "BEBEBONJOUR_TTS_WORKER_TOKEN",
+    "OPENAI_API_KEY",
+    "CRON_SECRET",
+  ];
+  if (
+    JSON.stringify(authorityInputs) !== JSON.stringify([
+      "operationsCommandId",
+      "canonicalJobId",
+      "exactApprovedRevision",
+      "sourcePrivateReviewManifestDigest",
+      "preparedBundleManifestDigest",
+      "claimScopedConvexArtifactReads",
+    ]) ||
+    JSON.stringify(capabilities) !== JSON.stringify(["generate_narration"]) ||
+    JSON.stringify(runtimeEnvironmentVariables) !==
+      JSON.stringify(expectedEnvironmentVariables) ||
+    JSON.stringify(stages) !== JSON.stringify(["generate_tts"]) ||
+    runtime.providerOperationsEnabled !==
+      "OpenAI gpt-4o-mini-tts Cedar speech generation and Convex file storage" ||
+    runtime.publicApiAccess !== false ||
+    JSON.stringify(deployment) !== JSON.stringify({
+      provider: "Vercel",
+      projectName: "bebebonjour-narration-worker",
+      configPath: "vercel.narration-worker.json",
+      entrypoint: "narration-worker/api/worker.mjs",
+      route: "GET /api/operations/narration-worker",
+      schedule: "*/5 * * * *",
+      minimumPlan: "pro",
+    })
+  ) {
+    throw new Error("TEST-A narration authority must remain isolated to generate_narration.");
+  }
+
+  const storage = requireRecord(
+    manifest.narrationArtifactStorage,
+    "narration artifact storage policy",
+  );
+  requireExactKeys(storage, [
+    "durabilityAuthority",
+    "ephemeralExecutionStorage",
+    "immutability",
+    "maximumArtifactSetBytes",
+    "maximumFileBytes",
+    "maximumFiles",
+    "persistedResources",
+    "provider",
+    "publicReadAccess",
+    "readback",
+    "writeAuthority",
+  ], "narration artifact storage policy");
+  if (
+    storage.writeAuthority !== "BEBEBONJOUR_TTS_WORKER_TOKEN" ||
+    storage.publicReadAccess !== false ||
+    storage.maximumFileBytes !== 20_971_520 ||
+    storage.maximumArtifactSetBytes !== 67_108_864 ||
+    storage.maximumFiles !== 2_048
+  ) {
+    throw new Error("TEST-A narration storage authority is not bounded and private.");
+  }
+
+  const secretStore = requireRecord(
+    manifest.secretStores?.narrationOperator,
+    "narration operator secret-store policy",
+  );
+  const allowedEnvironmentVariables = requireUniqueStringArray(
+    secretStore.allowed,
+    "narration allowed environment variables",
+  );
+  const forbiddenEnvironmentVariables = requireUniqueStringArray(
+    secretStore.forbidden,
+    "narration forbidden environment variables",
+  );
+  if (
+    JSON.stringify(allowedEnvironmentVariables) !==
+      JSON.stringify(runtimeEnvironmentVariables) ||
+    allowedEnvironmentVariables.some((name) =>
+      forbiddenEnvironmentVariables.includes(name),
+    ) ||
+    ![
+      "BEBEBONJOUR_OPERATIONS_WORKER_TOKEN",
+      "BEBEBONJOUR_COMPLETION_WORKER_TOKEN",
+      "BEBEBONJOUR_OWNER_COMPLETION_WORKER_TOKEN",
+      "BEBEBONJOUR_NARRATION_WORKER_TOKEN",
+      "CUSTOMER_FLOW_BACKEND_TOKEN",
+      "RESEND_API_KEY",
+      "STRIPE_SECRET_KEY",
+      "VERCEL_TOKEN",
+    ].every((name) => forbiddenEnvironmentVariables.includes(name))
+  ) {
+    throw new Error("TEST-A narration environment does not match its isolated secret-store policy.");
+  }
+  for (const [name, store] of Object.entries(manifest.secretStores || {})) {
+    if (name !== "narrationOperator" && store.allowed?.includes("OPENAI_API_KEY")) {
+      throw new Error("OPENAI_API_KEY must remain exclusive to the narration project.");
+    }
+    if (
+      !["narrationOperator", "convexProduction"].includes(name) &&
+      store.allowed?.includes("BEBEBONJOUR_TTS_WORKER_TOKEN")
+    ) {
+      throw new Error("Narration worker authority leaked into another secret store.");
+    }
+  }
+  return deepFreeze({
+    allowedEnvironmentVariables,
+    authorityInputs,
+    capabilities,
+    deployment,
+    forbiddenEnvironmentVariables,
+    manifestSha256,
+    runtimeEnvironmentVariables,
+    stages,
+    storage,
+  });
+}
+
+export const REVIEWED_NARRATION_POLICY = loadReviewedNarrationPolicy(
+  readFileSync(manifestUrl),
+);
+
 export function loadReviewedTestACompletionPolicy(
   manifestBytes,
   { expectedDigest = EXPECTED_TEST_A_HOSTED_PROVIDER_MANIFEST_SHA256 } = {},
@@ -329,6 +506,43 @@ export function loadReviewedTestACompletionPolicy(
 export const REVIEWED_TEST_A_COMPLETION_POLICY = loadReviewedTestACompletionPolicy(
   readFileSync(manifestUrl),
 );
+
+export function requireReviewedNarrationEnvironment(
+  environment,
+  { policy = REVIEWED_NARRATION_POLICY } = {},
+) {
+  for (const name of policy.forbiddenEnvironmentVariables) {
+    if (environment?.[name] !== undefined) {
+      throw new Error(
+        `${name} is forbidden by the reviewed narration secret-store policy.`,
+      );
+    }
+  }
+  for (const name of policy.allowedEnvironmentVariables) {
+    if (
+      typeof environment?.[name] !== "string" ||
+      environment[name].trim() === ""
+    ) {
+      throw new Error(
+        `${name} is required by the reviewed narration secret-store policy.`,
+      );
+    }
+  }
+  if (
+    new Set([
+      environment.BEBEBONJOUR_TTS_WORKER_TOKEN,
+      environment.OPENAI_API_KEY,
+      environment.CRON_SECRET,
+    ]).size !== 3
+  ) {
+    throw new Error("Narration credentials must remain distinct.");
+  }
+  return Object.freeze(
+    Object.fromEntries(
+      policy.allowedEnvironmentVariables.map((name) => [name, environment[name]]),
+    ),
+  );
+}
 
 export function requireReviewedTestACompletionEnvironment(
   environment,

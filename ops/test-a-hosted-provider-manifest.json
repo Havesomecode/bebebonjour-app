@@ -465,6 +465,40 @@
       "deliver"
     ]
   },
+  "narrationOperatorRuntime": {
+    "authorityInputs": [
+      "operationsCommandId",
+      "canonicalJobId",
+      "exactApprovedRevision",
+      "sourcePrivateReviewManifestDigest",
+      "preparedBundleManifestDigest",
+      "claimScopedConvexArtifactReads"
+    ],
+    "capabilities": [
+      "generate_narration"
+    ],
+    "deployment": {
+      "provider": "Vercel",
+      "projectName": "bebebonjour-narration-worker",
+      "configPath": "vercel.narration-worker.json",
+      "entrypoint": "narration-worker/api/worker.mjs",
+      "route": "GET /api/operations/narration-worker",
+      "schedule": "*/5 * * * *",
+      "minimumPlan": "pro"
+    },
+    "environmentVariables": [
+      "CONVEX_URL",
+      "CONVEX_SITE_URL",
+      "BEBEBONJOUR_TTS_WORKER_TOKEN",
+      "OPENAI_API_KEY",
+      "CRON_SECRET"
+    ],
+    "providerOperationsEnabled": "OpenAI gpt-4o-mini-tts Cedar speech generation and Convex file storage",
+    "publicApiAccess": false,
+    "stages": [
+      "generate_tts"
+    ]
+  },
   "generationArtifactStorage": {
     "provider": "Convex file storage and indexed metadata",
     "durabilityAuthority": "convex.identity",
@@ -483,6 +517,23 @@
     "maximumFiles": 2048,
     "immutability": "job + revision + kind metadata is insert-once; conflicting writes are rejected",
     "readback": "claim-scoped authenticated Convex HTTP action streams at most 20 MiB per file and verifies bytes plus sha256 before use; no direct storage URL is returned"
+  },
+  "narrationArtifactStorage": {
+    "provider": "Convex file storage and canonical fulfillment artifact sets",
+    "durabilityAuthority": "convex.identity",
+    "ephemeralExecutionStorage": "Vercel memory only; no narration artifact is trusted until Convex storage readback passes",
+    "persistedResources": [
+      "_storage",
+      "fulfillmentJobs",
+      "customerFlowOperationsCommands"
+    ],
+    "writeAuthority": "BEBEBONJOUR_TTS_WORKER_TOKEN",
+    "publicReadAccess": false,
+    "maximumFileBytes": 20971520,
+    "maximumArtifactSetBytes": 67108864,
+    "maximumFiles": 2048,
+    "immutability": "the narration review set preserves every prepared file and commits exact storage ids, byte counts, sha256 digests, approved revision, prepared manifest digest, and source private-review manifest digest",
+    "readback": "claim-scoped authenticated Convex HTTP reads verify approved page bytes before spend; canonical commit re-reads durable storage metadata and narration metadata bytes before review"
   },
   "secretStores": {
     "vercelProduction": {
@@ -611,6 +662,47 @@
         "TALLY_INTAKE_FIELD_MAP"
       ]
     },
+    "narrationOperator": {
+      "owner": "isolated Vercel narration-generation project",
+      "allowed": [
+        "CONVEX_URL",
+        "CONVEX_SITE_URL",
+        "BEBEBONJOUR_TTS_WORKER_TOKEN",
+        "OPENAI_API_KEY",
+        "CRON_SECRET"
+      ],
+      "forbidden": [
+        "BEBEBONJOUR_OPERATIONS_TOKEN",
+        "BEBEBONJOUR_OPS_RATE_LIMIT_TOKEN",
+        "BEBEBONJOUR_OPERATIONS_WORKER_TOKEN",
+        "BEBEBONJOUR_COMPLETION_WORKER_TOKEN",
+        "BEBEBONJOUR_OWNER_COMPLETION_WORKER_TOKEN",
+        "BEBEBONJOUR_NARRATION_WORKER_TOKEN",
+        "BEBEBONJOUR_APPROVAL_HMAC_KEY",
+        "BEBEBONJOUR_CODEX_AUTH_ENCRYPTION_KEY",
+        "BEBEBONJOUR_CODEX_AUTH_BOOTSTRAP_B64",
+        "CONVEX_DEPLOY_KEY",
+        "CUSTOMER_FLOW_BACKEND_TOKEN",
+        "CUSTOMER_FLOW_TOKEN_ENCRYPTION_KEY",
+        "CUSTOMER_FLOW_TEST_ACCESS_TOKEN",
+        "RESEND_API_KEY",
+        "RESEND_FROM",
+        "STRIPE_SECRET_KEY",
+        "STRIPE_LIVE_SECRET_KEY",
+        "STRIPE_CUSTOMER_FLOW_WEBHOOK_SECRET",
+        "VERCEL_TOKEN",
+        "VERCEL_PROTECTION_BYPASS_SECRET",
+        "VERCEL_BUILD_INSPECTION_B64",
+        "TEST_A_PUBLICATION_ORIGIN",
+        "TEST_A_PUBLICATION_VERCEL_TEAM_ID",
+        "TEST_A_PUBLICATION_VERCEL_PROJECT_ID",
+        "TEST_A_PUBLICATION_VERCEL_PROJECT_NAME",
+        "VITE_FULFILLMENT_API_BASE_URL",
+        "VITE_FULFILLMENT_API_APPROVED_HOSTED_ORIGIN",
+        "TALLY_INTAKE_SIGNING_SECRET",
+        "TALLY_INTAKE_FIELD_MAP"
+      ]
+    },
     "completionOperator": {
       "owner": "isolated Vercel synthetic completion-only project",
       "allowed": [
@@ -663,6 +755,8 @@
         "CUSTOMER_FLOW_BACKEND_TOKEN",
         "BEBEBONJOUR_OPERATIONS_WORKER_TOKEN",
         "BEBEBONJOUR_COMPLETION_WORKER_TOKEN",
+        "BEBEBONJOUR_NARRATION_WORKER_TOKEN",
+        "BEBEBONJOUR_TTS_WORKER_TOKEN",
         "TEST_A_PUBLICATION_ORIGIN"
       ],
       "forbidden": [
@@ -673,6 +767,7 @@
         "STRIPE_CUSTOMER_FLOW_WEBHOOK_SECRET",
         "RESEND_API_KEY",
         "RESEND_FROM",
+        "OPENAI_API_KEY",
         "VERCEL_TOKEN"
       ]
     }

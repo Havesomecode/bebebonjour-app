@@ -96,10 +96,15 @@ export function createOperationsActionHandlers({
         providerStatus: command.payload.providerStatus,
       }));
       const aggregate = await fulfillmentStore.getJob(command.jobId, command.workerAuthority);
+      const unresolvedNarration = command.payload.providerStatus === "confirmed_absent"
+        && aggregate.state === "reconciliation_required"
+        && aggregate.stageAttempts?.at(-1)?.stage === "generate_tts"
+        && aggregate.stageAttempts.at(-1).status === "reconciliation_required"
+        && aggregate.stageAttempts.at(-1).operationsCommandId === command.payload.sourceCommandId;
       return {
         code: "reconciled",
-        jobVersion: aggregate.version,
-        reconciledState: aggregate.state,
+        jobVersion: aggregate.version + (unresolvedNarration ? 1 : 0),
+        reconciledState: unresolvedNarration ? "tts_queued" : aggregate.state,
         sourceCommandId: command.payload.sourceCommandId,
         providerStatus: command.payload.providerStatus,
       };

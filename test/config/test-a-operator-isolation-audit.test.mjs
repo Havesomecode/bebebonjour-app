@@ -22,14 +22,40 @@ test("successor consolidated audit binds the complete reviewed source boundary",
   assert.equal(result.pathAllowlistCount, result.changedPathCount);
   assert.ok(result.reviewInputCount > 20);
   assert.ok(result.reviewInputCount >= result.pathAllowlistCount);
-  assert.equal(result.controlCount, 7);
-  assert.equal(result.focusedTestFileCount, 30);
+  assert.equal(result.controlCount, 12);
+  assert.equal(result.focusedTestFileCount, 48);
   assert.match(result.reviewedManifestSha256, /^[a-f0-9]{64}$/u);
   assert.equal(result.providerMutation, "none-during-audit");
   const evidence = JSON.parse(readFileSync(
     new URL("../../ops/test-a-consolidated-candidate-evidence.json", import.meta.url),
     "utf8",
   ));
+  assert.ok(evidence.verification.focusedTestFiles.includes("test/convex/private-generation.test.mjs"));
+  assert.ok(evidence.verification.focusedTestFiles.includes("test/convex/private-generation-containment.test.mjs"));
+  assert.ok(evidence.verification.focusedTestFiles.includes("test/convex/private-generation-retry.test.mjs"));
+  assert.ok(evidence.verification.focusedTestFiles.includes("test/convex/owner-trial.test.mjs"));
+  assert.ok(evidence.verification.focusedTestFiles.includes("test/convex/owner-trial-completion.test.mjs"));
+  assert.ok(evidence.verification.focusedTestFiles.includes("test/convex/owner-trial-completion-continuation.test.mjs"));
+  assert.ok(evidence.verification.focusedTestFiles.includes("test/convex/owner-trial-publication-recovery.test.mjs"));
+  assert.ok(evidence.verification.focusedTestFiles.includes("test/convex/owner-trial-publication-present.test.mjs"));
+  assert.ok(evidence.verification.focusedTestFiles.includes("test/convex/delivery-loop.test.mjs"));
+  assert.ok(evidence.verification.focusedTestFiles.includes("test/convex/forward-coexistence.test.mjs"));
+  assert.ok(evidence.controls.some((control) => control.id === "owner-trial-positive-present-runtime-supersession"));
+  assert.ok(evidence.controls.some((control) => control.id === "owner-trial-signed-source-only-public-playback-repair"));
+  assert.ok(evidence.verification.focusedTestFiles.includes("test/fulfillment/owner-trial-playback-projection.test.mjs"));
+  for (const modulePath of [
+    "convex/ownerTrialPublicPlaybackRepair.js",
+    "src/fulfillment/owner-trial-playback-projection.mjs",
+    "src/operations/owner-trial-public-playback-repair-worker.mjs",
+    "convex/ownerTrialPublicationSupersession.js",
+    "src/operations/owner-trial-publication-supersession-worker.mjs",
+    "src/forward-coexistence/dispatch.mjs",
+    "src/forward-coexistence/live/convex/operations.js",
+    "convex/deliveryLoop.js",
+    "convex/deliveryLoopHttp.js",
+  ]) {
+    assert.ok(evidence.candidateBoundary.reviewedFileDigests.some((file) => file.path === modulePath));
+  }
   assert.equal(
     evidence.candidateBoundary.changedPaths.includes("ops/.tmp-hermes-simulate-test-payment.mjs"),
     false,

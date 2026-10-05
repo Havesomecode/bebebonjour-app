@@ -1,0 +1,160 @@
+{
+  "availableActions": [
+    "reconcile"
+  ],
+  "commandCursor": null,
+  "commands": [
+    {
+      "action": "generate",
+      "attempts": 1,
+      "claim": null,
+      "commandId": "command_private_codex_112581388b3be445_generate_v1",
+      "expectedState": "generation_queued",
+      "expectedVersion": 1,
+      "jobId": "job_private_codex_112581388b3be445de16bc6e524b9c16",
+      "lastFailureReason": "generation_stage_failed",
+      "outcome": null,
+      "payload": {},
+      "requestedAt": "2026-10-02T14:24:49.625Z",
+      "requestedBy": "primary_operator",
+      "state": "reconciliation_required",
+      "updatedAt": "2026-10-02T14:24:55.570Z"
+    }
+  ],
+  "commandsHasMore": false,
+  "customer": {
+    "createdAt": "2026-10-02T13:17:29.606Z",
+    "intake": {
+      "baby": {
+        "firstName": "Aélio-Z",
+        "gender": "girl",
+        "nameArabic": "أيليو"
+      },
+      "context": {
+        "religion": "islam"
+      },
+      "customer": {
+        "email": "fictional-codex@example.invalid"
+      },
+      "languages": [
+        "fr",
+        "ar"
+      ],
+      "notes": {
+        "specificDemands": "Fully fictional private operator test. General family wishes only; do not invent name meanings or scriptural name associations."
+      },
+      "requestId": "job_private_codex_112581388b3be445de16bc6e524b9c16",
+      "schemaVersion": "1.0",
+      "submittedAt": "2026-01-01T00:00:00.000Z",
+      "voicePreference": {
+        "enabled": true,
+        "gender": "male"
+      }
+    },
+    "intakeDigest": "d2d8343d3bfea26923e4002739f55a84a569c1d7fe06f1890f7582ab6445060f",
+    "jobId": "job_private_codex_112581388b3be445de16bc6e524b9c16",
+    "payment": {
+      "checkout": null,
+      "paidAt": null,
+      "status": "not_applicable"
+    },
+    "schemaVersion": "1.0",
+    "updatedAt": "2026-10-02T13:17:29.606Z",
+    "version": 1
+  },
+  "fulfillment": {
+    "artifactSets": [],
+    "authority": "convex-target/local-test-projection",
+    "createdAt": "2026-10-02T13:17:29.606Z",
+    "currentRevisionId": null,
+    "deliveryAttempts": [],
+    "environment": "test",
+    "events": [
+      {
+        "at": "2026-10-02T13:17:29.606Z",
+        "commandDigest": "a85926262f054ce3e32bcdcd9dfe31dad65dce1d035670315ff70942d40f6224",
+        "commandId": "private-create:112581388b3be445de16bc6e524b9c16a7827b254e87f21530350cf9a573cc91",
+        "eventId": "event_a505c036092320f0648ec438",
+        "state": "generation_queued",
+        "type": "job_created"
+      },
+      {
+        "at": "2026-10-02T14:24:55.288Z",
+        "commandDigest": "158c637fa2f91c5f7f7223e39796fa99816e6003eb6063aa08e5ddaeed63d1ac",
+        "commandId": "claim:job_private_codex_112581388b3be445de16bc6e524b9c16:unassigned:prepare_review:1",
+        "eventId": "event_601a4b9ceab5884dc7ddf1e7",
+        "state": "generating",
+        "type": "stage_claimed"
+      },
+      {
+        "at": "2026-10-02T14:24:55.500Z",
+        "commandDigest": "3336ea831984e872d155bef763666e0657ab2c77d554d08af6d2b384198023a0",
+        "commandId": "fail:attempt_60a14d5590198cb7e9a4c3ac:stage_error",
+        "eventId": "event_32616f29ff4cc1fcec07873d",
+        "state": "failed",
+        "type": "stage_failed"
+      }
+    ],
+    "intakeDigest": "d2d8343d3bfea26923e4002739f55a84a569c1d7fe06f1890f7582ab6445060f",
+    "jobId": "job_private_codex_112581388b3be445de16bc6e524b9c16",
+    "narrationRequired": true,
+    "payment": null,
+    "paymentCorrelation": null,
+    "privateTestAuthority": {
+      "acknowledgement": "fictional-unpaid-codex-private-review-only",
+      "creationKeyDigest": "112581388b3be445de16bc6e524b9c16a7827b254e87f21530350cf9a573cc91",
+      "environment": "test",
+      "intakeDigest": "d2d8343d3bfea26923e4002739f55a84a569c1d7fe06f1890f7582ab6445060f",
+      "jobId": "job_private_codex_112581388b3be445de16bc6e524b9c16",
+      "ownerSourceReference": "kanban:t_4b1eb28f",
+      "product": "operator_private_codex_test",
+      "version": "private-fictional-codex-v1"
+    },
+    "product": "operator_private_codex_test",
+    "publication": null,
+    "publishedRevisionId": null,
+    "retry": null,
+    "reviewDecisions": [],
+    "revisions": [],
+    "schemaVersion": "1.0",
+    "stageAttempts": [
+      {
+        "attemptId": "attempt_60a14d5590198cb7e9a4c3ac",
+        "attemptNumber": 1,
+        "completedAt": "2026-10-02T14:24:55.500Z",
+        "effectStartedAt": null,
+        "failure": {
+          "reasonCode": "stage_error",
+          "retryable": false
+        },
+        "idempotencyKey": "bb_60a14d5590198cb7e9a4c3acab5622341a52ce38194b63238d14fe70cd43d66b",
+        "leaseExpiresAt": null,
+        "leaseToken": null,
+        "operationBinding": null,
+        "operationNumber": 1,
+        "operationsCommandId": "command_private_codex_112581388b3be445_generate_v1",
+        "revisionId": null,
+        "stage": "prepare_review",
+        "startedAt": "2026-10-02T14:24:55.288Z",
+        "status": "failed"
+      }
+    ],
+    "state": "failed",
+    "updatedAt": "2026-10-02T14:24:55.500Z",
+    "version": 3
+  },
+  "summary": {
+    "babyName": "Aélio-Z",
+    "createdAt": "2026-10-02T13:17:29.606Z",
+    "customerEmail": "fictional-codex@example.invalid",
+    "jobId": "job_private_codex_112581388b3be445de16bc6e524b9c16",
+    "languages": [
+      "fr",
+      "ar"
+    ],
+    "narrationRequired": true,
+    "paymentStatus": "not_applicable",
+    "state": "reconciliation_required",
+    "updatedAt": "2026-10-02T14:24:55.500Z"
+  }
+}

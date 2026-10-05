@@ -130,7 +130,7 @@ export function createVercelTestAPublicationProvider(options = {}) {
     const uploaded = [];
     for (const file of deploymentFiles) {
       const sha = sha1(file.bytes);
-      await fencedProviderMutation(request, false, () => vercelRequest(`/v2/files?${teamQuery}`, {
+      await fencedProviderMutation(request, true, () => vercelRequest(`/v2/files?${teamQuery}`, {
         method: "POST",
         headers: {
           "content-type": "application/octet-stream",
@@ -769,20 +769,36 @@ function flattenDeploymentFiles(inventory) {
     }
   };
   visit(inventory, "", 0);
+  // Vercel's source inventory may wrap all uploaded paths in this one
+  // virtual root. Validate the complete tree before removing only that root;
+  // siblings or nested src directories must still fail exact path equality.
+  if (
+    inventory.length === 1
+    && inventory[0].name === "src"
+    && inventory[0].type === "directory"
+    && inventory[0].mode === 16749
+  ) {
+    return files.map(({ path, uid }) => ({ path: path.slice("src/".length), uid }));
+  }
   return files;
 }
 
 function decodeProviderFileContents(evidence) {
+  // The live /v8 contents response is a data-only base64 envelope. Keep
+  // legacy fixture support, but never choose between ambiguous envelopes.
+  const dataEnvelope = evidence && typeof evidence === "object" && !Array.isArray(evidence)
+    && Object.keys(evidence).length === 1 && Object.hasOwn(evidence, "data");
+  const content = dataEnvelope ? evidence.data : evidence?.content;
   if (
-    evidence?.encoding !== "base64"
-    || typeof evidence.content !== "string"
-    || evidence.content.length % 4 !== 0
-    || !/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/u.test(evidence.content)
+    (!dataEnvelope && (evidence?.encoding !== "base64" || Object.hasOwn(evidence, "data")))
+    || typeof content !== "string"
+    || content.length % 4 !== 0
+    || !/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/u.test(content)
   ) {
     throw providerError("Vercel provider configuration evidence is malformed.", false);
   }
-  const bytes = Buffer.from(evidence.content, "base64");
-  if (bytes.toString("base64") !== evidence.content) {
+  const bytes = Buffer.from(content, "base64");
+  if (bytes.toString("base64") !== content) {
     throw providerError("Vercel provider configuration evidence is malformed.", false);
   }
   return bytes;

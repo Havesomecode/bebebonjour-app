@@ -6,12 +6,16 @@ import { makeFunctionReference as ref } from "convex/server";
 import schema from "../../convex/schema.js";
 const hash = (value) => createHash("sha256").update(value).digest("hex");
 const workerToken = "narration-worker-test-token-32-characters";
+const generationToken = "tts-worker-lifecycle-token-32-characters";
 const operatorToken = "operator-narration-test-32-characters";
+const operationsWorkerToken = "operations-worker-narration-test-32-characters";
 const jobId = "job_narration_lifecycle";
 const workerId = "hosted-narration-worker";
 async function fixture() {
   process.env.BEBEBONJOUR_NARRATION_WORKER_TOKEN = workerToken;
+  process.env.BEBEBONJOUR_TTS_WORKER_TOKEN = generationToken;
   process.env.BEBEBONJOUR_OPERATIONS_TOKEN = operatorToken;
+  process.env.BEBEBONJOUR_OPERATIONS_WORKER_TOKEN = operationsWorkerToken;
   const t = convexTest(schema, {
     "./_generated/server.js": () => import("convex/server"),
     "./operations.js": () => import("../../convex/operations.js"),
@@ -127,8 +131,10 @@ async function command(t, action) {
     expectedVersion: job.version,
     payload,
   });
+  const commandWorkerToken =
+    action === "generate_narration" ? generationToken : workerToken;
   const [claimed] = await t.mutation(ref("operations:claimCommands"), {
-    workerToken,
+    workerToken: commandWorkerToken,
     workerId,
     jobId,
     actions: [action],
@@ -137,14 +143,14 @@ async function command(t, action) {
   });
   assert.ok(claimed);
   const auth = {
-    workerToken,
+    workerToken: commandWorkerToken,
     workerId,
     jobId,
     commandId,
     leaseToken: claimed.claim.leaseToken,
   };
   await t.mutation(ref("operations:fenceCommand"), {
-    workerToken,
+    workerToken: commandWorkerToken,
     workerId,
     commandId,
     leaseToken: auth.leaseToken,
@@ -156,6 +162,50 @@ async function command(t, action) {
 async function finish(t, auth, outcome) {
   const { jobId: _jobId, ...rest } = auth;
   await t.mutation(ref("operations:completeCommand"), { ...rest, outcome });
+}
+async function beginNarrationGeneration(t) {
+  let auth = await command(t, "approve_content");
+  await finish(
+    t,
+    auth,
+    await t.action(ref("narrationRuntime:advance"), {
+      ...auth,
+      operation: "review",
+    }),
+  );
+  auth = await command(t, "render");
+  await finish(
+    t,
+    auth,
+    await t.action(ref("narrationRuntime:advance"), {
+      ...auth,
+      operation: "render",
+    }),
+  );
+  auth = await command(t, "generate_narration");
+  await t.action(ref("narrationRuntime:advance"), {
+    ...auth,
+    operation: "begin",
+  });
+  return auth;
+}
+async function expireNarrationClaim(t, auth) {
+  await t.run(async (ctx) => {
+    const sourceCommand = await ctx.db
+      .query("customerFlowOperationsCommands")
+      .withIndex("by_command_id", (query) => query.eq("commandId", auth.commandId))
+      .unique();
+    const fulfillment = await ctx.db
+      .query("fulfillmentJobs")
+      .withIndex("by_job_id", (query) => query.eq("jobId", jobId))
+      .unique();
+    const aggregate = structuredClone(fulfillment.aggregate);
+    aggregate.stageAttempts.at(-1).leaseExpiresAt = new Date(Date.now() - 1).toISOString();
+    await ctx.db.patch(fulfillment._id, { aggregate });
+    await ctx.db.patch(sourceCommand._id, {
+      claim: { ...sourceCommand.claim, leaseExpiresAtMs: Date.now() - 1 },
+    });
+  });
 }
 test("supported fictional bootstrap creates an unpaid operator-authored narrated job without rewriting a job", async () => {
   const { t } = await fixture();
@@ -237,6 +287,10 @@ test("durable narration commits before review and private playback survives appr
     leaseMs: 300000,
     effectMayBeIssued: true,
   });
+  await t.action(ref("narrationRuntime:advance"), {
+    ...auth,
+    operation: "fence",
+  });
   const job = await read(t);
   const prepared = job.artifactSets.at(-1);
   const files = [...prepared.files];
@@ -245,6 +299,8 @@ test("durable narration commits before review and private playback survives appr
     jobId,
     revisionId: "r1",
     preparedManifestDigest: prepared.assetManifestDigest,
+    sourcePrivateReviewManifestDigest:
+      prepared.sourcePrivateReviewManifestDigest,
     provider: "openai",
     model: "gpt-4o-mini-tts",
     voice: "cedar",
@@ -294,6 +350,7 @@ test("durable narration commits before review and private playback survives appr
     revisionId: "r1",
     pageDigest: prepared.pageDigest,
     transcriptDigest,
+    sourcePreparedBundleManifestDigest: prepared.assetManifestDigest,
     assetManifestDigest: hash(
       `${JSON.stringify({ schemaVersion: "1.0", kind: "narration_review", revisionId: "r1", files: files.map(({ path, storageId, bytes, sha256 }) => ({ path, storageId, bytes, sha256 })) }, null, 2)}\n`,
     ),
@@ -418,6 +475,10 @@ test("queued human content decision and render produce durable approved prepared
     leaseMs: 300000,
     effectMayBeIssued: true,
   });
+  await t.action(ref("narrationRuntime:advance"), {
+    ...auth,
+    operation: "fence",
+  });
   assert.equal((await read(t)).state, "tts_generating");
   await assert.rejects(
     t.action(ref("narrationRuntime:advance"), {
@@ -433,9 +494,314 @@ test("queued human content decision and render produce durable approved prepared
       operation: "begin",
     }),
   );
+  await t.run(async (ctx) => {
+    const sourceCommand = await ctx.db
+      .query("customerFlowOperationsCommands")
+      .withIndex("by_command_id", (q) => q.eq("commandId", auth.commandId))
+      .unique();
+    const fulfillment = await ctx.db
+      .query("fulfillmentJobs")
+      .withIndex("by_job_id", (q) => q.eq("jobId", jobId))
+      .unique();
+    const aggregate = structuredClone(fulfillment.aggregate);
+    aggregate.stageAttempts.at(-1).leaseExpiresAt = new Date(Date.now() - 1).toISOString();
+    await ctx.db.patch(fulfillment._id, { aggregate });
+    await ctx.db.patch(sourceCommand._id, {
+      claim: { ...sourceCommand.claim, leaseExpiresAtMs: Date.now() - 1 },
+    });
+  });
+  assert.deepEqual(await t.mutation(ref("operations:claimCommands"), {
+    workerToken: generationToken,
+    workerId,
+    jobId,
+    actions: ["generate_narration"],
+    limit: 1,
+    leaseMs: 300000,
+  }), []);
+  const uncertain = await read(t);
+  assert.equal(uncertain.state, "reconciliation_required");
+  assert.equal(uncertain.stageAttempts.at(-1).status, "reconciliation_required");
+
+  const sourceCommand = await t.run(async (ctx) => ctx.db
+    .query("customerFlowOperationsCommands")
+    .withIndex("by_command_id", (q) => q.eq("commandId", auth.commandId))
+    .unique());
+  assert.equal(sourceCommand.state, "reconciliation_required");
+  assert.equal(sourceCommand.lastFailureReason, "external_effect_lease_expired");
+
+  const reconciliationCommandId = "command_narration_reconcile_absent_001";
+  await t.mutation(ref("operations:requestCommand"), {
+    operatorToken,
+    commandId: reconciliationCommandId,
+    jobId,
+    action: "reconcile",
+    expectedState: uncertain.state,
+    expectedVersion: uncertain.version,
+    payload: {
+      sourceCommandId: auth.commandId,
+      providerStatus: "confirmed_absent",
+    },
+  });
+  const reconciliationWorkerId = "operations-reconciliation-worker";
+  const [reconciliation] = await t.mutation(ref("operations:claimCommands"), {
+    workerToken: operationsWorkerToken,
+    workerId: reconciliationWorkerId,
+    jobId,
+    actions: ["reconcile"],
+    limit: 1,
+    leaseMs: 300000,
+  });
+  // Preserve the currently deployed ordinary-job reconciliation contract:
+  // an operator's claimed absence does not itself advance canonical state.
+  const beforeReconciliation = await read(t);
+  await assert.rejects(t.mutation(ref("operations:completeCommand"), {
+    workerToken: operationsWorkerToken,
+    workerId: reconciliationWorkerId,
+    commandId: reconciliation.commandId,
+    leaseToken: reconciliation.claim.leaseToken,
+    outcome: {
+      code: "reconciled",
+      jobVersion: uncertain.version + 1,
+      reconciledState: "tts_queued",
+      sourceCommandId: auth.commandId,
+      providerStatus: "confirmed_absent",
+    },
+  }), /Operator reconciliation does not match authoritative provider and fulfillment state/u);
+  assert.deepEqual(await read(t), beforeReconciliation);
+  const unresolvedSource = await t.run(async (ctx) => ctx.db
+    .query("customerFlowOperationsCommands")
+    .withIndex("by_command_id", (q) => q.eq("commandId", auth.commandId))
+    .unique());
+  assert.deepEqual(unresolvedSource, sourceCommand);
+  assert.deepEqual(await t.mutation(ref("operations:claimCommands"), {
+    workerToken: generationToken,
+    workerId,
+    jobId,
+    actions: ["generate_narration"],
+    limit: 1,
+    leaseMs: 300000,
+  }), []);
+});
+
+test("a crash after the queue fence but before the aggregate fence is recovered without invoking the provider", async () => {
+  const { t } = await fixture();
+  const auth = await beginNarrationGeneration(t);
+  const provider = { invocationCount: 0 };
+  const { jobId: _jobId, ...queueFence } = auth;
+  await t.mutation(ref("operations:fenceCommand"), {
+    ...queueFence,
+    leaseMs: 300000,
+    effectMayBeIssued: true,
+  });
+  const [splitCommand, splitAggregate] = await Promise.all([
+    t.run(async (ctx) => ctx.db
+      .query("customerFlowOperationsCommands")
+      .withIndex("by_command_id", (query) => query.eq("commandId", auth.commandId))
+      .unique()),
+    read(t),
+  ]);
+  assert.equal(Number.isFinite(splitCommand.claim.effectStartedAtMs), true);
+  assert.equal(splitAggregate.stageAttempts.at(-1).effectStartedAt, null);
+  const originalIdempotencyKey = splitAggregate.stageAttempts.at(-1).idempotencyKey;
+  // Simulate a hard process exit here: neither the aggregate fence nor the provider runs.
+  await expireNarrationClaim(t, auth);
+
+  assert.deepEqual(await t.mutation(ref("operations:claimCommands"), {
+    workerToken: generationToken,
+    workerId,
+    jobId,
+    actions: ["generate_narration"],
+    limit: 1,
+    leaseMs: 300000,
+  }), []);
+  assert.equal(provider.invocationCount, 0);
+
+  const [recovered, sourceCommand] = await Promise.all([
+    read(t),
+    t.run(async (ctx) => ctx.db
+      .query("customerFlowOperationsCommands")
+      .withIndex("by_command_id", (query) => query.eq("commandId", auth.commandId))
+      .unique()),
+  ]);
+  assert.equal(recovered.state, "tts_queued");
+  assert.equal(recovered.stageAttempts.at(-1).status, "reconciled_absent");
+  assert.equal(recovered.stageAttempts.at(-1).effectStartedAt, null);
+  assert.deepEqual(recovered.stageAttempts.at(-1).failure, {
+    retryable: true,
+    reasonCode: "aggregate_effect_fence_missing",
+  });
+  assert.equal(sourceCommand.state, "pending");
+  assert.equal(sourceCommand.claim, null);
+  assert.equal(sourceCommand.expectedState, recovered.state);
+  assert.equal(sourceCommand.expectedVersion, recovered.version);
+  assert.equal(sourceCommand.lastFailureReason, "aggregate_effect_fence_missing");
+
+  const [reclaimed] = await t.mutation(ref("operations:claimCommands"), {
+    workerToken: generationToken,
+    workerId,
+    jobId,
+    actions: ["generate_narration"],
+    limit: 1,
+    leaseMs: 300000,
+  });
+  assert.equal(reclaimed.commandId, auth.commandId);
   await t.action(ref("narrationRuntime:advance"), {
+    workerToken: generationToken,
+    workerId,
+    jobId,
+    commandId: reclaimed.commandId,
+    leaseToken: reclaimed.claim.leaseToken,
+    operation: "begin",
+  });
+  const retried = await read(t);
+  assert.equal(retried.stageAttempts.at(-1).effectStartedAt, null);
+  assert.equal(retried.stageAttempts.at(-1).idempotencyKey, originalIdempotencyKey);
+  assert.equal(provider.invocationCount, 0);
+});
+
+test("claim polling recovers a crash after narration begin but before the queue fence", async () => {
+  const { t } = await fixture();
+  const auth = await beginNarrationGeneration(t);
+  await expireNarrationClaim(t, auth);
+
+  assert.deepEqual(await t.mutation(ref("operations:claimCommands"), {
+    workerToken: generationToken,
+    workerId,
+    jobId,
+    actions: ["generate_narration"],
+    limit: 1,
+    leaseMs: 300000,
+  }), []);
+  const recovered = await read(t);
+  assert.equal(recovered.state, "tts_queued");
+  assert.equal(recovered.stageAttempts.at(-1).status, "reconciled_absent");
+  assert.equal(recovered.stageAttempts.at(-1).effectStartedAt, null);
+});
+
+test("an expired first queue-fence call recovers the pre-provider narration attempt", async () => {
+  const { t } = await fixture();
+  const auth = await beginNarrationGeneration(t);
+  await expireNarrationClaim(t, auth);
+  const { jobId: _jobId, ...queueFence } = auth;
+
+  const fenced = await t.mutation(ref("operations:fenceCommand"), {
+    ...queueFence,
+    leaseMs: 300000,
+    effectMayBeIssued: true,
+  });
+  assert.equal(fenced.active, false);
+  assert.equal(fenced.command.state, "pending");
+  assert.equal(fenced.command.lastFailureReason, "aggregate_effect_fence_missing");
+  const recovered = await read(t);
+  assert.equal(recovered.state, "tts_queued");
+  assert.equal(recovered.stageAttempts.at(-1).status, "reconciled_absent");
+  assert.equal(recovered.stageAttempts.at(-1).effectStartedAt, null);
+});
+
+test("a deterministic narration failure before the queue fence remains terminal and unclaimable", async () => {
+  const { t } = await fixture();
+  const auth = await beginNarrationGeneration(t);
+  const beforeFailure = await read(t);
+  const originalIdempotencyKey = beforeFailure.stageAttempts.at(-1).idempotencyKey;
+
+  const aggregateFailure = await t.action(ref("narrationRuntime:advance"), {
     ...auth,
     operation: "fail",
   });
-  assert.equal((await read(t)).state, "failed");
+  assert.equal(aggregateFailure.state, "failed");
+
+  const failed = await t.mutation(ref("operations:failCommand"), {
+    workerToken: generationToken,
+    workerId,
+    commandId: auth.commandId,
+    leaseToken: auth.leaseToken,
+    reasonCode: "narration_failed",
+    retryable: false,
+  });
+  assert.equal(failed.command.state, "failed");
+  assert.equal(failed.command.claim, null);
+  assert.equal(failed.command.lastFailureReason, "narration_failed");
+
+  const terminal = await read(t);
+  assert.equal(terminal.state, "failed");
+  assert.equal(terminal.stageAttempts.at(-1).status, "failed");
+  assert.equal(terminal.stageAttempts.at(-1).effectStartedAt, null);
+  assert.equal(terminal.stageAttempts.at(-1).idempotencyKey, originalIdempotencyKey);
+  assert.deepEqual(terminal.stageAttempts.at(-1).failure, {
+    retryable: false,
+    reasonCode: "narration_failed",
+  });
+  assert.deepEqual(await t.mutation(ref("operations:claimCommands"), {
+    workerToken: generationToken,
+    workerId,
+    jobId,
+    actions: ["generate_narration"],
+    limit: 1,
+    leaseMs: 300000,
+  }), []);
+});
+
+test("a handled failure after the queue fence requeues with the original provider idempotency identity", async () => {
+  const { t } = await fixture();
+  const auth = await beginNarrationGeneration(t);
+  const provider = { invocationCount: 0 };
+  const originalIdempotencyKey = (await read(t)).stageAttempts.at(-1).idempotencyKey;
+  const { jobId: _jobId, ...queueFence } = auth;
+  await t.mutation(ref("operations:fenceCommand"), {
+    ...queueFence,
+    leaseMs: 300000,
+    effectMayBeIssued: true,
+  });
+
+  const aggregateFailure = await t.action(ref("narrationRuntime:advance"), {
+    ...auth,
+    operation: "fail",
+  });
+  assert.equal(aggregateFailure.state, "failed");
+
+  const failed = await t.mutation(ref("operations:failCommand"), {
+    workerToken: generationToken,
+    workerId,
+    commandId: auth.commandId,
+    leaseToken: auth.leaseToken,
+    reasonCode: "narration_failed",
+    retryable: false,
+  });
+  assert.equal(failed.command.state, "pending");
+  assert.equal(failed.command.lastFailureReason, "aggregate_effect_fence_missing");
+  assert.equal(provider.invocationCount, 0);
+
+  const [recovered, sourceCommand] = await Promise.all([
+    read(t),
+    t.run(async (ctx) => ctx.db
+      .query("customerFlowOperationsCommands")
+      .withIndex("by_command_id", (query) => query.eq("commandId", auth.commandId))
+      .unique()),
+  ]);
+  assert.equal(recovered.state, "tts_queued");
+  assert.equal(recovered.stageAttempts.at(-1).status, "reconciled_absent");
+  assert.equal(recovered.stageAttempts.at(-1).effectStartedAt, null);
+  assert.equal(sourceCommand.state, "pending");
+  assert.equal(sourceCommand.expectedVersion, recovered.version);
+  assert.equal(provider.invocationCount, 0);
+
+  const [reclaimed] = await t.mutation(ref("operations:claimCommands"), {
+    workerToken: generationToken,
+    workerId,
+    jobId,
+    actions: ["generate_narration"],
+    limit: 1,
+    leaseMs: 300000,
+  });
+  await t.action(ref("narrationRuntime:advance"), {
+    workerToken: generationToken,
+    workerId,
+    jobId,
+    commandId: reclaimed.commandId,
+    leaseToken: reclaimed.claim.leaseToken,
+    operation: "begin",
+  });
+  const retried = await read(t);
+  assert.equal(retried.state, "tts_generating");
+  assert.equal(retried.stageAttempts.at(-1).idempotencyKey, originalIdempotencyKey);
 });

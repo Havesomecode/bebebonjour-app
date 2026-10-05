@@ -128,6 +128,8 @@
         "page_digest": { "$ref": "#/$defs/digest" },
         "transcript_digest": { "$ref": "#/$defs/digest" },
         "asset_manifest_digest": { "$ref": "#/$defs/digest" },
+        "source_private_review_manifest_digest": { "$ref": "#/$defs/digest" },
+        "source_prepared_bundle_manifest_digest": { "$ref": "#/$defs/digest" },
         "manifest_ref": { "type": "string", "minLength": 1 },
         "files": {
           "type": "array",

@@ -1,12 +1,20 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "installCommand": "npm ci && node scripts/package-codex-runtime.mjs",
+  "installCommand": "npm ci",
   "builds": [
     {
       "src": "generation-worker/api/worker.mjs",
       "use": "@vercel/node",
       "config": {
-        "includeFiles": [".codex-runtime/**"]
+        "includeFiles": [
+          ".codex-runtime/manifest.json",
+          ".codex-runtime/codex.gz",
+          "data/reference-catalog.json",
+          "template/runtime/app.js",
+          "template/runtime/phrase-progress.mjs",
+          "template/runtime/styles.css",
+          "template/assets/og-image.svg"
+        ]
       }
     }
   ],
@@ -16,10 +24,5 @@
       "dest": "generation-worker/api/worker.mjs"
     }
   ],
-  "crons": [
-    {
-      "path": "/api/operations/worker",
-      "schedule": "*/5 * * * *"
-    }
-  ]
+  "crons": []
 }

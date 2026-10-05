@@ -1,5 +1,8 @@
 import { internalQueryGeneric, mutationGeneric, queryGeneric } from "convex/server";
 import { v } from "convex/values";
+import { assertCanonicalToken, canonicalScope, assertCanonicalRelease,
+  CANONICAL_WORKER_ID } from "./canonicalCompletionScope.js";
+import { enqueueCanonicalCompletionSuccessor } from "./operations.js";
 
 export const createJob = mutationGeneric({
   args: {
@@ -66,8 +69,12 @@ export const getCompletionJob = queryGeneric({
     jobId: v.string(),
   },
   handler: async (context, args) => {
-    assertCompletionAuthority(args.completionToken, args.jobId);
+    const scope = assertCompletionAuthority(args.completionToken, args.jobId);
     const document = await findJob(context, args.jobId);
+    if (scope === "canonical_test_completion") {
+      const config = await canonicalScope(context, args.jobId);
+      await assertCanonicalRelease(context, config, document?.aggregate);
+    }
     return document?.aggregate || null;
   },
 });
@@ -75,8 +82,13 @@ export const getCompletionJob = queryGeneric({
 export const getCompletionReviewApproval = queryGeneric({
   args: { completionToken: v.string(), approvalId: v.string(), jobId: v.string() },
   handler: async (context, args) => {
-    assertCompletionAuthority(args.completionToken, args.jobId);
+    const scope = assertCompletionAuthority(args.completionToken, args.jobId);
     assertApprovalId(args.approvalId);
+    if (scope === "canonical_test_completion") {
+      const config = await canonicalScope(context, args.jobId);
+      await assertCanonicalRelease(context, config, (await findJob(context, args.jobId))?.aggregate);
+      if (![config.contentApprovalId, config.narrationApprovalId].includes(args.approvalId)) return null;
+    }
     const document = await findReviewApproval(context, args.approvalId);
     if (document?.approval?.binding?.jobId !== args.jobId) return null;
     return document.approval;
@@ -104,6 +116,13 @@ export const replaceCompletionJob = mutationGeneric({
       assertOwnerCompletionAggregate(document.aggregate);
       assertOwnerCompletionAggregate(args.aggregate);
     }
+    let canonical = null;
+    if (completionScope === "canonical_test_completion") {
+      canonical = await canonicalScope(context, args.jobId);
+      await assertCanonicalRelease(context, canonical, document.aggregate);
+      await assertCanonicalRelease(context, canonical, args.aggregate);
+      if (args.workerId !== CANONICAL_WORKER_ID) throw new Error("Canonical completion worker identity invalid.");
+    }
     const command = await assertActiveCompletionTransition(context, args, document.aggregate, args.aggregate);
     await assertCompletionReplacement(
       context,
@@ -112,7 +131,11 @@ export const replaceCompletionJob = mutationGeneric({
       args.expectedVersion,
       args,
       command,
+      canonical,
     );
+    if (completionScope === "canonical_test_completion") {
+      await enqueueCanonicalCompletionSuccessor(context, canonical, command, document.aggregate, args.aggregate);
+    }
     await context.db.patch(document._id, { aggregate: args.aggregate });
     return { updated: true, aggregate: args.aggregate };
   },
@@ -133,6 +156,17 @@ export const authorizeCompletionArtifactRead = internalQueryGeneric({
     await assertClaimedCompletionAuthority(context, args, "publish", { effectFenceRequired: true });
     const document = await findJob(context, args.jobId);
     const aggregate = document?.aggregate;
+    if (completionScope === "canonical_test_completion") {
+      const config = await canonicalScope(context, args.jobId);
+      const release = await assertCanonicalRelease(context, config, aggregate);
+      if (args.workerId !== CANONICAL_WORKER_ID || args.revisionId !== config.revisionId
+          || release.kind !== (aggregate.narrationRequired ? "narration_review" : "prepared_bundle")) {
+        throw new Error("Canonical completion artifact scope invalid.");
+      }
+      const file = release.files.find((entry) => entry.storageId === args.storageId);
+      if (!file) throw new Error("Canonical completion artifact is outside the exact approved manifest.");
+      return file;
+    }
     if (completionScope === "owner_completion") {
       const source = assertOwnerCompletionAggregate(aggregate);
       const file = source.files?.find((entry) => entry.storageId === args.storageId);
@@ -340,6 +374,12 @@ async function assertActiveCompletionTransition(context, args, current, next) {
 }
 
 function assertCompletionAuthority(token, jobId) {
+  const canonicalToken = process.env.BEBEBONJOUR_CANONICAL_COMPLETION_WORKER_TOKEN;
+  if (canonicalToken && token === canonicalToken) {
+    const config = assertCanonicalToken(token);
+    if (jobId !== config.jobId) throw new Error("Canonical completion worker authorization failed.");
+    return "canonical_test_completion";
+  }
   const syntheticToken = process.env.BEBEBONJOUR_COMPLETION_WORKER_TOKEN;
   if (syntheticToken && syntheticToken.length >= 32 && token === syntheticToken
       && jobId === "job_03c25b08-8476-4fe1-923b-43d73feab3ff") {
@@ -386,7 +426,7 @@ function assertOwnerCompletionAggregate(aggregate) {
   return source;
 }
 
-async function assertCompletionReplacement(context, current, next, expectedVersion, args, command) {
+async function assertCompletionReplacement(context, current, next, expectedVersion, args, command, canonical = null) {
   const transitions = new Set([
     "content_review_required>render_queued",
     "render_queued>rendering",
@@ -435,13 +475,13 @@ async function assertCompletionReplacement(context, current, next, expectedVersi
         !== (transition === "rendering>publish_ready" ? 1 : 0)
       || appendDelta(current.deliveryAttempts, next.deliveryAttempts)
         !== (transition === "sending>sent" ? 1 : 0)
-      || !await validStageAttemptChange(current, next, transition, args)) {
+      || !await validStageAttemptChange(current, next, transition, args, canonical)) {
     throw new Error("Completion worker replacement exceeds its synthetic stage authority.");
   }
   if (!await validCompletionEvent(current, next.events.at(-1), transition, next, args, command)) {
     throw new Error("Completion worker replacement lacks canonical transition evidence.");
   }
-  await assertCompletionTransitionPayload(context, current, next, transition, args);
+  await assertCompletionTransitionPayload(context, current, next, transition, args, canonical);
 }
 
 const COMPLETION_OWNED_FIELDS_BY_TRANSITION = Object.freeze({
@@ -507,7 +547,7 @@ const COMPLETION_FAILURE_REASON_CODES_BY_STAGE = Object.freeze({
   ]),
 });
 
-async function validStageAttemptChange(currentAggregate, nextAggregate, transition, args) {
+async function validStageAttemptChange(currentAggregate, nextAggregate, transition, args, canonical) {
   const current = currentAggregate.stageAttempts;
   const next = nextAggregate.stageAttempts;
   const claims = new Set([
@@ -558,7 +598,7 @@ async function validStageAttemptChange(currentAggregate, nextAggregate, transiti
       && expectedAttemptNumber <= COMPLETION_STAGE_MAX_ATTEMPTS
       && attempt.operationNumber === expectedOperationNumber
       && attempt.idempotencyKey === expectedIdempotencyKey
-      && await validCompletionOperationBinding(expectedStage, attempt.operationBinding)
+      && await validCompletionOperationBinding(expectedStage, attempt.operationBinding, canonical)
       && attempt.operationsCommandId === args.commandId
       && attempt.status === "running"
       && typeof attempt.leaseToken === "string" && attempt.leaseToken.length >= 8
@@ -631,14 +671,15 @@ async function validStageAttemptChange(currentAggregate, nextAggregate, transiti
     && updated.failure === null;
 }
 
-async function validCompletionOperationBinding(stage, binding) {
+async function validCompletionOperationBinding(stage, binding, canonical) {
   if (stage !== "deliver") return binding === null;
+  const targetRef = canonical ? `resend:fictional:${canonical.jobId}` : "resend:test-a-sink";
+  const email = canonical ? canonical.recipient : "delivered@resend.dev";
   const expectedTargetDigest = await sha256Hex(canonicalJson({
-    targetRef: "resend:test-a-sink",
-    email: "delivered@resend.dev",
+    targetRef, email,
   }));
   return hasExactKeys(binding, ["targetDigest", "targetRef"])
-    && binding.targetRef === "resend:test-a-sink"
+    && binding.targetRef === targetRef
     && binding.targetDigest === expectedTargetDigest;
 }
 
@@ -842,7 +883,7 @@ function canonicalJson(value) {
   throw new Error("Canonical completion values must be deterministic JSON.");
 }
 
-async function assertCompletionTransitionPayload(context, current, next, transition, args) {
+async function assertCompletionTransitionPayload(context, current, next, transition, args, canonical) {
   if (transition === "content_review_required>render_queued") {
     const decision = next.reviewDecisions.at(-1);
     const source = current.artifactSets.find((artifact) => (
@@ -898,7 +939,7 @@ async function assertCompletionTransitionPayload(context, current, next, transit
     }
   }
   if (transition === "publishing>published") {
-    const origin = process.env.TEST_A_PUBLICATION_ORIGIN;
+    const origin = canonical ? canonical.origin : process.env.TEST_A_PUBLICATION_ORIGIN;
     const attempt = current.stageAttempts.at(-1);
     const releaseKind = current.narrationRequired ? "narration_review" : "prepared_bundle";
     const releaseArtifact = [...current.artifactSets].reverse().find((artifact) => (
@@ -930,7 +971,7 @@ async function assertCompletionTransitionPayload(context, current, next, transit
       "targetRef", "status", "deliveredAt", "lastOutcome",
     ])
         || delivery.provider !== "resend"
-        || delivery.targetRef !== "resend:test-a-sink"
+        || delivery.targetRef !== (canonical ? `resend:fictional:${canonical.jobId}` : "resend:test-a-sink")
         || delivery.targetRef !== attempt?.operationBinding?.targetRef
         || delivery.revisionId !== current.currentRevisionId
         || !/^(?:[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}|email_completion_store_(?:boundary|seam))$/.test(

@@ -729,6 +729,166 @@ function deploymentEvidenceResponse(url, value, manifest, deployment, options = 
   return null;
 }
 
+// Attempt3 /v6 evidence has one virtual src root, directory mode 16749,
+// and file mode 33206; paths beneath it are the original uploaded paths.
+function attempt3InventoryFor(value, manifest) {
+  const actualModes = (nodes) => nodes.map((node) => ({
+    ...node,
+    mode: node.type === "directory" ? 16749 : 33206,
+    ...(node.children ? { children: actualModes(node.children) } : {}),
+  }));
+  return [{
+    name: "src", type: "directory", mode: 16749,
+    children: actualModes(deploymentFileTreeFor(value, manifest).files),
+  }];
+}
+
+async function attempt3ProviderFixture(t, { inventory, configuration, publicResponse } = {}) {
+  const value = await fixture(t);
+  const calls = [];
+  const manifest = publicManifestFor(value);
+  const deployment = { uid: "dpl_test_a_existing", origin: EXISTING_DEPLOYMENT_ORIGIN };
+  const provider = createProvider({
+    calls,
+    fixtureValue: value,
+    async fetchImpl(url, init) {
+      assert.equal(init.method || "GET", "GET", "offline reconciliation must never mutate");
+      const parsed = new URL(url);
+      assert.equal(init.headers?.["x-vercel-protection-bypass"], undefined);
+      if (url.startsWith("https://api.vercel.com")) {
+        assert.equal(parsed.searchParams.get("teamId"), "team_test_a");
+      }
+      if (parsed.pathname === "/v7/deployments") {
+        return jsonResponse({ deployments: [{
+          uid: deployment.uid,
+          url: new URL(deployment.origin).hostname,
+          projectId: "prj_test_a_announcements",
+          readyState: "READY",
+          meta: {
+            bbCanaryJobId: JOB_ID,
+            bbRevisionId: REVISION_ID,
+            bbArtifactSetId: value.request.artifactSetId,
+            bbArtifactManifestDigest: value.request.artifactManifestDigest,
+            bbIdempotencyKey: IDEMPOTENCY_KEY,
+          },
+        }], pagination: { next: null } });
+      }
+      if (parsed.pathname === `/v6/deployments/${deployment.uid}/files`) {
+        const files = attempt3InventoryFor(value, manifest);
+        return jsonResponse(inventory ? inventory(files) : files);
+      }
+      if (configuration && parsed.pathname.startsWith(`/v8/deployments/${deployment.uid}/files/`)) {
+        assert.equal(parsed.pathname.split("/").at(-1), sha1(vercelConfigurationBytes()));
+        return jsonResponse(configuration(vercelConfigurationBytes()));
+      }
+      const evidence = deploymentEvidenceResponse(url, value, manifest, deployment);
+      if (evidence) return evidence;
+      const alias = aliasEvidenceResponse(url, deployment.uid);
+      if (alias) return alias;
+      if (publicResponse && !url.startsWith("https://api.vercel.com")) return publicResponse();
+      for (const origin of [deployment.origin, STABLE_ORIGIN]) {
+        const response = publicationReadbackResponse(url, value, manifest, origin);
+        if (response) return response;
+      }
+      throw new Error(`Unexpected offline fetch: ${url}`);
+    },
+  });
+  return { calls, value, provider };
+}
+
+test("attempt3 exact single virtual src inventory reconciles without provider mutation", async (t) => {
+  const { provider, value, calls } = await attempt3ProviderFixture(t);
+  const receipt = await provider.reconcile(value.request);
+  assert.equal(receipt.providerReceiptId, "dpl_test_a_existing");
+  assert.equal(calls.some(({ init }) => init.method === "POST"), false);
+  assert.equal(calls.filter(({ url }) => url.includes("/v8/deployments/")).length, 1);
+});
+
+test("attempt3 virtual src inventory retains exact scope and malformed checks", async (t) => {
+  const cases = [
+    ["unexpected root sibling", (files) => [...files, { name: "extra", type: "directory", mode: 16749, children: [] }]],
+    ["second virtual root", (files) => [...files, structuredClone(files[0])]],
+    ["nested src root", (files) => [{ ...files[0], children: structuredClone(files) }]],
+    ["different root name", (files) => [{ ...files[0], name: "source" }]],
+    ["different root mode", (files) => [{ ...files[0], mode: 16877 }]],
+    ["malformed root mode", (files) => [{ ...files[0], mode: "16749" }]],
+    ["malformed children", (files) => [{ ...files[0], children: {} }]],
+    ["traversal", (files) => [{ ...files[0], children: [{ ...files[0].children[0], name: ".." }, ...files[0].children.slice(1)] }]],
+    ["slash path", (files) => [{ ...files[0], children: [{ ...files[0].children[0], name: "src/announcements" }, ...files[0].children.slice(1)] }]],
+    ["duplicate file", (files) => [{ ...files[0], children: [...files[0].children, structuredClone(files[0].children.at(-1))] }]],
+    ["unexpected uploaded file", (files) => [{ ...files[0], children: [...files[0].children, { name: "extra.txt", type: "file", mode: 33206, uid: "extra" }] }]],
+    ["missing uploaded file", (files) => [{ ...files[0], children: files[0].children.slice(0, -1) }]],
+  ];
+  for (const [name, inventory] of cases) {
+    await t.test(name, async (subtest) => {
+      const { provider, value, calls } = await attempt3ProviderFixture(subtest, { inventory });
+      await assert.rejects(provider.reconcile(value.request), (error) => {
+        assert.match(error.message, /provider deployment inventory/i);
+        assert.equal(error.reasonCode, "publication_scope_invalid");
+        assert.equal(error.retryable, false);
+        return true;
+      });
+      assert.equal(calls.some(({ url }) => url.includes("/v8/deployments/") || url.includes("/aliases/")), false);
+    });
+  }
+});
+
+test("attempt3 data-only base64 configuration reconciles exact bytes", async (t) => {
+  const { provider, value } = await attempt3ProviderFixture(t, {
+    configuration: (bytes) => ({ data: bytes.toString("base64") }),
+  });
+  const receipt = await provider.reconcile(value.request);
+  assert.equal(receipt.providerReceiptId, "dpl_test_a_existing");
+});
+
+test("attempt3 data configuration rejects malformed envelopes and byte drift", async (t) => {
+  const cases = [
+    ["raw UTF-8 is not base64", (bytes) => ({ data: bytes.toString("utf8") })],
+    ["invalid base64", () => ({ data: "not-base64" })],
+    ["noncanonical padding bits", () => ({ data: "Zh==" })],
+    ["missing padding", (bytes) => ({ data: `${bytes.toString("base64")}YQ` })],
+    ["base64 whitespace", (bytes) => ({ data: `${bytes.toString("base64")}\n` })],
+    ["non-string data", () => ({ data: 42 })],
+    ["array envelope", (bytes) => [bytes.toString("base64")]],
+    ["ambiguous legacy envelope", (bytes) => ({ data: bytes.toString("base64"), encoding: "base64", content: bytes.toString("base64") })],
+    ["unexpected data envelope field", (bytes) => ({ data: bytes.toString("base64"), extra: true })],
+    ["different configuration", () => ({ data: Buffer.from('{"redirects":[]}\n').toString("base64") })],
+    ["same JSON without final newline", (bytes) => ({ data: bytes.subarray(0, -1).toString("base64") })],
+    ["same JSON different formatting", (bytes) => ({ data: Buffer.from(JSON.stringify(JSON.parse(bytes))).toString("base64") })],
+    ["empty decoded bytes", () => ({ data: "" })],
+  ];
+  for (const [name, configuration] of cases) {
+    await t.test(name, async (subtest) => {
+      const { provider, value, calls } = await attempt3ProviderFixture(subtest, { configuration });
+      await assert.rejects(provider.reconcile(value.request), (error) => {
+        assert.match(error.message, /provider configuration evidence/i);
+        assert.equal(error.reasonCode, "publication_scope_invalid");
+        assert.equal(error.retryable, false);
+        return true;
+      });
+      assert.equal(calls.filter(({ url }) => url.includes("/v8/deployments/")).length, 1);
+      assert.equal(calls.some(({ url }) => !url.startsWith("https://api.vercel.com")), false);
+    });
+  }
+});
+
+test("attempt3 repaired evidence does not turn SSO redirects into public HTTP success", async (t) => {
+  const { provider, value, calls } = await attempt3ProviderFixture(t, {
+    configuration: (bytes) => ({ data: bytes.toString("base64") }),
+    publicResponse: () => new Response(null, {
+      status: 302,
+      headers: { location: "https://vercel.com/sso-api?url=synthetic" },
+    }),
+  });
+  await assert.rejects(provider.reconcile(value.request), (error) => {
+    assert.equal(error.reasonCode, "publication_provider_unavailable");
+    assert.equal(error.retryable, true);
+    assert.match(error.cause.message, /HTTP 302/);
+    return true;
+  });
+  assert.equal(calls.some(({ url }) => url.includes("/aliases/")), false);
+});
+
 function aliasEvidenceResponse(url, deploymentId, overrides = {}) {
   const parsed = new URL(url);
   if (parsed.pathname !== `/v4/aliases/${new URL(STABLE_ORIGIN).hostname}`) return null;
@@ -759,12 +919,13 @@ test("Vercel TEST-A provider resolves exact source bytes before one scoped alias
     async fetchImpl(url, init) {
       if (url.includes("/v7/deployments")) return jsonResponse({ deployments: [], pagination: { next: null } });
       if (url.includes("/v2/files")) {
+        assert.deepEqual(providerMutationFences.at(-1), { effectMayBeIssued: true });
         uploadedBodies.push(Buffer.from(await new Response(init.body).arrayBuffer()));
         return jsonResponse({});
       }
       if (url.includes("/v13/deployments") && init.method === "POST") {
         assert.deepEqual(providerMutationFences.at(-1), { effectMayBeIssued: true });
-        assert.equal(providerMutationFences.filter(({ effectMayBeIssued }) => effectMayBeIssued).length, 1);
+        assert.equal(providerMutationFences.filter(({ effectMayBeIssued }) => effectMayBeIssued).length, uploadedBodies.length + 1);
         const payload = JSON.parse(init.body);
         publicationManifest = JSON.parse(
           uploadedBodies.find((body) => body.includes(Buffer.from("artifactManifestDigest"))).toString("utf8"),
@@ -802,7 +963,7 @@ test("Vercel TEST-A provider resolves exact source bytes before one scoped alias
       if (immutableResponse) return immutableResponse;
       if (url.includes("/v2/deployments/dpl_test_a_001/aliases")) {
         assert.deepEqual(providerMutationFences.at(-1), { effectMayBeIssued: true });
-        assert.equal(providerMutationFences.filter(({ effectMayBeIssued }) => effectMayBeIssued).length, 2);
+        assert.equal(providerMutationFences.filter(({ effectMayBeIssued }) => effectMayBeIssued).length, uploadedBodies.length + 2);
         assert.deepEqual(JSON.parse(init.body), { alias: "test-a-announcements.example.test" });
         return jsonResponse(aliasMutationResponse());
       }
@@ -877,8 +1038,8 @@ test("Vercel TEST-A provider resolves exact source bytes before one scoped alias
   assert.ok(aliasMutationIndex < aliasEvidenceIndex);
   assert.ok(aliasEvidenceIndex < stableReadIndex);
   assert.equal(calls.filter(({ url }) => url.includes("/v2/deployments/dpl_test_a_001/aliases")).length, 1);
-  assert.equal(providerMutationFences.filter(({ effectMayBeIssued }) => !effectMayBeIssued).length, 4);
-  assert.equal(providerMutationFences.filter(({ effectMayBeIssued }) => effectMayBeIssued).length, 2);
+  assert.equal(providerMutationFences.filter(({ effectMayBeIssued }) => !effectMayBeIssued).length, 0);
+  assert.equal(providerMutationFences.filter(({ effectMayBeIssued }) => effectMayBeIssued).length, uploadedBodies.length + 2);
 });
 
 test("narration-reviewed files resolve and publish as one exact Vercel deployment", async (t) => {
@@ -2108,6 +2269,8 @@ test("a stale Vercel worker cannot invoke its alias callback after its persisted
     },
   };
   const persistedStore = createLocalTestFulfillmentStore({ filePath: path.join(value.rootPath, "fulfillment.json") });
+  // Source uploads, two generated uploads, deployment creation, then the alias mutation.
+  const staleAliasFenceNumber = value.request.artifactSet.files.length + 4;
   let issuedFenceCount = 0;
   let releaseStaleAliasFence;
   let signalStaleAliasFencePersisted;
@@ -2117,7 +2280,7 @@ test("a stale Vercel worker cannot invoke its alias callback after its persisted
     ...persistedStore,
     async fenceExternalEffect(jobId, command, at) {
       const aggregate = await persistedStore.fenceExternalEffect(jobId, command, at);
-      if (command.effectMayBeIssued === true && (issuedFenceCount += 1) === 2) {
+      if (command.effectMayBeIssued === true && (issuedFenceCount += 1) === staleAliasFenceNumber) {
         signalStaleAliasFencePersisted();
         await staleAliasFenceRelease;
       }

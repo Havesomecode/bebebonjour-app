@@ -1,0 +1,3150 @@
+{
+  "functions": [
+    {
+      "args": {
+        "type": "object",
+        "value": {
+          "backendToken": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          },
+          "enqueueWorkItem": {
+            "fieldType": {
+              "type": "boolean"
+            },
+            "optional": true
+          },
+          "fulfillmentAggregate": {
+            "fieldType": {
+              "type": "any"
+            },
+            "optional": true
+          },
+          "idempotencyKey": {
+            "fieldType": {
+              "type": "union",
+              "value": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "optional": false
+          },
+          "job": {
+            "fieldType": {
+              "type": "any"
+            },
+            "optional": false
+          },
+          "requestDigest": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          },
+          "response": {
+            "fieldType": {
+              "type": "any"
+            },
+            "optional": false
+          }
+        }
+      },
+      "functionType": "Mutation",
+      "identifier": "customerFlow.js:createJob",
+      "returns": null,
+      "visibility": {
+        "kind": "public"
+      }
+    },
+    {
+      "args": {
+        "type": "object",
+        "value": {
+          "backendToken": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          },
+          "jobId": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          }
+        }
+      },
+      "functionType": "Query",
+      "identifier": "customerFlow.js:readJob",
+      "returns": null,
+      "visibility": {
+        "kind": "public"
+      }
+    },
+    {
+      "args": {
+        "type": "object",
+        "value": {
+          "backendToken": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          },
+          "expectedVersion": {
+            "fieldType": {
+              "type": "number"
+            },
+            "optional": false
+          },
+          "job": {
+            "fieldType": {
+              "type": "any"
+            },
+            "optional": false
+          }
+        }
+      },
+      "functionType": "Mutation",
+      "identifier": "customerFlow.js:replaceJob",
+      "returns": null,
+      "visibility": {
+        "kind": "public"
+      }
+    },
+    {
+      "args": {
+        "type": "object",
+        "value": {
+          "backendToken": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          },
+          "providerEventId": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          }
+        }
+      },
+      "functionType": "Query",
+      "identifier": "customerFlow.js:readProviderEvent",
+      "returns": null,
+      "visibility": {
+        "kind": "public"
+      }
+    },
+    {
+      "args": {
+        "type": "object",
+        "value": {
+          "backendToken": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          },
+          "fingerprint": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          },
+          "providerEventId": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          }
+        }
+      },
+      "functionType": "Mutation",
+      "identifier": "customerFlow.js:claimProviderEvent",
+      "returns": null,
+      "visibility": {
+        "kind": "public"
+      }
+    },
+    {
+      "args": {
+        "type": "object",
+        "value": {
+          "backendToken": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          },
+          "fingerprint": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          },
+          "providerEventId": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          },
+          "result": {
+            "fieldType": {
+              "type": "any"
+            },
+            "optional": false
+          }
+        }
+      },
+      "functionType": "Mutation",
+      "identifier": "customerFlow.js:completeProviderEvent",
+      "returns": null,
+      "visibility": {
+        "kind": "public"
+      }
+    },
+    {
+      "args": {
+        "type": "object",
+        "value": {
+          "backendToken": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          },
+          "event": {
+            "fieldType": {
+              "type": "any"
+            },
+            "optional": false
+          },
+          "providerEventId": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          }
+        }
+      },
+      "functionType": "Mutation",
+      "identifier": "customerFlow.js:recordProviderEvent",
+      "returns": null,
+      "visibility": {
+        "kind": "public"
+      }
+    },
+    {
+      "args": {
+        "type": "object",
+        "value": {
+          "backendToken": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          },
+          "leaseMs": {
+            "fieldType": {
+              "type": "number"
+            },
+            "optional": false
+          },
+          "limit": {
+            "fieldType": {
+              "type": "number"
+            },
+            "optional": false
+          },
+          "nowMs": {
+            "fieldType": {
+              "type": "number"
+            },
+            "optional": false
+          },
+          "workerId": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          }
+        }
+      },
+      "functionType": "Mutation",
+      "identifier": "customerFlow.js:claimWorkItems",
+      "returns": null,
+      "visibility": {
+        "kind": "public"
+      }
+    },
+    {
+      "args": {
+        "type": "object",
+        "value": {
+          "backendToken": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          },
+          "jobId": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          },
+          "kanbanTaskId": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          },
+          "nowMs": {
+            "fieldType": {
+              "type": "number"
+            },
+            "optional": false
+          },
+          "workerId": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          }
+        }
+      },
+      "functionType": "Mutation",
+      "identifier": "customerFlow.js:completeWorkItem",
+      "returns": null,
+      "visibility": {
+        "kind": "public"
+      }
+    },
+    {
+      "args": {
+        "type": "object",
+        "value": {
+          "backendToken": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          },
+          "jobId": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          },
+          "nowMs": {
+            "fieldType": {
+              "type": "number"
+            },
+            "optional": false
+          },
+          "reasonCode": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          },
+          "workerId": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          }
+        }
+      },
+      "functionType": "Mutation",
+      "identifier": "customerFlow.js:releaseWorkItem",
+      "returns": null,
+      "visibility": {
+        "kind": "public"
+      }
+    },
+    {
+      "args": {
+        "type": "object",
+        "value": {
+          "aggregate": {
+            "fieldType": {
+              "type": "any"
+            },
+            "optional": false
+          },
+          "backendToken": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          },
+          "jobId": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          }
+        }
+      },
+      "functionType": "Mutation",
+      "identifier": "fulfillment.js:createJob",
+      "returns": null,
+      "visibility": {
+        "kind": "public"
+      }
+    },
+    {
+      "args": {
+        "type": "object",
+        "value": {
+          "backendToken": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          },
+          "jobId": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          }
+        }
+      },
+      "functionType": "Query",
+      "identifier": "fulfillment.js:getJob",
+      "returns": null,
+      "visibility": {
+        "kind": "public"
+      }
+    },
+    {
+      "args": {
+        "type": "object",
+        "value": {
+          "approval": {
+            "fieldType": {
+              "type": "any"
+            },
+            "optional": false
+          },
+          "backendToken": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          }
+        }
+      },
+      "functionType": "Mutation",
+      "identifier": "fulfillment.js:saveReviewApproval",
+      "returns": null,
+      "visibility": {
+        "kind": "public"
+      }
+    },
+    {
+      "args": {
+        "type": "object",
+        "value": {
+          "approvalId": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          },
+          "backendToken": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          }
+        }
+      },
+      "functionType": "Query",
+      "identifier": "fulfillment.js:getReviewApproval",
+      "returns": null,
+      "visibility": {
+        "kind": "public"
+      }
+    },
+    {
+      "args": {
+        "type": "object",
+        "value": {
+          "commandId": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": true
+          },
+          "completionToken": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          },
+          "jobId": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          },
+          "leaseToken": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": true
+          },
+          "workerId": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": true
+          }
+        }
+      },
+      "functionType": "Query",
+      "identifier": "fulfillment.js:getCompletionJob",
+      "returns": null,
+      "visibility": {
+        "kind": "public"
+      }
+    },
+    {
+      "args": {
+        "type": "object",
+        "value": {
+          "approvalId": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          },
+          "completionToken": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          },
+          "jobId": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          }
+        }
+      },
+      "functionType": "Query",
+      "identifier": "fulfillment.js:getCompletionReviewApproval",
+      "returns": null,
+      "visibility": {
+        "kind": "public"
+      }
+    },
+    {
+      "args": {
+        "type": "object",
+        "value": {
+          "aggregate": {
+            "fieldType": {
+              "type": "any"
+            },
+            "optional": false
+          },
+          "commandId": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          },
+          "completionToken": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          },
+          "expectedVersion": {
+            "fieldType": {
+              "type": "number"
+            },
+            "optional": false
+          },
+          "jobId": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          },
+          "leaseToken": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          },
+          "workerId": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          }
+        }
+      },
+      "functionType": "Mutation",
+      "identifier": "fulfillment.js:replaceCompletionJob",
+      "returns": null,
+      "visibility": {
+        "kind": "public"
+      }
+    },
+    {
+      "args": {
+        "type": "object",
+        "value": {
+          "commandId": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          },
+          "completionToken": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          },
+          "jobId": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          },
+          "leaseToken": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          },
+          "revisionId": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          },
+          "storageId": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          },
+          "workerId": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          }
+        }
+      },
+      "functionType": "Query",
+      "identifier": "fulfillment.js:authorizeCompletionArtifactRead",
+      "returns": null,
+      "visibility": {
+        "kind": "internal"
+      }
+    },
+    {
+      "args": {
+        "type": "object",
+        "value": {
+          "aggregate": {
+            "fieldType": {
+              "type": "any"
+            },
+            "optional": false
+          },
+          "backendToken": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          },
+          "expectedVersion": {
+            "fieldType": {
+              "type": "number"
+            },
+            "optional": false
+          },
+          "jobId": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          }
+        }
+      },
+      "functionType": "Mutation",
+      "identifier": "fulfillment.js:replaceJob",
+      "returns": null,
+      "visibility": {
+        "kind": "public"
+      }
+    },
+    {
+      "args": {
+        "type": "object",
+        "value": {
+          "actions": {
+            "fieldType": {
+              "type": "array",
+              "value": {
+                "type": "string"
+              }
+            },
+            "optional": false
+          },
+          "jobId": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": true
+          },
+          "leaseMs": {
+            "fieldType": {
+              "type": "number"
+            },
+            "optional": false
+          },
+          "limit": {
+            "fieldType": {
+              "type": "number"
+            },
+            "optional": false
+          },
+          "workerId": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          },
+          "workerToken": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          }
+        }
+      },
+      "functionType": "Mutation",
+      "identifier": "operations.js:claimCommands",
+      "returns": null,
+      "visibility": {
+        "kind": "public"
+      }
+    },
+    {
+      "args": {
+        "type": "object",
+        "value": {
+          "commandId": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          },
+          "leaseToken": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          },
+          "outcome": {
+            "fieldType": {
+              "type": "any"
+            },
+            "optional": false
+          },
+          "workerId": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          },
+          "workerToken": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          }
+        }
+      },
+      "functionType": "Mutation",
+      "identifier": "operations.js:completeCommand",
+      "returns": null,
+      "visibility": {
+        "kind": "public"
+      }
+    },
+    {
+      "args": {
+        "type": "object",
+        "value": {
+          "rateLimitToken": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          },
+          "sourceHash": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          }
+        }
+      },
+      "functionType": "Mutation",
+      "identifier": "operations.js:consumeLoginAttempt",
+      "returns": null,
+      "visibility": {
+        "kind": "public"
+      }
+    },
+    {
+      "args": {
+        "type": "object",
+        "value": {
+          "commandId": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          },
+          "leaseToken": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          },
+          "reasonCode": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          },
+          "retryable": {
+            "fieldType": {
+              "type": "boolean"
+            },
+            "optional": false
+          },
+          "workerId": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          },
+          "workerToken": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          }
+        }
+      },
+      "functionType": "Mutation",
+      "identifier": "operations.js:failCommand",
+      "returns": null,
+      "visibility": {
+        "kind": "public"
+      }
+    },
+    {
+      "args": {
+        "type": "object",
+        "value": {
+          "commandId": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          },
+          "effectMayBeIssued": {
+            "fieldType": {
+              "type": "boolean"
+            },
+            "optional": false
+          },
+          "leaseMs": {
+            "fieldType": {
+              "type": "number"
+            },
+            "optional": false
+          },
+          "leaseToken": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          },
+          "workerId": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          },
+          "workerToken": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          }
+        }
+      },
+      "functionType": "Mutation",
+      "identifier": "operations.js:fenceCommand",
+      "returns": null,
+      "visibility": {
+        "kind": "public"
+      }
+    },
+    {
+      "args": {
+        "type": "object",
+        "value": {
+          "jobId": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          },
+          "operatorToken": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          }
+        }
+      },
+      "functionType": "Query",
+      "identifier": "operations.js:getJob",
+      "returns": null,
+      "visibility": {
+        "kind": "public"
+      }
+    },
+    {
+      "args": {
+        "type": "object",
+        "value": {
+          "jobId": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          },
+          "operatorToken": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          },
+          "paginationOpts": {
+            "fieldType": {
+              "type": "object",
+              "value": {
+                "cursor": {
+                  "fieldType": {
+                    "type": "union",
+                    "value": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "optional": false
+                },
+                "endCursor": {
+                  "fieldType": {
+                    "type": "union",
+                    "value": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "optional": true
+                },
+                "id": {
+                  "fieldType": {
+                    "type": "number"
+                  },
+                  "optional": true
+                },
+                "maximumBytesRead": {
+                  "fieldType": {
+                    "type": "number"
+                  },
+                  "optional": true
+                },
+                "maximumRowsRead": {
+                  "fieldType": {
+                    "type": "number"
+                  },
+                  "optional": true
+                },
+                "numItems": {
+                  "fieldType": {
+                    "type": "number"
+                  },
+                  "optional": false
+                }
+              }
+            },
+            "optional": false
+          }
+        }
+      },
+      "functionType": "Query",
+      "identifier": "operations.js:listJobCommands",
+      "returns": null,
+      "visibility": {
+        "kind": "public"
+      }
+    },
+    {
+      "args": {
+        "type": "object",
+        "value": {
+          "operatorToken": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          },
+          "paginationOpts": {
+            "fieldType": {
+              "type": "object",
+              "value": {
+                "cursor": {
+                  "fieldType": {
+                    "type": "union",
+                    "value": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "optional": false
+                },
+                "endCursor": {
+                  "fieldType": {
+                    "type": "union",
+                    "value": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "optional": true
+                },
+                "id": {
+                  "fieldType": {
+                    "type": "number"
+                  },
+                  "optional": true
+                },
+                "maximumBytesRead": {
+                  "fieldType": {
+                    "type": "number"
+                  },
+                  "optional": true
+                },
+                "maximumRowsRead": {
+                  "fieldType": {
+                    "type": "number"
+                  },
+                  "optional": true
+                },
+                "numItems": {
+                  "fieldType": {
+                    "type": "number"
+                  },
+                  "optional": false
+                }
+              }
+            },
+            "optional": false
+          }
+        }
+      },
+      "functionType": "Query",
+      "identifier": "operations.js:listJobs",
+      "returns": null,
+      "visibility": {
+        "kind": "public"
+      }
+    },
+    {
+      "args": {
+        "type": "object",
+        "value": {
+          "operatorToken": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          }
+        }
+      },
+      "functionType": "Query",
+      "identifier": "operations.js:operatorHealth",
+      "returns": null,
+      "visibility": {
+        "kind": "public"
+      }
+    },
+    {
+      "args": {
+        "type": "object",
+        "value": {
+          "jobId": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          },
+          "workerToken": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          }
+        }
+      },
+      "functionType": "Mutation",
+      "identifier": "operations.js:queueCanonicalPublication",
+      "returns": null,
+      "visibility": {
+        "kind": "public"
+      }
+    },
+    {
+      "args": {
+        "type": "object",
+        "value": {
+          "action": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          },
+          "commandId": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          },
+          "expectedState": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          },
+          "expectedVersion": {
+            "fieldType": {
+              "type": "number"
+            },
+            "optional": false
+          },
+          "jobId": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          },
+          "operatorToken": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          },
+          "payload": {
+            "fieldType": {
+              "type": "any"
+            },
+            "optional": false
+          }
+        }
+      },
+      "functionType": "Mutation",
+      "identifier": "operations.js:requestCommand",
+      "returns": null,
+      "visibility": {
+        "kind": "public"
+      }
+    },
+    {
+      "args": {
+        "type": "object",
+        "value": {
+          "rateLimitToken": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          },
+          "sourceHash": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          }
+        }
+      },
+      "functionType": "Mutation",
+      "identifier": "operations.js:resetLoginThrottle",
+      "returns": null,
+      "visibility": {
+        "kind": "public"
+      }
+    },
+    {
+      "args": {
+        "type": "object",
+        "value": {
+          "workerToken": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          }
+        }
+      },
+      "functionType": "Query",
+      "identifier": "operations.js:workerHealth",
+      "returns": null,
+      "visibility": {
+        "kind": "public"
+      }
+    },
+    {
+      "args": {
+        "type": "object",
+        "value": {
+          "commandId": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          },
+          "envelope": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          },
+          "jobId": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          },
+          "leaseToken": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          },
+          "plaintextDigest": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          },
+          "workerId": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          },
+          "workerToken": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          }
+        }
+      },
+      "functionType": "Mutation",
+      "identifier": "generation.js:initializeCodexAuthState",
+      "returns": null,
+      "visibility": {
+        "kind": "public"
+      }
+    },
+    {
+      "args": {
+        "type": "object",
+        "value": {
+          "authLeaseMs": {
+            "fieldType": {
+              "type": "number"
+            },
+            "optional": false
+          },
+          "commandId": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          },
+          "jobId": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          },
+          "leaseToken": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          },
+          "workerId": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          },
+          "workerToken": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          }
+        }
+      },
+      "functionType": "Mutation",
+      "identifier": "generation.js:claimCodexAuthState",
+      "returns": null,
+      "visibility": {
+        "kind": "public"
+      }
+    },
+    {
+      "args": {
+        "type": "object",
+        "value": {
+          "authLeaseToken": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          },
+          "commandId": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          },
+          "envelope": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          },
+          "expectedVersion": {
+            "fieldType": {
+              "type": "number"
+            },
+            "optional": false
+          },
+          "jobId": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          },
+          "leaseToken": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          },
+          "plaintextDigest": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          },
+          "workerId": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          },
+          "workerToken": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          }
+        }
+      },
+      "functionType": "Mutation",
+      "identifier": "generation.js:commitCodexAuthState",
+      "returns": null,
+      "visibility": {
+        "kind": "public"
+      }
+    },
+    {
+      "args": {
+        "type": "object",
+        "value": {
+          "authLeaseToken": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          },
+          "commandId": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          },
+          "expectedVersion": {
+            "fieldType": {
+              "type": "number"
+            },
+            "optional": false
+          },
+          "jobId": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          },
+          "leaseToken": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          },
+          "workerId": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          },
+          "workerToken": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          }
+        }
+      },
+      "functionType": "Mutation",
+      "identifier": "generation.js:releaseCodexAuthState",
+      "returns": null,
+      "visibility": {
+        "kind": "public"
+      }
+    },
+    {
+      "args": {
+        "type": "object",
+        "value": {
+          "approval": {
+            "fieldType": {
+              "type": "any"
+            },
+            "optional": false
+          },
+          "backendToken": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          },
+          "jobId": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          }
+        }
+      },
+      "functionType": "Mutation",
+      "identifier": "generation.js:saveEditorialApproval",
+      "returns": null,
+      "visibility": {
+        "kind": "public"
+      }
+    },
+    {
+      "args": {
+        "type": "object",
+        "value": {
+          "commandId": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          },
+          "jobId": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          },
+          "leaseToken": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          },
+          "workerId": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          },
+          "workerToken": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          }
+        }
+      },
+      "functionType": "Query",
+      "identifier": "generation.js:readEditorialApproval",
+      "returns": null,
+      "visibility": {
+        "kind": "public"
+      }
+    },
+    {
+      "args": {
+        "type": "object",
+        "value": {
+          "commandId": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          },
+          "jobId": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          },
+          "leaseToken": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          },
+          "workerId": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          },
+          "workerToken": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          }
+        }
+      },
+      "functionType": "Query",
+      "identifier": "generation.js:readClaimedCustomerJob",
+      "returns": null,
+      "visibility": {
+        "kind": "public"
+      }
+    },
+    {
+      "args": {
+        "type": "object",
+        "value": {
+          "commandId": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          },
+          "jobId": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          },
+          "leaseToken": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          },
+          "workerId": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          },
+          "workerToken": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          }
+        }
+      },
+      "functionType": "Query",
+      "identifier": "generation.js:getClaimedFulfillmentJob",
+      "returns": null,
+      "visibility": {
+        "kind": "public"
+      }
+    },
+    {
+      "args": {
+        "type": "object",
+        "value": {
+          "aggregate": {
+            "fieldType": {
+              "type": "any"
+            },
+            "optional": false
+          },
+          "commandId": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          },
+          "expectedVersion": {
+            "fieldType": {
+              "type": "number"
+            },
+            "optional": false
+          },
+          "jobId": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          },
+          "leaseToken": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          },
+          "workerId": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          },
+          "workerToken": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          }
+        }
+      },
+      "functionType": "Mutation",
+      "identifier": "generation.js:replaceClaimedFulfillmentJob",
+      "returns": null,
+      "visibility": {
+        "kind": "public"
+      }
+    },
+    {
+      "args": {
+        "type": "object",
+        "value": {
+          "commandId": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          },
+          "jobId": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          },
+          "leaseToken": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          },
+          "workerId": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          },
+          "workerToken": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          }
+        }
+      },
+      "functionType": "Mutation",
+      "identifier": "generation.js:createArtifactUploadUrl",
+      "returns": null,
+      "visibility": {
+        "kind": "public"
+      }
+    },
+    {
+      "args": {
+        "type": "object",
+        "value": {
+          "artifactSet": {
+            "fieldType": {
+              "type": "any"
+            },
+            "optional": false
+          },
+          "commandId": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          },
+          "jobId": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          },
+          "leaseToken": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          },
+          "workerId": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          },
+          "workerToken": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          }
+        }
+      },
+      "functionType": "Mutation",
+      "identifier": "generation.js:commitArtifactSet",
+      "returns": null,
+      "visibility": {
+        "kind": "public"
+      }
+    },
+    {
+      "args": {
+        "type": "object",
+        "value": {
+          "commandId": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          },
+          "jobId": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          },
+          "kind": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          },
+          "leaseToken": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          },
+          "revisionId": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          },
+          "workerId": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          },
+          "workerToken": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          }
+        }
+      },
+      "functionType": "Query",
+      "identifier": "generation.js:readArtifactSet",
+      "returns": null,
+      "visibility": {
+        "kind": "public"
+      }
+    },
+    {
+      "args": {
+        "type": "object",
+        "value": {
+          "commandId": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          },
+          "jobId": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          },
+          "kind": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          },
+          "leaseToken": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          },
+          "path": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          },
+          "revisionId": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          },
+          "workerId": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          },
+          "workerToken": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          }
+        }
+      },
+      "functionType": "Query",
+      "identifier": "generation.js:authorizeArtifactRead",
+      "returns": null,
+      "visibility": {
+        "kind": "internal"
+      }
+    },
+    {
+      "functionType": "HttpAction",
+      "method": "GET",
+      "path": "/delivery"
+    },
+    {
+      "functionType": "HttpAction",
+      "method": "POST",
+      "path": "/delivery/intake"
+    },
+    {
+      "functionType": "HttpAction",
+      "method": "GET",
+      "path": "/delivery/review"
+    },
+    {
+      "functionType": "HttpAction",
+      "method": "POST",
+      "path": "/delivery/review"
+    },
+    {
+      "functionType": "HttpAction",
+      "method": "GET",
+      "path": "/narration/artifact"
+    },
+    {
+      "functionType": "HttpAction",
+      "method": "GET",
+      "path": "/announcements/*"
+    },
+    {
+      "functionType": "HttpAction",
+      "method": "GET",
+      "path": "/generation/artifact"
+    },
+    {
+      "functionType": "HttpAction",
+      "method": "GET",
+      "path": "/completion/artifact"
+    },
+    {
+      "args": {
+        "type": "object",
+        "value": {
+          "aggregate": {
+            "fieldType": {
+              "type": "any"
+            },
+            "optional": false
+          },
+          "language": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          },
+          "operatorToken": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          }
+        }
+      },
+      "functionType": "Mutation",
+      "identifier": "narration.js:insertFictionalTest",
+      "returns": null,
+      "visibility": {
+        "kind": "internal"
+      }
+    },
+    {
+      "args": {
+        "type": "object",
+        "value": {
+          "commandId": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          },
+          "jobId": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          },
+          "leaseToken": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          },
+          "workerId": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          },
+          "workerToken": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          }
+        }
+      },
+      "functionType": "Query",
+      "identifier": "narration.js:readClaim",
+      "returns": null,
+      "visibility": {
+        "kind": "internal"
+      }
+    },
+    {
+      "args": {
+        "type": "object",
+        "value": {
+          "aggregate": {
+            "fieldType": {
+              "type": "any"
+            },
+            "optional": false
+          },
+          "commandId": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          },
+          "expectedVersion": {
+            "fieldType": {
+              "type": "number"
+            },
+            "optional": false
+          },
+          "jobId": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          },
+          "leaseToken": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          },
+          "workerId": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          },
+          "workerToken": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          }
+        }
+      },
+      "functionType": "Mutation",
+      "identifier": "narration.js:commitTransition",
+      "returns": null,
+      "visibility": {
+        "kind": "internal"
+      }
+    },
+    {
+      "args": {
+        "type": "object",
+        "value": {
+          "commandId": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          },
+          "jobId": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          },
+          "leaseToken": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          },
+          "workerId": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          },
+          "workerToken": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          }
+        }
+      },
+      "functionType": "Mutation",
+      "identifier": "narration.js:createUploadUrl",
+      "returns": null,
+      "visibility": {
+        "kind": "public"
+      }
+    },
+    {
+      "args": {
+        "type": "object",
+        "value": {
+          "commandId": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          },
+          "jobId": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          },
+          "leaseToken": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          },
+          "workerId": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          },
+          "workerToken": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          }
+        }
+      },
+      "functionType": "Query",
+      "identifier": "narration.js:readPrepared",
+      "returns": null,
+      "visibility": {
+        "kind": "public"
+      }
+    },
+    {
+      "args": {
+        "type": "object",
+        "value": {
+          "commandId": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          },
+          "jobId": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          },
+          "leaseToken": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          },
+          "mode": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          },
+          "path": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          },
+          "revisionId": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          },
+          "token": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          },
+          "workerId": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          }
+        }
+      },
+      "functionType": "Query",
+      "identifier": "narration.js:authorizeRead",
+      "returns": null,
+      "visibility": {
+        "kind": "internal"
+      }
+    },
+    {
+      "args": {
+        "type": "object",
+        "value": {
+          "artifactSet": {
+            "fieldType": {
+              "type": "any"
+            },
+            "optional": true
+          },
+          "commandId": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          },
+          "jobId": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          },
+          "leaseToken": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          },
+          "operation": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          },
+          "workerId": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          },
+          "workerToken": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          }
+        }
+      },
+      "functionType": "Action",
+      "identifier": "narrationRuntime.js:advance",
+      "returns": null,
+      "visibility": {
+        "kind": "public"
+      }
+    },
+    {
+      "args": {
+        "type": "object",
+        "value": {
+          "acknowledgement": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          },
+          "language": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          },
+          "operatorToken": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          },
+          "text": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          }
+        }
+      },
+      "functionType": "Action",
+      "identifier": "narrationRuntime.js:createFictionalTest",
+      "returns": null,
+      "visibility": {
+        "kind": "public"
+      }
+    },
+    {
+      "args": {
+        "type": "object",
+        "value": {
+          "idempotencyKey": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          },
+          "intake": {
+            "fieldType": {
+              "type": "any"
+            },
+            "optional": false
+          },
+          "magicPassword": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          }
+        }
+      },
+      "functionType": "Mutation",
+      "identifier": "deliveryLoop.js:submit",
+      "returns": null,
+      "visibility": {
+        "kind": "public"
+      }
+    },
+    {
+      "args": {
+        "type": "object",
+        "value": {
+          "jobId": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          },
+          "workerToken": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          }
+        }
+      },
+      "functionType": "Query",
+      "identifier": "deliveryLoop.js:read",
+      "returns": null,
+      "visibility": {
+        "kind": "public"
+      }
+    },
+    {
+      "args": {
+        "type": "object",
+        "value": {
+          "jobId": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          },
+          "reviewToken": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          }
+        }
+      },
+      "functionType": "Query",
+      "identifier": "deliveryLoop.js:status",
+      "returns": null,
+      "visibility": {
+        "kind": "public"
+      }
+    },
+    {
+      "args": {
+        "type": "object",
+        "value": {
+          "leaseToken": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          },
+          "workerId": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          },
+          "workerToken": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          }
+        }
+      },
+      "functionType": "Mutation",
+      "identifier": "deliveryLoop.js:claim",
+      "returns": null,
+      "visibility": {
+        "kind": "public"
+      }
+    },
+    {
+      "args": {
+        "type": "object",
+        "value": {
+          "jobId": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          },
+          "leaseToken": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          },
+          "revision": {
+            "fieldType": {
+              "type": "number"
+            },
+            "optional": false
+          },
+          "stage": {
+            "fieldType": {
+              "type": "union",
+              "value": [
+                {
+                  "type": "literal",
+                  "value": "generate"
+                },
+                {
+                  "type": "literal",
+                  "value": "draft_email"
+                },
+                {
+                  "type": "literal",
+                  "value": "final_email"
+                }
+              ]
+            },
+            "optional": false
+          },
+          "workerToken": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          }
+        }
+      },
+      "functionType": "Query",
+      "identifier": "deliveryLoop.js:authorizeProvider",
+      "returns": null,
+      "visibility": {
+        "kind": "public"
+      }
+    },
+    {
+      "args": {
+        "type": "object",
+        "value": {
+          "jobId": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          },
+          "leaseToken": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          },
+          "workerToken": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          }
+        }
+      },
+      "functionType": "Mutation",
+      "identifier": "deliveryLoop.js:uploadUrl",
+      "returns": null,
+      "visibility": {
+        "kind": "public"
+      }
+    },
+    {
+      "args": {
+        "type": "object",
+        "value": {
+          "jobId": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          },
+          "language": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          },
+          "leaseToken": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          },
+          "model": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          },
+          "provider": {
+            "fieldType": {
+              "type": "literal",
+              "value": "openai"
+            },
+            "optional": false
+          },
+          "revision": {
+            "fieldType": {
+              "type": "number"
+            },
+            "optional": false
+          },
+          "storageId": {
+            "fieldType": {
+              "tableName": "_storage",
+              "type": "id"
+            },
+            "optional": false
+          },
+          "textDigest": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          },
+          "voice": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          },
+          "workerToken": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          }
+        }
+      },
+      "functionType": "Mutation",
+      "identifier": "deliveryLoop.js:recordNarration",
+      "returns": null,
+      "visibility": {
+        "kind": "public"
+      }
+    },
+    {
+      "args": {
+        "type": "object",
+        "value": {
+          "audioFiles": {
+            "fieldType": {
+              "type": "array",
+              "value": {
+                "type": "object",
+                "value": {
+                  "language": {
+                    "fieldType": {
+                      "type": "string"
+                    },
+                    "optional": false
+                  },
+                  "storageId": {
+                    "fieldType": {
+                      "tableName": "_storage",
+                      "type": "id"
+                    },
+                    "optional": false
+                  },
+                  "textDigest": {
+                    "fieldType": {
+                      "type": "string"
+                    },
+                    "optional": false
+                  }
+                }
+              }
+            },
+            "optional": false
+          },
+          "composition": {
+            "fieldType": {
+              "type": "any"
+            },
+            "optional": false
+          },
+          "compositionReceipt": {
+            "fieldType": {
+              "type": "any"
+            },
+            "optional": false
+          },
+          "contentDigest": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          },
+          "contentHtml": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          },
+          "jobId": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          },
+          "leaseToken": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          },
+          "revision": {
+            "fieldType": {
+              "type": "number"
+            },
+            "optional": false
+          },
+          "workerToken": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          }
+        }
+      },
+      "functionType": "Mutation",
+      "identifier": "deliveryLoop.js:publish",
+      "returns": null,
+      "visibility": {
+        "kind": "public"
+      }
+    },
+    {
+      "args": {
+        "type": "object",
+        "value": {
+          "jobId": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          },
+          "leaseToken": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          },
+          "revision": {
+            "fieldType": {
+              "type": "number"
+            },
+            "optional": true
+          },
+          "stage": {
+            "fieldType": {
+              "type": "union",
+              "value": [
+                {
+                  "type": "literal",
+                  "value": "generate"
+                },
+                {
+                  "type": "literal",
+                  "value": "draft_email"
+                },
+                {
+                  "type": "literal",
+                  "value": "final_email"
+                }
+              ]
+            },
+            "optional": false
+          },
+          "workerToken": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          }
+        }
+      },
+      "functionType": "Mutation",
+      "identifier": "deliveryLoop.js:fence",
+      "returns": null,
+      "visibility": {
+        "kind": "public"
+      }
+    },
+    {
+      "args": {
+        "type": "object",
+        "value": {
+          "jobId": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          },
+          "leaseToken": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          },
+          "providerMessageId": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          },
+          "revision": {
+            "fieldType": {
+              "type": "number"
+            },
+            "optional": false
+          },
+          "stage": {
+            "fieldType": {
+              "type": "union",
+              "value": [
+                {
+                  "type": "literal",
+                  "value": "generate"
+                },
+                {
+                  "type": "literal",
+                  "value": "draft_email"
+                },
+                {
+                  "type": "literal",
+                  "value": "final_email"
+                }
+              ]
+            },
+            "optional": false
+          },
+          "workerToken": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          }
+        }
+      },
+      "functionType": "Mutation",
+      "identifier": "deliveryLoop.js:completeEmail",
+      "returns": null,
+      "visibility": {
+        "kind": "public"
+      }
+    },
+    {
+      "args": {
+        "type": "object",
+        "value": {
+          "jobId": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          },
+          "leaseToken": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          },
+          "providerDefinitiveFailure": {
+            "fieldType": {
+              "type": "boolean"
+            },
+            "optional": true
+          },
+          "reason": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          },
+          "retryable": {
+            "fieldType": {
+              "type": "boolean"
+            },
+            "optional": false
+          },
+          "workerToken": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          }
+        }
+      },
+      "functionType": "Mutation",
+      "identifier": "deliveryLoop.js:fail",
+      "returns": null,
+      "visibility": {
+        "kind": "public"
+      }
+    },
+    {
+      "args": {
+        "type": "object",
+        "value": {
+          "expectedRevision": {
+            "fieldType": {
+              "type": "number"
+            },
+            "optional": false
+          },
+          "jobId": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          },
+          "workerToken": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          }
+        }
+      },
+      "functionType": "Mutation",
+      "identifier": "deliveryLoop.js:retryCorrection",
+      "returns": null,
+      "visibility": {
+        "kind": "public"
+      }
+    },
+    {
+      "args": {
+        "type": "object",
+        "value": {
+          "action": {
+            "fieldType": {
+              "type": "union",
+              "value": [
+                {
+                  "type": "literal",
+                  "value": "request_changes"
+                },
+                {
+                  "type": "literal",
+                  "value": "approve"
+                }
+              ]
+            },
+            "optional": false
+          },
+          "actor": {
+            "fieldType": {
+              "type": "union",
+              "value": [
+                {
+                  "type": "literal",
+                  "value": "customer"
+                },
+                {
+                  "type": "literal",
+                  "value": "operator"
+                },
+                {
+                  "type": "literal",
+                  "value": "simulated_human"
+                }
+              ]
+            },
+            "optional": true
+          },
+          "expectedRevision": {
+            "fieldType": {
+              "type": "number"
+            },
+            "optional": false
+          },
+          "feedback": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": true
+          },
+          "idempotencyKey": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          },
+          "jobId": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          },
+          "reviewToken": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": true
+          },
+          "workerToken": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": true
+          }
+        }
+      },
+      "functionType": "Mutation",
+      "identifier": "deliveryLoop.js:requestReview",
+      "returns": null,
+      "visibility": {
+        "kind": "public"
+      }
+    },
+    {
+      "args": {
+        "type": "object",
+        "value": {
+          "publicToken": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          }
+        }
+      },
+      "functionType": "Query",
+      "identifier": "deliveryLoop.js:publicPage",
+      "returns": null,
+      "visibility": {
+        "kind": "public"
+      }
+    },
+    {
+      "args": {
+        "type": "object",
+        "value": {
+          "language": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          },
+          "publicToken": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          },
+          "revision": {
+            "fieldType": {
+              "type": "number"
+            },
+            "optional": false
+          }
+        }
+      },
+      "functionType": "Query",
+      "identifier": "deliveryLoop.js:publicAudio",
+      "returns": null,
+      "visibility": {
+        "kind": "public"
+      }
+    },
+    {
+      "args": {
+        "type": "object",
+        "value": {
+          "jobId": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          },
+          "providerMessageId": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          },
+          "workerToken": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          }
+        }
+      },
+      "functionType": "Action",
+      "identifier": "deliveryLoopProviders.js:inspectEmail",
+      "returns": null,
+      "visibility": {
+        "kind": "public"
+      }
+    },
+    {
+      "args": {
+        "type": "object",
+        "value": {
+          "jobId": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          },
+          "language": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          },
+          "leaseToken": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          },
+          "revision": {
+            "fieldType": {
+              "type": "number"
+            },
+            "optional": false
+          },
+          "text": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          },
+          "textDigest": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          },
+          "workerToken": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          }
+        }
+      },
+      "functionType": "Action",
+      "identifier": "deliveryLoopProviders.js:narrate",
+      "returns": null,
+      "visibility": {
+        "kind": "public"
+      }
+    },
+    {
+      "args": {
+        "type": "object",
+        "value": {
+          "jobId": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          },
+          "leaseToken": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          },
+          "revision": {
+            "fieldType": {
+              "type": "number"
+            },
+            "optional": false
+          },
+          "stage": {
+            "fieldType": {
+              "type": "union",
+              "value": [
+                {
+                  "type": "literal",
+                  "value": "draft_email"
+                },
+                {
+                  "type": "literal",
+                  "value": "final_email"
+                }
+              ]
+            },
+            "optional": false
+          },
+          "workerToken": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          }
+        }
+      },
+      "functionType": "Action",
+      "identifier": "deliveryLoopProviders.js:sendEmail",
+      "returns": null,
+      "visibility": {
+        "kind": "public"
+      }
+    }
+  ]
+}

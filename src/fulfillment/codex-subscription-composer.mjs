@@ -261,11 +261,35 @@ async function probeReadiness({
   const versionMatch = /^codex-cli ([0-9]+\.[0-9]+\.[0-9]+)\s*$/u.exec(
     versionResult?.stdout || "",
   );
-  const loginStatus = `${statusResult?.stdout || ""}${statusResult?.stderr || ""}`;
-  if (!versionMatch || !/^Logged in using ChatGPT\s*$/u.test(loginStatus)) {
+  const versionStderr = readinessStderr(versionResult?.stderr || "", environment);
+  const statusStderr = readinessStderr(statusResult?.stderr || "", environment);
+  const loginStatus = `${statusResult?.stdout || ""}${statusStderr}`;
+  if (!versionMatch || versionStderr !== "" || !/^Logged in using ChatGPT\s*$/u.test(loginStatus)) {
     throw safeError("composition_provider_unavailable", true);
   }
   return versionMatch[1];
+}
+
+function readinessStderr(stderr, environment) {
+  const codexHome = environment.CODEX_HOME;
+  // Codex uses TMPDIR, or /tmp on POSIX, from this invocation's environment.
+  const tempDir = environment.TMPDIR || (process.platform === "win32" ? null : "/tmp");
+  if (
+    typeof stderr !== "string"
+    || typeof codexHome !== "string"
+    || typeof tempDir !== "string"
+    || !path.isAbsolute(codexHome)
+    || !path.isAbsolute(tempDir)
+    || path.normalize(codexHome) !== codexHome
+    || path.normalize(tempDir) !== tempDir
+  ) return stderr;
+  const relativeHome = path.relative(tempDir, codexHome);
+  if (!relativeHome || relativeHome === ".." || relativeHome.startsWith(`..${path.sep}`) || path.isAbsolute(relativeHome)) {
+    return stderr;
+  }
+  // Compare literal, escaped paths; never filter arbitrary warning/error lines.
+  const warning = `WARNING: proceeding, even though we could not create PATH aliases: Refusing to create helper binaries under temporary dir ${JSON.stringify(tempDir)} (codex_home: AbsolutePathBuf(${JSON.stringify(codexHome)}))\n`;
+  return stderr.startsWith(warning) ? stderr.slice(warning.length) : stderr;
 }
 
 function codexArguments({ schemaPath, outputPath, model }) {

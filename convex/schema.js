@@ -64,6 +64,37 @@ const operationOutcome = v.union(v.null(), v.object({
 }));
 
 export default defineSchema({
+  deliveryLoopJobs: defineTable({
+    jobId: v.string(),
+    publicToken: v.string(),
+    idempotencyKey: v.string(),
+    status: v.string(),
+    data: v.any(),
+  })
+    .index("by_job_id", ["jobId"])
+    .index("by_public_token", ["publicToken"])
+    .index("by_idempotency_key", ["idempotencyKey"])
+    .index("by_status", ["status"]),
+  deliveryLoopIntakeThrottle: defineTable({
+    bucketKey: v.string(),
+    windowStartedAtMs: v.number(),
+    attempts: v.number(),
+  }).index("by_bucket_key", ["bucketKey"]),
+
+  ownerTrialCompletionContinuations: defineTable({ jobId: v.string(), receipt: v.any() })
+    .index("by_job_id", ["jobId"]),
+  ownerTrialPublicationPresentAuthorizations: defineTable({ jobId: v.string(), receipt: v.any() }).index("by_job_id", ["jobId"]),
+  ownerTrialPublicationPresentLeases: defineTable({ jobId: v.string(), lease: v.any() }).index("by_job_id", ["jobId"]),
+  ownerTrialPublicPlaybackRepairs: defineTable({ jobId: v.string(), authorization: v.any(), lifecycle: v.any() }).index("by_job_id", ["jobId"]),
+  ownerTrialPublicationSupersessions: defineTable({ jobId: v.string(), authorization: v.any(), lifecycle: v.any() }).index("by_job_id", ["jobId"]),
+  ownerTrialPublicationPresentResults: defineTable({ jobId: v.string(), receipt: v.any() }).index("by_job_id", ["jobId"]),
+  ownerTrialPublicationRecoveries: defineTable({ jobId: v.string(), revisionId: v.string(), receipt: v.any() })
+    .index("by_job_revision", ["jobId", "revisionId"]),
+  ownerTrialReviews: defineTable({ jobId: v.string(), decisionType: v.string(), receipt: v.any() })
+    .index("by_job_type", ["jobId", "decisionType"]),
+  ownerTrialTickets: defineTable({ ticketId: v.string(), ticketDigest: v.string(), binding: v.any(),
+    redeemed: v.boolean(), intakeDigest: v.union(v.string(), v.null()) })
+    .index("by_ticket_id", ["ticketId"]).index("by_ticket_digest", ["ticketDigest"]),
   customerFlowJobs: defineTable({
     jobId: v.string(),
     job: v.any(),
@@ -99,7 +130,7 @@ export default defineSchema({
     expectedVersion: v.number(),
     payload: operationPayload,
     requestedAt: v.string(),
-    requestedBy: v.literal("primary_operator"),
+    requestedBy: v.union(v.literal("primary_operator"), v.literal("automatic_generation"), v.literal("automatic_narration_progression"), v.literal("automatic_canonical_completion")),
     state: operationState,
     attempts: v.number(),
     claim: operationClaim,
@@ -123,6 +154,10 @@ export default defineSchema({
     blockedUntilMs: v.number(),
     updatedAtMs: v.number(),
   }).index("by_bucket_key", ["bucketKey"]),
+  canonicalCompletionScopes: defineTable({
+    scope: v.string(),
+    binding: v.any(),
+  }).index("by_scope", ["scope"]),
   fulfillmentJobs: defineTable({
     jobId: v.string(),
     aggregate: v.any(),

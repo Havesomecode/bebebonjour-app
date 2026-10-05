@@ -1,9 +1,15 @@
+import * as live from "../src/forward-coexistence/live/convex/generation.js";
+import { coexistDefinition } from "../src/forward-coexistence/dispatch.mjs";
 import {
   internalQueryGeneric,
   mutationGeneric,
   queryGeneric,
 } from "convex/server";
 import { v } from "convex/values";
+import { isOwnerTrialJob } from "../src/fulfillment/owner-trial-authority.mjs";
+import { assertOwnerTrialPersistedAuthority } from "./ownerTrial.js";
+import { enqueueApprovedGeneration } from "./automaticGeneration.js";
+import { isPrivateGenerationJob, matchesPrivateGenerationAuthority, stablePrivateValue } from "../src/fulfillment/private-generation-authority.mjs";
 
 import {
   canonicalizeJobScopedEditorialApproval,
@@ -34,7 +40,7 @@ const PREPARE_REVIEW_TRANSITIONS = new Set([
 const CODEX_AUTH_SLOT = "primary";
 const CODEX_AUTH_ENVELOPE = /^v1\.[A-Za-z0-9_-]{16}\.[A-Za-z0-9_-]{22}\.[A-Za-z0-9_-]{16,131072}$/u;
 
-export const initializeCodexAuthState = mutationGeneric({
+export const initializeCodexAuthState = mutationGeneric(coexistDefinition({
   args: {
     ...CLAIMED_GENERATION_ARGS,
     envelope: v.string(),
@@ -57,9 +63,9 @@ export const initializeCodexAuthState = mutationGeneric({
     });
     return { initialized: true, version: 1 };
   },
-});
+}, live.initializeCodexAuthState, "initializeCodexAuthState", "generation"));
 
-export const claimCodexAuthState = mutationGeneric({
+export const claimCodexAuthState = mutationGeneric(coexistDefinition({
   args: {
     ...CLAIMED_GENERATION_ARGS,
     authLeaseMs: v.number(),
@@ -99,9 +105,9 @@ export const claimCodexAuthState = mutationGeneric({
     await context.db.patch(state._id, { lease, updatedAtMs: nowMs });
     return authLeaseResult({ ...state, lease });
   },
-});
+}, live.claimCodexAuthState, "claimCodexAuthState", "generation"));
 
-export const commitCodexAuthState = mutationGeneric({
+export const commitCodexAuthState = mutationGeneric(coexistDefinition({
   args: {
     ...CLAIMED_GENERATION_ARGS,
     authLeaseToken: v.string(),
@@ -126,9 +132,9 @@ export const commitCodexAuthState = mutationGeneric({
     });
     return { committed: true, version, plaintextDigest: args.plaintextDigest };
   },
-});
+}, live.commitCodexAuthState, "commitCodexAuthState", "generation"));
 
-export const releaseCodexAuthState = mutationGeneric({
+export const releaseCodexAuthState = mutationGeneric(coexistDefinition({
   args: {
     ...CLAIMED_GENERATION_ARGS,
     authLeaseToken: v.string(),
@@ -143,9 +149,9 @@ export const releaseCodexAuthState = mutationGeneric({
     await context.db.patch(state._id, { lease: null, updatedAtMs: Date.now() });
     return { released: true };
   },
-});
+}, live.releaseCodexAuthState, "releaseCodexAuthState", "generation"));
 
-export const saveEditorialApproval = mutationGeneric({
+export const saveEditorialApproval = mutationGeneric(coexistDefinition({
   args: {
     backendToken: v.string(),
     jobId: v.string(),
@@ -162,26 +168,28 @@ export const saveEditorialApproval = mutationGeneric({
         !== JSON.stringify(approval)) {
         throw new Error("Generation editorial approval is immutable once provisioned.");
       }
+      await enqueueApprovedGeneration(context, args.jobId);
       return { created: false, approval };
     }
     await context.db.insert("fulfillmentGenerationEditorialApprovals", {
       jobId: args.jobId,
       approval,
     });
+    await enqueueApprovedGeneration(context, args.jobId);
     return { created: true, approval };
   },
-});
+}, live.saveEditorialApproval, "saveEditorialApproval", "generation"));
 
-export const readEditorialApproval = queryGeneric({
+export const readEditorialApproval = queryGeneric(coexistDefinition({
   args: CLAIMED_GENERATION_ARGS,
   handler: async (context, args) => {
     await assertClaimedGenerationAuthority(context, args, { effectFenceRequired: false });
     const document = await findEditorialApproval(context, args.jobId);
     return document ? canonicalizeJobScopedEditorialApproval(document.approval) : null;
   },
-});
+}, live.readEditorialApproval, "readEditorialApproval", "generation"));
 
-export const readClaimedCustomerJob = queryGeneric({
+export const readClaimedCustomerJob = queryGeneric(coexistDefinition({
   args: CLAIMED_GENERATION_ARGS,
   handler: async (context, args) => {
     await assertClaimedGenerationAuthority(context, args, { effectFenceRequired: false });
@@ -191,18 +199,18 @@ export const readClaimedCustomerJob = queryGeneric({
       .unique();
     return document?.job || null;
   },
-});
+}, live.readClaimedCustomerJob, "readClaimedCustomerJob", "generation"));
 
-export const getClaimedFulfillmentJob = queryGeneric({
+export const getClaimedFulfillmentJob = queryGeneric(coexistDefinition({
   args: CLAIMED_GENERATION_ARGS,
   handler: async (context, args) => {
     await assertClaimedGenerationAuthority(context, args, { effectFenceRequired: false });
     const document = await findFulfillmentJob(context, args.jobId);
     return document?.aggregate || null;
   },
-});
+}, live.getClaimedFulfillmentJob, "getClaimedFulfillmentJob", "generation"));
 
-export const replaceClaimedFulfillmentJob = mutationGeneric({
+export const replaceClaimedFulfillmentJob = mutationGeneric(coexistDefinition({
   args: {
     ...CLAIMED_GENERATION_ARGS,
     expectedVersion: v.number(),
@@ -228,17 +236,17 @@ export const replaceClaimedFulfillmentJob = mutationGeneric({
     await context.db.patch(document._id, { aggregate: args.aggregate });
     return { updated: true, aggregate: args.aggregate };
   },
-});
+}, live.replaceClaimedFulfillmentJob, "replaceClaimedFulfillmentJob", "generation"));
 
-export const createArtifactUploadUrl = mutationGeneric({
+export const createArtifactUploadUrl = mutationGeneric(coexistDefinition({
   args: CLAIMED_GENERATION_ARGS,
   handler: async (context, args) => {
     await assertClaimedGenerationAuthority(context, args);
     return context.storage.generateUploadUrl();
   },
-});
+}, live.createArtifactUploadUrl, "createArtifactUploadUrl", "generation"));
 
-export const commitArtifactSet = mutationGeneric({
+export const commitArtifactSet = mutationGeneric(coexistDefinition({
   args: {
     ...CLAIMED_GENERATION_ARGS,
     artifactSet: v.any(),
@@ -266,9 +274,9 @@ export const commitArtifactSet = mutationGeneric({
     });
     return { created: true, artifactSet: args.artifactSet };
   },
-});
+}, live.commitArtifactSet, "commitArtifactSet", "generation"));
 
-export const readArtifactSet = queryGeneric({
+export const readArtifactSet = queryGeneric(coexistDefinition({
   args: {
     ...CLAIMED_GENERATION_ARGS,
     revisionId: v.string(),
@@ -289,9 +297,9 @@ export const readArtifactSet = queryGeneric({
     }
     return { artifactSet: document.artifactSet, files: document.artifactSet.files };
   },
-});
+}, live.readArtifactSet, "readArtifactSet", "generation"));
 
-export const authorizeArtifactRead = internalQueryGeneric({
+export const authorizeArtifactRead = internalQueryGeneric(coexistDefinition({
   args: {
     ...CLAIMED_GENERATION_ARGS,
     revisionId: v.string(),
@@ -308,7 +316,7 @@ export const authorizeArtifactRead = internalQueryGeneric({
     if (!file) throw new Error("Generation artifact file is missing.");
     return file;
   },
-});
+}, live.authorizeArtifactRead, "authorizeArtifactRead", "generation"));
 
 function findCodexAuthState(context) {
   return context.db
@@ -400,6 +408,18 @@ async function assertClaimedGenerationAuthority(
   ) {
     throw new Error("Generation prepare_review claim authorization failed.");
   }
+  const [customer, fulfillment] = await Promise.all([
+    context.db.query("customerFlowJobs").withIndex("by_job_id", query => query.eq("jobId", args.jobId)).unique(),
+    findFulfillmentJob(context, args.jobId),
+  ]);
+  if (isOwnerTrialJob(customer?.job, fulfillment?.aggregate)) await assertOwnerTrialPersistedAuthority(context, customer?.job, fulfillment?.aggregate);
+  if (isPrivateGenerationJob(customer?.job, fulfillment?.aggregate)) {
+    const bytes = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(stablePrivateValue(customer?.job?.intake) || ""));
+    const digest = [...new Uint8Array(bytes)].map(byte => byte.toString(16).padStart(2, "0")).join("");
+    if (!matchesPrivateGenerationAuthority(customer?.job, fulfillment?.aggregate, digest)) {
+      throw new Error("Generation private-test authority rejected.");
+    }
+  }
   return command;
 }
 
@@ -460,7 +480,7 @@ function preservesStageAttempts(current, next, commandId) {
     );
 }
 
-async function assertEditorialApproval(value, jobId) {
+export async function assertEditorialApproval(value, jobId) {
   const record = value?.record;
   const policy = record?.policy;
   const sourceEvidence = record?.sourceEvidence;
@@ -492,8 +512,12 @@ async function assertEditorialApproval(value, jobId) {
     || typeof sourceEvidence !== "object"
     || Array.isArray(sourceEvidence)
     || Object.keys(sourceEvidence).sort().join("\0") !== "kind\0reference"
-    || sourceEvidence.kind !== "kanban_human_decision"
-    || !/^kanban:t_[A-Za-z0-9_-]{3,128}$/u.test(sourceEvidence.reference || "")
+    || !(
+      (sourceEvidence.kind === "kanban_human_decision"
+        && /^kanban:t_[A-Za-z0-9_-]{3,128}$/u.test(sourceEvidence.reference || ""))
+      || (sourceEvidence.kind === "conversation_human_decision"
+        && /^hermes:session:[0-9]{8}_[0-9]{6}_[a-f0-9]{6}:sha256:[a-f0-9]{64}$/u.test(sourceEvidence.reference || ""))
+    )
     || !DIGEST.test(value.recordDigest || "")
     || !DIGEST.test(record.sourceDigest || "")
   ) {
