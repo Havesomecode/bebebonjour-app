@@ -1,0 +1,19 @@
+{
+  "schemaVersion": 1,
+  "source": "synthetic",
+  "receipt": {
+    "providerAccountId": "acct_offline", "providerEventId": "evt_offlineEffect",
+    "rawBodySha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "providerPaymentId": "pi_offlineEffect", "jobId": "job_offlineEffect", "revision": 1,
+    "previewDigest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "type": "payment_intent.succeeded", "livemode": true, "disposition": "settled",
+    "reason": "payment_verified", "processedAtMs": 1000
+  },
+  "order": {
+    "jobId": "job_offlineEffect", "status": "reconciliation_required", "orderMode": "paid_route_a",
+    "paymentStatus": "settled", "cancelled": false, "revoked": false, "previewExpired": false,
+    "uncertainEffect": { "stage": "finalize", "revision": 1, "startedAtMs": 2000 },
+    "narrationEffects": [{ "revision": 1, "language": "fr", "status": "inflight", "startedAtMs": 2000,
+      "textDigest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc" }]
+  }
+}

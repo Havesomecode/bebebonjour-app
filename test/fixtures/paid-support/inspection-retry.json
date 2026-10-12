@@ -1,0 +1,19 @@
+{
+  "schemaVersion": 1,
+  "source": "synthetic",
+  "http": { "status": 503, "code": "payment_event_retry" },
+  "request": {
+    "providerAccountId": "acct_offline",
+    "providerEventId": "evt_offlineRetry",
+    "rawBodySha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "providerPaymentId": "pi_offlineRetry",
+    "jobId": "job_offlineRetry",
+    "revision": 1,
+    "previewDigest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+  },
+  "order": {
+    "jobId": "job_offlineRetry", "status": "paid_blocked", "orderMode": "paid_route_a",
+    "paymentStatus": "pending", "cancelled": false, "revoked": false, "previewExpired": false,
+    "uncertainEffect": null, "narrationEffects": []
+  }
+}
