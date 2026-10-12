@@ -4,6 +4,7 @@ import { actionGeneric, makeFunctionReference } from "convex/server";
 import { v } from "convex/values";
 import { createHash } from "node:crypto";
 import { performNarration, performEmail } from "../src/delivery-loop/provider-transport.mjs";
+import { inspectPaidPayment } from "../src/delivery-loop/paid-payment.mjs";
 
 const ref = (name) => makeFunctionReference(`deliveryLoop:${name}`);
 const identity = { workerToken: v.string(), jobId: v.string(), leaseToken: v.string(), revision: v.number() };
@@ -11,19 +12,23 @@ const identity = { workerToken: v.string(), jobId: v.string(), leaseToken: v.str
 export const narrate = actionGeneric({
   args: { ...identity, language: v.string(), text: v.string(), textDigest: v.string() },
   handler: async (context, args) => {
-    const job = await context.runQuery(ref('authorizeProvider'), { ...pickIdentity(args), stage: 'generate' });
+    const snapshot = await context.runQuery(ref('read'), { workerToken: args.workerToken, jobId: args.jobId });
+    const stage = snapshot.orderMode === 'paid_route_a' ? 'finalize' : 'generate';
+    const job = await context.runQuery(ref('authorizeProvider'), { ...pickIdentity(args), stage });
     if (!job.intake.languages.includes(args.language)) throw new Error('narration_language_invalid');
     const existing = (job.narrationReceipts || []).find(receipt => receipt.revision === args.revision
       && receipt.language === args.language && receipt.textDigest === args.textDigest);
     if (existing) return { storageId: existing.storageId, textDigest: existing.textDigest,
       provider: existing.provider, model: existing.model, voice: existing.voice };
+    if (createHash('sha256').update(args.text).digest('hex') !== args.textDigest) throw new Error('narration_text_mismatch');
+    await context.runMutation(ref('beginNarration'), { ...pickIdentity(args), language: args.language, textDigest: args.textDigest });
     const receipt = await provider('narrate', { language: args.language, text: args.text, textDigest: args.textDigest });
     const bytes = Buffer.from(receipt.audioBase64, 'base64');
     if (bytes.length !== receipt.bytes || bytes.length < 128 || bytes.length > 12 * 1024 * 1024
       || createHash('sha256').update(bytes).digest('hex') !== receipt.audioDigest
       || receipt.textDigest !== args.textDigest || receipt.provider !== 'openai'
       || receipt.voice !== 'cedar') throw new Error('narration_receipt_invalid');
-    await context.runQuery(ref('authorizeProvider'), { ...pickIdentity(args), stage: 'generate' });
+    await context.runQuery(ref('authorizeProvider'), { ...pickIdentity(args), stage });
     const storageId = await context.storage.store(new Blob([bytes], { type: 'audio/mpeg' }));
     await context.runMutation(ref('recordNarration'), { ...pickIdentity(args), language: args.language,
       textDigest: args.textDigest, storageId, provider: receipt.provider, model: receipt.model, voice: receipt.voice });
@@ -70,6 +75,13 @@ function pickIdentity(args) {
 function emailPayload(job, stage, revision) {
   const firstName = job.intake.baby.firstName;
   const final = stage === 'final_email';
+  if (job.orderMode === 'paid_route_a' && !final) {
+    const intro = 'Votre aperçu privé est prêt. Il n’est pas publié et la narration finale sera créée après votre accord, le paiement vérifié et la révision éditoriale. Vous disposez de 24 heures pour examiner cette version. Deux corrections éditoriales sont incluses.';
+    return { to: job.intake.customer.email, subject: `${firstName} — votre aperçu privé est prêt`,
+      text: `${intro}\n\nAperçu et révision : ${job.reviewUrl}\n\nSupport : contact@bebebonjour.com`,
+      html: `<p>${escapeHtml(intro)}</p><p><a href="${escapeHtml(job.reviewUrl)}">Examiner l’aperçu privé</a></p><p>contact@bebebonjour.com</p>`,
+      idempotencyKey: `bebe-loop:${job.jobId}:${revision}:${stage}` };
+  }
   const subject = final ? `${firstName} — votre annonce approuvée` : `${firstName} — ${revision > 1 ? 'votre annonce corrigée' : 'votre première annonce'} est prête`;
   const intro = final ? 'Votre annonce a été approuvée. Elle est prête à être partagée avec vos proches.'
     : 'Votre première version a été créée automatiquement, avant révision humaine. Vous pouvez la consulter, demander une correction ou l’approuver.';
@@ -108,3 +120,16 @@ function escapeHtml(value) {
 function safeReason(error) {
   return /^[A-Za-z0-9_]{1,120}$/.test(error?.message || '') ? error.message : 'provider_transport_uncertain';
 }
+
+export const reconcilePaidPayment = actionGeneric({
+  args: { editorialToken: v.string(), jobId: v.string(), expectedRevision: v.number(), providerPaymentId: v.string() },
+  handler: async (context, args) => {
+    const scope = await context.runQuery(ref('paymentScope'), { editorialToken: args.editorialToken, jobId: args.jobId, expectedRevision: args.expectedRevision });
+    let evidence;
+    try {
+      evidence = await inspectPaidPayment({ scope, providerPaymentId: args.providerPaymentId,
+        apiKey: process.env.STRIPE_SECRET_KEY, accountId: process.env.BEBEBONJOUR_PAID_STRIPE_ACCOUNT_ID });
+    } catch (error) { throw new Error(safeReason(error)); }
+    return context.runMutation(ref('recordPaymentEvidence'), evidence);
+  },
+});

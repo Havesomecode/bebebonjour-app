@@ -1,5 +1,3 @@
-import { randomUUID } from "node:crypto";
-
 import { ConvexHttpClient } from "convex/browser";
 
 import {
@@ -9,7 +7,8 @@ import {
 import { createFulfillmentOrchestrator } from "../fulfillment/job-orchestrator.mjs";
 import { createConvexCustomerFlowStore } from "../persistence/convex-customer-flow-store.mjs";
 import { createConvexFulfillmentStore } from "../persistence/convex-fulfillment-store.mjs";
-import { createCustomerFlowService } from "./service.mjs";
+import { createHostedAbuseBudget } from "../http/abuse-budget.mjs";
+import { createCustomerFlowService, createCustomerFlowId } from "./service.mjs";
 import { createTallyIntakeProcessor } from "./tally-intake-webhook.mjs";
 
 export function createHostedTallyIntakeProcessor(options = {}) {
@@ -18,7 +17,7 @@ export function createHostedTallyIntakeProcessor(options = {}) {
   const tallyConfig = loadTallyIntakeConfig(environment);
   const client = options.convexClient || new ConvexHttpClient(convexConfig.url);
   const now = options.now || (() => new Date().toISOString());
-  const createId = options.createId || ((label) => `${label}_${randomUUID()}`);
+  const createId = options.createId || createCustomerFlowId;
   const customerStore = createConvexCustomerFlowStore({
     client,
     backendToken: convexConfig.backendToken,
@@ -53,9 +52,14 @@ export function createHostedTallyIntakeProcessor(options = {}) {
     now,
     createId,
   });
-  return createTallyIntakeProcessor({
+  const process = createTallyIntakeProcessor({
     service,
     eventStore: customerStore,
     config: tallyConfig,
   });
+  const consumeBudget = createHostedAbuseBudget({ client, backendToken: convexConfig.backendToken });
+  return async (input) => {
+    await consumeBudget("tally");
+    return process(input);
+  };
 }

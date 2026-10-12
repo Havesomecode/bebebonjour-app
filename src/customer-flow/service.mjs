@@ -37,7 +37,7 @@ export function createCustomerFlowRuntime({
   enqueueWorkItem = false,
   atomicFulfillment = false,
   now = () => new Date().toISOString(),
-  createId = defaultCreateId,
+  createId = createCustomerFlowId,
 }) {
   if (!store) throw new Error("A customer-flow store is required.");
   if (!paymentGateway?.createCheckoutSession) throw new Error("A payment gateway is required.");
@@ -269,10 +269,21 @@ function paymentCommandId(payment) {
 }
 
 function normalizeIntake(input, syntheticOnly) {
-  if (!input || typeof input !== "object" || Array.isArray(input)) invalidIntake();
+  requireAllowedKeys(input, ["schemaVersion", "customer", "baby", "languages", "voicePreference", "context", "request", "preferences"]);
   const customer = input.customer;
   const baby = input.baby;
   const voice = input.voicePreference;
+  requireAllowedKeys(customer, ["email", "consent"]);
+  requireAllowedKeys(baby, ["firstName", "nameArabic", "gender", "birthDate"]);
+  requireAllowedKeys(voice, ["enabled", "gender"]);
+  if (input.context !== undefined) {
+    requireAllowedKeys(input.context, ["religion"]);
+    if (!boundedText(input.context.religion, 1, 100)) invalidIntake();
+  }
+  if (input.preferences !== undefined) {
+    requireAllowedKeys(input.preferences, ["selfContainedFonts"]);
+    if (typeof input.preferences.selfContainedFonts !== "boolean") invalidIntake();
+  }
   if (!customer || !isEmail(customer.email) || customer.consent !== true
       || (syntheticOnly && !isSyntheticTestEmail(customer.email))) invalidIntake();
   if (!baby || !boundedText(baby.firstName, 1, 100)) invalidIntake();
@@ -288,6 +299,11 @@ function normalizeIntake(input, syntheticOnly) {
   if (input.schemaVersion !== "1.0") invalidIntake();
 
   return structuredClone(input);
+}
+
+function requireAllowedKeys(value, keys) {
+  if (!value || typeof value !== "object" || Array.isArray(value)
+      || Object.keys(value).some((key) => !keys.includes(key))) invalidIntake();
 }
 
 function invalidIntake() {
@@ -440,7 +456,7 @@ function normalizeIdempotencyKey(value) {
   return value;
 }
 
-function defaultCreateId(kind) {
+export function createCustomerFlowId(kind) {
   if (kind === "job") return `job_${randomUUID().replaceAll("-", "")}`;
   if (kind === "token") return `tok_${randomBytes(32).toString("base64url")}`;
   return `${kind}_${randomUUID().replaceAll("-", "")}`;
@@ -484,7 +500,8 @@ function isEmail(value) {
 }
 
 function boundedText(value, minimum, maximum) {
-  return typeof value === "string" && value.trim().length >= minimum && value.length <= maximum;
+  return typeof value === "string" && value.trim().length >= minimum && value.length <= maximum
+    && !/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/u.test(value);
 }
 
 function isIsoDate(value) {

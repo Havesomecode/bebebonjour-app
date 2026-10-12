@@ -3,6 +3,7 @@ import { createServer } from "node:http";
 import { PassThrough } from "node:stream";
 import test from "node:test";
 import Stripe from "stripe";
+import { ConvexHttpClient } from "convex/browser";
 
 const environment = {
   CONVEX_URL: "https://test-a.convex.cloud",
@@ -20,6 +21,12 @@ const environment = {
 
 test("Vercel catch-all completes Node responses and preserves Stripe raw bytes", async (t) => {
   Object.assign(process.env, environment);
+  t.mock.method(ConvexHttpClient.prototype, "mutation", async (name, args) => {
+    assert.equal(name, "abuse:consume");
+    assert.equal(args.scope, "stripe");
+    assert.equal(args.backendToken, environment.CUSTOMER_FLOW_BACKEND_TOKEN);
+    return { allowed: true, retryAfterSeconds: 0 };
+  });
   const entrypoint = await import("../../api/customer-flow/[...route].mjs");
 
   assert.equal(entrypoint.config.runtime, "nodejs");
@@ -91,4 +98,10 @@ test("Vercel catch-all completes Node responses and preserves Stripe raw bytes",
     ignored: true,
     eventType: "adapter.contract",
   });
+  const tooLarge = await fetch(`${baseUrl}/api/customer-flow/webhooks/stripe`, {
+    method: "POST", body: "x".repeat(64_001),
+  });
+  assert.equal(tooLarge.status, 413);
+  assert.equal(tooLarge.headers.get("cache-control"), "no-store");
+  assert.equal((await tooLarge.json()).error.code, "request_too_large");
 });

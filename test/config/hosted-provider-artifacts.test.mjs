@@ -233,9 +233,9 @@ test("TEST-A operator runner is absent from public HTTP and package command surf
   assert.equal(providerManifest.resendOperatorRuntime.publicApiAccess, false);
   assert.match(vercelRoutingVerifier, /inspectGeneratedPublicArtifact\(outputRoot\)/);
   assert.match(vercelRoutingVerifier, /HERMES_VERIFY_RESULT/);
-  assert.equal(packageJson.devDependencies.vercel, "52.2.0");
+  assert.equal(packageJson.devDependencies.vercel, "62.7.0");
   assert.match(vercelRoutingVerifier, /node_modules.*\.bin.*vercel/s);
-  assert.match(vercelRoutingVerifier, /52\.2\.0/);
+  assert.match(vercelRoutingVerifier, /62\.7\.0/);
   assert.doesNotMatch(vercelRoutingVerifier, /process\.env\.VERCEL_CLI/);
 });
 

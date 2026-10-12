@@ -64,6 +64,21 @@ const operationOutcome = v.union(v.null(), v.object({
 }));
 
 export default defineSchema({
+  // Recovered verbatim from the hash-verified reviewed security successor.
+  customerFlowAbuseBudgets: defineTable({
+    scope: v.string(),
+    minuteStartedAtMs: v.number(),
+    dayStartedAtMs: v.number(),
+    minuteAttempts: v.number(),
+    dayAttempts: v.number(),
+  }).index("by_scope", ["scope"]),
+  // Deduplication ledger only; deliveryLoopJobs remains the order aggregate.
+  deliveryLoopPaymentEvidence: defineTable({
+    jobId: v.string(), revision: v.number(), previewDigest: v.string(),
+    providerPaymentId: v.string(), amountMinor: v.number(), currency: v.string(),
+    livemode: v.boolean(), settled: v.boolean(), providerAccountId: v.string(),
+    provider: v.literal("stripe"), status: v.string(), verifiedAtMs: v.number(),
+  }).index("by_payment_id", ["providerPaymentId"]),
   deliveryLoopJobs: defineTable({
     jobId: v.string(),
     publicToken: v.string(),

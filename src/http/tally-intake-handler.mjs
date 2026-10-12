@@ -1,4 +1,6 @@
 import { createHostedTallyIntakeProcessor } from "../customer-flow/hosted-tally-intake.mjs";
+import { TallyIntakeError } from "../customer-flow/tally-intake.mjs";
+import { CustomerFlowError } from "../customer-flow/service.mjs";
 
 const MAX_BODY_BYTES = 1_000_000;
 
@@ -49,8 +51,16 @@ export function createLazyTallyIntakeHandler(options = {}) {
           : { jobId: result.jobId }),
       });
     } catch (error) {
-      const statusCode = Number.isInteger(error?.statusCode) ? error.statusCode : 500;
-      const errorCode = typeof error?.code === "string" ? error.code : "webhook_processing_failed";
+      // Never reflect arbitrary provider exception codes or messages (PII and
+      // secrets may be embedded). Only our bounded domain errors are public.
+      const trusted = error instanceof TallyIntakeError || error instanceof CustomerFlowError;
+      const statusCode = trusted && error.statusCode >= 400 && error.statusCode < 500
+        ? error.statusCode : error?.code === "abuse_control_unavailable" && trusted ? 503 : 500;
+      const errorCode = trusted && /^[a-z_]{1,64}$/.test(error.code)
+        ? error.code : "webhook_processing_failed";
+      if (trusted && error.code === "rate_limited") {
+        response.setHeader?.("retry-after", String(error.retryAfterSeconds));
+      }
       return sendJson(response, statusCode, { received: false, error: errorCode });
     }
   };
@@ -87,6 +97,8 @@ function header(request, name) {
 }
 
 function sendJson(response, statusCode, body) {
+  response.setHeader?.("cache-control", "no-store");
+  response.setHeader?.("x-content-type-options", "nosniff");
   const serialized = JSON.stringify(body);
   if (typeof response.status === "function" && typeof response.json === "function") {
     return response.status(statusCode).json(body);

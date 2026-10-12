@@ -26,6 +26,7 @@ function convexFixture() {
   return convexTest(schema, {
     "./_generated/server.js": () => import("convex/server"),
     "./customerFlow.js": () => import("../../convex/customerFlow.js"),
+    "./abuse.js": () => import("../../convex/abuse.js"),
     "./fulfillment.js": () => import("../../convex/fulfillment.js"),
   });
 }

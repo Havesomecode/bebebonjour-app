@@ -7,7 +7,7 @@ import { fileURLToPath } from "node:url";
 
 import { inspectGeneratedPublicArtifact } from "../src/config/test-a-operator-isolation.mjs";
 
-const EXPECTED_VERCEL_VERSION = "52.2.0";
+const EXPECTED_VERCEL_VERSION = "62.7.0";
 const FUNCTION_DESTINATION = "/api/customer-flow/[...route]";
 const OPERATIONS_WORKER_DESTINATION = "/api/operations/worker";
 const TALLY_FUNCTION_DESTINATION = "/api/webhooks/tally";

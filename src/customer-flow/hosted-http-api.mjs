@@ -19,6 +19,7 @@ export function createHostedCustomerFlowHttpApi(options = {}) {
     service: options.service,
     allowedOrigins: options.allowedOrigins,
     pathPrefix: PATH_PREFIX,
+    consumeBudget: options.consumeBudget,
     authorizeRequest: (request) => safeEqual(
       request.header("x-test-a-access-token") || "",
       options.testAccessToken,
@@ -27,6 +28,11 @@ export function createHostedCustomerFlowHttpApi(options = {}) {
 
   app.post(
     `${PATH_PREFIX}/webhooks/stripe`,
+    async (context, next) => {
+      if (options.consumeBudget) await options.consumeBudget("stripe");
+      context.header("Cache-Control", "no-store");
+      await next();
+    },
     bodyLimit({
       maxSize: MAX_WEBHOOK_BYTES,
       onError: (context) => context.json({ received: false, error: "request_too_large" }, 413),

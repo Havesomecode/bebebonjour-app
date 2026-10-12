@@ -1,5 +1,3 @@
-import { randomUUID } from "node:crypto";
-
 import { ConvexHttpClient } from "convex/browser";
 import Stripe from "stripe";
 
@@ -7,8 +5,9 @@ import { loadHostedCustomerFlowConfig } from "../config/hosted-customer-flow-con
 import { createFulfillmentOrchestrator } from "../fulfillment/job-orchestrator.mjs";
 import { createConvexCustomerFlowStore } from "../persistence/convex-customer-flow-store.mjs";
 import { createConvexFulfillmentStore } from "../persistence/convex-fulfillment-store.mjs";
+import { createHostedAbuseBudget } from "../http/abuse-budget.mjs";
 import { createHostedCustomerFlowHttpApi } from "./hosted-http-api.mjs";
-import { createCustomerFlowService } from "./service.mjs";
+import { createCustomerFlowService, createCustomerFlowId } from "./service.mjs";
 import { createStripeCheckoutWebhookProcessor } from "./stripe-checkout-webhook.mjs";
 import { createStripeTestPaymentGateway } from "./stripe-test-gateway.mjs";
 
@@ -17,7 +16,7 @@ export function createHostedCustomerFlowRuntime(options = {}) {
   const convexClient = options.convexClient || new ConvexHttpClient(config.convex.url);
   const stripe = options.stripe || new Stripe(config.stripe.secretKey, { maxNetworkRetries: 2 });
   const now = options.now || (() => new Date().toISOString());
-  const createId = options.createId || ((label) => `${label}_${randomUUID()}`);
+  const createId = options.createId || createCustomerFlowId;
 
   const customerStore = createConvexCustomerFlowStore({
     client: convexClient,
@@ -65,6 +64,7 @@ export function createHostedCustomerFlowRuntime(options = {}) {
     stripeProcessor,
     testAccessToken: config.testAccessToken,
     allowedOrigins: config.allowedOrigins,
+    consumeBudget: createHostedAbuseBudget({ client: convexClient, backendToken: config.convex.backendToken }),
   });
   return {
     api,

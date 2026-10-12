@@ -6,6 +6,8 @@ import { CustomerFlowError } from "./service.mjs";
 const MAX_BODY_BYTES = 64_000;
 const JOB_ID_PATTERN = /^[A-Za-z0-9_-]{1,128}$/;
 const PUBLIC_ERRORS = new Map([
+  ["rate_limited", { statusCode: 429, message: "Request limit reached." }],
+  ["abuse_control_unavailable", { statusCode: 503, message: "Request admission is unavailable." }],
   ["idempotency_conflict", {
     statusCode: 409,
     message: "Idempotency key was already used for another request.",
@@ -45,6 +47,7 @@ export function createCustomerFlowHttpApi({
   allowedOrigins = [],
   pathPrefix = "",
   authorizeRequest = null,
+  consumeBudget = null,
 }) {
   if (!service) throw new Error("A customer-flow service is required.");
   const originAllowlist = new Set(allowedOrigins);
@@ -68,6 +71,17 @@ export function createCustomerFlowHttpApi({
       );
       context.header("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
       return context.body(null, 204);
+    }
+
+    // Count before capability/TEST-A authentication: guessing does not reach
+    // job lookups after the shared budget is exhausted. No identity is stored.
+    if (consumeBudget) {
+      const path = context.req.path;
+      const scope = context.req.method === "POST" && path === `${apiPath}/intakes` ? "intake"
+        : context.req.method === "POST" && /^\/jobs\/[^/]+\/checkout$/.test(path.slice(apiPath.length)) ? "checkout"
+          : ["GET", "HEAD"].includes(context.req.method) && /^\/jobs\/[^/]+\/status$/.test(path.slice(apiPath.length)) ? "status"
+            : null;
+      if (scope) await consumeBudget(scope);
     }
 
     if (authorizeRequest && !await authorizeRequest(context.req)) {
@@ -117,6 +131,7 @@ export function createCustomerFlowHttpApi({
     if (error instanceof CustomerFlowError) {
       const publicError = PUBLIC_ERRORS.get(error.code);
       if (publicError?.statusCode === error.statusCode) {
+        if (error.code === "rate_limited") context.header("Retry-After", String(error.retryAfterSeconds));
         return errorResponse(context, publicError.statusCode, error.code, publicError.message);
       }
     }
