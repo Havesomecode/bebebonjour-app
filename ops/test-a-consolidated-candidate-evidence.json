@@ -62,6 +62,7 @@
       "src/delivery-loop/paid-payment.mjs",
       "src/delivery-loop/provider-transport.mjs",
       "src/delivery-loop/render.mjs",
+      "src/delivery-loop/reviewed-narration.mjs",
       "src/delivery-loop/worker.mjs",
       "src/demo/synthetic-demo.mjs",
       "src/demo/synthetic-narration-fixture.mjs",
@@ -114,6 +115,7 @@
       "test/convex/canonical-completion-scope.test.mjs",
       "test/convex/completion-store-seam.test.mjs",
       "test/convex/delivery-loop-paid.test.mjs",
+      "test/convex/delivery-loop-reviewed-narration.test.mjs",
       "test/convex/delivery-loop.test.mjs",
       "test/convex/generation.test.mjs",
       "test/convex/hosted-narration-contract.test.mjs",
@@ -211,6 +213,7 @@
       "src/delivery-loop/paid-payment.mjs",
       "src/delivery-loop/provider-transport.mjs",
       "src/delivery-loop/render.mjs",
+      "src/delivery-loop/reviewed-narration.mjs",
       "src/delivery-loop/worker.mjs",
       "src/demo/synthetic-demo.mjs",
       "src/demo/synthetic-narration-fixture.mjs",
@@ -263,6 +266,7 @@
       "test/convex/canonical-completion-scope.test.mjs",
       "test/convex/completion-store-seam.test.mjs",
       "test/convex/delivery-loop-paid.test.mjs",
+      "test/convex/delivery-loop-reviewed-narration.test.mjs",
       "test/convex/delivery-loop.test.mjs",
       "test/convex/generation.test.mjs",
       "test/convex/hosted-narration-contract.test.mjs",
@@ -364,7 +368,7 @@
       },
       {
         "path": "convex/deliveryLoop.js",
-        "sha256": "fc6f6869361b23af79cd84dc2c357996ed7c3b24835e25f2725783ae3be8238f"
+        "sha256": "461977447e0ad6d6fa88b36088576b1f2cf19bd404663261aff52b76b6c33864"
       },
       {
         "path": "convex/deliveryLoopHttp.js",
@@ -436,7 +440,7 @@
       },
       {
         "path": "docs/paid-route-a-runbook.md",
-        "sha256": "51744c87ccebc42f6de0aff59a23388b0e89e9d4544ba5292ada1b4d63ce644d"
+        "sha256": "3b2348ef5a7607492240c0482153a0ff85df1a1610247c88aff031ac6eecfd45"
       },
       {
         "path": "docs/security-abuse-recovery.md",
@@ -588,11 +592,15 @@
       },
       {
         "path": "src/delivery-loop/render.mjs",
-        "sha256": "d176dc4a93bf4e58661c0b27de93fa0a47990d0925bb45fab081174c54e54073"
+        "sha256": "cc1066495ddb9bd7d636854e2a2804c7ff83d6fbbd1c4e259bea3b7a50377e2e"
+      },
+      {
+        "path": "src/delivery-loop/reviewed-narration.mjs",
+        "sha256": "9b2a141dc933a09cc4ce460894f53a071092b01dc82bf53f3f92a0a48dacbd35"
       },
       {
         "path": "src/delivery-loop/worker.mjs",
-        "sha256": "7cf76156f0d8774d4c808059cf187e5b64f38aca4d19deaf0e97e62c8724f71e"
+        "sha256": "650e63c4d5c474acb9703f006b07c9be47ba3af3d83c1e01a0402c219b747dea"
       },
       {
         "path": "src/demo/synthetic-demo.mjs",
@@ -851,6 +859,10 @@
         "sha256": "b9827afa945861c351f088ae1e70df19cac8b6f502b089efc4788be00c7eef81"
       },
       {
+        "path": "test/convex/delivery-loop-reviewed-narration.test.mjs",
+        "sha256": "3f33baa53b394416c9184a906d75df0466d5e1d3b9ea83f2dfab2794b3d964ce"
+      },
+      {
         "path": "test/convex/delivery-loop.test.mjs",
         "sha256": "d365116a4222eacfe7d47328d93f4152c075bbf9a9833558ec4f5ef70fdf011f"
       },
@@ -892,7 +904,7 @@
       },
       {
         "path": "test/delivery-loop/render.test.mjs",
-        "sha256": "679676ab5e1df5a062eb85775e6b4e5cf336c1c701951782cb55134a6be8b749"
+        "sha256": "9a988609fa9e631e22150d47458779b41f4844062a93d6b1d8f39f6db0784f5b"
       },
       {
         "path": "test/delivery-loop/worker.test.mjs",

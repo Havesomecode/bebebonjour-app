@@ -1,4 +1,5 @@
 import { assertValidCodexSubscriptionComposition } from "../../scripts/lib/codex-subscription-composition.mjs";
+import { REVIEWED_STORY_SECTIONS } from "./reviewed-narration.mjs";
 
 const LABELS = Object.freeze({
   fr: { welcome: "Bienvenue au monde", listen: "Écouter le récit", voice: "Une narration créée avec une voix artificielle.", draft: "Première version · en attente de votre validation", introduction: "Une nouvelle présence", blessing: "Pour les jours à venir", closing: "Avec tout notre amour", error: "La narration est indisponible pour le moment. Réessayez plus tard." },
@@ -32,7 +33,7 @@ export function renderAnnouncement({ composition, baby, languages, publicUrl, pu
     const labels = LABELS[lang];
     const content = composition.languages[lang];
     const audioUrl = `${origin}/announcements/${publicToken}/audio/${revision}/${lang}`;
-    const sections = [["introduction", "introLines"], ["blessing", "blessingLines"], ["closing", "closingLines"]].map(([title, field], index) => `<section class="story"><span class="chapter" aria-hidden="true">0${index + 1}</span><h2>${labels[title]}</h2>${content[field].map((line) => `<p>${escapeHtml(line)}</p>`).join("")}</section>`).join("");
+    const sections = REVIEWED_STORY_SECTIONS.map(([title, field], index) => `<section class="story"><span class="chapter" aria-hidden="true">0${index + 1}</span><h2>${labels[title]}</h2>${content[field].map((line) => `<p>${escapeHtml(line)}</p>`).join("")}</section>`).join("");
     return `<article id="story-${lang}" data-language-panel="${lang}" lang="${lang}" dir="${lang === "ar" ? "rtl" : "ltr"}">
       <header class="welcome"><p class="eyebrow">${labels.welcome}</p><h1>${escapeHtml(lang === "ar" && baby.nameArabic ? baby.nameArabic : baby.firstName)}</h1><p class="description">${escapeHtml(content.description)}</p></header>
       ${narrationEnabled ? `<div class="narration"><button type="button" data-play="${lang}" aria-controls="audio-${lang}" aria-pressed="false">▷ ${labels.listen}</button><audio id="audio-${lang}" controls preload="none" src="${escapeHtml(audioUrl)}" aria-label="${labels.listen}"></audio><p class="voice-note">${labels.voice}</p><p data-audio-error hidden role="status">${labels.error}</p></div>` : ""}
