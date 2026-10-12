@@ -28,6 +28,8 @@
       "convex/deliveryLoopHttp.js",
       "convex/deliveryLoopPaidPolicy.js",
       "convex/deliveryLoopPaidViews.js",
+      "convex/deliveryLoopPaymentEvents.js",
+      "convex/deliveryLoopPaymentHttp.js",
       "convex/deliveryLoopProviders.js",
       "convex/fulfillment.js",
       "convex/generation.js",
@@ -41,6 +43,7 @@
       "delivery-loop-provider/api/provider.mjs",
       "deploy/bebebonjour-delivery-loop.service",
       "docs/hosted-narration.md",
+      "docs/paid-event-source-spec.md",
       "docs/paid-route-a-current-delivery.md",
       "docs/paid-route-a-data-controls.md",
       "docs/paid-route-a-runbook.md",
@@ -66,6 +69,7 @@
       "src/customer-flow/hosted-tally-intake.mjs",
       "src/customer-flow/http-api.mjs",
       "src/customer-flow/service.mjs",
+      "src/delivery-loop/paid-event.mjs",
       "src/delivery-loop/paid-payment.mjs",
       "src/delivery-loop/provider-transport.mjs",
       "src/delivery-loop/render.mjs",
@@ -123,6 +127,7 @@
       "test/convex/completion-store-seam.test.mjs",
       "test/convex/delivery-loop-data.test.mjs",
       "test/convex/delivery-loop-paid.test.mjs",
+      "test/convex/delivery-loop-payment-events.test.mjs",
       "test/convex/delivery-loop-reviewed-narration.test.mjs",
       "test/convex/delivery-loop.test.mjs",
       "test/convex/generation.test.mjs",
@@ -187,6 +192,8 @@
       "convex/deliveryLoopHttp.js",
       "convex/deliveryLoopPaidPolicy.js",
       "convex/deliveryLoopPaidViews.js",
+      "convex/deliveryLoopPaymentEvents.js",
+      "convex/deliveryLoopPaymentHttp.js",
       "convex/deliveryLoopProviders.js",
       "convex/fulfillment.js",
       "convex/generation.js",
@@ -200,6 +207,7 @@
       "delivery-loop-provider/api/provider.mjs",
       "deploy/bebebonjour-delivery-loop.service",
       "docs/hosted-narration.md",
+      "docs/paid-event-source-spec.md",
       "docs/paid-route-a-current-delivery.md",
       "docs/paid-route-a-data-controls.md",
       "docs/paid-route-a-runbook.md",
@@ -225,6 +233,7 @@
       "src/customer-flow/hosted-tally-intake.mjs",
       "src/customer-flow/http-api.mjs",
       "src/customer-flow/service.mjs",
+      "src/delivery-loop/paid-event.mjs",
       "src/delivery-loop/paid-payment.mjs",
       "src/delivery-loop/provider-transport.mjs",
       "src/delivery-loop/render.mjs",
@@ -282,6 +291,7 @@
       "test/convex/completion-store-seam.test.mjs",
       "test/convex/delivery-loop-data.test.mjs",
       "test/convex/delivery-loop-paid.test.mjs",
+      "test/convex/delivery-loop-payment-events.test.mjs",
       "test/convex/delivery-loop-reviewed-narration.test.mjs",
       "test/convex/delivery-loop.test.mjs",
       "test/convex/generation.test.mjs",
@@ -324,7 +334,7 @@
     "reviewedFileDigests": [
       {
         "path": ".env.example",
-        "sha256": "93b351dc53896490bbdb1fda0baa6013727bf8a51755abe819970801e07b0b18"
+        "sha256": "5cdf6e8afc06eec6e9549310da316fc4fe4e72909c13b9672223a16c0d0acf5b"
       },
       {
         "path": ".gitignore",
@@ -388,7 +398,7 @@
       },
       {
         "path": "convex/deliveryLoop.js",
-        "sha256": "dc9f061510518b8e020e33a79fbe3dad342978301a9e953511cda29598402641"
+        "sha256": "55e4e49a3595bf7017c2c7f7b31a163e40528ab980f0f0317b2bd2eb1beceebd"
       },
       {
         "path": "convex/deliveryLoopData.js",
@@ -423,8 +433,16 @@
         "sha256": "fb7e73638b2595a146f2e393683795972ab59dc471f66bd7bd32c8d8fa88dab2"
       },
       {
+        "path": "convex/deliveryLoopPaymentEvents.js",
+        "sha256": "e8b144946f1d42b68333005a9c1dd0f8753018947ec5327621e2dde96103d30a"
+      },
+      {
+        "path": "convex/deliveryLoopPaymentHttp.js",
+        "sha256": "8b3d870e7af4ab335d70f279e8d306697b07b5cfd2398dfaa22a2f5c12d75375"
+      },
+      {
         "path": "convex/deliveryLoopProviders.js",
-        "sha256": "aea133ff8145ec7db1fa7cfce874cf39301ce594a8c582ddfcd10a64be51fb33"
+        "sha256": "0e37c3385cd7d1100a06e641de660dfbfb9962d19d882f53310226bf9856de48"
       },
       {
         "path": "convex/fulfillment.js",
@@ -436,7 +454,7 @@
       },
       {
         "path": "convex/http.js",
-        "sha256": "c07935b8be5e06822fd9cb41ed3ee100f7613269c0d06e0b1a819fe10e7b00ce"
+        "sha256": "1c83d6e6f60bec29ff3eef46575278f101f1d026e19f1f774decca542d9aed47"
       },
       {
         "path": "convex/narration.js",
@@ -460,7 +478,7 @@
       },
       {
         "path": "convex/schema.js",
-        "sha256": "7ced1151dc3cc4e1eb2a31a0f58a4272fcd731e9a057a52a87497029d71d51b9"
+        "sha256": "cd48eeee0ac02827c0f1a090549650c5a85c959143dcb00bae52362d2f00853d"
       },
       {
         "path": "delivery-loop-provider/api/provider.mjs",
@@ -475,6 +493,10 @@
         "sha256": "eb76e56cc068c9e257f4eeba9b95f841ee06eb54f1569ba2f0146631a38d9e22"
       },
       {
+        "path": "docs/paid-event-source-spec.md",
+        "sha256": "dccf3323b11f6252a434928a665c78169c0697190aa8624e072a4cdfb8c28708"
+      },
+      {
         "path": "docs/paid-route-a-current-delivery.md",
         "sha256": "bd1bed75abce895e57a3329de44e00e6b39a1fc62c2d6a4fce31748e001d6b0e"
       },
@@ -484,7 +506,7 @@
       },
       {
         "path": "docs/paid-route-a-runbook.md",
-        "sha256": "3b2348ef5a7607492240c0482153a0ff85df1a1610247c88aff031ac6eecfd45"
+        "sha256": "71893546465cc77f00a211b7d32007b82ad46fdd2569013a4fd3f61991a7d931"
       },
       {
         "path": "docs/security-abuse-recovery.md",
@@ -528,7 +550,7 @@
       },
       {
         "path": "package.json",
-        "sha256": "0b1e9928ca9ca0e0c2114800c9bdfabefac629a979e2876fbc5b95d682d458bb"
+        "sha256": "369304f772de6a3c6ad6c1e13d45dbebad46bb4c22cbb64908cf2c7167f9c10e"
       },
       {
         "path": "schemas/job-scoped-editorial-approval.schema.json",
@@ -627,8 +649,12 @@
         "sha256": "de73db43e20d51c232e3aa301a55b4452fa780aed1939275492084ccac063030"
       },
       {
+        "path": "src/delivery-loop/paid-event.mjs",
+        "sha256": "b1317c5357f8038fb6ad35cc581181028a40fc31afb8e1e3b23e265625d544d7"
+      },
+      {
         "path": "src/delivery-loop/paid-payment.mjs",
-        "sha256": "92eda273ae7c145a83b26742516958ed1bc78098ff2f00264d1c3de3775a254b"
+        "sha256": "bd71e105d573091023cddb931a8db4e5c9ddedd7c3805abae1c6f8c756a9744a"
       },
       {
         "path": "src/delivery-loop/provider-transport.mjs",
@@ -907,6 +933,10 @@
         "sha256": "e95c5bc10d7c17b85a2265db821dd6afeb64732bb93244de26c43e7a18761b03"
       },
       {
+        "path": "test/convex/delivery-loop-payment-events.test.mjs",
+        "sha256": "c8668dbb9dfe69b3584316680d9278f2d05a44b6506f5ae3ebf65509d44af1cc"
+      },
+      {
         "path": "test/convex/delivery-loop-reviewed-narration.test.mjs",
         "sha256": "3f33baa53b394416c9184a906d75df0466d5e1d3b9ea83f2dfab2794b3d964ce"
       },
@@ -936,7 +966,7 @@
       },
       {
         "path": "test/convex/production-bundle.test.mjs",
-        "sha256": "d95ee0862913d156f2a3854cffc104ef05f849fefe093a2c6e4594734a7c3a70"
+        "sha256": "1caa5144f68a41344b3a1deb8c38f534e17673d31b41330818169a9a8f69257a"
       },
       {
         "path": "test/customer-flow/hosted-runtime.test.mjs",

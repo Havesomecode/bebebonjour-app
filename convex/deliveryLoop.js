@@ -503,26 +503,33 @@ export const paymentScope = queryGeneric({
     return { jobId: row.jobId, revision: args.expectedRevision, previewDigest: preview.contentDigest };
   },
 });
-// Internal-only settlement: the public action retrieves genuine Stripe evidence.
-// Neither worker/operator assertions nor browser payloads can call this endpoint.
+export const paymentEvidenceFields = { jobId: v.string(), revision: v.number(), previewDigest: v.string(), providerPaymentId: v.string(), amountMinor: v.number(), currency: v.string(), livemode: v.boolean(), settled: v.boolean(), providerAccountId: v.string() };
+
+// Validate before writing so the event adapter can durably reject business
+// mismatches without catching a partially applied settlement. Writes below are
+// deliberately outside that catch and roll back the whole Convex transaction.
+export async function preparePaymentEvidence(ctx, args) {
+  const row = await get(ctx, args.jobId); const preview = exactPaidRevision(row, args.revision);
+  if (args.previewDigest !== preview.contentDigest || args.amountMinor !== 3900 || args.currency !== "eur" || !args.settled || !/^pi_[A-Za-z0-9]+$/.test(args.providerPaymentId) || args.providerAccountId !== process.env.BEBEBONJOUR_PAID_STRIPE_ACCOUNT_ID) throw new Error("payment_evidence_mismatch");
+  if (row.data.paidApproval?.revision !== args.revision || row.data.paidPermissions?.revision !== args.revision) throw new Error("paid_permissions_required");
+  const prior = await ctx.db.query("deliveryLoopPaymentEvidence").withIndex("by_payment_id", (q) => q.eq("providerPaymentId", args.providerPaymentId)).unique();
+  if (prior) {
+    if (prior.jobId !== row.jobId || prior.revision !== args.revision || prior.previewDigest !== args.previewDigest || prior.livemode !== args.livemode || prior.providerAccountId !== args.providerAccountId) throw new Error("payment_evidence_conflict");
+  } else if (row.data.payment.status === "settled") throw new Error("payment_already_settled");
+  return { row, prior };
+}
+export async function commitPaymentEvidence(ctx, args, { row, prior }) {
+  if (prior) return safeStatus(row);
+  const receipt = { ...args, provider: "stripe", status: args.livemode ? "settled" : "test_only", verifiedAtMs: Date.now() };
+  await ctx.db.insert("deliveryLoopPaymentEvidence", receipt);
+  row.data.payment = receipt;
+  audit(row, "stripe_payment_verified", { revision: args.revision, providerPaymentId: args.providerPaymentId, livemode: args.livemode });
+  await queuePaidIfEligible(ctx, row); return safeStatus(row);
+}
+// Internal-only settlement: both adapters retrieve genuine Stripe evidence.
 export const recordPaymentEvidence = internalMutationGeneric({
-  args: { jobId: v.string(), revision: v.number(), previewDigest: v.string(), providerPaymentId: v.string(), amountMinor: v.number(), currency: v.string(), livemode: v.boolean(), settled: v.boolean(), providerAccountId: v.string() },
-  handler: async (ctx, args) => {
-    const row = await get(ctx, args.jobId); const preview = exactPaidRevision(row, args.revision);
-    if (args.previewDigest !== preview.contentDigest || args.amountMinor !== 3900 || args.currency !== "eur" || !args.settled || !/^pi_[A-Za-z0-9]+$/.test(args.providerPaymentId) || args.providerAccountId !== process.env.BEBEBONJOUR_PAID_STRIPE_ACCOUNT_ID) throw new Error("payment_evidence_mismatch");
-    if (row.data.paidApproval?.revision !== args.revision || row.data.paidPermissions?.revision !== args.revision) throw new Error("paid_permissions_required");
-    const prior = await ctx.db.query("deliveryLoopPaymentEvidence").withIndex("by_payment_id", (q) => q.eq("providerPaymentId", args.providerPaymentId)).unique();
-    if (prior) {
-      if (prior.jobId !== row.jobId || prior.revision !== args.revision || prior.previewDigest !== args.previewDigest || prior.livemode !== args.livemode) throw new Error("payment_evidence_conflict");
-      return safeStatus(row);
-    }
-    if (row.data.payment.status === "settled") throw new Error("payment_already_settled");
-    const receipt = { ...args, provider: "stripe", status: args.livemode ? "settled" : "test_only", verifiedAtMs: Date.now() };
-    await ctx.db.insert("deliveryLoopPaymentEvidence", receipt);
-    row.data.payment = receipt;
-    audit(row, "stripe_payment_verified", { revision: args.revision, providerPaymentId: args.providerPaymentId, livemode: args.livemode });
-    await queuePaidIfEligible(ctx, row); return safeStatus(row);
-  },
+  args: paymentEvidenceFields,
+  handler: async (ctx, args) => commitPaymentEvidence(ctx, args, await preparePaymentEvidence(ctx, args)),
 });
 export const beginNarration = mutationGeneric({
   args: { ...leaseArgs, revision: v.number(), language: v.string(), textDigest: v.string() },

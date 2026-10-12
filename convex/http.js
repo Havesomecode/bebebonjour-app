@@ -8,9 +8,11 @@ const MAX_PRIVATE_ARTIFACT_BYTES = 20 * 1024 * 1024;
 const authorizeArtifactRead = makeFunctionReference("generation:authorizeArtifactRead");
 const authorizeCompletionArtifactRead = makeFunctionReference("fulfillment:authorizeCompletionArtifactRead");
 import { narrationArtifact } from "./narrationHttp.js";
+import { paidPaymentWebhook } from "./deliveryLoopPaymentHttp.js";
 import { intakePage, intakeSubmit, reviewPage, reviewSubmit, announcement, privatePreview, operatorPage, operatorSubmit } from "./deliveryLoopHttp.js";
 
 const http = httpRouter();
+http.route({ path: "/delivery/payment/webhook", method: "POST", handler: paidPaymentWebhook });
 import { dataControl, dataExport, dataOperatorPage, dataOperatorControl } from "./deliveryLoopDataHttp.js";
 http.route({ path: "/delivery/data", method: "POST", handler: dataControl });
 http.route({ path: "/delivery/export", method: "GET", handler: dataExport });

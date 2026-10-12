@@ -1,10 +1,12 @@
 "use node";
 
-import { actionGeneric, makeFunctionReference } from "convex/server";
+import { actionGeneric, internalActionGeneric, makeFunctionReference } from "convex/server";
+import { paymentEventFields } from "./deliveryLoopPaymentEvents.js";
+import { paymentEventRejection } from "../src/delivery-loop/paid-event.mjs";
 import { v } from "convex/values";
 import { createHash } from "node:crypto";
 import { performNarration, performEmail } from "../src/delivery-loop/provider-transport.mjs";
-import { inspectPaidPayment } from "../src/delivery-loop/paid-payment.mjs";
+import { inspectPaidPayment, PaidPaymentInspectionError } from "../src/delivery-loop/paid-payment.mjs";
 
 const ref = (name) => makeFunctionReference(`deliveryLoop:${name}`);
 const identity = { workerToken: v.string(), jobId: v.string(), leaseToken: v.string(), revision: v.number() };
@@ -138,5 +140,28 @@ export const reconcilePaidPayment = actionGeneric({
         apiKey: process.env.STRIPE_SECRET_KEY, accountId: process.env.BEBEBONJOUR_PAID_STRIPE_ACCOUNT_ID });
     } catch (error) { throw new Error(safeReason(error)); }
     return context.runMutation(ref('recordPaymentEvidence'), evidence);
+  },
+});
+
+export const reconcilePaidEvent = internalActionGeneric({
+  args: { event: v.object(paymentEventFields) },
+  handler: async (context, { event }) => {
+    const events = name => makeFunctionReference(`deliveryLoopPaymentEvents:${name}`);
+    const prior = await context.runQuery(events('lookupEvent'), { event });
+    if (prior || event.rejectionReason) return context.runMutation(events('recordEvent'), { event });
+    let evidence;
+    try {
+      evidence = await inspectPaidPayment({ scope: { jobId: event.jobId, revision: event.revision, previewDigest: event.previewDigest },
+        providerPaymentId: event.providerPaymentId, apiKey: process.env.STRIPE_SECRET_KEY,
+        accountId: process.env.BEBEBONJOUR_PAID_STRIPE_ACCOUNT_ID });
+      if (evidence.livemode !== event.livemode) throw new PaidPaymentInspectionError('payment_evidence_mismatch');
+    } catch (error) {
+      const rejectionReason = error instanceof PaidPaymentInspectionError ? paymentEventRejection(error) : undefined;
+      if (!rejectionReason) throw new Error('payment_inspection_retry'); // transport, permissions and configuration
+      return context.runMutation(events('recordEvent'), { event, rejectionReason });
+    }
+    // Mutation rechecks current order/consent scope and handles races atomically.
+    // Commit failures propagate to HTTP503; no rejected receipt masks a failed commit.
+    return context.runMutation(events('recordEvent'), { event, evidence });
   },
 });

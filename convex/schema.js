@@ -72,6 +72,16 @@ export default defineSchema({
     minuteAttempts: v.number(),
     dayAttempts: v.number(),
   }).index("by_scope", ["scope"]),
+  // Immutable redacted signed-event receipts, including identity conflicts.
+  // No announcement/customer body or provider credentials are retained here.
+  deliveryLoopPaymentEvents: defineTable({
+    providerAccountId: v.string(), providerEventId: v.string(), type: v.literal("payment_intent.succeeded"),
+    livemode: v.boolean(), rawBodySha256: v.string(), providerPaymentId: v.optional(v.string()),
+    jobId: v.optional(v.string()), revision: v.optional(v.number()), previewDigest: v.optional(v.string()),
+    disposition: v.union(v.literal("settled"), v.literal("test_only"), v.literal("rejected")),
+    reason: v.string(), processedAtMs: v.number(),
+  }).index("by_identity", ["providerAccountId", "providerEventId"])
+    .index("by_fingerprint", ["providerAccountId", "providerEventId", "rawBodySha256"]),
   // Deduplication ledger only; deliveryLoopJobs remains the order aggregate.
   deliveryLoopPaymentEvidence: defineTable({
     jobId: v.string(), revision: v.number(), previewDigest: v.string(),
