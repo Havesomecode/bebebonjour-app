@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { renderAnnouncement, narrationText } from "../../src/delivery-loop/render.mjs";
+import { reviewedNarrationText } from "../../src/delivery-loop/reviewed-narration.mjs";
 
 export function compositionFixture() {
   return {
@@ -61,6 +62,20 @@ test("renderer escapes markup and rejects unsafe audio origins and capability to
   assert.throws(() => renderAnnouncement({ ...options, publicToken: "../private?review=secret" }), /render_input_rejected/);
   assert.throws(() => renderAnnouncement({ ...options, revision: 0 }), /render_input_rejected/);
   assert.equal(narrationText(composition, "fr"), [composition.languages.fr.introNarration, composition.languages.fr.blessingNarration, composition.languages.fr.closingNarration].join("\n\n"));
+});
+
+test("paid speech projects displayed raw prose while complimentary narration stays unchanged", () => {
+  const composition = compositionFixture();
+  const content = composition.languages.fr;
+  content.introNarration = "Independent complimentary intro.";
+  content.blessingNarration = "Independent complimentary blessing.";
+  content.closingNarration = "Independent complimentary closing.";
+  content.closingLines = ["Amour & douceur <pour toi>.", "Notre joie."];
+  assert.equal(reviewedNarrationText(content), "Bienvenue, Aélio-Z.\nUne nouvelle joie.\n\nQue tes jours soient doux.\n\nAmour & douceur <pour toi>.\nNotre joie.");
+  assert.equal(narrationText(composition, "fr"), "Independent complimentary intro.\n\nIndependent complimentary blessing.\n\nIndependent complimentary closing.");
+  for (const invalid of [null, {}, { ...content, introLines: [] }, { ...content, closingLines: [" "] }, { ...content, blessingLines: [42] }]) {
+    assert.throws(() => reviewedNarrationText(invalid), /approved_content_mismatch/);
+  }
 });
 
 test("approved render has no draft marker and a single-language page needs no switch", () => {

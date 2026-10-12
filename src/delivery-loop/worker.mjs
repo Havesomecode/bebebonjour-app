@@ -7,6 +7,7 @@ import { setTimeout as delay } from "node:timers/promises";
 import { createCodexSubscriptionComposer } from "../fulfillment/codex-subscription-composer.mjs";
 import { assertValidCodexCompositionReceipt, buildCodexCompositionRequest, sha256 } from "../../scripts/lib/codex-subscription-composition.mjs";
 import { narrationText, renderAnnouncement } from "./render.mjs";
+import { reviewedNarrationText } from "./reviewed-narration.mjs";
 
 const STAGES = new Set(["generate", "finalize", "draft_email", "final_email"]);
 const DEFAULT_STATE_DIR = "/home/hermes/.local/share/bebebonjour-delivery-loop";
@@ -175,7 +176,7 @@ export function createDeliveryLoopWorker(options = {}) {
     const narrationEnabled = (!paid || finalizing) && job.intake.voicePreference?.enabled !== false;
     for (const language of narrationEnabled ? input.languages : []) {
       assertLease(job, signal);
-      const text = narrationText(receipt.composition, language);
+      const text = paid ? reviewedNarrationText(receipt.composition.languages[language]) : narrationText(receipt.composition, language);
       const textDigest = sha256(text);
       let audio = journal.state.audio[language];
       if (audio?.textDigest && audio.textDigest !== textDigest) reject("journal_narration_mismatch");

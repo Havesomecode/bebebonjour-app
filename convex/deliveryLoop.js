@@ -1,5 +1,6 @@
 import { mutationGeneric, queryGeneric, internalMutationGeneric } from "convex/server";
 import { v } from "convex/values";
+import { reviewedNarrationText } from "../src/delivery-loop/reviewed-narration.mjs";
 import { PAID_MODE, TERMS_VERSION, PREVIEW_MS, isPaid, currentPreview, paidEnabled, activePaid, activePreview, paidEligible, stageState, paidStageGate, paidSafeStatus } from "./deliveryLoopPaidPolicy.js";
 
 const LEASE_MS = 15 * 60 * 1000;
@@ -522,7 +523,7 @@ export const beginNarration = mutationGeneric({
     const lease = authorizeLease(row, args.leaseToken, args.revision, isPaid(row) ? "finalize" : "generate");
     if (!isPaid(row)) return { allowed: true };
     const content = paidEligible(row).composition.languages?.[args.language];
-    if (!row.data.intake.languages.includes(args.language) || !content || args.textDigest !== await hash([content.introNarration, content.blessingNarration, content.closingNarration].join("\n\n"))) throw new Error("approved_content_mismatch");
+    if (!row.data.intake.languages.includes(args.language) || !content || args.textDigest !== await hash(reviewedNarrationText(content))) throw new Error("approved_content_mismatch");
     row.data.narrationEffects ||= [];
     if (row.data.narrationEffects.some((e) => e.revision === args.revision && e.language === args.language)) throw new Error("narration_reconciliation_required");
     lease.effectStartedAtMs = Date.now();
