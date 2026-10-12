@@ -14,7 +14,7 @@ function text(value, max, code = "invalid_input") {
   if (typeof value !== "string" || !value.trim() || value.length > max || /[\u0000-\u0008\u000b\u000c\u000e-\u001f]/u.test(value)) throw new Error(code);
   return value.trim();
 }
-function equal(a, b) {
+export function equal(a, b) {
   if (typeof a !== "string" || typeof b !== "string") return false;
   let diff = a.length ^ b.length;
   for (let i = 0; i < Math.max(a.length, b.length); i++) diff |= (a.charCodeAt(i) || 0) ^ (b.charCodeAt(i) || 0);
@@ -64,16 +64,17 @@ function sortedJson(value) {
   if (value && typeof value === "object") return Object.fromEntries(Object.keys(value).sort().map((key) => [key, sortedJson(value[key])]));
   return value;
 }
-async function get(ctx, jobId) {
+export async function get(ctx, jobId) {
   const row = await ctx.db.query("deliveryLoopJobs").withIndex("by_job_id", (q) => q.eq("jobId", jobId)).unique();
   if (!row) throw new Error("not_found");
+  if (row.data.deletedAtMs) throw new Error("data_deleted");
   return row;
 }
-async function save(ctx, row, status = row.status) {
+export async function save(ctx, row, status = row.status) {
   if (new TextEncoder().encode(JSON.stringify(row.data)).byteLength > 850000) throw new Error("job_capacity_reached");
   await ctx.db.patch(row._id, { status, data: row.data }); row.status = status;
 }
-function audit(row, type, details = {}) { row.data.audit.push({ type, atMs: Date.now(), ...details }); }
+export function audit(row, type, details = {}) { row.data.audit.push({ type, atMs: Date.now(), ...details }); }
 function authorizeLease(row, token, revision, stage) {
   const lease = row.data.lease;
   if (!lease || !equal(lease.leaseToken, token) || lease.leaseExpiresAtMs <= Date.now() || (revision !== undefined && revision !== row.data.desiredRevision) || (stage !== undefined && stage !== lease.stage) || row.status !== stageState(lease.stage, "running")) throw new Error("stale_lease");
@@ -125,9 +126,15 @@ export const submit = mutationGeneric({
     if (!paid && await throttle(ctx, intake.customer.email, bad)) return { error: "intake_rate_limited" };
     if (bad) return { error: "invalid_magic_password" };
     const requestDigest = await hash(JSON.stringify(intake));
+    if (paid) {
+      const deletedKey = `deleted:${await hash(idempotencyKey)}`;
+      const tombstone = await ctx.db.query("deliveryLoopJobs").withIndex("by_idempotency_key", q => q.eq("idempotencyKey", deletedKey)).unique();
+      if (tombstone) throw new Error("data_deleted");
+    }
     const previous = await ctx.db.query("deliveryLoopJobs").withIndex("by_idempotency_key", (q) => q.eq("idempotencyKey", idempotencyKey)).unique();
     if (previous) {
       if (previous.data.requestDigest !== requestDigest || isPaid(previous) !== paid) throw new Error("idempotency_conflict");
+      if (previous.data.deletedAtMs) throw new Error("data_deleted");
       return admission(previous);
     }
     intake.submittedAt ||= new Date().toISOString();
@@ -396,7 +403,7 @@ export const publicAudio = queryGeneric({
   },
 });
 
-function editorialAuth(token) {
+export function editorialAuth(token) {
   const configured = process.env.BEBEBONJOUR_PAID_EDITORIAL_TOKEN;
   if (!configured || configured.length < 32 || configured === process.env.BEBEBONJOUR_DELIVERY_LOOP_TOKEN || !equal(configured, token)) throw new Error("forbidden");
 }

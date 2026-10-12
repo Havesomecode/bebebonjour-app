@@ -27,7 +27,7 @@ export async function performNarration({ text, textDigest, language }, environme
 
 export async function performEmail({ from, to, subject, html, text, idempotencyKey }, environment = process.env, fetchImpl = fetch) {
   if (typeof to !== 'string' || !/^[^\s@<>]+@[^\s@<>]+\.[^\s@<>]+$/.test(to)
-      || !/^bebe-loop:job_[A-Za-z0-9_-]+:\d+:(draft_email|final_email)$/.test(idempotencyKey || '')
+      || !/^bebe-loop:job_[A-Za-z0-9_-]+:\d+:(draft_email|final_email|closure_notice)$/.test(idempotencyKey || '')
       || [subject, html, text].some(value => typeof value !== 'string' || !value || value.length > 32_000)) {
     throw new Error('email_input_invalid');
   }

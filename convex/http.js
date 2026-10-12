@@ -11,6 +11,11 @@ import { narrationArtifact } from "./narrationHttp.js";
 import { intakePage, intakeSubmit, reviewPage, reviewSubmit, announcement, privatePreview, operatorPage, operatorSubmit } from "./deliveryLoopHttp.js";
 
 const http = httpRouter();
+import { dataControl, dataExport, dataOperatorPage, dataOperatorControl } from "./deliveryLoopDataHttp.js";
+http.route({ path: "/delivery/data", method: "POST", handler: dataControl });
+http.route({ path: "/delivery/export", method: "GET", handler: dataExport });
+http.route({ path: "/delivery/data/operator", method: "GET", handler: dataOperatorPage });
+http.route({ path: "/delivery/data/operator", method: "POST", handler: dataOperatorControl });
 http.route({ path: "/delivery", method: "GET", handler: intakePage });
 http.route({ path: "/delivery/intake", method: "POST", handler: intakeSubmit });
 http.route({ path: "/delivery/review", method: "GET", handler: reviewPage });

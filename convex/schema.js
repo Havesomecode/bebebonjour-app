@@ -79,6 +79,10 @@ export default defineSchema({
     livemode: v.boolean(), settled: v.boolean(), providerAccountId: v.string(),
     provider: v.literal("stripe"), status: v.string(), verifiedAtMs: v.number(),
   }).index("by_payment_id", ["providerPaymentId"]),
+  // Restricted financial/effect evidence, never announcement content or capabilities.
+  deliveryLoopRetainedEvidence: defineTable({
+    jobId: v.string(), retainedAtMs: v.number(), reason: v.string(), evidence: v.any(),
+  }).index("by_job_id", ["jobId"]),
   deliveryLoopJobs: defineTable({
     jobId: v.string(),
     publicToken: v.string(),

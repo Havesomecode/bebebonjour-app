@@ -262,7 +262,9 @@ test('paid intake/review browser scripts submit actual separate backend permissi
   const perm=element();perm.button=element();perm.elements={terms:{checked:false},publication:{checked:false}};
   const dom={'#review':review,'#permissions':perm,'#result':element(),'#state':element(),'#details':element(),'#window':element(),'#preview-link':element(),'#public-link':element(),'#refresh':element()};
   const html=await (await t.fetch(url.pathname+url.search)).text();const reviewScript=[...html.matchAll(/<script[^>]*>([\s\S]*?)<\/script>/g)][0][1];
-  new Script(reviewScript).runInNewContext({document:{querySelector:s=>dom[s],hidden:false},location:{search:url.search},crypto,URLSearchParams,fetch:fetchFixture,setInterval(){}});
+  for(const selector of ['#data-result','#hosting','#downloads','#revoke','#erase','#confirm-delete'])dom[selector]=element();
+  const downloads=['text','audio','page'].map(kind=>({...element(),dataset:{kind}}));
+  new Script(reviewScript).runInNewContext({document:{querySelector:s=>dom[s],querySelectorAll:()=>downloads,hidden:false},location:{search:url.search},crypto,URLSearchParams,fetch:fetchFixture,setInterval(){}});
   await dom['#refresh'].handlers.click();assert.equal(review.buttons[0].disabled,false);assert.equal(dom['#public-link'].hidden,true);assert.equal(dom['#preview-link'].hidden,false);
   await review.handlers.submit({preventDefault(){},submitter:{value:'approve'}});
   assert.equal((await read(t,job)).paidPermissions,null);assert.equal(perm.hidden,false);

@@ -3,7 +3,7 @@ export const PAID_MODE = "paid_route_a";
 export const TERMS_VERSION = "route-a-39-v1";
 export const PREVIEW_MS = 24 * 60 * 60 * 1000;
 export const isPaid = (row) => row.data.orderMode === PAID_MODE;
-export const currentPreview = (row) => row.data.revisions.find((r) => r.revision === row.data.latestRevision);
+export const currentPreview = (row) => row.data.revisions.find((r) => r.revision === row.data.latestRevision) || row.data.finalPublication;
 export function paidEnabled() {
   if (process.env.BEBEBONJOUR_PAID_ROUTE_A_ENABLED !== "true") throw new Error("paid_route_unavailable");
   const url = new URL(process.env.BEBEBONJOUR_PAID_TERMS_URL || "https://invalid.local");
@@ -12,7 +12,8 @@ export function paidEnabled() {
 }
 export function activePaid(row) {
   if (!isPaid(row)) throw new Error("paid_order_required");
-  if (row.data.cancelledAtMs || row.data.revokedAtMs) throw new Error("order_cancelled");
+  if (row.data.hostingEndsAtMs && row.data.hostingEndsAtMs <= Date.now()) throw new Error("hosting_ended");
+  if (row.data.cancelledAtMs || row.data.revokedAtMs || row.data.closedAtMs || row.data.deletedAtMs || row.data.deletionRequestedAtMs) throw new Error("order_cancelled");
 }
 export function activePreview(row) {
   activePaid(row);

@@ -5,14 +5,14 @@ import { paidIntakeDocument, paidReviewDocument as renderPaidReview, paidOperato
 const ref = (name) => makeFunctionReference(`deliveryLoop:${name}`);
 const PRIVATE = { "cache-control": "private, no-store", "x-robots-tag": "noindex, nofollow, noarchive", "referrer-policy": "no-referrer", "x-content-type-options": "nosniff", "x-frame-options": "DENY" };
 const escape = (value) => String(value).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
-function json(value, status = 200) { return new Response(JSON.stringify(value), { status, headers: { ...PRIVATE, "content-type": "application/json; charset=utf-8" } }); }
-function errorResponse(error) {
+export function json(value, status = 200) { return new Response(JSON.stringify(value), { status, headers: { ...PRIVATE, "content-type": "application/json; charset=utf-8" } }); }
+export function errorResponse(error) {
   const allowed = ["paid_route_unavailable", "paid_permissions_required", "content_approval_required", "preview_consent_required", "preview_expired", "paid_preview_locked", "correction_limit", "order_cancelled", "customer_decision_required", "paid_offer_mismatch", "paid_waiver_forbidden", "payment_evidence_mismatch", "payment_evidence_conflict", "payment_configuration_invalid", "payment_account_mismatch", "editorial_approval_required", "preview_renewal_unavailable", "intake_rate_limited", "invalid_magic_password", "consent_required", "invalid_email", "invalid_baby_name", "invalid_intake", "invalid_input", "invalid_feedback", "feedback_required", "idempotency_conflict", "stale_revision", "draft_not_delivered", "review_not_available", "revision_limit", "trial_unavailable", "forbidden_actor", "forbidden", "not_found", "body_too_large", "json_required", "invalid_json", "job_capacity_reached"];
   const code = allowed.find((c) => new RegExp(`\\b${c}\\b`).test(error?.message || "")) || "request_failed";
   const status = code === "intake_rate_limited" ? 429 : code === "not_found" ? 404 : ["forbidden", "forbidden_actor", "invalid_magic_password"].includes(code) ? 403 : ["idempotency_conflict", "stale_revision", "draft_not_delivered", "review_not_available", "revision_limit"].includes(code) ? 409 : code === "body_too_large" ? 413 : code === "json_required" ? 415 : ["trial_unavailable", "request_failed"].includes(code) ? 503 : 400;
   return json({ status: "error", code }, status);
 }
-async function body(request) {
+export async function body(request) {
   const origin = request.headers.get("origin");
   if (origin && origin !== new URL(request.url).origin) throw new Error("forbidden");
   if (request.headers.get("sec-fetch-site") === "cross-site") throw new Error("forbidden");
@@ -34,7 +34,7 @@ async function body(request) {
   try { const value = JSON.parse(new TextDecoder().decode(bytes)); if (!value || Array.isArray(value) || typeof value !== "object") throw new Error(); return value; } catch { throw new Error("invalid_json"); }
 }
 const style = `:root{color-scheme:light;font-family:system-ui,sans-serif;color:#243e31;background:#f8f4eb}body{margin:0;padding:clamp(20px,5vw,64px) 20px}main{max-width:620px;margin:auto}h1{font:clamp(32px,6vw,48px) Georgia,serif;margin:18px 0}p{line-height:1.6}form,.panel{padding:24px;background:#fffdf8;border:1px solid #dfdccd;border-radius:18px}label{display:block;margin:16px 0 7px}input:not([type=checkbox]),select,textarea{box-sizing:border-box;width:100%;padding:12px;border:1px solid #bbbfb2;border-radius:8px;background:white;font:inherit}textarea{min-height:120px}button{padding:13px 20px;background:#284d3c;color:white;border:0;border-radius:8px;font:inherit;margin-top:18px;cursor:pointer}button:disabled{opacity:.45;cursor:wait}a{color:#284d3c}.check{display:flex;gap:10px;align-items:flex-start}.muted{color:#566356;font-size:.9rem}.brand{text-transform:uppercase;letter-spacing:.15em;font-size:.8rem}.notice{padding:14px;background:#eee9d8;border-radius:8px}[role=status]{white-space:pre-line}footer{margin:24px 0;font-size:.85rem;color:#566356}`;
-function document(title, content, script = "") {
+export function document(title, content, script = "") {
   const nonce = crypto.randomUUID().replaceAll("-", "");
   return new Response(`<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow"><title>${escape(title)} · Bébé Bonjour</title><style>${style}</style></head><body><main><span class="brand">Bébé Bonjour</span>${content}<footer>Une annonce créée avec soin. Gardez votre lien de révision privé.</footer></main>${script ? `<script nonce="${nonce}">${script}</script>` : ""}</body></html>`, { headers: { ...PRIVATE, "content-type": "text/html; charset=utf-8", "content-security-policy": `default-src 'none'; style-src 'unsafe-inline'; script-src 'nonce-${nonce}'; connect-src 'self'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'` } });
 }
