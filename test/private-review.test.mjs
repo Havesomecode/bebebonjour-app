@@ -16,6 +16,7 @@ import {
   commandRender,
 } from "../scripts/lib/commands.mjs";
 import {
+  assertValidJobScopedEditorialApproval,
   assertValidNameResolutionEvidence,
   assertValidReviewDossier,
 } from "../scripts/lib/schema-validation.mjs";
@@ -35,6 +36,29 @@ const editorialPolicy = Object.freeze({
   scripturalNameAssociationAllowed: false,
   genericBlessingsAllowed: true,
   maxStage: "content_review_required",
+});
+
+test("conversation approval schema binds the session decision digest and rejects mixed source kinds", () => {
+  const sourceEvidence = {
+    kind: "conversation_human_decision",
+    reference: `hermes:session:20260926_113745_b2a0fa:sha256:${"a".repeat(64)}`,
+  };
+  const record = {
+    schemaVersion: "1.0",
+    approvalType: "job_scoped_editorial_policy",
+    jobId: "job_approved_unknown_name_001",
+    policy: editorialPolicy,
+    sourceEvidence,
+    sourceDigest: createHash("sha256").update(JSON.stringify(sourceEvidence)).digest("hex"),
+  };
+  assert.doesNotThrow(() => assertValidJobScopedEditorialApproval(record));
+  assert.throws(
+    () => assertValidJobScopedEditorialApproval({
+      ...record,
+      sourceEvidence: { ...sourceEvidence, reference: "kanban:t_wrong_origin" },
+    }),
+    /Invalid job-scoped editorial approval/u,
+  );
 });
 
 async function captureConsole(action) {

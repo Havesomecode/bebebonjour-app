@@ -25,7 +25,7 @@ const TARGETS = Object.freeze({
   "linux:x64": ["@openai/codex-linux-x64", "x86_64-unknown-linux-musl"],
 });
 const PROJECT_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const OUTPUT_DIRECTORY = path.join(PROJECT_ROOT, ".codex-runtime");
+const OUTPUT_DIRECTORY = path.join(PROJECT_ROOT, "codex-runtime");
 const require = createRequire(import.meta.url);
 
 const target = TARGETS[`${process.platform}:${process.arch}`];

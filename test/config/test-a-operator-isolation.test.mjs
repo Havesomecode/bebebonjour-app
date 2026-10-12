@@ -18,6 +18,7 @@ test("operator isolation inventory keeps TEST-A capabilities outside every publi
 
   assert.deepEqual(inventory.publicEntrypoints, [
     "api/customer-flow/[...route].mjs",
+    "api/operator/checkout.mjs",
     "api/webhooks/tally.mjs",
   ]);
   assert.equal(inventory.privateInvocation, "ops/run-test-a-operator.mjs");

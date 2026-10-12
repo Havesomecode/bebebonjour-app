@@ -2192,6 +2192,85 @@ test("ambiguous external effects move the command and operator projection to rec
   assert.equal(retriedSource.commandId, claimed.commandId);
 });
 
+test("the exact failed no-effect Liora generation is closed, not replayed, by reconciliation", async () => {
+  const convex = fixture();
+  const jobId = "job_ac41c7b1-f532-430e-8a88-fb1aaa268a6d";
+  const sourceCommandId = "command_auto_9b8a92018feb8baf15b4d9fc619964bc";
+  const attemptId = "attempt_1705ef800557f5f4478cea04";
+  const failed = fulfillmentAggregate({
+    jobId,
+    paymentCorrelation: {
+      project: "bebebonjour", product: "announcement-page", environment: "test",
+      jobId, intakeDigest: "a".repeat(64),
+    },
+    state: "failed", version: 4,
+    payment: { providerEventId: "evt_test_liora", providerPaymentId: "pi_test_liora" },
+    stageAttempts: [{
+      attemptId, stage: "prepare_review", revisionId: null, status: "failed",
+      attemptNumber: 1, operationNumber: 1, operationsCommandId: sourceCommandId,
+      operationBinding: null, effectStartedAt: null, leaseToken: null,
+      leaseExpiresAt: null, completedAt: "2026-09-28T08:00:00.000Z",
+      failure: { reasonCode: "stage_error", retryable: false },
+    }],
+    events: [
+      { type: "job_created", state: "awaiting_payment" },
+      { type: "payment_recorded", state: "generation_queued" },
+      { type: "stage_claimed", state: "generating" },
+      { type: "stage_failed", state: "failed", commandId: `fail:${attemptId}:stage_error` },
+    ],
+  });
+  await seed(convex, { customer: customerJob({ jobId }), fulfillment: failed });
+  await convex.run(async (context) => context.db.insert("customerFlowOperationsCommands", {
+    commandId: sourceCommandId, jobId, action: "generate", expectedState: "generation_queued",
+    expectedVersion: 2, payload: {}, requestedAt: "2026-09-28T07:59:00.000Z",
+    requestedBy: "primary_operator", state: "reconciliation_required", attempts: 1,
+    claim: null, lastFailureReason: "generation_stage_failed", outcome: null,
+    updatedAt: "2026-09-28T08:00:00.000Z",
+  }));
+  const requested = await convex.mutation(requestCommand, {
+    operatorToken, jobId, commandId: "command_reconcile_liora_no_effect_001",
+    action: "reconcile", expectedState: "failed", expectedVersion: 4,
+    payload: { sourceCommandId, providerStatus: "confirmed_absent" },
+  });
+  assert.equal(requested.created, true);
+  const [claimed] = await convex.mutation(claimCommands, {
+    workerToken, workerId: "recovery-worker", jobId, actions: ["reconcile"], limit: 1,
+    leaseMs: 120_000,
+  });
+  const args = {
+    workerToken, commandId: claimed.commandId, workerId: "recovery-worker",
+    leaseToken: claimed.claim.leaseToken,
+    outcome: { code: "reconciled", jobVersion: 4, reconciledState: "failed",
+      sourceCommandId, providerStatus: "confirmed_absent" },
+  };
+  for (const variant of [
+    { ...failed, stageAttempts: [{ ...failed.stageAttempts[0], effectStartedAt: "2026-09-28T07:59:59.000Z" }] },
+    { ...failed, artifactSets: [{ kind: "private_review" }] },
+    { ...failed, stageAttempts: [{ ...failed.stageAttempts[0], operationsCommandId: "command_other_owner_001" }] },
+  ]) {
+    await replaceFulfillment(convex, variant);
+    await assert.rejects(convex.mutation(completeCommand, args));
+  }
+  await replaceFulfillment(convex, failed);
+  const orphanId = await convex.run(async (context) => context.db.insert("fulfillmentGenerationArtifactSets", {
+    jobId, revisionId: "revision_orphan", kind: "private_review", artifactSet: {},
+  }));
+  await assert.rejects(convex.mutation(completeCommand, args));
+  await convex.run(async (context) => context.db.delete(orphanId));
+  const completed = await convex.mutation(completeCommand, args);
+  assert.equal(completed.command.state, "completed");
+  const detail = await convex.query(getJob, { operatorToken, jobId });
+  const source = detail.commands.find((command) => command.commandId === sourceCommandId);
+  assert.equal(source.state, "failed");
+  assert.equal(source.lastFailureReason, "reconciliation_confirmed_absent");
+  assert.equal(detail.fulfillment.state, "failed");
+  assert.equal(detail.fulfillment.stageAttempts.length, 1);
+  assert.deepEqual(await convex.mutation(claimCommands, {
+    workerToken, workerId: "recovery-worker", jobId, actions: ["generate"], limit: 1,
+    leaseMs: 120_000,
+  }), []);
+});
+
 test("command completion enforces action-specific outcomes and replays idempotently", async (t) => {
   const convex = fixture();
   await seed(convex);

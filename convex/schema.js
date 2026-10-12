@@ -64,6 +64,22 @@ const operationOutcome = v.union(v.null(), v.object({
 }));
 
 export default defineSchema({
+  deliveryLoopJobs: defineTable({
+    jobId: v.string(),
+    publicToken: v.string(),
+    idempotencyKey: v.string(),
+    status: v.string(),
+    data: v.any(),
+  })
+    .index("by_job_id", ["jobId"])
+    .index("by_public_token", ["publicToken"])
+    .index("by_idempotency_key", ["idempotencyKey"])
+    .index("by_status", ["status"]),
+  deliveryLoopIntakeThrottle: defineTable({
+    bucketKey: v.string(),
+    windowStartedAtMs: v.number(),
+    attempts: v.number(),
+  }).index("by_bucket_key", ["bucketKey"]),
   customerFlowJobs: defineTable({
     jobId: v.string(),
     job: v.any(),
@@ -99,7 +115,7 @@ export default defineSchema({
     expectedVersion: v.number(),
     payload: operationPayload,
     requestedAt: v.string(),
-    requestedBy: v.literal("primary_operator"),
+    requestedBy: v.union(v.literal("primary_operator"), v.literal("automatic_generation"), v.literal("automatic_narration_progression"), v.literal("automatic_canonical_completion")),
     state: operationState,
     attempts: v.number(),
     claim: operationClaim,
@@ -123,6 +139,10 @@ export default defineSchema({
     blockedUntilMs: v.number(),
     updatedAtMs: v.number(),
   }).index("by_bucket_key", ["bucketKey"]),
+  canonicalCompletionScopes: defineTable({
+    scope: v.string(),
+    binding: v.any(),
+  }).index("by_scope", ["scope"]),
   fulfillmentJobs: defineTable({
     jobId: v.string(),
     aggregate: v.any(),

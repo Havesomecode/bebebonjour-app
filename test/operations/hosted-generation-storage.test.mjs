@@ -508,6 +508,74 @@ test("hosted artifact uploads reject cross-job manifest references before storag
   assert.equal(mutationCount, 0);
 });
 
+test("hosted artifact readbacks ignore object key order but retain material bindings", async (t) => {
+  const bytes = Buffer.from("synthetic artifact\n");
+  const artifactSet = {
+    kind: "private_review",
+    revisionId: "r1",
+    pageDigest: "a".repeat(64),
+    transcriptDigest: "b".repeat(64),
+    assetManifestDigest: "c".repeat(64),
+    manifestRef: `jobs/${JOB_ID}/revisions/r1/manifests/private_review.json`,
+    files: ["page.json", "review.json"].map((filePath) => ({
+      path: filePath,
+      bytes: bytes.byteLength,
+      sha256: sha256(bytes),
+      storageId: `local-test:sha256:${sha256(bytes)}`,
+    })),
+  };
+  const reorder = (value) => Object.fromEntries(Object.entries(value).reverse());
+  const cases = [
+    { name: "reordered file keys", transform: (value) => value.map(reorder), accepted: true },
+    ...["bytes", "path", "sha256", "storageId"].map((key) => ({
+      name: `changed file ${key}`,
+      transform: (value) => [{ ...value[0], [key]: key === "bytes" ? bytes.byteLength + 1 : key === "sha256" ? "d".repeat(64) : "different" }, value[1]],
+    })),
+    { name: "reversed file array", transform: (value) => [...value].reverse() },
+  ];
+  for (const mode of ["read", "commit"]) {
+    for (const entry of [...cases, ...(mode === "commit" ? [{ name: "changed page digest", pageDigest: "d".repeat(64) }] : [])]) {
+      await t.test(`${mode}: ${entry.name}`, async () => {
+        const fixture = hostedFixture();
+        const store = createConvexGenerationArtifactStore({
+          authorization: {
+            workerToken: WORKER_TOKEN,
+            commandId: COMMAND_ID,
+            workerId: "production-worker-1",
+            leaseToken: "hosted-generation-lease",
+          },
+          convexUrl: "https://test-a.convex.cloud",
+          fetchImpl: fixture.fetchImpl,
+          client: {
+            async query(name) {
+              assert.equal(name, "generation:readArtifactSet");
+              return { artifactSet: structuredClone(artifactSet), files: entry.transform(artifactSet.files) };
+            },
+            async mutation(name, input) {
+              const result = await fixture.client.mutation(name, input);
+              if (name !== "generation:commitArtifactSet") return result;
+              const committed = reorder(result.artifactSet);
+              if (entry.transform) committed.files = entry.transform(committed.files);
+              if (entry.pageDigest) committed.pageDigest = entry.pageDigest;
+              return { ...result, artifactSet: committed };
+            },
+          },
+        });
+        const invoke = () => mode === "read"
+          ? store.readArtifactSet(JOB_ID, "r1")
+          : store.uploadArtifactSet({ jobId: JOB_ID, artifactSet, readArtifact: async () => bytes });
+        if (entry.accepted) {
+          const result = await invoke();
+          if (mode === "read") assert.deepEqual(result.artifactSet, artifactSet);
+          else assert.deepEqual(result.files.map((file) => file.path), artifactSet.files.map((file) => file.path));
+        } else {
+          await assert.rejects(invoke(), mode === "read" ? /does not match the durable manifest/u : /commit readback diverged/u);
+        }
+      });
+    }
+  }
+});
+
 function sha256(value) {
   return createHash("sha256").update(value).digest("hex");
 }

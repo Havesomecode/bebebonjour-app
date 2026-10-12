@@ -20,7 +20,7 @@ test("generation worker is deployed only by its isolated Vercel project", async 
     src: "generation-worker/api/worker.mjs",
     use: "@vercel/node",
     config: {
-      includeFiles: [".codex-runtime/**"],
+      includeFiles: "codex-runtime/**",
     },
   }]);
   assert.equal(

@@ -1,5 +1,6 @@
 import { mutationGeneric, queryGeneric } from "convex/server";
 import { v } from "convex/values";
+import { enqueueApprovedGeneration } from "./automaticGeneration.js";
 
 export const createJob = mutationGeneric({
   args: {
@@ -114,6 +115,9 @@ export const replaceJob = mutationGeneric({
       throw new Error("Customer-flow replacement must increment version exactly once.");
     }
     await context.db.patch(document._id, { job: args.job });
+    if (args.job.payment?.status === "paid") {
+      await enqueueApprovedGeneration(context, args.job.jobId);
+    }
     return { updated: true, job: args.job };
   },
 });

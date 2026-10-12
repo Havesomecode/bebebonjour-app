@@ -27,7 +27,7 @@ const MANIFEST_KEYS = [
   "targetTriple",
 ];
 const DEFAULT_ARCHIVE_DIRECTORY = new URL(
-  "../../.codex-runtime/",
+  "../../codex-runtime/",
   import.meta.url,
 );
 

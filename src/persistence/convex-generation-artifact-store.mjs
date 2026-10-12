@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import { isDeepStrictEqual } from "node:util";
 
 const DIGEST = /^[a-f0-9]{64}$/u;
 const JOB_ID = /^job_[A-Za-z0-9][A-Za-z0-9_-]{2,127}$/u;
@@ -115,7 +116,7 @@ export function createConvexGenerationArtifactStore(options = {}) {
         throw new Error("Convex generation artifact commit failed.");
       }
       assertArtifactSet(committed.artifactSet, { ...hostedArtifactSet, jobId });
-      if (JSON.stringify(committed.artifactSet) !== JSON.stringify(hostedArtifactSet)) {
+      if (!isDeepStrictEqual(committed.artifactSet, hostedArtifactSet)) {
         throw new Error("Convex generation artifact commit readback diverged.");
       }
       return structuredClone(hostedArtifactSet);
@@ -186,7 +187,7 @@ function assertArtifactReadback(record, expected) {
     !Array.isArray(record.files)
     || record.files.length !== record.artifactSet.files.length
     || record.files.some((file, index) => (
-      JSON.stringify(file) !== JSON.stringify(record.artifactSet.files[index])
+      !isDeepStrictEqual(file, record.artifactSet.files[index])
     ))
   ) {
     throw new Error("Convex generation artifact readback does not match the durable manifest.");

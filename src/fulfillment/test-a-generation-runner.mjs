@@ -14,7 +14,10 @@ import { OperationsCommandError } from "../operations/operations-command-error.m
 import { createLocalPrepareReviewStageHandler } from "./local-prepare-review-stage-handler.mjs";
 import { createConvexFulfillmentStore } from "../persistence/convex-fulfillment-store.mjs";
 import { assertValidJobScopedEditorialApproval } from "../../scripts/lib/schema-validation.mjs";
-import { RECOVERABLE_FAILED_PREPARE_REVIEW_JOB_ID } from "./job-machine.mjs";
+import {
+  RECOVERABLE_FAILED_PREPARE_REVIEW_JOB_ID,
+  RECOVERABLE_LIORA_JOB_ID,
+} from "./job-machine.mjs";
 
 const JOB_ID = /^job_[A-Za-z0-9][A-Za-z0-9_-]{2,127}$/u;
 const DIGEST = /^[a-f0-9]{64}$/u;
@@ -61,7 +64,12 @@ export function createTestAGenerationRunner(options = {}) {
     handlers: Object.freeze({ prepare_review: prepareReview }),
     clock,
     tokenFactory: options.tokenFactory || (() => `generation_${randomUUID()}`),
-    retryPolicy: options.retryPolicy || TEST_A_GENERATION_RETRY_POLICY,
+    retryPolicy: options.retryPolicy || (editorialApproval.record.jobId === RECOVERABLE_LIORA_JOB_ID
+      ? {
+          ...TEST_A_GENERATION_RETRY_POLICY,
+          maxAttemptsByStage: { prepare_review: 2 },
+        }
+      : TEST_A_GENERATION_RETRY_POLICY),
   });
 
   return Object.freeze({

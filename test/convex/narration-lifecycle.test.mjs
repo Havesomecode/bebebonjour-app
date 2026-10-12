@@ -157,6 +157,111 @@ async function finish(t, auth, outcome) {
   const { jobId: _jobId, ...rest } = auth;
   await t.mutation(ref("operations:completeCommand"), { ...rest, outcome });
 }
+async function markGenuinelyPaid(t) {
+  await t.run(async (ctx) => {
+    const customer = await ctx.db.query("customerFlowJobs").first();
+    const fulfillment = await ctx.db.query("fulfillmentJobs").first();
+    const correlation = {
+      project: "bebebonjour", product: "announcement-page", environment: "test",
+      jobId, intakeDigest: fulfillment.aggregate.intakeDigest,
+    };
+    await ctx.db.patch(customer._id, { job: {
+      ...customer.job,
+      intakeDigest: fulfillment.aggregate.intakeDigest,
+      payment: { status: "paid", paymentIntentId: "pi_narration_paid", acceptedEventId: "evt_narration_paid" },
+    } });
+    await ctx.db.patch(fulfillment._id, { aggregate: {
+      ...fulfillment.aggregate,
+      paymentCorrelation: correlation,
+      payment: {
+        providerPaymentId: "pi_narration_paid", providerEventId: "evt_narration_paid",
+        correlation, recordedAt: new Date().toISOString(),
+      },
+    } });
+  });
+}
+async function queued(t) {
+  return t.run((ctx) => ctx.db.query("customerFlowOperationsCommands").collect());
+}
+async function claimQueued(t, action) {
+  const [pending] = (await queued(t)).filter((entry) => entry.action === action && entry.state === "pending");
+  assert.ok(pending, `missing queued ${action}`);
+  const [claimed] = await t.mutation(ref("operations:claimCommands"), {
+    workerToken, workerId, jobId, actions: [action], limit: 1, leaseMs: 300000,
+  });
+  assert.equal(claimed.commandId, pending.commandId);
+  const auth = { workerToken, workerId, jobId, commandId: claimed.commandId, leaseToken: claimed.claim.leaseToken };
+  await t.mutation(ref("operations:fenceCommand"), {
+    workerToken, workerId, commandId: auth.commandId, leaseToken: auth.leaseToken,
+    leaseMs: 300000, effectMayBeIssued: false,
+  });
+  return auth;
+}
+test("paid approval and render atomically queue only their next narration stages", async () => {
+  const { t } = await fixture();
+  await markGenuinelyPaid(t);
+  let auth = await command(t, "approve_content");
+  const review = await t.action(ref("narrationRuntime:advance"), { ...auth, operation: "review" });
+  assert.equal((await read(t)).state, "render_queued");
+  await assert.rejects(
+    t.action(ref("narrationRuntime:advance"), { ...auth, operation: "review" }),
+    /version conflict|Stale operator decision/,
+  );
+  let entries = await queued(t);
+  assert.equal(entries.filter((entry) => entry.action === "render").length, 1);
+  assert.equal(entries.find((entry) => entry.action === "render").expectedVersion, review.jobVersion);
+  assert.equal(entries.find((entry) => entry.action === "render").requestedBy, "automatic_narration_progression");
+  assert.deepEqual(entries.find((entry) => entry.action === "render").payload, {});
+  await finish(t, auth, review);
+  assert.equal((await queued(t)).filter((entry) => entry.action === "render").length, 1);
+
+  auth = await claimQueued(t, "render");
+  const rendered = await t.action(ref("narrationRuntime:advance"), { ...auth, operation: "render" });
+  entries = await queued(t);
+  assert.equal((await read(t)).state, "tts_queued");
+  assert.equal(entries.filter((entry) => entry.action === "generate_narration").length, 1);
+  assert.equal(entries.find((entry) => entry.action === "generate_narration").expectedVersion, rendered.jobVersion);
+  assert.equal(entries.find((entry) => entry.action === "generate_narration").requestedBy, "automatic_narration_progression");
+  assert.equal(entries.some((entry) => entry.action === "publish"), false);
+  assert.equal(entries.some((entry) => entry.action === "approve_narration"), false);
+  await finish(t, auth, rendered);
+  await claimQueued(t, "generate_narration");
+  assert.equal((await queued(t)).filter((entry) => entry.action === "generate_narration").length, 1);
+});
+test("paid content change requests never auto-queue render", async () => {
+  const { t } = await fixture();
+  await markGenuinelyPaid(t);
+  const auth = await command(t, "request_content_changes");
+  await finish(t, auth, await t.action(ref("narrationRuntime:advance"), { ...auth, operation: "review" }));
+  assert.equal((await read(t)).state, "generation_queued");
+  assert.equal((await queued(t)).filter((entry) => entry.requestedBy === "automatic_narration_progression").length, 0);
+});
+test("unpaid, fictional, and mismatched payment records never auto-queue paid narration work", async () => {
+  for (const variant of ["missing_fulfillment_payment", "fictional", "payment_mismatch", "customer_not_paid"]) {
+    const { t } = await fixture();
+    if (variant !== "missing_fulfillment_payment") await markGenuinelyPaid(t);
+    await t.run(async (ctx) => {
+      const f = await ctx.db.query("fulfillmentJobs").first();
+      const c = await ctx.db.query("customerFlowJobs").first();
+      if (variant === "fictional") {
+        await ctx.db.patch(f._id, { aggregate: { ...f.aggregate, product: "operator_narration_test", payment: null } });
+        await ctx.db.patch(c._id, { job: { ...c.job, payment: { status: "not_applicable" } } });
+      }
+      if (variant === "payment_mismatch") {
+        await ctx.db.patch(f._id, { aggregate: { ...f.aggregate, payment: { ...f.aggregate.payment, providerPaymentId: "pi_other" } } });
+      }
+      if (variant === "customer_not_paid") {
+        await ctx.db.patch(c._id, { job: { ...c.job, payment: { status: "not_applicable" } } });
+      }
+    });
+    let auth = await command(t, "approve_content");
+    await finish(t, auth, await t.action(ref("narrationRuntime:advance"), { ...auth, operation: "review" }));
+    assert.equal((await queued(t)).filter((entry) => entry.action === "render").length, 0, variant);
+    auth = await command(t, "render");
+    await finish(t, auth, await t.action(ref("narrationRuntime:advance"), { ...auth, operation: "render" }));
+    assert.equal((await queued(t)).filter((entry) => entry.action === "generate_narration").length, 0, variant);
+  }
+});
 test("supported fictional bootstrap creates an unpaid operator-authored narrated job without rewriting a job", async () => {
   const { t } = await fixture();
   const input = {

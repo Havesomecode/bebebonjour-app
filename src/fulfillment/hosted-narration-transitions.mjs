@@ -109,9 +109,23 @@ export function promote(job) {
     );
   if (
     decision?.outcome !== "approved" ||
-    decision.artifactDigests.assetManifestDigest !== source?.assetManifestDigest
+    !source ||
+    !isDeepStrictEqual(decision.artifactDigests, {
+      pageDigest: source.pageDigest,
+      transcriptDigest: source.transcriptDigest,
+      assetManifestDigest: source.assetManifestDigest,
+    })
   )
     throw new Error("Exact content approval required.");
+  // The approved digests must bind the canonical files handed to narration.
+  for (const [path, digest] of [
+    ["artifacts/current/page.json", source.pageDigest],
+    ["artifacts/current/transcript.json", source.transcriptDigest],
+  ]) {
+    const matches = source.files.filter((file) => file.path === path);
+    if (matches.length !== 1 || matches[0].sha256 !== digest)
+      throw new Error("Canonical narration source commitment invalid.");
+  }
   const namespace = source.files
     .find((f) => f.path.startsWith("private-preview/"))
     ?.path.split("/")[1];

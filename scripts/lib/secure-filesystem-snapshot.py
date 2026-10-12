@@ -147,6 +147,7 @@ class Snapshot:
         data = self.read_file(descriptor, opened_metadata)
         item = {
             "rootPath": relative_path,
+            "descriptor": descriptor,
             "bytes": len(data),
             "sha256": hashlib.sha256(data).hexdigest(),
             "data": data,
@@ -157,6 +158,19 @@ class Snapshot:
     def read_file(self, descriptor, before):
         if len(self.files) >= self.maximum_files:
             reject()
+        data = self.read_bounded(descriptor)
+        if len(data) != before.st_size:
+            reject()
+        self.total_bytes += len(data)
+        if self.total_bytes > self.maximum_total_bytes:
+            reject()
+        after = os.fstat(descriptor)
+        if fingerprint(before) != fingerprint(after):
+            reject()
+        self.files.append((descriptor, fingerprint(before)))
+        return data
+
+    def read_bounded(self, descriptor):
         chunks = []
         total = 0
         while total <= self.maximum_file_bytes:
@@ -165,15 +179,8 @@ class Snapshot:
                 break
             chunks.append(chunk)
             total += len(chunk)
-        if total > self.maximum_file_bytes or total != before.st_size:
+        if total > self.maximum_file_bytes:
             reject()
-        self.total_bytes += total
-        if self.total_bytes > self.maximum_total_bytes:
-            reject()
-        after = os.fstat(descriptor)
-        if fingerprint(before) != fingerprint(after):
-            reject()
-        self.files.append((descriptor, fingerprint(before)))
         return b"".join(chunks)
 
     def walk(self, relative_root, prefix, excluded):
@@ -226,6 +233,12 @@ class Snapshot:
         return inventory
 
     def validate(self):
+        # Metadata may alias same-size writes; reread bytes before the final metadata sweep.
+        # ponytail: bounded sequential checks, not atomic; changes after each check remain possible.
+        for item in self.by_path.values():
+            os.lseek(item["descriptor"], 0, os.SEEK_SET)
+            if self.read_bounded(item["descriptor"]) != item["data"]:
+                reject()
         for descriptor, expected in self.files:
             if fingerprint(os.fstat(descriptor)) != expected:
                 reject()

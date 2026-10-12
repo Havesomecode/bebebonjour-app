@@ -328,7 +328,7 @@ async function runNativeCollectHelper(rootHandle, rootMetadata, rootPath, reques
     representNativeDigest(files, represented, transcript, request.transcriptManifestPath, request);
     if (files.length === 0 || files.length !== represented.size) throw boundaryError();
     await validateNativeHandles(root, openedHandles);
-    await validateNativeCollectedFiles(root, cache.values(), openedHandles, directoryCache, request.maximumFileBytes);
+    await validateNativeCollectedFiles(root, [...cache.values()], openedHandles, directoryCache, request.maximumFileBytes);
     await validateNativeHandles(root, openedHandles);
     files.sort((left, right) => compareCodePointStrings(left.path, right.path));
     return finalizeNativeResponse({ files, pageDigest: page.sha256, transcriptDigest: transcript.sha256 });
@@ -629,6 +629,14 @@ async function validateNativeCollectedFiles(root, items, openedHandles, director
     ) {
       throw boundaryError();
     }
+  }
+  // Detect earlier-file mutations during later rereads without retaining every file descriptor.
+  // ponytail: one bounded metadata sweep, not atomic; mutations after each check remain possible.
+  for (const item of items) {
+    const parts = relativeParts(item.rootPath);
+    const parent = await openNativeDirectory(root, parts.slice(0, -1).join("/"), openedHandles, directoryCache);
+    const current = await lstat(path.join(parent.descriptorPath, parts.at(-1)), { bigint: true });
+    assertNativeFingerprint(item.metadata, current);
   }
 }
 

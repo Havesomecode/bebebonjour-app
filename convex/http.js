@@ -8,8 +8,14 @@ const MAX_PRIVATE_ARTIFACT_BYTES = 20 * 1024 * 1024;
 const authorizeArtifactRead = makeFunctionReference("generation:authorizeArtifactRead");
 const authorizeCompletionArtifactRead = makeFunctionReference("fulfillment:authorizeCompletionArtifactRead");
 import { narrationArtifact } from "./narrationHttp.js";
+import { intakePage, intakeSubmit, reviewPage, reviewSubmit, announcement } from "./deliveryLoopHttp.js";
 
 const http = httpRouter();
+http.route({ path: "/delivery", method: "GET", handler: intakePage });
+http.route({ path: "/delivery/intake", method: "POST", handler: intakeSubmit });
+http.route({ path: "/delivery/review", method: "GET", handler: reviewPage });
+http.route({ path: "/delivery/review", method: "POST", handler: reviewSubmit });
+http.route({ pathPrefix: "/announcements/", method: "GET", handler: announcement });
 http.route({path:"/narration/artifact",method:"GET",handler:narrationArtifact});
 
 http.route({

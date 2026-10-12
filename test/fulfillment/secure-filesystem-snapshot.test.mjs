@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { spawn } from "node:child_process";
 import { EventEmitter } from "node:events";
 import { chmod, mkdir, mkdtemp, open, readlink, rename, rm, symlink, writeFile } from "node:fs/promises";
 import os from "node:os";
@@ -257,6 +258,117 @@ test("portable collection rejects mutation after an earlier file was locally val
     }),
     /Secure filesystem boundary rejected/u,
   );
+  assert.equal(mutated, true);
+});
+
+test("portable collection rejects mutation after an earlier file was revalidated", {
+  skip: process.platform !== "linux",
+}, async (t) => {
+  const root = await mkdtemp(path.join(os.tmpdir(), "bebebonjour-node-revalidation-mutation-"));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const inventory = path.join(root, "artifacts");
+  await mkdir(inventory, { recursive: true, mode: ROOT_MODE });
+  const pagePath = path.join(inventory, "a.txt");
+  const transcriptPath = path.join(inventory, "b.txt");
+  await writeFile(pagePath, "trusted-a\n", { mode: 0o600 });
+  await writeFile(transcriptPath, "trusted-b\n", { mode: 0o600 });
+
+  const probe = await open(pagePath, "r");
+  const fileHandlePrototype = Object.getPrototypeOf(probe);
+  await probe.close();
+  const originalRead = fileHandlePrototype.read;
+  let transcriptReads = 0;
+  let mutated = false;
+  fileHandlePrototype.read = async function patchedRead(...args) {
+    const openedPath = await readlink(`/proc/self/fd/${this.fd}`);
+    if (openedPath === transcriptPath) {
+      transcriptReads += 1;
+      // Each bounded capture reads data and then EOF; call three starts b.txt's revalidation.
+      if (transcriptReads === 3) {
+        await writeFile(pagePath, "mutated-a\n", { mode: 0o600 });
+        mutated = true;
+      }
+    }
+    return originalRead.apply(this, args);
+  };
+  t.after(() => {
+    fileHandlePrototype.read = originalRead;
+  });
+
+  const portableSnapshot = createSecureFilesystemSnapshot({ spawnImpl: unavailableHelperSpawn });
+  await assert.rejects(
+    portableSnapshot.collectArtifactSnapshotFromRoot({
+      rootPath: root,
+      inventoryRoot: inventory,
+      pagePath,
+      transcriptPath,
+      maximumFileBytes: 1_024,
+      maximumJsonBytes: 1_024,
+      maximumTotalBytes: 4_096,
+      maximumFiles: 4,
+    }),
+    /Secure filesystem boundary rejected/u,
+  );
+  assert.equal(mutated, true);
+});
+
+test("Python collection revalidates bytes when metadata cannot distinguish a same-size mutation", {
+  skip: process.platform !== "linux",
+}, async (t) => {
+  const root = await mkdtemp(path.join(os.tmpdir(), "bebebonjour-python-mutation-"));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const inventory = path.join(root, "artifacts");
+  await mkdir(inventory, { mode: ROOT_MODE });
+  const pagePath = path.join(inventory, "a.txt");
+  const transcriptPath = path.join(inventory, "b.txt");
+  await writeFile(pagePath, "trusted-a\n", { mode: 0o600 });
+  await writeFile(transcriptPath, "trusted-b\n", { mode: 0o600 });
+  let mutated = false;
+  const snapshot = createSecureFilesystemSnapshot({
+    spawnImpl(binary, [helper], options) {
+      const child = spawn(binary, ["-c", `
+import os, stat, sys
+sys.dont_write_bytecode = True
+namespace = {"__name__": "snapshot_test"}
+with open(sys.argv[1]) as source:
+    exec(compile(source.read(), sys.argv[1], "exec"), namespace)
+original_fingerprint = namespace["fingerprint"]
+def coarse_fingerprint(metadata):
+    result = original_fingerprint(metadata)
+    return result[:-2] + (0, 0) if stat.S_ISREG(metadata.st_mode) else result
+namespace["fingerprint"] = coarse_fingerprint
+original_read = os.read
+mutated = False
+def read_with_mutation(descriptor, maximum):
+    global mutated
+    if not mutated and os.readlink(f"/proc/self/fd/{descriptor}").endswith("/artifacts/b.txt"):
+        target = os.open("artifacts/a.txt", os.O_WRONLY | os.O_TRUNC | os.O_NOFOLLOW, dir_fd=3)
+        try:
+            os.write(target, b"mutated-a\\n")
+        finally:
+            os.close(target)
+        mutated = True
+        sys.stderr.write("snapshot mutation injected\\n")
+    return original_read(descriptor, maximum)
+os.read = read_with_mutation
+namespace["main"]()
+`, helper], options);
+      child.stderr.on("data", (chunk) => {
+        if (chunk.toString().includes("snapshot mutation injected")) mutated = true;
+      });
+      return child;
+    },
+  });
+  await assert.rejects(snapshot.collectArtifactSnapshotFromRoot({
+    rootPath: root,
+    inventoryRoot: inventory,
+    pagePath,
+    transcriptPath,
+    maximumFileBytes: 1_024,
+    maximumJsonBytes: 1_024,
+    maximumTotalBytes: 4_096,
+    maximumFiles: 4,
+  }), { message: "Secure filesystem boundary rejected." });
   assert.equal(mutated, true);
 });
 
