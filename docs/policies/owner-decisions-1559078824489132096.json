@@ -1,0 +1,104 @@
+{
+  "schemaVersion": 1,
+  "source": {
+    "platform": "discord",
+    "channelId": "1559074931029966869",
+    "messageId": "1559078824489132096",
+    "author": "Zacaria",
+    "timestamp": "2026-10-12T05:42:38.042000+00:00",
+    "literalReply": "1 approve\n2 approve\n3 the support email must be contact@bebebonjour.com the rest is approve\n4 approve\n5 accountant yes, law advisor no, consumer mediation no\n\nThe company is HAVESOMECODE siret 879 252 336 00034",
+    "questionMessageIds": ["1559077450414161973", "1559077454751203369"],
+    "questionBriefAttachmentId": 742,
+    "questionBriefSha256": "f4bbfb57e5086dc6525dc4eb5e978df62dc2c779bf141378d66267269d693caa",
+    "interpretation": "Assent is bound to the visible numbered defaults in the preceding Discord messages, with the explicit support-email replacement. The attachment is context, not assent to additional unpresented clauses."
+  },
+  "originalPolicy": {
+    "packet": "BB-COMMERCIAL-2026-10-09-v0.2a",
+    "zipSha256": "c4c3b4bec43fe8a37ebc8e328ab2b5c03b9ee2d3577529fe8949dce39f332a6a",
+    "manifestSha256": "498a903e16a94514187580256211885f46b9a91c7fe5ff4f86a2d90cb8e3332f",
+    "disposition": "Immutable historical packet; these decisions are additive."
+  },
+  "seller": {
+    "companyNameLiteral": "HAVESOMECODE",
+    "siretLiteral": "879 252 336 00034",
+    "provenance": "owner_supplied",
+    "independentlyRegistryVerified": false,
+    "previousOwnerSuppliedVatLiteral": "FR33879252336",
+    "sellerIdentityQuestionSettled": true
+  },
+  "approvedBusinessDecisions": {
+    "preview": {
+      "status": "approved",
+      "validityElapsedHours": 24,
+      "startsAfter": "successful preview availability notice",
+      "missedWindowManualRenewals": 1,
+      "correctedPreviewFreshWindow": true,
+      "expiryOrSilenceIsApproval": false,
+      "expiryOrSilenceIsPaymentConsent": false,
+      "expiryOrSilenceIsPublicationConsent": false
+    },
+    "hostingEnd": {
+      "status": "approved",
+      "hostingMonthsFromFinalDelivery": 12,
+      "handling": "close hosted page",
+      "noticeDaysBeforeClosure": 30,
+      "preClosureExports": ["final text", "audio", "page archive"],
+      "automaticRenewal": false,
+      "recurringCharge": false,
+      "indefiniteHostingPromise": false,
+      "exportImplementationVerificationRequiredBeforeSale": true
+    },
+    "customersAndSupport": {
+      "status": "approved_with_explicit_email_replacement",
+      "initialCustomers": "adult private customers resident in mainland France with required parental permissions",
+      "languageIsNotNationalityTest": true,
+      "supportOwner": "Zacaria",
+      "supportEmailLiteral": "contact@bebebonjour.com",
+      "initialResponseWorkingDays": 2,
+      "priority": ["takedown reports", "security reports"],
+      "deputyPromised": false,
+      "support24x7Promised": false,
+      "mailboxProvisionedOrDeliveryVerifiedByThisReceipt": false
+    },
+    "privacyAndContent": {
+      "status": "approved_product_settings_not_legal_clearance",
+      "minimumFields": ["necessary names", "announcement text", "language", "buyer email"],
+      "initialExcludedInputs": ["baby photos", "health details", "precise addresses", "recipient address book"],
+      "optionalReligiousWording": "subject to reviewed permissions and legal basis; never infer religion",
+      "publicationPermissionSeparate": true,
+      "finalLink": "customer-shared, non-indexed, revocable; anyone holding the link can view it",
+      "companyReuseOfRealOrders": {"marketing": false, "demonstrations": false, "modelTraining": false},
+      "supplierTermsNeedSeparateVerification": true,
+      "abandonedDraftRetentionDays": 7,
+      "workingRevisionRetentionDaysAfterDeliveryOrCancellation": 30,
+      "deliveredPageAndAudioRetention": "agreed hosting period",
+      "financialAndDisputeRecordsKeptSeparatelyWhenNecessary": true,
+      "backupDeletionTimingMustBeDocumented": true,
+      "retentionPeriodsAreStatutoryDurations": false
+    }
+  },
+  "existingArrangements": {
+    "accountantExists": true,
+    "accountantFirmName": null,
+    "accountingOpinionObtained": false,
+    "lawAdviserExists": false,
+    "consumerMediationAgreementExists": false,
+    "legalOpinionObtained": false,
+    "dataProtectionAdviserSeparatelyIdentified": false
+  },
+  "priorDecisionsPreserved": ["EUR39 consumer-total one-time price", "Route A free preview then explicit approval and payment", "French OR Arabic announcement with provider-neutral narration", "two editorial corrections", "five working days after approval AND confirmed payment", "statutory rights without additional discretionary refund promise", "preview-budget optimisation deferred"],
+  "remainingWork": ["one reconciled exact-policy draft and qualified contract/tax/data-IP review evidence", "research legal-adviser and mediator options without contact or purchase", "verify support-mailbox operation before promising service", "implement and verify approved notice/export/consent/retention behavior before live sale", "preserve existing full-policy acceptance and release safeguards; do not re-ask settled business fields"],
+  "authority": {
+    "businessPreferencesSettled": true,
+    "noQuickPolicyQuestionRemainsFromThisBatch": true,
+    "professionalEngagementOrContactApproved": false,
+    "mediatorPurchaseApproved": false,
+    "providerSpendingApproved": false,
+    "fullPolicyAssentInferred": false,
+    "liveSaleApproved": false,
+    "chargeApproved": false,
+    "publicationApproved": false,
+    "deploymentApproved": false,
+    "mailOrDnsConfigurationChanged": false
+  }
+}
