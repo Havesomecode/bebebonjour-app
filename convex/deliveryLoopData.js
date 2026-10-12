@@ -106,7 +106,7 @@ export const sweep = internalMutationGeneric({
       if (!isPaid(row) || d.deletedAtMs) continue;
       if (d.hostingEndsAtMs && now >= d.hostingEndsAtMs) { await erase(ctx, row, "hosting_ended"); continue; }
       if (d.cancelledAtMs && now >= d.cancelledAtMs + 30 * DAY) { await erase(ctx, row, "cancelled_retention"); continue; }
-      if (!d.deliveredAtMs && !d.cancelledAtMs && d.payment.status !== "settled" && now >= d.createdAtMs + 7 * DAY) { await erase(ctx, row, "abandoned_draft"); continue; }
+      if (!d.deliveredAtMs && !d.cancelledAtMs && d.payment.status !== "settled" && now >= (d.lastActivityAtMs || d.createdAtMs) + 7 * DAY) { await erase(ctx, row, "abandoned_draft"); continue; }
       if (d.deliveredAtMs && !d.workingPurgedAtMs && now >= d.deliveredAtMs + 30 * DAY) await purgeWorking(ctx, row);
       if (d.deliveredAtMs && d.hostingEndsAtMs && now >= d.hostingEndsAtMs - 30 * DAY && !d.closureNotice && !d.revokedAtMs && !d.cancelledAtMs) {
         d.closureNotice = { status: "queued", queuedAtMs: now, hostingEndsAtMs: d.hostingEndsAtMs, idempotencyKey: `bebe-loop:${row.jobId}:${d.latestRevision}:closure_notice` };

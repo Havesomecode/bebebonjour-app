@@ -28,6 +28,7 @@ function fixture() {
     './_generated/server.js': () => import('convex/server'),
     './deliveryLoop.js': () => import('../../convex/deliveryLoop.js'),
     './deliveryLoopHttp.js': () => import('../../convex/deliveryLoopHttp.js'),
+    './deliveryLoopData.js': () => import('../../convex/deliveryLoopData.js'),
     './deliveryLoopProviders.js': () => import('../../convex/deliveryLoopProviders.js'),
     './http.js': () => import('../../convex/http.js'),
     './narrationHttp.js': () => import('../../convex/narrationHttp.js'),
@@ -271,6 +272,9 @@ test('paid intake/review browser scripts submit actual separate backend permissi
   await perm.handlers.submit({preventDefault(){}});assert.equal((await read(t,job)).paidPermissions,null,'unchecked boxes must be rejected even without native required validation');
   perm.elements.terms.checked=true;perm.elements.publication.checked=true;await perm.handlers.submit({preventDefault(){}});
   assert.equal((await read(t,job)).paidPermissions.publication,true);assert.equal((await read(t,job)).payment.status,'pending');assert.equal(dom['#public-link'].hidden,true);
+  await dom['#revoke'].handlers.click();assert.ok((await read(t,job)).revokedAtMs);assert.match(dom['#data-result'].textContent,/Publication retirée/);
+  await dom['#erase'].handlers.click();assert.match(dom['#data-result'].textContent,/Confirmez/);assert.equal((await read(t,job)).status,'revoked');
+  dom['#confirm-delete'].checked=true;await dom['#erase'].handlers.click();assert.match(dom['#data-result'].textContent,/supprimés/);assert.equal(dom['#downloads'].hidden,true);await assert.rejects(read(t,job),/data_deleted/);
 });
 
 test('cancellation between paid claim and effect denies narration/email; repeat or uncertain email never initiates a second send',async()=>{

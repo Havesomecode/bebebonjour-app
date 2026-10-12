@@ -72,6 +72,7 @@ export async function get(ctx, jobId) {
   return row;
 }
 export async function save(ctx, row, status = row.status) {
+  if (isPaid(row)) row.data.lastActivityAtMs = Date.now();
   if (new TextEncoder().encode(JSON.stringify(row.data)).byteLength > 850000) throw new Error("job_capacity_reached");
   await ctx.db.patch(row._id, { status, data: row.data }); row.status = status;
 }

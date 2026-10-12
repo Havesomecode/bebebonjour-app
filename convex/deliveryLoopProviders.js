@@ -30,8 +30,15 @@ export const narrate = actionGeneric({
       || receipt.voice !== 'cedar') throw new Error('narration_receipt_invalid');
     await context.runQuery(ref('authorizeProvider'), { ...pickIdentity(args), stage });
     const storageId = await context.storage.store(new Blob([bytes], { type: 'audio/mpeg' }));
-    await context.runMutation(ref('recordNarration'), { ...pickIdentity(args), language: args.language,
-      textDigest: args.textDigest, storageId, provider: receipt.provider, model: receipt.model, voice: receipt.voice });
+    try {
+      await context.runMutation(ref('recordNarration'), { ...pickIdentity(args), language: args.language,
+        textDigest: args.textDigest, storageId, provider: receipt.provider, model: receipt.model, voice: receipt.voice });
+    } catch (error) {
+      // A takedown/deletion may race storage.store. This action alone owns the
+      // just-created blob: never leave it orphaned when recording is denied.
+      await context.storage.delete(storageId);
+      throw error;
+    }
     return { storageId, textDigest: args.textDigest, provider: receipt.provider, model: receipt.model, voice: receipt.voice };
   },
 });

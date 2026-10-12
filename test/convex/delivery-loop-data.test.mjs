@@ -1,13 +1,15 @@
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
+import { mkdir, writeFile } from 'node:fs/promises';
 import { Script } from 'node:vm';
 import test, { mock } from 'node:test';
 mock.timers.enable({ apis: ['setTimeout'] });
 import { convexTest } from 'convex-test';
-import { makeFunctionReference } from 'convex/server';
+import { makeFunctionReference, getFunctionName } from 'convex/server';
 import schema from '../../convex/schema.js';
 import { DAY } from '../../convex/deliveryLoopData.js';
+import { narrate } from '../../convex/deliveryLoopProviders.js';
 const ref = name => makeFunctionReference(`deliveryLoop:${name}`);
 const dataRef = name => makeFunctionReference(`deliveryLoopData:${name}`);
 const sha = s => createHash('sha256').update(s).digest('hex');
@@ -55,7 +57,7 @@ test('actual paid exports download exact text, audio and standalone ZIP; wrong/c
   const t=fixture();const {job,bytes}=await delivered(t);const row=await raw(t,job);
   const text=await t.fetch(exportUrl(job,'text'));assert.equal(text.status,200);assert.equal(await text.text(),'Bienvenue FictionalBaby.\n\nDouceur.\n\nAmour.');assert.equal(text.headers.get('cache-control'),'private, no-store');assert.match(text.headers.get('content-disposition'),/attachment/);
   const audio=await t.fetch(exportUrl(job,'audio'));assert.deepEqual(new Uint8Array(await audio.arrayBuffer()),bytes);
-  const zip=await t.fetch(exportUrl(job,'page'));const archive=unzipStored(new Uint8Array(await zip.arrayBuffer()));assert.deepEqual(Object.keys(archive),['annonce.html','texte.txt','audio-fr.mp3']);assert.deepEqual(archive['audio-fr.mp3'],bytes);assert.match(new TextDecoder().decode(archive['annonce.html']),/src="audio-fr.mp3"/);
+  const zip=await t.fetch(exportUrl(job,'page'));const zipBytes=new Uint8Array(await zip.arrayBuffer());const proof=new URL('../../out/paid-data-export-proof/',import.meta.url);await mkdir(proof,{recursive:true});await writeFile(new URL('annonce.zip',proof),zipBytes);const archive=unzipStored(zipBytes);assert.deepEqual(Object.keys(archive),['annonce.html','texte.txt','audio-fr.mp3']);assert.deepEqual(archive['audio-fr.mp3'],bytes);assert.match(new TextDecoder().decode(archive['annonce.html']),/src="audio-fr.mp3"/);
   for(const token of ['wrong',row.publicToken,workerToken]) assert.equal((await t.fetch(exportUrl({...job,reviewToken:token},'page'))).status,404);
   assert.equal((await post(t,'/delivery/data/operator',{jobId:job.jobId,action:'inspect'},workerToken)).status,403);
   const inspect=await post(t,'/delivery/data/operator',{jobId:job.jobId,action:'inspect'},editorialToken);assert.equal(inspect.status,200);assert.doesNotMatch(await inspect.text(),/FictionalBaby|data-fixture@example.invalid|reviewToken/);
@@ -103,4 +105,14 @@ test('hourly pagination schedules continuation past ten legacy records; privacy 
   const t=fixture();for(let i=0;i<11;i++)await t.run(ctx=>ctx.db.insert('deliveryLoopJobs',{jobId:`legacy_${i}`,publicToken:`public_${i}`,idempotencyKey:`key_${i}`,status:'old',data:{createdAtMs:1}}));const job=await submit(t);await patchData(t,job,{createdAtMs:Date.now()-8*DAY});const result=await t.mutation(dataRef('sweep'),{});assert.equal(result.done,false);await t.finishAllScheduledFunctions(()=>mock.timers.runAll());assert.equal((await raw(t,job)).status,'data_deleted');
   const t2=fixture();const {job:final}=await delivered(t2);for(const url of [new URL(final.reviewUrl).pathname+new URL(final.reviewUrl).search,'/delivery/data/operator']){const html=await (await t2.fetch(url)).text();for(const [,script]of html.matchAll(/<script[^>]*>([\s\S]*?)<\/script>/g))assert.doesNotThrow(()=>new Script(script));assert.match(html,/Supprimer|supprimer/);}
   const crons=readFileSync(new URL('../../convex/crons.js',import.meta.url),'utf8');assert.match(crons,/hours: 1/);assert.match(crons,/deliveryLoopData:sweep/);
+});
+test('late narration recording denial removes only the action-owned new blob',async()=>{
+  const original=globalThis.fetch;const previous=process.env.OPENAI_API_KEY;process.env.OPENAI_API_KEY='offline-not-real';
+  const deleted=[];const bytes=new Uint8Array(160).fill(9);
+  globalThis.fetch=async url=>{assert.equal(url,'https://api.openai.com/v1/audio/speech');return new Response(bytes);};
+  try {
+    const ctx={runQuery:async()=>({orderMode:'paid_route_a',intake:{languages:['fr']},narrationReceipts:[]}),runMutation:async fn=>{if(getFunctionName(fn).endsWith(':recordNarration'))throw new Error('data_deleted');},storage:{store:async()=> 'new_action_owned_blob',delete:async id=>deleted.push(id)}};
+    await assert.rejects(narrate._handler(ctx,{workerToken,jobId:'job_offline',leaseToken:'offline-lease',revision:1,language:'fr',text:'Bienvenue.',textDigest:sha('Bienvenue.')}),/data_deleted/);
+    assert.deepEqual(deleted,['new_action_owned_blob']);
+  }finally{globalThis.fetch=original;if(previous===undefined)delete process.env.OPENAI_API_KEY;else process.env.OPENAI_API_KEY=previous;}
 });
