@@ -2,7 +2,7 @@ import { ConvexHttpClient } from "convex/browser";
 import { randomUUID } from "node:crypto";
 import { isDeepStrictEqual } from "node:util";
 
-import { recordReviewDecisionTransition } from "./job-machine.mjs";
+import { recordReviewDecisionTransition } from "../forward-coexistence/live/src/fulfillment/job-machine.mjs";
 import { createFulfillmentOrchestrator } from "./job-orchestrator.mjs";
 import {
   authenticatePersistedReviewApproval,

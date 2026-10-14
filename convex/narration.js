@@ -1,3 +1,5 @@
+import * as live from "../src/forward-coexistence/live/convex/narration.js";
+import { coexistDefinition } from "../src/forward-coexistence/dispatch.mjs";
 import {
   internalQueryGeneric,
   internalMutationGeneric,
@@ -9,8 +11,17 @@ import {
   assertNarrationToken,
   assertNarrationCommand,
 } from "./narrationScope.js";
+import { validatePreparedSource } from "../src/fulfillment/prepared-narration-source.mjs";
 import { enqueuePaidNarrationProgression } from "./operations.js";
-export const insertFictionalTest = internalMutationGeneric({
+import { isOwnerTrialJob } from "../src/fulfillment/owner-trial-authority.mjs";
+import { assertOwnerTrialPersistedAuthority } from "./ownerTrial.js";
+import {
+  PRIVATE_GENERATION_ACTIONS,
+  isPrivateGenerationJob,
+  matchesPrivateGenerationAuthority,
+  stablePrivateValue,
+} from "../src/fulfillment/private-generation-authority.mjs";
+export const insertFictionalTest = internalMutationGeneric(coexistDefinition({
   args: { operatorToken: v.string(), aggregate: v.any(), language: v.string() },
   handler: async (ctx, args) => {
     assertTestOperator(args.operatorToken);
@@ -50,14 +61,15 @@ export const insertFictionalTest = internalMutationGeneric({
     await ctx.db.insert("fulfillmentJobs", { jobId: job.jobId, aggregate });
     return { jobId: job.jobId };
   },
-});
+}, live.insertFictionalTest, "insertFictionalTest", "narration"));
 export function assertTestOperator(token) {
   if (
     process.env.BEBEBONJOUR_NARRATION_TESTS_ENABLED !== "true" ||
     !token ||
     token.length < 32 ||
     token !== process.env.BEBEBONJOUR_OPERATIONS_TOKEN ||
-    token === process.env.BEBEBONJOUR_NARRATION_WORKER_TOKEN
+    token === process.env.BEBEBONJOUR_NARRATION_WORKER_TOKEN ||
+    token === process.env.BEBEBONJOUR_TTS_WORKER_TOKEN
   )
     throw new Error("Fictional test creation disabled or unauthorized.");
 }
@@ -69,12 +81,12 @@ export const authorityArgs = {
   jobId: v.string(),
 };
 export async function claimed(context, args, { effect = false } = {}) {
-  assertNarrationToken(args.workerToken);
+  const scope = assertNarrationToken(args.workerToken);
   const command = await context.db
     .query("customerFlowOperationsCommands")
     .withIndex("by_command_id", (q) => q.eq("commandId", args.commandId))
     .unique();
-  assertNarrationCommand(command, args);
+  assertNarrationCommand(scope, command, args);
   if (
     command.jobId !== args.jobId ||
     command.state !== "running" ||
@@ -90,17 +102,39 @@ export async function claimed(context, args, { effect = false } = {}) {
     .unique();
   if (!document || document.aggregate.narrationRequired !== true)
     throw new Error("Narration must be requested on the canonical job.");
+  const customer = await context.db
+    .query("customerFlowJobs")
+    .withIndex("by_job_id", (q) => q.eq("jobId", args.jobId))
+    .unique();
+  if (isOwnerTrialJob(customer?.job, document.aggregate))
+    await assertOwnerTrialPersistedAuthority(context, customer?.job, document.aggregate);
+  if (isPrivateGenerationJob(customer?.job, document.aggregate)) {
+    const bytes = new TextEncoder().encode(stablePrivateValue(customer?.job?.intake) || "");
+    const digest = [...new Uint8Array(await crypto.subtle.digest("SHA-256", bytes))]
+      .map((byte) => byte.toString(16).padStart(2, "0")).join("");
+    if (!PRIVATE_GENERATION_ACTIONS.has(command.action)
+      || !matchesPrivateGenerationAuthority(customer?.job, document.aggregate, digest)) {
+      throw new Error("Narration private-test authority rejected.");
+    }
+  }
   return { command, document };
 }
-export const readClaim = internalQueryGeneric({
+export const readClaim = internalQueryGeneric(coexistDefinition({
   args: authorityArgs,
   handler: async (ctx, args) => {
     const { command, document } = await claimed(ctx, args);
     return { command, job: document.aggregate };
   },
-});
+}, live.readClaim, "readClaim", "narration"));
+export const readEffectClaim = internalQueryGeneric(coexistDefinition({
+  args: authorityArgs,
+  handler: async (ctx, args) => {
+    const { command, document } = await claimed(ctx, args, { effect: true });
+    return { command, job: document.aggregate };
+  },
+}, undefined, "readEffectClaim", "narration"));
 // No public arbitrary aggregate replacement. Only the server-side canonical reducer action calls this CAS.
-export const commitTransition = internalMutationGeneric({
+export const commitTransition = internalMutationGeneric(coexistDefinition({
   args: { ...authorityArgs, expectedVersion: v.number(), aggregate: v.any() },
   handler: async (ctx, args) => {
     const { command, document } = await claimed(ctx, args);
@@ -117,29 +151,33 @@ export const commitTransition = internalMutationGeneric({
     await ctx.db.patch(document._id, { aggregate: args.aggregate });
     return null;
   },
-});
-export const createUploadUrl = mutationGeneric({
+}, live.commitTransition, "commitTransition", "narration"));
+export const createUploadUrl = mutationGeneric(coexistDefinition({
   args: authorityArgs,
   handler: async (ctx, args) => {
     const { command, document } = await claimed(ctx, args, { effect: true });
+    const attempt = document.aggregate.stageAttempts?.at(-1);
     if (
       command.action !== "generate_narration" ||
-      document.aggregate.state !== "tts_generating"
+      document.aggregate.state !== "tts_generating" ||
+      attempt?.stage !== "generate_tts" ||
+      attempt.operationsCommandId !== command.commandId ||
+      typeof attempt.effectStartedAt !== "string"
     )
-      throw new Error("Only fenced narration may upload.");
+      throw new Error("Only dual-fenced narration may upload.");
     return ctx.storage.generateUploadUrl();
   },
-});
-export const readPrepared = queryGeneric({
+}, live.createUploadUrl, "createUploadUrl", "narration"));
+export const readPrepared = queryGeneric(coexistDefinition({
   args: authorityArgs,
   handler: async (ctx, args) => {
     const { command, document } = await claimed(ctx, args);
     if (command.action !== "generate_narration")
       throw new Error("Narration input scope rejected.");
-    return latest(document.aggregate, "prepared_bundle");
+    return validatePreparedSource(document.aggregate);
   },
-});
-export const authorizeRead = internalQueryGeneric({
+}, live.readPrepared, "readPrepared", "narration"));
+export const authorizeRead = internalQueryGeneric(coexistDefinition({
   args: {
     token: v.string(),
     mode: v.string(),
@@ -192,7 +230,7 @@ export const authorizeRead = internalQueryGeneric({
       throw new Error("File scope rejected.");
     return file;
   },
-});
+}, live.authorizeRead, "authorizeRead", "narration"));
 export function latest(job, kind) {
   return [...job.artifactSets]
     .reverse()

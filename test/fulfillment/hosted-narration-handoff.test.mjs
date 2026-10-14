@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
-import { manifest, promote } from "../../src/fulfillment/hosted-narration-transitions.mjs";
+import { manifest, promote } from "../../src/forward-coexistence/live/src/fulfillment/hosted-narration-transitions.mjs";
 
 const hash = (value) => createHash("sha256").update(value).digest("hex");
 const jobId = "job_canonical_narration_handoff";

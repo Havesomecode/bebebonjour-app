@@ -1,6 +1,6 @@
 import { createHash, randomBytes, randomUUID, timingSafeEqual } from "node:crypto";
 
-import { createJobAggregate } from "../fulfillment/job-machine.mjs";
+import { createJobAggregate } from "../forward-coexistence/live/src/fulfillment/job-machine.mjs";
 
 const PRICE_MINOR = 3900;
 const CURRENCY = "EUR";

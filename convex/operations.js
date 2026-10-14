@@ -1,10 +1,25 @@
+import { publicPlaybackReservedCommandIds } from "./ownerTrialPublicPlaybackRepair.js";
+import * as live from "../src/forward-coexistence/live/convex/operations.js";
+import { coexistDefinition, selectTrial } from "../src/forward-coexistence/dispatch.mjs";
 import { mutationGeneric, paginationOptsValidator, queryGeneric } from "convex/server";
+import { findUnresolvedPresentCommand } from "./ownerTrialPublicationPresent.js";
 import { v } from "convex/values";
+import { PRIVATE_GENERATION_ACTIONS, isPrivateGenerationJob, matchesPrivateGenerationAuthority } from "../src/fulfillment/private-generation-authority.mjs";
+import { OWNER_TRIAL_ACTIONS, isOwnerTrialJob, matchesOwnerTrialAuthority } from "../src/fulfillment/owner-trial-authority.mjs";
+import { assertOwnerTrialPersistedAuthority } from "./ownerTrial.js";
+import { assertOwnerTrialCompletionToken, assertOwnerTrialCompletionClaim,
+  assertOwnerTrialCompletionCommand, assertOwnerTrialCompletionRelease,
+  ownerTrialCompletionPolicy } from "./ownerTrialCompletion.js";
 import { assertNarrationToken, assertNarrationClaim, assertNarrationCommand } from "./narrationScope.js";
 import { assertCanonicalToken, canonicalConfig, canonicalScope, assertCanonicalRelease,
   CANONICAL_WORKER_ID, CANONICAL_ACTIONS } from "./canonicalCompletionScope.js";
 
 import { TEST_A_PREPARE_REVIEW_RETRY_POLICY } from "../src/fulfillment/test-a-generation-policy.mjs";
+import {
+  failStageTransition,
+  reconcileAbsentExternalEffectTransition,
+  recoverUnfencedNarrationEffectTransition,
+} from "../src/fulfillment/convex-job-effect-transitions.mjs";
 
 const JOB_ID = /^job_[A-Za-z0-9][A-Za-z0-9_-]{2,127}$/u;
 const COMMAND_ID = /^command_[A-Za-z0-9][A-Za-z0-9_-]{7,127}$/u;
@@ -101,24 +116,25 @@ const OUTCOME_CONTRACT_BY_ACTION = Object.freeze({
   }),
 });
 
-export const operatorHealth = queryGeneric({
+export const operatorHealth = queryGeneric(coexistDefinition({
   args: { operatorToken: v.string() },
   handler: async (_context, args) => {
     assertOperatorToken(args.operatorToken);
     return { protocolVersion: "1.0", scope: "operator" };
   },
-});
+}, live.operatorHealth, "operatorHealth", "operations"));
 
-export const workerHealth = queryGeneric({
-  args: { workerToken: v.string() },
+export const workerHealth = queryGeneric(coexistDefinition({
+  args: { workerToken: v.string(), jobId: v.optional(v.string()) },
   handler: async (context, args) => {
     const scope = assertWorkerToken(args.workerToken);
     if (scope === "canonical_test_completion") await canonicalScope(context, canonicalConfig().jobId);
+    if (scope === "owner_trial_completion") await ownerTrialCompletionPolicy(context, args.jobId);
     return { protocolVersion: "1.0", scope };
   },
-});
+}, live.workerHealth, "workerHealth", "operations"));
 
-export const consumeLoginAttempt = mutationGeneric({
+export const consumeLoginAttempt = mutationGeneric(coexistDefinition({
   args: { rateLimitToken: v.string(), sourceHash: v.string() },
   handler: async (context, args) => {
     assertRateLimitToken(args.rateLimitToken);
@@ -144,9 +160,9 @@ export const consumeLoginAttempt = mutationGeneric({
       retryAfterSeconds: retryAfterMs > 0 ? Math.max(1, Math.ceil(retryAfterMs / 1_000)) : 0,
     };
   },
-});
+}, live.consumeLoginAttempt, "consumeLoginAttempt", "operations"));
 
-export const resetLoginThrottle = mutationGeneric({
+export const resetLoginThrottle = mutationGeneric(coexistDefinition({
   args: { rateLimitToken: v.string(), sourceHash: v.string() },
   handler: async (context, args) => {
     assertRateLimitToken(args.rateLimitToken);
@@ -162,9 +178,9 @@ export const resetLoginThrottle = mutationGeneric({
     }
     return { reset: true };
   },
-});
+}, live.resetLoginThrottle, "resetLoginThrottle", "operations"));
 
-export const listJobs = queryGeneric({
+export const listJobs = queryGeneric(coexistDefinition({
   args: {
     operatorToken: v.string(),
     paginationOpts: paginationOptsValidator,
@@ -189,9 +205,9 @@ export const listJobs = queryGeneric({
     }));
     return { ...result, page };
   },
-});
+}, live.listJobs, "listJobs", "operations"));
 
-export const getJob = queryGeneric({
+export const getJob = queryGeneric(coexistDefinition({
   args: { operatorToken: v.string(), jobId: v.string() },
   handler: async (context, args) => {
     assertOperatorToken(args.operatorToken);
@@ -226,9 +242,9 @@ export const getJob = queryGeneric({
         .filter((action) => !activeActions.has(action)),
     };
   },
-});
+}, live.getJob, "getJob", "operations"));
 
-export const listJobCommands = queryGeneric({
+export const listJobCommands = queryGeneric(coexistDefinition({
   args: {
     operatorToken: v.string(),
     jobId: v.string(),
@@ -249,9 +265,9 @@ export const listJobCommands = queryGeneric({
       .paginate(args.paginationOpts);
     return { ...result, page: result.page.map(projectCommand) };
   },
-});
+}, live.listJobCommands, "listJobCommands", "operations"));
 
-export const requestCommand = mutationGeneric({
+export const requestCommand = mutationGeneric(coexistDefinition({
   args: {
     operatorToken: v.string(),
     commandId: v.string(),
@@ -286,6 +302,7 @@ export const requestCommand = mutationGeneric({
       throw new Error("Operator job was not found.");
     }
     const aggregate = fulfillmentDocument.aggregate;
+    await assertTrialActionAuthority(context, customerDocument.job, aggregate, args.action);
     if (aggregate.state !== args.expectedState || aggregate.version !== args.expectedVersion) {
       throw new Error("Operator job changed; refresh before requesting work.");
     }
@@ -350,11 +367,12 @@ export const requestCommand = mutationGeneric({
     await context.db.insert("customerFlowOperationsCommands", command);
     return { created: true, command: projectCommand(command) };
   },
-});
+}, live.requestCommand, "requestCommand", "operations"));
 
 // Enqueue the non-human narration stages in the same transaction as the
 // approved content/render transition. Fictional or uncorrelated jobs cannot spend.
 export async function enqueuePaidNarrationProgression(context, source, prior, next) {
+  if (!await selectTrial(context, {jobId:prior?.jobId})) return live.enqueuePaidNarrationProgression(context, source, prior, next);
   if (prior.jobId !== source.jobId || next.jobId !== prior.jobId
     || next.version !== prior.version + 1
     || next.currentRevisionId !== prior.currentRevisionId
@@ -431,7 +449,7 @@ export async function enqueuePaidNarrationProgression(context, source, prior, ne
   await context.db.insert("customerFlowOperationsCommands", command);
 }
 
-export const queueCanonicalPublication = mutationGeneric({
+export const queueCanonicalPublication = mutationGeneric(coexistDefinition({
   args: { workerToken: v.string(), jobId: v.string() },
   handler: async (context, args) => {
     assertCanonicalToken(args.workerToken);
@@ -441,11 +459,12 @@ export const queueCanonicalPublication = mutationGeneric({
     if (aggregate.state !== "publish_ready") return false;
     return enqueueCanonicalCompletionCommand(context, config, aggregate, "publish");
   },
-});
+}, live.queueCanonicalPublication, "queueCanonicalPublication", "operations"));
 
 // Called from a validated canonical completion replacement transaction; only
 // publish->published and queue_delivery->delivery_queued can create successors.
 export async function enqueueCanonicalCompletionSuccessor(context, config, source, prior, next) {
+  if (!await selectTrial(context, {jobId:prior?.jobId})) return live.enqueueCanonicalCompletionSuccessor(context, config, source, prior, next);
   const action = source?.action === "publish" && prior.state === "publishing" && next.state === "published"
     ? "queue_delivery"
     : source?.action === "queue_delivery" && prior.state === "published" && next.state === "delivery_queued"
@@ -490,7 +509,7 @@ async function enqueueCanonicalCompletionCommand(context, config, aggregate, act
   return true;
 }
 
-export const claimCommands = mutationGeneric({
+export const claimCommands = mutationGeneric(coexistDefinition({
   args: {
     workerToken: v.string(),
     workerId: v.string(),
@@ -503,13 +522,15 @@ export const claimCommands = mutationGeneric({
     const workerScope = assertWorkerToken(args.workerToken);
     assertWorkerClaimInput(args);
     assertCompletionClaimScope(workerScope, args);
+    if (workerScope === "owner_trial_completion") await ownerTrialCompletionPolicy(context, args.jobId);
     if (args.actions.length === 0) return [];
     const nowMs = Date.now();
     const actions = [...args.actions].sort();
+    const playbackReserved=workerScope === "owner_trial_completion"?await publicPlaybackReservedCommandIds(context,args.jobId):[];
     const pending = args.jobId
       ? (await context.db.query("customerFlowOperationsCommands")
         .withIndex("by_job_id_and_state", (query) => query.eq("jobId", args.jobId).eq("state", "pending"))
-        .collect()).filter((command) => actions.includes(command.action)).slice(0, args.limit)
+        .collect()).filter((command) => actions.includes(command.action)&&!playbackReserved.includes(command.commandId)).slice(0, args.limit)
       : (await Promise.all(actions.map((action) => context.db
         .query("customerFlowOperationsCommands")
         .withIndex("by_state_action_requested_at", (query) => query
@@ -537,15 +558,67 @@ export const claimCommands = mutationGeneric({
     const claimed = [];
 
     for (const command of candidates) {
+      if (workerScope === "owner_trial_completion") {
+        assertOwnerTrialCompletionCommand(command, args);
+        await assertOwnerTrialCompletionRelease(context, command.jobId);
+      }
+      const [privateCustomer, privateFulfillment] = await Promise.all([
+        findCustomerJob(context, command.jobId), findFulfillmentJob(context, command.jobId),
+      ]);
+      try {
+        await assertTrialActionAuthority(context, privateCustomer?.job, privateFulfillment?.aggregate, command.action);
+      } catch (error) {
+        if (args.jobId) throw error;
+        continue;
+      }
+      if (!privateActionAllowed(privateCustomer?.job, privateFulfillment?.aggregate, command.action)) continue;
       if (workerScope === "canonical_test_completion") {
         const config = await canonicalScope(context, command.jobId);
         const aggregate = (await findFulfillmentJob(context, command.jobId))?.aggregate;
         await assertCanonicalRelease(context, config, aggregate);
         await canonicalScope(context, command.jobId, { pin: true });
       }
+      if (command.state === "running" && command.action === "generate_narration") {
+        const fulfillment = await findFulfillmentJob(context, command.jobId);
+        if (await recoverUnfencedNarrationCommand(context, fulfillment, command, nowMs)) {
+          continue;
+        }
+      }
       if (command.state === "running"
           && EXTERNAL_EFFECT_ACTIONS.has(command.action)
           && command.claim?.effectStartedAtMs !== undefined) {
+        if (command.action === "generate_narration") {
+          const fulfillment = await findFulfillmentJob(context, command.jobId);
+          const aggregate = fulfillment?.aggregate;
+          const attempt = aggregate?.stageAttempts?.at(-1);
+          if (
+            aggregate?.state === "tts_generating"
+            && attempt?.stage === "generate_tts"
+            && attempt.status === "running"
+            && attempt.operationsCommandId === command.commandId
+            && typeof attempt.effectStartedAt === "string"
+          ) {
+            const failedAggregate = await failStageTransition(aggregate, {
+              commandId: `lease-expired:${command.commandId}:${command.claim.leaseToken}`,
+              stage: "generate_tts",
+              leaseToken: attempt.leaseToken,
+              reasonCode: "lease_expired",
+              retryable: true,
+            }, {
+              maxAttemptsByStage: { generate_tts: 32 },
+            }, new Date(nowMs).toISOString());
+            await context.db.patch(fulfillment._id, { aggregate: failedAggregate });
+          } else {
+            const completedArtifact = [...(aggregate?.artifactSets || [])].reverse().find((artifact) => (
+              artifact.kind === "narration_review"
+              && artifact.revisionId === aggregate.currentRevisionId
+              && artifact.operationsCommandId === command.commandId
+            ));
+            if (aggregate?.state !== "reconciliation_required" && !completedArtifact) {
+              throw new Error("Expired narration effect could not fence the canonical aggregate.");
+            }
+          }
+        }
         await context.db.patch(command._id, {
           state: "reconciliation_required",
           claim: null,
@@ -628,9 +701,9 @@ export const claimCommands = mutationGeneric({
     }
     return claimed;
   },
-});
+}, live.claimCommands, "claimCommands", "operations"));
 
-export const fenceCommand = mutationGeneric({
+export const fenceCommand = mutationGeneric(coexistDefinition({
   args: {
     workerToken: v.string(),
     commandId: v.string(),
@@ -655,10 +728,28 @@ export const fenceCommand = mutationGeneric({
       || command.claim?.leaseToken !== args.leaseToken) {
       return { active: false, command: null };
     }
+    const [privateCustomer, privateFulfillment] = await Promise.all([
+      findCustomerJob(context, command.jobId), findFulfillmentJob(context, command.jobId),
+    ]);
+    await assertTrialActionAuthority(context, privateCustomer?.job, privateFulfillment?.aggregate, command.action);
+    if (!privateActionAllowed(privateCustomer?.job, privateFulfillment?.aggregate, command.action)) {
+      return { active: false, command: null };
+    }
     if (command.claim.leaseExpiresAtMs <= nowMs) {
-      const fulfillment = args.effectMayBeIssued
+      const fulfillment = args.effectMayBeIssued || command.action === "generate_narration"
         ? await findFulfillmentJob(context, command.jobId)
         : null;
+      if (command.action === "generate_narration") {
+        const recovered = await recoverUnfencedNarrationCommand(
+          context,
+          fulfillment,
+          command,
+          nowMs,
+        );
+        if (recovered) {
+          return { active: false, command: projectCommand(recovered.command) };
+        }
+      }
       const stageFailureHandled = await closeRejectedGenerateStage(
         context,
         fulfillment,
@@ -716,6 +807,17 @@ export const fenceCommand = mutationGeneric({
       }
     }
     if (!stateMatches || !bindingMatches) {
+      if (command.action === "generate_narration") {
+        const recovered = await recoverUnfencedNarrationCommand(
+          context,
+          fulfillment,
+          command,
+          nowMs,
+        );
+        if (recovered) {
+          return { active: false, command: projectCommand(recovered.command) };
+        }
+      }
       if (args.effectMayBeIssued) {
         await closeRejectedGenerateStage(context, fulfillment, command, nowMs);
       }
@@ -740,9 +842,9 @@ export const fenceCommand = mutationGeneric({
     await context.db.patch(command._id, next);
     return { active: true, command: projectClaimedCommand({ ...command, ...next }) };
   },
-});
+}, live.fenceCommand, "fenceCommand", "operations"));
 
-export const completeCommand = mutationGeneric({
+export const completeCommand = mutationGeneric(coexistDefinition({
   args: {
     workerToken: v.string(),
     commandId: v.string(),
@@ -804,9 +906,9 @@ export const completeCommand = mutationGeneric({
     await context.db.patch(command._id, next);
     return { completed: true, command: projectCommand({ ...command, ...next }) };
   },
-});
+}, live.completeCommand, "completeCommand", "operations"));
 
-export const failCommand = mutationGeneric({
+export const failCommand = mutationGeneric(coexistDefinition({
   args: {
     workerToken: v.string(),
     commandId: v.string(),
@@ -825,9 +927,33 @@ export const failCommand = mutationGeneric({
     const command = await findCommand(context, args.commandId);
     assertCompletionCommandScope(workerScope, command, args);
     assertClaimIdentity(command, args.workerId, args.leaseToken);
-    await assertCanonicalCommandRelease(context, workerScope, command);
+    try {
+      await assertCanonicalCommandRelease(context, workerScope, command);
+    } catch (error) {
+      // Failure is not delivery authority: a still-owned scoped command may only
+      // close terminally. Retrying after failed validation would restore authority.
+      const deliveryAuthorityDenied = error instanceof Error && [
+        "Owner trial PRESENT reconciliation rejected.",
+        "Owner trial PRESENT supersession rejected.",
+        "Owner trial delivery has unresolved command authority.",
+      ].includes(error.message);
+      if (workerScope !== "owner_trial_completion" || command.action !== "deliver"
+        || args.retryable || !deliveryAuthorityDenied) throw error;
+    }
     const effectMayHaveOccurred = EXTERNAL_EFFECT_ACTIONS.has(command.action)
       && command.claim.effectStartedAtMs !== undefined;
+    if (command.action === "generate_narration") {
+      const fulfillment = await findFulfillmentJob(context, command.jobId);
+      const recovered = await recoverUnfencedNarrationCommand(
+        context,
+        fulfillment,
+        command,
+        failedAtMs,
+      );
+      if (recovered) {
+        return { failed: true, command: projectCommand(recovered.command) };
+      }
+    }
     const next = {
       state: effectMayHaveOccurred
         ? "reconciliation_required"
@@ -840,7 +966,7 @@ export const failCommand = mutationGeneric({
     await context.db.patch(command._id, next);
     return { failed: true, command: projectCommand({ ...command, ...next }) };
   },
-});
+}, live.failCommand, "failCommand", "operations"));
 
 async function completeReconciliation(context, command, outcome, customer, aggregate, completedAt) {
   const source = await findCommand(context, command.payload.sourceCommandId);
@@ -852,10 +978,21 @@ async function completeReconciliation(context, command, outcome, customer, aggre
     || !EXTERNAL_EFFECT_ACTIONS.has(source.action)) {
     throw new Error("Operator reconciliation source is no longer unresolved.");
   }
+  let reconciledAggregate = null;
+  if (
+    command.payload.providerStatus === "confirmed_absent"
+    && source.action === "generate_narration"
+  ) {
+    reconciledAggregate = await reconcileAbsentExternalEffectTransition(aggregate, {
+      commandId: command.commandId,
+      sourceCommandId: source.commandId,
+    }, completedAt);
+  }
+  const authoritativeAggregate = reconciledAggregate || aggregate;
   const expected = {
     code: "reconciled",
-    jobVersion: aggregate.version,
-    reconciledState: aggregate.state,
+    jobVersion: authoritativeAggregate.version,
+    reconciledState: authoritativeAggregate.state,
     sourceCommandId: source.commandId,
     providerStatus: command.payload.providerStatus,
   };
@@ -879,11 +1016,18 @@ async function completeReconciliation(context, command, outcome, customer, aggre
       });
       return;
     }
-    if (aggregate.state !== source.expectedState || aggregate.version !== source.expectedVersion) {
+    if (!reconciledAggregate
+      && (aggregate.state !== source.expectedState || aggregate.version !== source.expectedVersion)) {
       throw new Error("An absent external effect requires the unchanged authoritative fulfillment target.");
     }
-    assertCanonicalActionBinding(source.action, source.payload, aggregate);
+    assertCanonicalActionBinding(source.action, source.payload, authoritativeAggregate);
+    if (reconciledAggregate) {
+      const fulfillmentDocument = await findFulfillmentJob(context, command.jobId);
+      await context.db.patch(fulfillmentDocument._id, { aggregate: reconciledAggregate });
+    }
     await context.db.patch(source._id, {
+      expectedState: authoritativeAggregate.state,
+      expectedVersion: authoritativeAggregate.version,
       state: "pending",
       claim: null,
       lastFailureReason: "reconciliation_confirmed_absent",
@@ -1132,6 +1276,50 @@ function commandStateIsCurrent(command, aggregate, effectMayBeIssued, nowMs) {
     && leaseExpiresAtMs > nowMs;
 }
 
+async function recoverUnfencedNarrationCommand(context, fulfillment, command, nowMs) {
+  const aggregate = fulfillment?.aggregate;
+  const attempt = aggregate?.stageAttempts?.at(-1);
+  const runningPreProviderAttempt = aggregate?.state === "tts_generating"
+    && attempt?.status === "running";
+  const failedPreProviderAttempt = aggregate?.state === "failed"
+    && attempt?.status === "failed"
+    && attempt.failure?.retryable === false
+    && attempt.failure.reasonCode === "narration_failed"
+    && Number.isFinite(command?.claim?.effectStartedAtMs);
+  if (
+    command?.action !== "generate_narration"
+    || command.state !== "running"
+    || attempt?.stage !== "generate_tts"
+    || attempt.operationsCommandId !== command.commandId
+    || attempt.effectStartedAt !== null
+    || (!runningPreProviderAttempt && !failedPreProviderAttempt)
+  ) return null;
+
+  // Production narration persists the aggregate fence before any provider call. If that
+  // marker is absent after the queue-fenced handler ended or expired, the effect is absent.
+  const at = new Date(nowMs).toISOString();
+  const recoveredAggregate = await recoverUnfencedNarrationEffectTransition(aggregate, {
+    commandId: `recover-unfenced:${command.commandId}:${attempt.attemptId}`,
+    sourceCommandId: command.commandId,
+    attemptId: attempt.attemptId,
+  }, at);
+  const commandPatch = {
+    expectedState: recoveredAggregate.state,
+    expectedVersion: recoveredAggregate.version,
+    state: "pending",
+    claim: null,
+    lastFailureReason: "aggregate_effect_fence_missing",
+    outcome: null,
+    updatedAt: at,
+  };
+  await context.db.patch(fulfillment._id, { aggregate: recoveredAggregate });
+  await context.db.patch(command._id, commandPatch);
+  return {
+    aggregate: recoveredAggregate,
+    command: { ...command, ...commandPatch },
+  };
+}
+
 async function closeRejectedGenerateStage(context, fulfillment, command, nowMs) {
   const aggregate = fulfillment?.aggregate;
   const attempt = aggregate?.stageAttempts?.at(-1);
@@ -1293,6 +1481,7 @@ async function closeRejectedGenerateStage(context, fulfillment, command, nowMs) 
 function availableActions(customer, aggregate) {
   const actions = [...(ACTIONS_BY_STATE[aggregate?.state] || [])]
     .filter((action) => {
+      if (!privateActionAllowed(customer, aggregate, action)) return false;
       if (aggregate?.product !== "operator_narration_test") return true;
       if (aggregate.jobId === OWNER_COMPLETION_JOB_ID && OWNER_COMPLETION_ACTIONS.has(action)) return true;
       return !SYNTHETIC_FORBIDDEN_ACTIONS.has(action);
@@ -1301,6 +1490,20 @@ function availableActions(customer, aggregate) {
     return actions.filter((action) => action !== "create_checkout");
   }
   return actions;
+}
+
+function privateActionAllowed(customer, aggregate, action) {
+  if (isOwnerTrialJob(customer, aggregate)) return OWNER_TRIAL_ACTIONS.has(action)
+    && matchesOwnerTrialAuthority(customer, aggregate, customer?.intakeDigest);
+  if (!isPrivateGenerationJob(customer, aggregate)) return true;
+  return PRIVATE_GENERATION_ACTIONS.has(action)
+    && matchesPrivateGenerationAuthority(customer, aggregate, customer?.intakeDigest);
+}
+
+async function assertTrialActionAuthority(context, customer, aggregate, action) {
+  if (!isOwnerTrialJob(customer, aggregate)) return;
+  if (!OWNER_TRIAL_ACTIONS.has(action)) throw new Error("Owner trial action authority rejected.");
+  await assertOwnerTrialPersistedAuthority(context, customer, aggregate);
 }
 
 function commandConflictGroup(action) {
@@ -1465,14 +1668,8 @@ function findCommand(context, commandId) {
     .unique();
 }
 
-function findReconciliationCommand(context, jobId) {
-  return context.db
-    .query("customerFlowOperationsCommands")
-    .withIndex("by_job_id_and_state", (query) => query
-      .eq("jobId", jobId)
-      .eq("state", "reconciliation_required"))
-    .order("desc")
-    .first();
+async function findReconciliationCommand(context, jobId) {
+  return findUnresolvedPresentCommand(context, jobId);
 }
 
 function findCommandsByState(context, jobId, state) {
@@ -1730,10 +1927,16 @@ function assertRateLimitToken(value) {
 
 function assertWorkerToken(value) {
   assertDistinctOperationsTokens();
+  if (value && value === process.env.BEBEBONJOUR_OWNER_TRIAL_COMPLETION_WORKER_TOKEN) {
+    assertOwnerTrialCompletionToken(value); return "owner_trial_completion";
+  }
   if (value && value === process.env.BEBEBONJOUR_CANONICAL_COMPLETION_WORKER_TOKEN) {
     assertCanonicalToken(value); return "canonical_test_completion";
   }
-  if (value && value === process.env.BEBEBONJOUR_NARRATION_WORKER_TOKEN) { assertNarrationToken(value); return "narration"; }
+  if (value && (
+    value === process.env.BEBEBONJOUR_NARRATION_WORKER_TOKEN
+    || value === process.env.BEBEBONJOUR_TTS_WORKER_TOKEN
+  )) return assertNarrationToken(value);
   if (value === process.env.BEBEBONJOUR_OPERATIONS_WORKER_TOKEN
       && typeof value === "string" && value.length >= 32) return "worker";
   if (value === process.env.BEBEBONJOUR_COMPLETION_WORKER_TOKEN
@@ -1744,7 +1947,11 @@ function assertWorkerToken(value) {
 }
 
 function assertCompletionClaimScope(scope, args) {
-  if (scope === "narration") return assertNarrationClaim(args);
+  if (scope === "owner_trial_completion") return assertOwnerTrialCompletionClaim(args);
+  if (scope === "narration_control" || scope === "narration_generation") {
+    return assertNarrationClaim(scope, args);
+  }
+
   if (scope === "canonical_test_completion") {
     if (args.jobId !== canonicalConfig().jobId || args.workerId !== CANONICAL_WORKER_ID
         || args.limit !== 1 || args.leaseMs !== 300_000
@@ -1776,7 +1983,11 @@ function assertCompletionClaimScope(scope, args) {
 }
 
 function assertCompletionCommandScope(scope, command, args) {
-  if (scope === "narration") return assertNarrationCommand(command, args);
+  if (scope === "owner_trial_completion") return assertOwnerTrialCompletionCommand(command, args);
+  if (scope === "narration_control" || scope === "narration_generation") {
+    return assertNarrationCommand(scope, command, args);
+  }
+
   if (scope === "canonical_test_completion") {
     if (!command || command.jobId !== canonicalConfig().jobId
         || !CANONICAL_ACTIONS.includes(command.action) || args.workerId !== CANONICAL_WORKER_ID
@@ -1818,6 +2029,12 @@ function assertCompletionAggregateScope(scope, command, aggregate) {
 }
 
 async function assertCanonicalCommandRelease(context, scope, command) {
+  if (scope === "owner_trial_completion") {
+    const aggregate = (await findFulfillmentJob(context, command.jobId))?.aggregate;
+    await assertOwnerTrialCompletionRelease(context, command.jobId, aggregate);
+    assertCanonicalActionBinding(command.action, command.payload, aggregate);
+    return;
+  }
   if (scope !== "canonical_test_completion") return;
   const config = await canonicalScope(context, command.jobId);
   await assertCanonicalRelease(context, config, (await findFulfillmentJob(context, command.jobId))?.aggregate);
@@ -1830,7 +2047,9 @@ function assertDistinctOperationsTokens() {
     process.env.BEBEBONJOUR_COMPLETION_WORKER_TOKEN,
     process.env.BEBEBONJOUR_OWNER_COMPLETION_WORKER_TOKEN,
     process.env.BEBEBONJOUR_CANONICAL_COMPLETION_WORKER_TOKEN,
+    process.env.BEBEBONJOUR_OWNER_TRIAL_COMPLETION_WORKER_TOKEN,
     process.env.BEBEBONJOUR_NARRATION_WORKER_TOKEN,
+    process.env.BEBEBONJOUR_TTS_WORKER_TOKEN,
     process.env.BEBEBONJOUR_OPS_RATE_LIMIT_TOKEN,
     process.env.CUSTOMER_FLOW_BACKEND_TOKEN,
   ].filter((token) => typeof token === "string" && token.length > 0);

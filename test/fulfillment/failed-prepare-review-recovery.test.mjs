@@ -11,7 +11,7 @@ import {
   recordPaymentTransition,
   recoverFailedPrepareReviewTransition,
   resumeRetryTransition,
-} from "../../src/fulfillment/job-machine.mjs";
+} from "../../src/forward-coexistence/live/src/fulfillment/job-machine.mjs";
 import { createTestAGenerationRunner } from "../../src/fulfillment/test-a-generation-runner.mjs";
 
 const JOB_ID = "job_c633aa4c-0039-4257-8913-eaa6f6197d0c";

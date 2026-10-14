@@ -10,7 +10,7 @@ import {
   createJobAggregate,
   failStageTransition,
   recordPaymentTransition,
-} from "../../src/fulfillment/job-machine.mjs";
+} from "../../src/forward-coexistence/live/src/fulfillment/job-machine.mjs";
 
 const readClaimedCustomerJob = makeFunctionReference("generation:readClaimedCustomerJob");
 const readEditorialApproval = makeFunctionReference("generation:readEditorialApproval");

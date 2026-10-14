@@ -5,7 +5,7 @@ import { convexTest } from "convex-test";
 import { makeFunctionReference } from "convex/server";
 
 import schema from "../../convex/schema.js";
-import { createJobAggregate } from "../../src/fulfillment/job-machine.mjs";
+import { createJobAggregate } from "../../src/forward-coexistence/live/src/fulfillment/job-machine.mjs";
 
 const createJob = makeFunctionReference("customerFlow:createJob");
 const readJob = makeFunctionReference("customerFlow:readJob");

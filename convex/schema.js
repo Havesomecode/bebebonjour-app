@@ -109,6 +109,20 @@ export default defineSchema({
     windowStartedAtMs: v.number(),
     attempts: v.number(),
   }).index("by_bucket_key", ["bucketKey"]),
+  ownerTrialCompletionContinuations: defineTable({ jobId: v.string(), receipt: v.any() })
+    .index("by_job_id", ["jobId"]),
+  ownerTrialPublicationPresentAuthorizations: defineTable({ jobId: v.string(), receipt: v.any() }).index("by_job_id", ["jobId"]),
+  ownerTrialPublicationPresentLeases: defineTable({ jobId: v.string(), lease: v.any() }).index("by_job_id", ["jobId"]),
+  ownerTrialPublicPlaybackRepairs: defineTable({ jobId: v.string(), authorization: v.any(), lifecycle: v.any() }).index("by_job_id", ["jobId"]),
+  ownerTrialPublicationSupersessions: defineTable({ jobId: v.string(), authorization: v.any(), lifecycle: v.any() }).index("by_job_id", ["jobId"]),
+  ownerTrialPublicationPresentResults: defineTable({ jobId: v.string(), receipt: v.any() }).index("by_job_id", ["jobId"]),
+  ownerTrialPublicationRecoveries: defineTable({ jobId: v.string(), revisionId: v.string(), receipt: v.any() })
+    .index("by_job_revision", ["jobId", "revisionId"]),
+  ownerTrialReviews: defineTable({ jobId: v.string(), decisionType: v.string(), receipt: v.any() })
+    .index("by_job_type", ["jobId", "decisionType"]),
+  ownerTrialTickets: defineTable({ ticketId: v.string(), ticketDigest: v.string(), binding: v.any(),
+    redeemed: v.boolean(), intakeDigest: v.union(v.string(), v.null()) })
+    .index("by_ticket_id", ["ticketId"]).index("by_ticket_digest", ["ticketDigest"]),
   customerFlowJobs: defineTable({
     jobId: v.string(),
     job: v.any(),

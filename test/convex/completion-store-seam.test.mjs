@@ -14,7 +14,7 @@ import {
   fenceExternalEffectTransition,
   queueDeliveryTransition,
   resumeRetryTransition,
-} from "../../src/fulfillment/job-machine.mjs";
+} from "../../src/forward-coexistence/live/src/fulfillment/job-machine.mjs";
 import { createFulfillmentOrchestrator } from "../../src/fulfillment/job-orchestrator.mjs";
 import { createConvexFulfillmentStore } from "../../src/persistence/convex-fulfillment-store.mjs";
 

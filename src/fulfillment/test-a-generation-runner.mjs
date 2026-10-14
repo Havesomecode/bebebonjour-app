@@ -17,7 +17,7 @@ import { assertValidJobScopedEditorialApproval } from "../../scripts/lib/schema-
 import {
   RECOVERABLE_FAILED_PREPARE_REVIEW_JOB_ID,
   RECOVERABLE_LIORA_JOB_ID,
-} from "./job-machine.mjs";
+} from "../forward-coexistence/live/src/fulfillment/job-machine.mjs";
 
 const JOB_ID = /^job_[A-Za-z0-9][A-Za-z0-9_-]{2,127}$/u;
 const DIGEST = /^[a-f0-9]{64}$/u;

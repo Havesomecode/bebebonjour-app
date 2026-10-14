@@ -4,6 +4,7 @@ import {
   claimStageTransition,
   completeStageTransition,
   failStageTransition,
+  fenceExternalEffectTransition,
   recordReviewDecisionTransition,
   EDITORIAL_POLICY_VERSION,
 } from "./job-machine.mjs";
@@ -12,7 +13,14 @@ export const latest = (job, kind) =>
   [...job.artifactSets]
     .reverse()
     .find((a) => a.kind === kind && a.revisionId === job.currentRevisionId);
-export function manifest(job, kind, files, pageDigest, transcriptDigest) {
+export function manifest(
+  job,
+  kind,
+  files,
+  pageDigest,
+  transcriptDigest,
+  sourceBinding = {},
+) {
   files = [...files].sort((a, b) =>
     a.path < b.path ? -1 : a.path > b.path ? 1 : 0,
   );
@@ -26,6 +34,7 @@ export function manifest(job, kind, files, pageDigest, transcriptDigest) {
     ),
     manifestRef: `jobs/${job.jobId}/revisions/${job.currentRevisionId}/manifests/${kind}.json`,
     files,
+    ...sourceBinding,
   };
 }
 export function reviewTransition(job, command, at) {
@@ -86,10 +95,15 @@ export function beginTransition(job, command, at, leaseToken) {
     job.state !== command.expectedState
   )
     throw new Error("Stale stage request.");
+  const priorAttempts = job.stageAttempts.filter(
+    (attempt) => attempt.stage === stage && attempt.operationsCommandId === command.commandId,
+  ).length;
   return claimStageTransition(
     job,
     {
-      commandId: `claim:${command.commandId}`,
+      commandId: priorAttempts === 0
+        ? `claim:${command.commandId}`
+        : `claim:${command.commandId}:${priorAttempts + 1}`,
       operationsCommandId: command.commandId,
       stage,
       leaseToken,
@@ -98,6 +112,24 @@ export function beginTransition(job, command, at, leaseToken) {
     },
     at,
   );
+}
+export function fenceNarrationProviderTransition(job, command, at) {
+  const attempt = job.stageAttempts.at(-1);
+  if (
+    command.action !== "generate_narration"
+    || attempt?.stage !== "generate_tts"
+    || attempt.operationsCommandId !== command.commandId
+  ) {
+    throw new Error("Narration provider fence changed command ownership.");
+  }
+  return fenceExternalEffectTransition(job, {
+    commandId: `effect-fence:${attempt.attemptId}:${command.commandId}`,
+    stage: "generate_tts",
+    attemptId: attempt.attemptId,
+    leaseToken: attempt.leaseToken,
+    leaseMs: 300000,
+    effectMayBeIssued: true,
+  }, at);
 }
 export function promote(job) {
   const source = latest(job, "private_review");
@@ -109,23 +141,9 @@ export function promote(job) {
     );
   if (
     decision?.outcome !== "approved" ||
-    !source ||
-    !isDeepStrictEqual(decision.artifactDigests, {
-      pageDigest: source.pageDigest,
-      transcriptDigest: source.transcriptDigest,
-      assetManifestDigest: source.assetManifestDigest,
-    })
+    decision.artifactDigests.assetManifestDigest !== source?.assetManifestDigest
   )
     throw new Error("Exact content approval required.");
-  // The approved digests must bind the canonical files handed to narration.
-  for (const [path, digest] of [
-    ["artifacts/current/page.json", source.pageDigest],
-    ["artifacts/current/transcript.json", source.transcriptDigest],
-  ]) {
-    const matches = source.files.filter((file) => file.path === path);
-    if (matches.length !== 1 || matches[0].sha256 !== digest)
-      throw new Error("Canonical narration source commitment invalid.");
-  }
   const namespace = source.files
     .find((f) => f.path.startsWith("private-preview/"))
     ?.path.split("/")[1];
@@ -150,11 +168,17 @@ export function promote(job) {
     files,
     source.pageDigest,
     source.transcriptDigest,
+    { sourcePrivateReviewManifestDigest: source.assetManifestDigest },
   );
 }
+
+export { validatePreparedSource } from "./prepared-narration-source.mjs";
 export function completeTransition(job, command, artifactSet, at) {
   const attempt = job.stageAttempts.at(-1);
-  if (attempt?.operationsCommandId !== command.commandId)
+  if (
+    attempt?.operationsCommandId !== command.commandId
+    || (attempt.stage === "generate_tts" && typeof attempt.effectStartedAt !== "string")
+  )
     throw new Error("Stage command changed.");
   return completeStageTransition(
     job,
@@ -205,6 +229,8 @@ export async function validateNarrationBytes(job, artifact, getBlob) {
     review.jobId !== job.jobId ||
     review.revisionId !== job.currentRevisionId ||
     review.preparedManifestDigest !== prepared.assetManifestDigest ||
+    review.sourcePrivateReviewManifestDigest !==
+      prepared.sourcePrivateReviewManifestDigest ||
     review.model !== "gpt-4o-mini-tts" ||
     review.voice !== "cedar" ||
     review.provider !== "openai" ||
@@ -273,6 +299,7 @@ export function validateNarration(job, value) {
     value.kind !== "narration_review" ||
     value.revisionId !== job.currentRevisionId ||
     value.pageDigest !== source?.pageDigest ||
+    value.sourcePreparedBundleManifestDigest !== source?.assetManifestDigest ||
     !Array.isArray(value.files)
   )
     throw new Error("Narration source binding invalid.");
@@ -282,6 +309,7 @@ export function validateNarration(job, value) {
     value.files,
     source.pageDigest,
     value.transcriptDigest,
+    { sourcePreparedBundleManifestDigest: source.assetManifestDigest },
   );
   if (!isDeepStrictEqual(value, expected))
     throw new Error("Narration manifest commitment invalid.");

@@ -7,7 +7,7 @@ import {
   createJobAggregate,
   failStageTransition,
   recordPaymentTransition,
-} from "../../src/fulfillment/job-machine.mjs";
+} from "../../src/forward-coexistence/live/src/fulfillment/job-machine.mjs";
 import { runOperationsWorkerCommand } from "../../src/operations/operations-worker-startup.mjs";
 import { createProductionGenerationWorker } from "../../src/operations/production-generation-worker.mjs";
 import { createConvexGenerationArtifactStore } from "../../src/persistence/convex-generation-artifact-store.mjs";

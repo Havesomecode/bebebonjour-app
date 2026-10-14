@@ -13,7 +13,7 @@ import {
   recordReviewDecisionTransition,
   recoverFailedPrepareReviewTransition,
   resumeRetryTransition,
-} from "../fulfillment/job-machine.mjs";
+} from "../forward-coexistence/live/src/fulfillment/job-machine.mjs";
 
 const DEFAULT_FUNCTIONS = Object.freeze({
   createJob: "fulfillment:createJob",

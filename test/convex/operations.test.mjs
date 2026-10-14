@@ -10,7 +10,7 @@ import {
   EDITORIAL_POLICY_VERSION,
   failStageTransition,
   recordReviewDecisionTransition,
-} from "../../src/fulfillment/job-machine.mjs";
+} from "../../src/forward-coexistence/live/src/fulfillment/job-machine.mjs";
 
 const listJobs = makeFunctionReference("operations:listJobs");
 const getJob = makeFunctionReference("operations:getJob");

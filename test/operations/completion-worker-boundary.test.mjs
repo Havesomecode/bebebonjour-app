@@ -17,7 +17,7 @@ import {
   createHostedCompletionArtifactResolver,
   promoteReviewedArtifactSet,
 } from "../../src/fulfillment/test-a-completion-capabilities.mjs";
-import { EDITORIAL_POLICY_VERSION } from "../../src/fulfillment/job-machine.mjs";
+import { EDITORIAL_POLICY_VERSION } from "../../src/forward-coexistence/live/src/fulfillment/job-machine.mjs";
 import { signPersistedReviewApproval } from "../../src/fulfillment/persisted-review-decision.mjs";
 import { createLocalTestFulfillmentStore } from "../../src/persistence/local-test-fulfillment-store.mjs";
 
