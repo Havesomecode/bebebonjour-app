@@ -33,6 +33,7 @@
       "convex/deliveryLoopPaymentHttp.js",
       "convex/deliveryLoopPromotion.js",
       "convex/deliveryLoopProviders.js",
+      "convex/deliveryLoopTerms.js",
       "convex/fulfillment.js",
       "convex/generation.js",
       "convex/http.js",
@@ -60,6 +61,7 @@
       "docs/paid-route-a-data-controls.md",
       "docs/paid-route-a-runbook.md",
       "docs/paid-test-promotion.md",
+      "docs/route-a-39-v1-terms.md",
       "docs/security-abuse-recovery.md",
       "ops/bundle-installation-offline.cjs",
       "ops/installation-compatibility.json",
@@ -167,6 +169,7 @@
       "test/convex/delivery-loop-paid.test.mjs",
       "test/convex/delivery-loop-payment-events.test.mjs",
       "test/convex/delivery-loop-reviewed-narration.test.mjs",
+      "test/convex/delivery-loop-terms.test.mjs",
       "test/convex/delivery-loop.test.mjs",
       "test/convex/generation-worker-authority.test.mjs",
       "test/convex/generation.test.mjs",
@@ -240,6 +243,7 @@
       "convex/deliveryLoopPaymentHttp.js",
       "convex/deliveryLoopPromotion.js",
       "convex/deliveryLoopProviders.js",
+      "convex/deliveryLoopTerms.js",
       "convex/fulfillment.js",
       "convex/generation.js",
       "convex/http.js",
@@ -267,6 +271,7 @@
       "docs/paid-route-a-data-controls.md",
       "docs/paid-route-a-runbook.md",
       "docs/paid-test-promotion.md",
+      "docs/route-a-39-v1-terms.md",
       "docs/security-abuse-recovery.md",
       "ops/bundle-installation-offline.cjs",
       "ops/installation-compatibility.json",
@@ -374,6 +379,7 @@
       "test/convex/delivery-loop-paid.test.mjs",
       "test/convex/delivery-loop-payment-events.test.mjs",
       "test/convex/delivery-loop-reviewed-narration.test.mjs",
+      "test/convex/delivery-loop-terms.test.mjs",
       "test/convex/delivery-loop.test.mjs",
       "test/convex/generation-worker-authority.test.mjs",
       "test/convex/generation.test.mjs",
@@ -539,6 +545,10 @@
         "sha256": "0e37c3385cd7d1100a06e641de660dfbfb9962d19d882f53310226bf9856de48"
       },
       {
+        "path": "convex/deliveryLoopTerms.js",
+        "sha256": "d3384fffa4ff69668947db4febead35dc7dd3f0a8d4a43cf5a8750d7d3d020b4"
+      },
+      {
         "path": "convex/fulfillment.js",
         "sha256": "9b77c5a1716794f5c1b1b6e03a7597be603dbf125b8161fad088204e8f7d9de1"
       },
@@ -548,7 +558,7 @@
       },
       {
         "path": "convex/http.js",
-        "sha256": "dff8b0d5b8b7cb4fae9f12ddf3d10fb8f444bd48d49ad93de57b124e8a161de7"
+        "sha256": "2e5180c654092f6cf9eef972db6516d12d00c8f5f869140527cd0d8cbe6bc8f4"
       },
       {
         "path": "convex/narration.js",
@@ -640,11 +650,15 @@
       },
       {
         "path": "docs/paid-route-a-runbook.md",
-        "sha256": "35e80919a1e8bfeb455d3eb7242f81977f9ac7855adf47df4c473e48a5057211"
+        "sha256": "02a5ac1464a08d790eb78ce15345891970ccf48240ec5fd4855f16f06463406c"
       },
       {
         "path": "docs/paid-test-promotion.md",
         "sha256": "464c9b7b2828f49f27f425afc97e94b0336a2a65cbbe8dde8d7c7f093f4f7f69"
+      },
+      {
+        "path": "docs/route-a-39-v1-terms.md",
+        "sha256": "72dd29dcc1f43e7709094758e95178cdfc16cdc8d6e7dbd06b46cf8cde80d94e"
       },
       {
         "path": "docs/security-abuse-recovery.md",
@@ -1175,6 +1189,10 @@
         "sha256": "3f33baa53b394416c9184a906d75df0466d5e1d3b9ea83f2dfab2794b3d964ce"
       },
       {
+        "path": "test/convex/delivery-loop-terms.test.mjs",
+        "sha256": "a4e1efa12e7f6b40f7e1317951c6ad42836e176ade6a1db3ed9f78c1d960a55a"
+      },
+      {
         "path": "test/convex/delivery-loop.test.mjs",
         "sha256": "d365116a4222eacfe7d47328d93f4152c075bbf9a9833558ec4f5ef70fdf011f"
       },
@@ -1192,7 +1210,7 @@
       },
       {
         "path": "test/convex/installation-compatibility.test.mjs",
-        "sha256": "4ecab0bb1a2a41dccb12e85e739fa7012f0d089ccf9df07afb7c0c9d219c437d"
+        "sha256": "bda8c2b471b21b77e10d20b5bfa5b1abf584ebd374747c6c1fc5a7dab7cce9ce"
       },
       {
         "path": "test/convex/narration-lifecycle.test.mjs",

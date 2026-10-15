@@ -6,6 +6,10 @@ This is an offline implementation candidate for task t_d4163412, not a live-sale
 
 The paid mode defaults OFF. Configuration is described in `.env.example`; admission requires `BEBEBONJOUR_PAID_ROUTE_A_ENABLED=true` and an HTTPS `BEBEBONJOUR_PAID_TERMS_URL`. Do not enable the flag merely because the candidate passes tests. The exact customer-facing terms, successor export/retention work and action-specific release/sale authority must be ready at the actions they govern. Optional general professional review is not a blanket prerequisite for offline implementation.
 
+## Customer-readable terms
+
+The exact French `route-a-39-v1` document is served at `GET /delivery/terms/route-a-39-v1`, independently of paid admission. [Terms serving specification and settled authority](route-a-39-v1-terms.md) records business decisions, newer pilot/promotion authorities1037/1038, and release1065. This successor is offline only: release must consume independent exact-source review and verify the installed page before configuring that HTTPS URL or enabling admission. No paid flag is changed by serving the document.
+
 ## Customer contract and transitions
 
 1. Free private text preview, French OR Arabic, with final narration included in the EUR39 one-time consumer-total offer. Two customer-requested editorial corrections are counted; technical generation retries do not consume another correction. Initial paid input is restricted to general wishes until the separate religious-permission/legal-basis work is ready. Adult mainland-France/parental-permission declaration and preview permission are recorded independently of purchase/publication.
