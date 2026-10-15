@@ -617,21 +617,25 @@ async function captureNativeFile(root, relativePath, request, openedHandles, dir
 }
 
 async function validateNativeCollectedFiles(root, items, openedHandles, directoryCache, maximumBytes) {
-  for (const item of items) {
-    const current = await captureNativeFile(root, item.rootPath, {
-      maximumBytes,
-      exactMode: null,
-    }, openedHandles, directoryCache);
-    assertNativeFingerprint(item.metadata, current.metadata);
-    if (
-      current.bytes.byteLength !== item.bytes
-      || createHash("sha256").update(current.bytes).digest("hex") !== item.sha256
-    ) {
-      throw boundaryError();
+  // Catch persistent writes during the first reread even when same-size timestamps alias.
+  // A second bounded byte pass is hardening, not an atomic snapshot or a write lock.
+  for (let pass = 0; pass < 2; pass += 1) {
+    for (const item of items) {
+      const current = await captureNativeFile(root, item.rootPath, {
+        maximumBytes,
+        exactMode: null,
+      }, openedHandles, directoryCache);
+      assertNativeFingerprint(item.metadata, current.metadata);
+      if (
+        current.bytes.byteLength !== item.bytes
+        || createHash("sha256").update(current.bytes).digest("hex") !== item.sha256
+      ) {
+        throw boundaryError();
+      }
     }
   }
-  // Detect earlier-file mutations during later rereads without retaining every file descriptor.
-  // ponytail: one bounded metadata sweep, not atomic; mutations after each check remain possible.
+  // Detect metadata-visible mutations during later rereads without retaining file descriptors.
+  // Mutations after a file's final byte check can still escape when metadata also aliases.
   for (const item of items) {
     const parts = relativeParts(item.rootPath);
     const parent = await openNativeDirectory(root, parts.slice(0, -1).join("/"), openedHandles, directoryCache);

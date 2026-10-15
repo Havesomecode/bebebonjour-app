@@ -1,7 +1,8 @@
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
 import { EventEmitter } from "node:events";
-import { chmod, mkdir, mkdtemp, open, readlink, rename, rm, symlink, writeFile } from "node:fs/promises";
+import fsPromises, { chmod, mkdir, mkdtemp, open, readlink, rename, rm, symlink, writeFile } from "node:fs/promises";
+import { syncBuiltinESMExports } from "node:module";
 import os from "node:os";
 import path from "node:path";
 import { PassThrough } from "node:stream";
@@ -310,6 +311,81 @@ test("portable collection rejects mutation after an earlier file was revalidated
     /Secure filesystem boundary rejected/u,
   );
   assert.equal(mutated, true);
+});
+
+test("portable collection rejects persistent first-revalidation mutations when timestamps alias", {
+  skip: process.platform !== "linux",
+}, async (t) => {
+  const root = await mkdtemp(path.join(os.tmpdir(), "bebebonjour-node-coarse-revalidation-"));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const inventory = path.join(root, "artifacts");
+  await mkdir(inventory, { mode: ROOT_MODE });
+  const pagePath = path.join(inventory, "a.txt");
+  const transcriptPath = path.join(inventory, "b.txt");
+  await writeFile(pagePath, "trusted-a\n", { mode: 0o600 });
+  await writeFile(transcriptPath, "trusted-b\n", { mode: 0o600 });
+
+  const probe = await open(pagePath, "r");
+  const prototype = Object.getPrototypeOf(probe);
+  await probe.close();
+  const originalRead = prototype.read;
+  const originalStat = prototype.stat;
+  const originalLstat = fsPromises.lstat;
+  function coarseFileMetadata(metadata) {
+    if (metadata.isFile()) {
+      metadata.mtimeNs = 0n;
+      metadata.ctimeNs = 0n;
+    }
+    return metadata;
+  }
+  prototype.stat = async function patchedStat(...args) {
+    return coarseFileMetadata(await originalStat.apply(this, args));
+  };
+  fsPromises.lstat = async (...args) => coarseFileMetadata(await originalLstat(...args));
+  syncBuiltinESMExports();
+  let transcriptReads = 0;
+  let pageReads = 0;
+  let metadataBefore;
+  let metadataAfter;
+  let pageReadsAtMutation;
+  prototype.read = async function patchedRead(...args) {
+    const openedPath = await readlink(`/proc/self/fd/${this.fd}`);
+    if (openedPath === pagePath) pageReads += 1;
+    if (openedPath === transcriptPath && ++transcriptReads === 3) {
+      // Data/EOF twice: a.txt was already captured and content-revalidated.
+      pageReadsAtMutation = pageReads;
+      metadataBefore = coarseFileMetadata(await originalLstat(pagePath, { bigint: true }));
+      await writeFile(pagePath, "mutated-a\n", { mode: 0o600 });
+      metadataAfter = coarseFileMetadata(await originalLstat(pagePath, { bigint: true }));
+    }
+    return originalRead.apply(this, args);
+  };
+  t.after(() => {
+    prototype.read = originalRead;
+    prototype.stat = originalStat;
+    fsPromises.lstat = originalLstat;
+    syncBuiltinESMExports();
+  });
+
+  const portableSnapshot = createSecureFilesystemSnapshot({ spawnImpl: unavailableHelperSpawn });
+  await assert.rejects(
+    portableSnapshot.collectArtifactSnapshotFromRoot({
+      rootPath: root,
+      inventoryRoot: inventory,
+      pagePath,
+      transcriptPath,
+      maximumFileBytes: 1_024,
+      maximumJsonBytes: 1_024,
+      maximumTotalBytes: 4_096,
+      maximumFiles: 4,
+    }),
+    /Secure filesystem boundary rejected/u,
+  );
+  assert.equal(pageReadsAtMutation, 4);
+  assert.ok(metadataAfter, "same-size mutation must execute");
+  for (const key of ["dev", "ino", "mode", "uid", "nlink", "size", "mtimeNs", "ctimeNs"]) {
+    assert.equal(metadataBefore[key], metadataAfter[key], `${key} must alias across the mutation`);
+  }
 });
 
 test("Python collection revalidates bytes when metadata cannot distinguish a same-size mutation", {

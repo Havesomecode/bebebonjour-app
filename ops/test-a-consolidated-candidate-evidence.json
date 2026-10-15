@@ -61,6 +61,7 @@
       "docs/paid-route-a-data-controls.md",
       "docs/paid-route-a-runbook.md",
       "docs/paid-test-promotion.md",
+      "docs/portable-snapshot-revalidation.md",
       "docs/route-a-39-v1-terms.md",
       "docs/security-abuse-recovery.md",
       "ops/bundle-installation-offline.cjs",
@@ -271,6 +272,7 @@
       "docs/paid-route-a-data-controls.md",
       "docs/paid-route-a-runbook.md",
       "docs/paid-test-promotion.md",
+      "docs/portable-snapshot-revalidation.md",
       "docs/route-a-39-v1-terms.md",
       "docs/security-abuse-recovery.md",
       "ops/bundle-installation-offline.cjs",
@@ -657,6 +659,10 @@
         "sha256": "464c9b7b2828f49f27f425afc97e94b0336a2a65cbbe8dde8d7c7f093f4f7f69"
       },
       {
+        "path": "docs/portable-snapshot-revalidation.md",
+        "sha256": "c00b16984646867b019e53da157fa7e8ad3f898aa29aacee163209fdc1e76844"
+      },
+      {
         "path": "docs/route-a-39-v1-terms.md",
         "sha256": "72dd29dcc1f43e7709094758e95178cdfc16cdc8d6e7dbd06b46cf8cde80d94e"
       },
@@ -1002,7 +1008,7 @@
       },
       {
         "path": "src/fulfillment/secure-filesystem-snapshot.mjs",
-        "sha256": "2c2dfd0cbe67e952344ce18b4ba30979309f92160973efbd66d288b60c8b482f"
+        "sha256": "786b97806da174b2c152527e2206c85bca1c3d3a91b8f2f556eadd765a95718f"
       },
       {
         "path": "src/fulfillment/test-a-completion-capabilities.mjs",
@@ -1290,7 +1296,7 @@
       },
       {
         "path": "test/fulfillment/secure-filesystem-snapshot.test.mjs",
-        "sha256": "15a89ae2875b510d0439ac51331c30b5ea933fa35dad8da259bb5bd3d1b79a3e"
+        "sha256": "e87f14f3d77c22fb0cf88a93a2eeff4e38bb7231a37255094a5769b0665bb9d7"
       },
       {
         "path": "test/fulfillment/vercel-test-a-publication-provider.test.mjs",
