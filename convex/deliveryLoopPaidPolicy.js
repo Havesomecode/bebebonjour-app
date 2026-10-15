@@ -1,4 +1,5 @@
 // Only an explicit mode opts into Route A. Legacy rows remain complimentary.
+import { isTestPromotionReceipt } from '../src/delivery-loop/test-promotion.mjs';
 export const PAID_MODE = "paid_route_a";
 export const TERMS_VERSION = "route-a-39-v1";
 export const PREVIEW_MS = 24 * 60 * 60 * 1000;
@@ -30,7 +31,7 @@ export function paidEligible(row) {
   if (!preview || preview.revision !== revision || row.data.latestRevision !== revision || decision?.revision !== revision || decision.previewDigest !== preview.contentDigest) throw new Error("content_approval_required");
   if (permissions?.revision !== revision || permissions.previewDigest !== preview.contentDigest || permissions.termsVersion !== TERMS_VERSION || permissions.publication !== true) throw new Error("paid_permissions_required");
   if (editorial?.revision !== revision || editorial.previewDigest !== preview.contentDigest || editorial.human !== true) throw new Error("editorial_approval_required");
-  if (payment?.status !== "settled" || payment.provider !== "stripe" || payment.livemode !== true || payment.amountMinor !== 3900 || payment.currency !== "eur" || payment.revision !== revision || payment.previewDigest !== preview.contentDigest || !payment.providerPaymentId) throw new Error("payment_required");
+  if (payment?.status !== "settled" || payment.provider !== "stripe" || payment.livemode !== true || !(payment.amountMinor === 3900 && !payment.promotion || isTestPromotionReceipt(payment)) || payment.currency !== "eur" || payment.revision !== revision || payment.previewDigest !== preview.contentDigest || !payment.providerPaymentId) throw new Error("payment_required");
   return preview;
 }
 export function stageState(stage, suffix) {

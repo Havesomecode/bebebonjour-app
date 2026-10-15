@@ -33,7 +33,9 @@ function fixture(context) {
     BEBEBONJOUR_PAID_STRIPE_ACCOUNT_ID: 'acct_offline', BEBEBONJOUR_PAID_STRIPE_WEBHOOK_SECRET: webhookSecret,
     STRIPE_SECRET_KEY: 'rk_live_offlineFixtureNotARealCredential', CONVEX_SITE_URL: 'https://offline.convex.site',
   });
-  const state = { intents: new Map(), calls: [], account: 'acct_offline', fail: null };
+  delete process.env.BEBEBONJOUR_PAID_TEST_PROMO_ENABLED;
+  delete process.env.BEBEBONJOUR_PAID_TEST_PROMO_JSON;
+  const state = { intents: new Map(), objects: new Map(), calls: [], account: 'acct_offline', fail: null };
   const forbidden = () => { throw new Error('unexpected_network_forbidden'); };
   context.mock.method(globalThis, 'fetch', forbidden);
   for (const transport of [http, https]) {
@@ -45,9 +47,12 @@ function fixture(context) {
     getClientName: () => 'offline-fixture',
     makeRequest: async (_host, _port, path, method) => {
       assert.equal(method, 'GET', 'no provider mutation or checkout issuance');
+      if (state.failAt && path === state.failAt) throw new Stripe.errors.StripePermissionError({ message: 'offline_denied' });
       let value;
       if (path === '/v1/account') { state.calls.push('account'); value = { id: state.account }; }
-      else {
+      else if (state.objects.has(new URL(path, 'https://offline.invalid').pathname)) {
+        state.calls.push(path); value = structuredClone(state.objects.get(new URL(path, 'https://offline.invalid').pathname));
+      } else {
         const url = new URL(path, 'https://offline.invalid');
         assert.match(url.pathname, /^\/v1\/payment_intents\/pi_[A-Za-z0-9]+$/);
         const id = url.pathname.split('/').at(-1);
@@ -295,4 +300,136 @@ test('restricted read credential modes are accepted; invalid or cross-mode evide
   const stripe = { accounts: { retrieve: async () => ({ id: 'acct_offline' }) }, paymentIntents: { retrieve: async () => event.data.object } };
   await assert.rejects(inspectPaidPayment({ scope, providerPaymentId: 'pi_offline', accountId: 'acct_offline', apiKey: 'rk_live_offline', stripe }), /payment_evidence_mismatch/);
   assert.equal((await inspectPaidPayment({ scope, providerPaymentId: 'pi_offline', accountId: 'acct_offline', apiKey: 'rk_test_offline', stripe })).livemode, false);
+});
+
+function promoFixture(state, job, p, n = 0) {
+  const event = eventFixture(job, p, true, `evt_promo${n}`);
+  const intent = event.data.object;
+  intent.id = `pi_promo${n}`; intent.amount = intent.amount_received = intent.latest_charge.amount = 100;
+  intent.latest_charge.payment_intent = intent.id; bind(state, event);
+  const sessionId = `cs_live_offline${n}`;
+  const session = { id: sessionId, object: 'checkout.session', mode: 'payment', status: 'complete', payment_status: 'paid',
+    payment_intent: intent.id, livemode: true, currency: 'eur', amount_subtotal: 3900, amount_total: 100,
+    total_details: { amount_discount: 3800, amount_tax: 0, amount_shipping: 0 }, metadata: { ...intent.metadata },
+    discounts: [{ coupon: 'coupon_offline', promotion_code: 'promo_offline' }] };
+  const promotion = { id: 'promo_offline', object: 'promotion_code', promotion: { type: 'coupon', coupon: 'coupon_offline' },
+    livemode: true, max_redemptions: 5, times_redeemed: 1, active: true };
+  const coupon = { id: 'coupon_offline', object: 'coupon', amount_off: 3800, currency: 'eur', percent_off: null,
+    duration: 'once', max_redemptions: 5, times_redeemed: 1, livemode: true, valid: true };
+  state.objects.set(`/v1/checkout/sessions/${sessionId}`, session);
+  state.objects.set('/v1/promotion_codes/promo_offline', promotion); state.objects.set('/v1/coupons/coupon_offline', coupon);
+  const binding = { jobId: job.jobId, revision: p.revision, previewDigest: p.contentDigest, checkoutSessionId: sessionId };
+  const policy = { policyId: 'owner1038-five-tests-v1', providerAccountId: 'acct_offline', livemode: true,
+    couponId: coupon.id, promotionCodeId: promotion.id, endsAtMs: Date.now() + 3600000, bindings: [binding] };
+  process.env.BEBEBONJOUR_PAID_TEST_PROMO_ENABLED = 'true'; process.env.BEBEBONJOUR_PAID_TEST_PROMO_JSON = JSON.stringify(policy);
+  return { event, policy, binding, session, promotion, coupon };
+}
+const setPolicy = policy => { process.env.BEBEBONJOUR_PAID_TEST_PROMO_JSON = JSON.stringify(policy); };
+
+test('promo: concurrent fifth/sixth attempts have a single winner; deactivation between inspection and commit blocks settlement', async context => {
+  const { t, state } = fixture(context);
+  for (let n = 0; n < 4; n++) {
+    const { job, p } = await ready(t); const x = promoFixture(state, job, p, n);
+    assert.deepEqual(await (await post(t, encode(x.event))).json(), { status: 'settled' });
+  }
+  const a = await ready(t), b = await ready(t);
+  const x = promoFixture(state, a.job, a.p, 40), y = promoFixture(state, b.job, b.p, 41);
+  y.policy.bindings.push(x.binding); setPolicy(y.policy);
+  const result = await Promise.all([post(t, encode(x.event)), post(t, encode(y.event))]);
+  assert.deepEqual((await Promise.all(result.map(r => r.json()))).map(r => r.status).sort(), ['rejected', 'settled']);
+  assert.equal((await evidence(t)).length, 5);
+  const c = await ready(t); const z = promoFixture(state, c.job, c.p, 42);
+  const { testPromotionBinding } = await import('../../src/delivery-loop/test-promotion.mjs');
+  const promotion = testPromotionBinding({ jobId: c.job.jobId, revision: 1, previewDigest: c.p.contentDigest }, 'acct_offline', true);
+  process.env.BEBEBONJOUR_PAID_TEST_PROMO_ENABLED = 'false';
+  await assert.rejects(t.mutation(ref('recordPaymentEvidence'), { jobId: c.job.jobId, revision: 1, previewDigest: c.p.contentDigest,
+    providerPaymentId: z.event.data.object.id, providerAccountId: 'acct_offline', amountMinor: 100, currency: 'eur', livemode: true, settled: true, promotion }), /payment_evidence_mismatch/);
+  assert.equal((await read(t, c.job)).payment.status, 'pending');
+});
+
+test('promo: native discount settles once, retains human review and committed payment after deactivation', async context => {
+  const { t, state } = fixture(context); const { job, p } = await ready(t); const { event, promotion, coupon } = promoFixture(state, job, p);
+  promotion.times_redeemed = coupon.times_redeemed = 5; promotion.active = coupon.valid = false;
+  const bytes = encode(event);
+  assert.deepEqual(await (await post(t, bytes)).json(), { status: 'settled' });
+  const before = await read(t, job); assert.equal(before.payment.amountMinor, 100);
+  assert.equal(before.payment.promotion.policyId, 'owner1038-five-tests-v1'); assert.equal(before.payment.promotion.countsAs39EURFirstSale, false);
+  assert.equal(await claim(t), null);
+  const calls = state.calls.length; process.env.BEBEBONJOUR_PAID_TEST_PROMO_ENABLED = 'false';
+  for (const response of await Promise.all(Array.from({ length: 5 }, () => post(t, bytes)))) assert.equal(response.status, 200);
+  assert.equal(state.calls.length, calls); assert.deepEqual(await read(t, job), before); assert.equal((await evidence(t)).length, 1);
+  await t.mutation(ref('paidEditorial'), { editorialToken, jobId: job.jobId, expectedRevision: 1, previewDigest: p.contentDigest, reviewerId: 'offline-human', humanReviewed: true });
+  assert.equal((await claim(t)).stage, 'finalize');
+});
+
+test('promo: five lifetime uses cannot be reset by config rotation or concurrent sixth settlement', async context => {
+  const { t, state } = fixture(context);
+  for (let n = 0; n < 5; n++) {
+    const { job, p } = await ready(t); const { event } = promoFixture(state, job, p, n);
+    assert.deepEqual(await (await post(t, encode(event))).json(), { status: 'settled' });
+  }
+  assert.equal((await evidence(t)).length, 5);
+  const { job, p } = await ready(t); const { event } = promoFixture(state, job, p, 6);
+  for (const response of await Promise.all(Array.from({ length: 3 }, () => post(t, encode(event))))) assert.deepEqual(await response.json(), { status: 'rejected' });
+  assert.equal((await evidence(t)).length, 5); assert.equal((await read(t, job)).payment.status, 'pending');
+  assert.equal((await ledger(t)).at(-1).reason, 'payment_promotion_limit');
+});
+
+test('promo: disabled/unbound/expired/over-five policies reject discounted events; ordinary39EUR is isolated', async context => {
+  const { t, state } = fixture(context); const { job, p } = await ready(t); const base = promoFixture(state, job, p);
+  const variants = [policy => { policy.bindings = []; }, policy => { policy.endsAtMs = Date.now() - 1; },
+    policy => { policy.bindings[0].previewDigest = 'b'.repeat(64); }, policy => { policy.bindings[0].revision = 2; },
+    policy => { policy.bindings = Array(6).fill(policy.bindings[0]); }, policy => { policy.providerAccountId = 'acct_other'; },
+    policy => { policy.livemode = false; }];
+  for (const [n, mutate] of variants.entries()) {
+    const policy = structuredClone(base.policy); mutate(policy); setPolicy(policy);
+    const event = { ...base.event, id: `evt_badpolicy${n}` }; const response = await post(t, encode(event));
+    assert.notEqual((await response.json()).status, 'settled'); await assertUnpaid(t, job);
+  }
+  setPolicy(base.policy); process.env.BEBEBONJOUR_PAID_TEST_PROMO_ENABLED = 'false';
+  assert.deepEqual(await (await post(t, encode({ ...base.event, id: 'evt_disabledpromo' }))).json(), { status: 'rejected' });
+  const ordinary = eventFixture(job, p, true, 'evt_fullprice'); bind(state, ordinary);
+  process.env.BEBEBONJOUR_PAID_TEST_PROMO_ENABLED = 'true'; process.env.BEBEBONJOUR_PAID_TEST_PROMO_JSON = '{invalid';
+  assert.deepEqual(await (await post(t, encode(ordinary))).json(), { status: 'settled' });
+  assert.equal((await read(t, job)).payment.amountMinor, 3900); assert.equal((await read(t, job)).payment.promotion, undefined);
+});
+
+test('promo: tampered native evidence and scoped permission refusal never settle', async context => {
+  const { t, state } = fixture(context); const { job, p } = await ready(t);
+  const variants = [x => { x.session.payment_intent = 'pi_other'; }, x => { x.session.metadata.preview_digest = 'a'.repeat(64); },
+    x => { x.session.amount_subtotal = 100; }, x => { x.session.total_details.amount_discount = 0; },
+    x => { x.session.total_details.amount_tax = 1; }, x => { x.session.payment_status = 'unpaid'; },
+    x => { x.session.discounts[0].promotion_code = 'promo_other'; }, x => { x.session.discounts.push(x.session.discounts[0]); },
+    x => { x.promotion.max_redemptions = 6; }, x => { x.coupon.max_redemptions = null; },
+    x => { x.coupon.amount_off = 3799; }, x => { x.coupon.currency = 'usd'; }, x => { x.coupon.times_redeemed = 6; },
+    x => { x.promotion.promotion.coupon = 'wrong'; }, x => { x.coupon.livemode = false; },
+    x => { x.session.status = 'open'; }, x => { x.coupon.duration = 'forever'; }, x => { x.promotion.times_redeemed = 0; }];
+  for (const [n, mutate] of variants.entries()) {
+    const x = promoFixture(state, job, p, n); mutate(x);
+    assert.deepEqual(await (await post(t, encode(x.event))).json(), { status: 'rejected' }); await assertUnpaid(t, job);
+  }
+  const x = promoFixture(state, job, p, 90);
+  state.failAt = `/v1/checkout/sessions/${x.binding.checkoutSessionId}`;
+  assert.equal((await post(t, encode(x.event))).status, 503);
+  assert.equal((await ledger(t)).length, variants.length); await assertUnpaid(t, job);
+});
+
+test('promo: stale approval/permissions, cancellation and test mode retain all existing gates', async context => {
+  const { t, state } = fixture(context);
+  for (const [n, change] of [
+    { paidApproval: null }, { paidPermissions: null }, { desiredRevision: 2 }, { cancelledAtMs: Date.now() },
+    { paidApproval: { revision: 1, previewDigest: 'b'.repeat(64) } },
+    { paidPermissions: { revision: 1, previewDigest: 'invalid', termsVersion: 'old-terms', publication: false } },
+  ].entries()) {
+    const { job, p } = await ready(t); const x = promoFixture(state, job, p, n); await patch(t, job, change);
+    assert.deepEqual(await (await post(t, encode(x.event))).json(), { status: 'rejected' });
+    assert.equal((await read(t, job)).payment.status, 'pending');
+  }
+  const { job, p } = await ready(t); const x = promoFixture(state, job, p, 100);
+  x.event.livemode = x.event.data.object.livemode = x.event.data.object.latest_charge.livemode = false;
+  x.session.livemode = x.promotion.livemode = x.coupon.livemode = x.policy.livemode = false;
+  setPolicy(x.policy); bind(state, x.event); process.env.STRIPE_SECRET_KEY = 'rk_test_offlineFixtureNotARealCredential';
+  assert.deepEqual(await (await post(t, encode(x.event))).json(), { status: 'test_only' });
+  await t.mutation(ref('paidEditorial'), { editorialToken, jobId: job.jobId, expectedRevision: 1, previewDigest: p.contentDigest, reviewerId: 'offline-human', humanReviewed: true });
+  assert.equal(await claim(t), null);
 });

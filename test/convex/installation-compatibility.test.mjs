@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { createHash } from "node:crypto";
+import { spawnSync } from 'node:child_process';
 import test from "node:test";
 import { convexTest } from "convex-test";
 import { getFunctionName, makeFunctionReference } from "convex/server";
@@ -8,6 +9,7 @@ import schema from "../../convex/schema.js";
 import http from "../../convex/http.js";
 
 const manifest = JSON.parse(readFileSync(new URL("../../ops/installation-compatibility.json", import.meta.url), "utf8"));
+const promotionPins = JSON.parse(readFileSync(new URL('../../ops/promotion-candidate-pins.json', import.meta.url), 'utf8'));
 const read = name => readFileSync(new URL(`../../${name}`, import.meta.url));
 const sha = bytes => createHash("sha256").update(bytes).digest("hex");
 const ref = name => makeFunctionReference(name);
@@ -25,11 +27,22 @@ function fixture() {
   });
 }
 
-test("installation preserves every recovered production closure byte and accepted paid runtime byte", () => {
+test("installation preserves recovered production and ordinary paid closure except the explicit pinned promotional successor", () => {
   assert.equal(Object.keys(manifest.recoveredFiles).length, 39);
   for (const [name, expected] of Object.entries(manifest.recoveredFiles)) assert.equal(sha(read(name)), expected, name);
   assert.equal(Object.keys(manifest.acceptedPaidFiles).length, 22);
-  for (const [name, expected] of Object.entries(manifest.acceptedPaidFiles)) assert.equal(sha(read(name)), expected, name);
+  for (const [name, expected] of Object.entries(manifest.acceptedPaidFiles)) assert.equal(sha(read(name)), promotionPins.files[name] || expected, name);
+  assert.equal(promotionPins.baseCommit, '4fe9296454739a135013b73b65d334c95269445f');
+  assert.deepEqual(Object.keys(promotionPins.files).sort(), ['convex/deliveryLoop.js', 'convex/deliveryLoopPaidPolicy.js', 'convex/deliveryLoopPromotion.js', 'convex/schema.js', 'schemas/codex-subscription-composition.schema.json', 'src/delivery-loop/paid-event.mjs', 'src/delivery-loop/paid-payment.mjs', 'src/delivery-loop/test-promotion.mjs'].sort());
+  for (const [name, expected] of Object.entries(promotionPins.files)) assert.equal(sha(read(name)), expected, name);
+});
+
+test('worker import/help loads the exact signed dynamic composition schema without credentials or network', () => {
+  assert.equal(sha(read('schemas/codex-subscription-composition.schema.json')), '042b96d94b7c77461e02e55a92af7a828b4619c7701aab25f9abb41d98f56914');
+  const result = spawnSync(process.execPath, ['scripts/run-delivery-loop-worker.mjs', '--help'], {
+    cwd: new URL('../../', import.meta.url), env: { PATH: process.env.PATH }, encoding: 'utf8', timeout: 15000,
+  });
+  assert.equal(result.status, 0, result.stderr); assert.match(result.stdout, /^Usage: node scripts\/run-delivery-loop-worker.mjs/);
 });
 
 test("installation preserves all 23 production validators/indexes and adds only four accepted tables", () => {

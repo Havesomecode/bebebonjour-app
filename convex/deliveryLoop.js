@@ -1,5 +1,7 @@
 import { mutationGeneric, queryGeneric, internalMutationGeneric } from "convex/server";
 import { v } from "convex/values";
+import { promotionEvidence } from './deliveryLoopPromotion.js';
+import { TEST_PROMOTION_POLICY, testPromotionBinding, isTestPromotionReceipt, samePromotion } from '../src/delivery-loop/test-promotion.mjs';
 import { reviewedNarrationText } from "../src/delivery-loop/reviewed-narration.mjs";
 import { PAID_MODE, TERMS_VERSION, PREVIEW_MS, isPaid, currentPreview, paidEnabled, activePaid, activePreview, paidEligible, stageState, paidStageGate, paidSafeStatus } from "./deliveryLoopPaidPolicy.js";
 
@@ -503,18 +505,28 @@ export const paymentScope = queryGeneric({
     return { jobId: row.jobId, revision: args.expectedRevision, previewDigest: preview.contentDigest };
   },
 });
-export const paymentEvidenceFields = { jobId: v.string(), revision: v.number(), previewDigest: v.string(), providerPaymentId: v.string(), amountMinor: v.number(), currency: v.string(), livemode: v.boolean(), settled: v.boolean(), providerAccountId: v.string() };
+export const paymentEvidenceFields = { jobId: v.string(), revision: v.number(), previewDigest: v.string(), providerPaymentId: v.string(), amountMinor: v.number(), currency: v.string(), livemode: v.boolean(), settled: v.boolean(), providerAccountId: v.string(), promotion: v.optional(promotionEvidence) };
 
 // Validate before writing so the event adapter can durably reject business
 // mismatches without catching a partially applied settlement. Writes below are
 // deliberately outside that catch and roll back the whole Convex transaction.
 export async function preparePaymentEvidence(ctx, args) {
   const row = await get(ctx, args.jobId); const preview = exactPaidRevision(row, args.revision);
-  if (args.previewDigest !== preview.contentDigest || args.amountMinor !== 3900 || args.currency !== "eur" || !args.settled || !/^pi_[A-Za-z0-9]+$/.test(args.providerPaymentId) || args.providerAccountId !== process.env.BEBEBONJOUR_PAID_STRIPE_ACCOUNT_ID) throw new Error("payment_evidence_mismatch");
+  const promotional = isTestPromotionReceipt(args);
+  if (args.previewDigest !== preview.contentDigest || !(args.amountMinor === 3900 && !args.promotion || promotional) || args.currency !== "eur" || !args.settled || !/^pi_[A-Za-z0-9]+$/.test(args.providerPaymentId) || args.providerAccountId !== process.env.BEBEBONJOUR_PAID_STRIPE_ACCOUNT_ID) throw new Error("payment_evidence_mismatch");
   if (row.data.paidApproval?.revision !== args.revision || row.data.paidPermissions?.revision !== args.revision) throw new Error("paid_permissions_required");
   const prior = await ctx.db.query("deliveryLoopPaymentEvidence").withIndex("by_payment_id", (q) => q.eq("providerPaymentId", args.providerPaymentId)).unique();
+  if (promotional && !prior) {
+    activePreview(row);
+    if (row.data.paidApproval.previewDigest !== args.previewDigest || row.data.paidPermissions.previewDigest !== args.previewDigest
+        || row.data.paidPermissions.termsVersion !== TERMS_VERSION || row.data.paidPermissions.publication !== true) throw new Error('paid_permissions_required');
+    if (!samePromotion(args.promotion, testPromotionBinding(args, args.providerAccountId, args.livemode))) throw new Error('payment_evidence_mismatch');
+    const uses = await ctx.db.query('deliveryLoopPaymentEvidence').withIndex('by_promotion_policy', q => q.eq('promotion.policyId', TEST_PROMOTION_POLICY)).take(6);
+    if (uses.some(use => use.promotion.checkoutSessionId === args.promotion.checkoutSessionId)) throw new Error('payment_evidence_conflict');
+    if (uses.length >= 5) throw new Error('payment_promotion_limit');
+  }
   if (prior) {
-    if (prior.jobId !== row.jobId || prior.revision !== args.revision || prior.previewDigest !== args.previewDigest || prior.livemode !== args.livemode || prior.providerAccountId !== args.providerAccountId) throw new Error("payment_evidence_conflict");
+    if (prior.jobId !== row.jobId || prior.revision !== args.revision || prior.previewDigest !== args.previewDigest || prior.livemode !== args.livemode || prior.providerAccountId !== args.providerAccountId || prior.amountMinor !== args.amountMinor || (prior.promotion || args.promotion) && !samePromotion(prior.promotion, args.promotion)) throw new Error("payment_evidence_conflict");
   } else if (row.data.payment.status === "settled") throw new Error("payment_already_settled");
   return { row, prior };
 }

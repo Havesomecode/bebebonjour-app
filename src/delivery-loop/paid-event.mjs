@@ -1,4 +1,5 @@
 // Convex isolate compatible: authenticate bytes before decoding or parsing.
+import { testPromotionBinding } from './test-promotion.mjs';
 export const MAX_PAID_EVENT_BYTES = 64 * 1024;
 export const SIGNATURE_TOLERANCE_SECONDS = 300;
 const encoder = new TextEncoder();
@@ -57,6 +58,7 @@ export function redactPaidEvent({ value, rawBodySha256 }, accountId) {
   const event = { providerAccountId: accountId, providerEventId: value.id, type: value.type, livemode: value.livemode, rawBodySha256 };
   const intent = value.data?.object;
   const metadata = intent?.metadata || {};
+  const amount = intent?.amount === 100 && testPromotionBinding({ jobId: metadata.job_id, revision: Number(metadata.revision), previewDigest: metadata.preview_digest }, accountId, value.livemode) ? 100 : 3900;
   if (typeof intent?.id === 'string' && /^pi_[A-Za-z0-9]{1,196}$/.test(intent.id)) event.providerPaymentId = intent.id;
   if (typeof metadata.job_id === 'string' && /^[A-Za-z0-9_-]{1,100}$/.test(metadata.job_id)) event.jobId = metadata.job_id;
   if (typeof metadata.revision === 'string' && /^[1-9]\d{0,5}$/.test(metadata.revision)) event.revision = Number(metadata.revision);
@@ -64,7 +66,7 @@ export function redactPaidEvent({ value, rawBodySha256 }, accountId) {
   if (value.account !== undefined && value.account !== accountId) event.rejectionReason = 'payment_account_mismatch';
   else if (intent?.object !== 'payment_intent' || !event.providerPaymentId || !event.jobId || !event.revision || !event.previewDigest
       || metadata.project !== 'bebebonjour' || metadata.order_mode !== 'paid_route_a') event.rejectionReason = 'payment_event_scope_mismatch';
-  else if (intent.status !== 'succeeded' || intent.amount !== 3900 || intent.amount_received !== 3900 || intent.currency !== 'eur'
+  else if (intent.status !== 'succeeded' || intent.amount !== amount || intent.amount_received !== amount || intent.currency !== 'eur'
       || intent.livemode !== event.livemode) event.rejectionReason = 'payment_evidence_mismatch';
   return event;
 }
@@ -72,7 +74,7 @@ export function redactPaidEvent({ value, rawBodySha256 }, accountId) {
 export const PAYMENT_EVENT_REJECTION_REASONS = [
   'payment_account_mismatch', 'payment_event_scope_mismatch', 'payment_evidence_mismatch', 'payment_event_conflict',
   'payment_evidence_conflict', 'payment_already_settled', 'paid_order_required', 'paid_permissions_required',
-  'stale_revision', 'preview_expired', 'order_cancelled', 'hosting_ended', 'data_deleted', 'not_found',
+  'stale_revision', 'preview_expired', 'order_cancelled', 'hosting_ended', 'data_deleted', 'not_found', 'payment_promotion_limit',
 ];
 export function paymentEventRejection(error) {
   return PAYMENT_EVENT_REJECTION_REASONS.find(code => error?.message === code);

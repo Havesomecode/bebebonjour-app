@@ -1,5 +1,7 @@
 # Minimal source successor required by t_18eae3ac
 
+Historical signed-event baseline specification. The sole later amount exception is the explicit [owner1038 five-test successor](paid-test-promotion.md); ordinary EUR3900 checks remain intact. Checkout creation remains supervised outside this source implementation.
+
 ## Outcome and immutable input
 
 Build only the missing supervised collection/signed-event adapter into the current deliveryLoopJobs paid Route A. Base is independently accepted signed fe2e92800935c6bd65925b9c358783b4d557269f, tree71ed434d32c3b935d90eec599e5729ff1f518273. Retain LOCAL_SR01_PASS and LOCAL_COMPOSED_SOURCE_PASS; independently review only the new payment delta and its affected gates. This is source preparation, not release, checkout creation or payment authority.

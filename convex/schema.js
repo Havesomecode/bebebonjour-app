@@ -1,5 +1,6 @@
 import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
+import { promotionEvidence } from './deliveryLoopPromotion.js';
 
 const operationAction = v.union(
   v.literal("create_checkout"),
@@ -88,7 +89,9 @@ export default defineSchema({
     providerPaymentId: v.string(), amountMinor: v.number(), currency: v.string(),
     livemode: v.boolean(), settled: v.boolean(), providerAccountId: v.string(),
     provider: v.literal("stripe"), status: v.string(), verifiedAtMs: v.number(),
-  }).index("by_payment_id", ["providerPaymentId"]),
+    promotion: v.optional(promotionEvidence),
+  }).index("by_payment_id", ["providerPaymentId"])
+    .index("by_promotion_policy", ["promotion.policyId"]),
   // Restricted financial/effect evidence, never announcement content or capabilities.
   deliveryLoopRetainedEvidence: defineTable({
     jobId: v.string(), retainedAtMs: v.number(), reason: v.string(), evidence: v.any(),
