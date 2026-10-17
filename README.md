@@ -9,6 +9,10 @@ The repository currently contains three connected but deliberately separated par
 - a leased Convex outbox dispatcher that creates idempotent, PII-free Hermes Kanban work; and
 - a TEST-A first-party Stripe checkout contract for synthetic payment validation.
 
+## Support email routing
+
+The disabled-by-default Resend receiving route forwards only `contact@bebebonjour.com` to `z@havesomecode.io` through the existing Convex backend. See [routing, effect-fence semantics and release/rollback instructions](docs/resend-support-forwarding.md). Source verification does not establish live routing or inbox delivery.
+
 ## Safety boundary
 
 Tally is an intake surface only. A signed form response creates an unpaid

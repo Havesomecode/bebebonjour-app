@@ -53,6 +53,9 @@
       "convex/privateGeneration.js",
       "convex/privateGenerationRuntime.js",
       "convex/schema.js",
+      "convex/supportForward.js",
+      "convex/supportForwardHttp.js",
+      "convex/supportForwardProvider.js",
       "delivery-loop-provider/api/provider.mjs",
       "deploy/bebebonjour-delivery-loop.service",
       "docs/hosted-narration.md",
@@ -61,6 +64,7 @@
       "docs/paid-route-a-data-controls.md",
       "docs/paid-route-a-runbook.md",
       "docs/paid-test-promotion.md",
+      "docs/resend-support-forwarding.md",
       "docs/route-a-39-v1-terms.md",
       "docs/security-abuse-recovery.md",
       "ops/bundle-installation-offline.cjs",
@@ -70,6 +74,7 @@
       "ops/paid-installation-compatibility.md",
       "ops/promotion-candidate-pins.json",
       "ops/rehearse-worker-installation.mjs",
+      "ops/support-forward-candidate-pins.json",
       "ops/test-a-completion-candidate-preflight.md",
       "ops/test-a-completion-worker-audit.mjs",
       "ops/test-a-consolidated-candidate-audit.mjs",
@@ -181,6 +186,7 @@
       "test/convex/owner-trial-completion.test.mjs",
       "test/convex/private-generation-containment.test.mjs",
       "test/convex/production-bundle.test.mjs",
+      "test/convex/support-forward.test.mjs",
       "test/customer-flow/hosted-runtime.test.mjs",
       "test/delivery-loop/cli.test.mjs",
       "test/delivery-loop/correction-prompt.test.mjs",
@@ -263,6 +269,9 @@
       "convex/privateGeneration.js",
       "convex/privateGenerationRuntime.js",
       "convex/schema.js",
+      "convex/supportForward.js",
+      "convex/supportForwardHttp.js",
+      "convex/supportForwardProvider.js",
       "delivery-loop-provider/api/provider.mjs",
       "deploy/bebebonjour-delivery-loop.service",
       "docs/hosted-narration.md",
@@ -271,6 +280,7 @@
       "docs/paid-route-a-data-controls.md",
       "docs/paid-route-a-runbook.md",
       "docs/paid-test-promotion.md",
+      "docs/resend-support-forwarding.md",
       "docs/route-a-39-v1-terms.md",
       "docs/security-abuse-recovery.md",
       "ops/bundle-installation-offline.cjs",
@@ -280,6 +290,7 @@
       "ops/paid-installation-compatibility.md",
       "ops/promotion-candidate-pins.json",
       "ops/rehearse-worker-installation.mjs",
+      "ops/support-forward-candidate-pins.json",
       "ops/test-a-completion-candidate-preflight.md",
       "ops/test-a-completion-worker-audit.mjs",
       "ops/test-a-consolidated-candidate-audit.mjs",
@@ -391,6 +402,7 @@
       "test/convex/owner-trial-completion.test.mjs",
       "test/convex/private-generation-containment.test.mjs",
       "test/convex/production-bundle.test.mjs",
+      "test/convex/support-forward.test.mjs",
       "test/customer-flow/hosted-runtime.test.mjs",
       "test/delivery-loop/cli.test.mjs",
       "test/delivery-loop/correction-prompt.test.mjs",
@@ -426,7 +438,7 @@
     "reviewedFileDigests": [
       {
         "path": ".env.example",
-        "sha256": "a56641622326c020bf09a1e5ee9a0a2b10d3a944e222e654fc7f7a9642e46d56"
+        "sha256": "bbde05e040beacf4ef0267f877341695ada23d4f55d196b9e0d12cf9d1247794"
       },
       {
         "path": ".gitignore",
@@ -442,7 +454,7 @@
       },
       {
         "path": "README.md",
-        "sha256": "9391e3ea7a449a37226afd2b952227ac7c724f23a935a0d9396b8c68cdd15ef7"
+        "sha256": "6e0417ff38e945579cd0ca15b8f8fc2ad4aeda24dba2d4e07ef6a3dac0e19b2c"
       },
       {
         "path": "api/customer-flow/[...route].mjs",
@@ -558,7 +570,7 @@
       },
       {
         "path": "convex/http.js",
-        "sha256": "2e5180c654092f6cf9eef972db6516d12d00c8f5f869140527cd0d8cbe6bc8f4"
+        "sha256": "84508da5c1ffcfb01e313d85fbfb0ce399413109676c1d9eb95bbf7ca3299cbd"
       },
       {
         "path": "convex/narration.js",
@@ -622,7 +634,19 @@
       },
       {
         "path": "convex/schema.js",
-        "sha256": "c714cd9e439d972be6b56906fe27d6326eb4e19c586baf419aa36942e9504c14"
+        "sha256": "e46a16b3608a602fb44bfc94f55cda3d5c0c2baaf9d61265ae369b8164c192ca"
+      },
+      {
+        "path": "convex/supportForward.js",
+        "sha256": "b3b961e799295ece534caa3723468860b00201dff16675b7e3c491f9990e7681"
+      },
+      {
+        "path": "convex/supportForwardHttp.js",
+        "sha256": "635d2f7ce760c43d066c9d3be375b915cbc15c75328afb4a0efe6aee08e7a893"
+      },
+      {
+        "path": "convex/supportForwardProvider.js",
+        "sha256": "84b81b58f74ad9438458ff5d1899c2818a8e85486dc0cb0f2defc406b1007e27"
       },
       {
         "path": "delivery-loop-provider/api/provider.mjs",
@@ -655,6 +679,10 @@
       {
         "path": "docs/paid-test-promotion.md",
         "sha256": "464c9b7b2828f49f27f425afc97e94b0336a2a65cbbe8dde8d7c7f093f4f7f69"
+      },
+      {
+        "path": "docs/resend-support-forwarding.md",
+        "sha256": "4722b14228aca2d15e32dac8d53f06b82ee279618625debc211f3fd753042866"
       },
       {
         "path": "docs/route-a-39-v1-terms.md",
@@ -705,6 +733,10 @@
         "sha256": "f5fee619982b10e38df9fbd6a0257d4a51eb13c939b3b09042510e7ce196e107"
       },
       {
+        "path": "ops/support-forward-candidate-pins.json",
+        "sha256": "b0054eea80efea540c3ecd4056aad9775af8cc71845f73cd083ccf3760a4f93c"
+      },
+      {
         "path": "ops/test-a-completion-candidate-preflight.md",
         "sha256": "7b1d1afca28ff2b86e7eea68668bfe7404d5e72e34613bbb5b563b1fce836994"
       },
@@ -730,7 +762,7 @@
       },
       {
         "path": "package.json",
-        "sha256": "369304f772de6a3c6ad6c1e13d45dbebad46bb4c22cbb64908cf2c7167f9c10e"
+        "sha256": "b35bd44b4e174307d8a22341f2890cbee63532c1990f1276434765175dce4086"
       },
       {
         "path": "schemas/job-scoped-editorial-approval.schema.json",
@@ -1210,7 +1242,7 @@
       },
       {
         "path": "test/convex/installation-compatibility.test.mjs",
-        "sha256": "bda8c2b471b21b77e10d20b5bfa5b1abf584ebd374747c6c1fc5a7dab7cce9ce"
+        "sha256": "0395780195ffc9017ec3cefb7dc9ff7e571f9ec238f006caffbe3ab377bc20a1"
       },
       {
         "path": "test/convex/narration-lifecycle.test.mjs",
@@ -1234,7 +1266,11 @@
       },
       {
         "path": "test/convex/production-bundle.test.mjs",
-        "sha256": "1caa5144f68a41344b3a1deb8c38f534e17673d31b41330818169a9a8f69257a"
+        "sha256": "1c5d6b6e301dbdd38487fc6210e9d5ee6a6efe6a8fdd83898b1cd6151ccc57c4"
+      },
+      {
+        "path": "test/convex/support-forward.test.mjs",
+        "sha256": "344a3e584fa6c197a3b1d3b9294c4cd325e94824baf4b00da49760db57b26509"
       },
       {
         "path": "test/customer-flow/hosted-runtime.test.mjs",

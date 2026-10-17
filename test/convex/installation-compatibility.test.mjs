@@ -10,6 +10,7 @@ import http from "../../convex/http.js";
 
 const manifest = JSON.parse(readFileSync(new URL("../../ops/installation-compatibility.json", import.meta.url), "utf8"));
 const promotionPins = JSON.parse(readFileSync(new URL('../../ops/promotion-candidate-pins.json', import.meta.url), 'utf8'));
+const supportPins = JSON.parse(readFileSync(new URL('../../ops/support-forward-candidate-pins.json', import.meta.url), 'utf8'));
 const read = name => readFileSync(new URL(`../../${name}`, import.meta.url));
 const sha = bytes => createHash("sha256").update(bytes).digest("hex");
 const ref = name => makeFunctionReference(name);
@@ -27,14 +28,23 @@ function fixture() {
   });
 }
 
-test("installation preserves recovered production and ordinary paid closure except the explicit pinned promotional successor", () => {
+test("installation preserves recovered production and paid closure except the pinned promotion/support successors", () => {
   assert.equal(Object.keys(manifest.recoveredFiles).length, 39);
   for (const [name, expected] of Object.entries(manifest.recoveredFiles)) assert.equal(sha(read(name)), expected, name);
   assert.equal(Object.keys(manifest.acceptedPaidFiles).length, 22);
-  for (const [name, expected] of Object.entries(manifest.acceptedPaidFiles)) assert.equal(sha(read(name)), promotionPins.files[name] || expected, name);
+  for (const [name, expected] of Object.entries(manifest.acceptedPaidFiles)) assert.equal(sha(read(name)), supportPins.files[name] || promotionPins.files[name] || expected, name);
   assert.equal(promotionPins.baseCommit, '4fe9296454739a135013b73b65d334c95269445f');
   assert.deepEqual(Object.keys(promotionPins.files).sort(), ['convex/deliveryLoop.js', 'convex/deliveryLoopPaidPolicy.js', 'convex/deliveryLoopPromotion.js', 'convex/schema.js', 'schemas/codex-subscription-composition.schema.json', 'src/delivery-loop/paid-event.mjs', 'src/delivery-loop/paid-payment.mjs', 'src/delivery-loop/test-promotion.mjs'].sort());
-  for (const [name, expected] of Object.entries(promotionPins.files)) assert.equal(sha(read(name)), expected, name);
+  for (const [name, expected] of Object.entries(promotionPins.files)) assert.equal(sha(read(name)), supportPins.files[name] || expected, name);
+  assert.equal(supportPins.baseCommit, '3093791a174a91b9468481cea01be78d974108c4');
+  assert.deepEqual(Object.keys(supportPins.files).sort(), ['convex/schema.js', 'package.json']);
+  for (const [name, expected] of Object.entries(supportPins.files)) assert.equal(sha(read(name)), expected, name);
+  // Pin the successor, but also prove the override is strictly additive rather
+  // than allowing a refreshed hash to conceal edits to existing validators.
+  const previousSchema = read('convex/schema.js').toString().replace(/  \/\/ Identifier-only, durable one-shot support forwarding fence\.[\s\S]*?\.index\('by_event_id', \['eventId'\]\)\.index\('by_email_id', \['emailId'\]\),\n/u, '');
+  assert.equal(sha(previousSchema), promotionPins.files['convex/schema.js']);
+  const previousPackage = read('package.json').toString().replace('node --check ./convex/supportForward.js && node --check ./convex/supportForwardHttp.js && node --check ./convex/supportForwardProvider.js && ', '');
+  assert.equal(sha(previousPackage), manifest.acceptedPaidFiles['package.json']);
 });
 
 test('worker import/help loads the exact signed dynamic composition schema without credentials or network', () => {
@@ -45,15 +55,15 @@ test('worker import/help loads the exact signed dynamic composition schema witho
   assert.equal(result.status, 0, result.stderr); assert.match(result.stdout, /^Usage: node scripts\/run-delivery-loop-worker.mjs/);
 });
 
-test("installation preserves all 23 production validators/indexes and adds only four accepted tables", () => {
+test("installation preserves all 23 production validators/indexes and adds only four paid tables plus the support fence", () => {
   const current = JSON.parse(schema.export()), production = manifest.productionSchema;
   assert.equal(current.schemaValidation, production.schemaValidation);
   assert.equal(production.tables.length, 23);
-  assert.equal(current.tables.length, 27);
+  assert.equal(current.tables.length, 28);
   for (const table of production.tables) {
     assert.deepEqual(normalize(current.tables.find(item => item.tableName === table.tableName)), normalize(table), table.tableName);
   }
-  assert.deepEqual(current.tables.filter(table => !production.tables.some(old => old.tableName === table.tableName)).map(table => table.tableName).sort(), ["customerFlowAbuseBudgets", "deliveryLoopPaymentEvents", "deliveryLoopPaymentEvidence", "deliveryLoopRetainedEvidence"]);
+  assert.deepEqual(current.tables.filter(table => !production.tables.some(old => old.tableName === table.tableName)).map(table => table.tableName).sort(), ["customerFlowAbuseBudgets", "deliveryLoopPaymentEvents", "deliveryLoopPaymentEvidence", "deliveryLoopRetainedEvidence", "supportForwardReceipts"]);
 });
 
 test("installation retains all existing production artifact routes and every accepted paid/complimentary route", () => {
@@ -64,6 +74,7 @@ test("installation retains all existing production artifact routes and every acc
     "GET /delivery/terms/route-a-39-v1",
     "GET /generation/artifact", "GET /narration/artifact", "POST /delivery/data", "POST /delivery/data/operator",
     "POST /delivery/intake", "POST /delivery/operator", "POST /delivery/payment/webhook", "POST /delivery/review",
+    "POST /support/resend/webhook",
   ].sort());
 });
 
