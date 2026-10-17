@@ -646,7 +646,7 @@
       },
       {
         "path": "convex/supportForwardProvider.js",
-        "sha256": "84b81b58f74ad9438458ff5d1899c2818a8e85486dc0cb0f2defc406b1007e27"
+        "sha256": "aa19544408abc32a064df446034f827a002c58af982140903baad189638a8665"
       },
       {
         "path": "delivery-loop-provider/api/provider.mjs",
@@ -682,7 +682,7 @@
       },
       {
         "path": "docs/resend-support-forwarding.md",
-        "sha256": "4722b14228aca2d15e32dac8d53f06b82ee279618625debc211f3fd753042866"
+        "sha256": "b2aaa923402113d419c074640f52b12a5b8c56017f3f270fa20f373283870df7"
       },
       {
         "path": "docs/route-a-39-v1-terms.md",
@@ -1270,7 +1270,7 @@
       },
       {
         "path": "test/convex/support-forward.test.mjs",
-        "sha256": "344a3e584fa6c197a3b1d3b9294c4cd325e94824baf4b00da49760db57b26509"
+        "sha256": "b4725bfe591745edaadb3c3fecaa9050d87106df5f157d2d1affb6f3607797c8"
       },
       {
         "path": "test/customer-flow/hosted-runtime.test.mjs",

@@ -62,7 +62,7 @@ function fixture(context) {
     RESEND_BASE_URL: 'https://untrusted-override.example.invalid',
     BEBEBONJOUR_SUPPORT_TO: 'attacker@example.invalid', RESEND_FROM: 'attacker@example.invalid',
   });
-  const state = { calls: [], posts: [], mode: 'ok', logs: [] };
+  const state = { calls: [], posts: [], mode: 'ok', logs: [], rawMime, subject: 'Question félicitations' };
   context.mock.method(console, 'error', (...args) => state.logs.push(args));
   const forbidden = () => { throw new Error('unexpected_live_network_forbidden'); };
   for (const transport of [http, https]) for (const method of ['request', 'get']) context.mock.method(transport, method, forbidden);
@@ -71,9 +71,13 @@ function fixture(context) {
     if (url === `https://api.resend.com/emails/receiving/${emailId}`) {
       assert.equal(options.method, 'GET');
       if (state.mode === 'read_error') return Response.json({ message: 'PRIVATE_PROVIDER_ERROR', name: 'application_error' }, { status: 503 });
-      return Response.json({ id: emailId, subject: 'Question félicitations', raw: { download_url: 'https://synthetic.example.invalid/private-signed-mime' } });
+      return Response.json({ id: emailId, subject: state.subject, raw: state.mode === 'missing_raw' ? null : { download_url: 'https://synthetic.example.invalid/private-signed-mime' } });
     }
-    if (url === 'https://synthetic.example.invalid/private-signed-mime') return new Response(rawMime);
+    if (url === 'https://synthetic.example.invalid/private-signed-mime') {
+      if (state.mode === 'raw_error') return new Response('PRIVATE_RAW_ERROR', { status: 503 });
+      if (state.mode === 'raw_timeout') throw new Error('PRIVATE_RAW_TIMEOUT');
+      return new Response(state.rawMime);
+    }
     if (url === 'https://api.resend.com/emails') {
       assert.equal(options.method, 'POST');
       const data = JSON.parse(options.body);
@@ -95,7 +99,7 @@ function assertPrivate(response) {
   assert.equal(response.headers.get('x-content-type-options'), 'nosniff');
 }
 
-test('signed real-router event forwards original MIME and attachments through pinned SDK to fixed destination', async context => {
+test('signed real-router event forwards original UTF8 MIME and base64 attachment through pinned SDK to fixed destination', async context => {
   const { t, state } = fixture(context); const bytes = encode(event());
   const response = await post(t, bytes);
   assert.equal(response.status, 200); assertPrivate(response);
@@ -119,6 +123,32 @@ test('signed real-router event forwards original MIME and attachments through pi
   assert.deepEqual(state.logs, []);
   for (const response of await Promise.all(Array.from({ length: 8 }, () => post(t, bytes)))) assert.equal(response.status, 200);
   assert.deepEqual(await receipts(t), [row]); assert.equal(state.posts.length, 1); assert.equal(state.calls.length, 3);
+});
+
+const opaqueMimeCases = [
+  ['ISO8859-1 8bit body', Buffer.concat([
+    Buffer.from('From: parent@example.invalid\r\nTo: contact@bebebonjour.com\r\nReply-To: reply@example.invalid\r\nSubject: question\r\nMIME-Version: 1.0\r\nContent-Type: text/plain; charset=iso-8859-1\r\nContent-Transfer-Encoding: 8bit\r\n\r\nUne question sur le pr', 'ascii'),
+    Buffer.from([0xe9]), Buffer.from('nom\r\n', 'ascii'),
+  ])],
+  ['binary MIME attachment', Buffer.concat([
+    Buffer.from('From: parent@example.invalid\r\nReply-To: reply@example.invalid\r\nMIME-Version: 1.0\r\nContent-Type: multipart/mixed; boundary="binary-boundary"\r\n\r\n--binary-boundary\r\nContent-Type: application/octet-stream\r\nContent-Disposition: attachment; filename="opaque.bin"\r\nContent-Transfer-Encoding: binary\r\n\r\n', 'ascii'),
+    Buffer.from([0, 0xff, 0xe9, 0x80, 0xc3, 0x28, 13, 10]), Buffer.from('\r\n--binary-boundary--\r\n', 'ascii'),
+  ])],
+];
+for (const [name, original] of opaqueMimeCases) test(`forwarded .eml preserves every original byte: ${name}`, async context => {
+  const { t, state } = fixture(context); state.rawMime = original;
+  const bytes = encode(event());
+  const response = await post(t, bytes);
+  assert.equal(response.status, 200); assert.deepEqual(await response.json(), { status: 'sent' });
+  const [{ data, key }] = state.posts;
+  assert.deepEqual(Buffer.from(data.attachments[0].content, 'base64'), original);
+  assert.equal(data.attachments[0].content_type, 'message/rfc822');
+  assert.equal(data.attachments[0].filename, 'forwarded_message.eml');
+  assert.equal(data.to, 'z@havesomecode.io'); assert.equal(data.from, 'Bébé Bonjour <bonjour@updates.bebebonjour.com>');
+  assert.equal(key, `support-forward:${emailId}`);
+  const [row] = await receipts(t); assert.equal(row.status, 'sent'); assert.equal(row.providerMessageId, outboundId);
+  assert.doesNotMatch(JSON.stringify(row), /PRIVATE|parent@|download|opaque|iso-8859|charset|attachment/i);
+  assert.equal((await post(t, bytes)).status, 200); assert.equal(state.posts.length, 1); assert.deepEqual(state.logs, []);
 });
 
 test('concurrent first delivery, in-flight retries and different webhook IDs cannot issue a second send', { timeout: 5000 }, async context => {
@@ -213,12 +243,13 @@ test('disabled/missing configuration fails closed without reading provider or cr
   assert.equal(state.calls.length, 0); assert.deepEqual(await receipts(t), []);
 });
 
-for (const mode of ['timeout', 'provider_error', 'missing_id', 'read_error']) test(`uncertain ${mode} is durable and never retried, even beyond provider idempotency expiry`, async context => {
+for (const mode of ['timeout', 'provider_error', 'missing_id', 'read_error', 'missing_raw', 'raw_error', 'raw_timeout']) test(`uncertain ${mode} is durable and never retried, even beyond provider idempotency expiry`, async context => {
   const { t, state } = fixture(context); state.mode = mode; const bytes = encode(event());
   const response = await post(t, bytes); assert.equal(response.status, 503);
   assert.deepEqual(await response.json(), { status: 'reconciliation_required' });
   const [row] = await receipts(t); assert.equal(row.status, 'reconciliation_required');
   const calls = state.calls.length; const posts = state.posts.length;
+  if (['read_error', 'missing_raw', 'raw_error', 'raw_timeout'].includes(mode)) assert.equal(posts, 0);
   await t.run(async ctx => { await ctx.db.patch(row._id, { startedAtMs: Date.now() - 48 * 60 * 60 * 1000 }); });
   state.mode = 'ok';
   for (let i = 0; i < 3; i++) assert.equal((await post(t, bytes, sign(bytes, { id: `msg_after_failure_${i}` }))).status, 503);
