@@ -5,7 +5,8 @@ import { sendEmail, inspectEmail } from '../../convex/deliveryLoopProviders.js';
 
 test('an admitted Cloudflare announcement submits once and records its exact provider receipt', async () => {
   const saved = { ...process.env }; const original = globalThis.fetch; const mutations = [];
-  Object.assign(process.env, { BEBEBONJOUR_CLOUDFLARE_ACCOUNT_ID: 'a'.repeat(32), BEBEBONJOUR_CLOUDFLARE_ZONE_ID: 'b'.repeat(32), BEBEBONJOUR_CLOUDFLARE_EMAIL_TOKEN: 'synthetic-send-token', BEBEBONJOUR_CLOUDFLARE_ANALYTICS_TOKEN: 'synthetic-read-token' });
+  delete process.env.BEBEBONJOUR_CLOUDFLARE_ANALYTICS_TOKEN;
+  Object.assign(process.env, { BEBEBONJOUR_CLOUDFLARE_ACCOUNT_ID: 'a'.repeat(32), BEBEBONJOUR_CLOUDFLARE_ZONE_ID: 'b'.repeat(32), BEBEBONJOUR_CLOUDFLARE_EMAIL_TOKEN: 'synthetic-send-token' });
   let sends = 0;
   globalThis.fetch = async (url, opts) => {
     sends++; assert.match(url, /api\.cloudflare\.com\/client\/v4\/accounts\//);

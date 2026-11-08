@@ -9,11 +9,10 @@ export function readCloudflareEmailConfiguration(config, environment = {}) {
     throw failure("cloudflare_configuration_invalid", false);
   }
   const sendToken = environment.BEBEBONJOUR_CLOUDFLARE_EMAIL_TOKEN;
-  const analyticsToken = environment.BEBEBONJOUR_CLOUDFLARE_ANALYTICS_TOKEN;
-  if (![sendToken, analyticsToken].every(value => typeof value === "string" && /^[A-Za-z0-9_-]{16,256}$/u.test(value))) {
+  if (typeof sendToken !== "string" || !/^[A-Za-z0-9_-]{16,256}$/u.test(sendToken)) {
     throw failure("cloudflare_configuration_invalid", false);
   }
-  return Object.freeze({ ...config, sendToken, analyticsToken });
+  return Object.freeze({ ...config, sendToken });
 }
 
 // The callback fence must durably admit only the first attempt of this logical

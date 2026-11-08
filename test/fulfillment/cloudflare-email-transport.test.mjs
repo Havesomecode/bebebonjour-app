@@ -31,7 +31,7 @@ test("Cloudflare configuration is explicit, strict, inert by default and snapsho
     { replyTo: "z@havesomecode.io" }, { endpoint: "https://example.invalid" } ]) {
     assert.throws(() => readCloudflareEmailConfiguration({ ...config, ...change }, environment), /configuration/i);
   }
-  for (const env of [{}, { RESEND_API_KEY: "synthetic" }, { ...environment, BEBEBONJOUR_CLOUDFLARE_ANALYTICS_TOKEN: "" },
+  for (const env of [{}, { RESEND_API_KEY: "synthetic" },
     { ...environment, BEBEBONJOUR_CLOUDFLARE_EMAIL_TOKEN: "bad\r\nheader" }]) {
     assert.throws(() => readCloudflareEmailConfiguration(config, env), /configuration/i);
   }
@@ -42,6 +42,17 @@ test("Cloudflare configuration is explicit, strict, inert by default and snapsho
   assert.equal(checked.accountId, config.accountId);
   assert.equal(checked.sendToken, environment.BEBEBONJOUR_CLOUDFLARE_EMAIL_TOKEN);
   assert(Object.isFrozen(checked));
+});
+
+test("sending and unavailable status need no analytics credential", async () => {
+  const sendOnly = { BEBEBONJOUR_CLOUDFLARE_EMAIL_TOKEN: environment.BEBEBONJOUR_CLOUDFLARE_EMAIL_TOKEN };
+  let calls = 0;
+  const transport = createCloudflareEmailTransport({ config, environment: sendOnly, fetch: async () => { calls++; return json(accepted()); } });
+  const receipt = await transport.send(message, { fenceExternalEffect: fence });
+  assert.equal(receipt.providerMessageId, messageId);
+  await assert.rejects(transport.status({ providerMessageId: messageId }), /cloudflare_status_unavailable/);
+  assert.equal(calls, 1);
+  assert.equal(readCloudflareEmailConfiguration(config, { ...sendOnly, BEBEBONJOUR_CLOUDFLARE_ANALYTICS_TOKEN: "" }).sendToken, sendOnly.BEBEBONJOUR_CLOUDFLARE_EMAIL_TOKEN);
 });
 
 test("REST preserves real delivery-loop content, support reply-to and opaque message ID behind the lease fence", async () => {
