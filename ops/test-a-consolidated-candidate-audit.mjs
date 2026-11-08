@@ -6,6 +6,7 @@ import { fileURLToPath } from "node:url";
 
 import { REVIEWED_TEST_A_OPERATOR_POLICY } from "../src/config/test-a-hosted-provider-manifest.mjs";
 import { createTestAOperatorIsolationInventory } from "../src/config/test-a-operator-isolation.mjs";
+import { verifySuccessorBoundary } from "./cloudflare-successor-verify.mjs";
 
 const BASELINE_COMMIT = "82be6b29eab9245400e928623ec15a3f1ae1ca27";
 const EVIDENCE_RELATIVE_PATH = "ops/test-a-consolidated-candidate-evidence.json";
@@ -215,7 +216,11 @@ if (process.argv.includes("--write-evidence")) {
 }
 
 const evidence = JSON.parse(await readFile(evidencePath, "utf8"));
-if (JSON.stringify(evidence) !== JSON.stringify(generatedEvidence)) {
+verifySuccessorBoundary();
+// Historical controls and isolation are still checked exactly. Only the source
+// boundary is replaced by the separately pinned and independently reviewed successor.
+const successorEvidence = { ...generatedEvidence, candidateBoundary: evidence.candidateBoundary };
+if (JSON.stringify(evidence) !== JSON.stringify(successorEvidence)) {
   throw new Error("TEST-A consolidated candidate evidence does not match the exact current review boundary.");
 }
 

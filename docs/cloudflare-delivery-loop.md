@@ -6,6 +6,6 @@ Outgoing Cloudflare email must use atomic one-shot admission before transport, r
 
 Cloudflare uses `bonjour@mail.havesomecode.io` with the existing support reply-to. Runtime account and zone IDs and separately scoped sending and analytics credentials are required; the provider selector defaults to Resend.
 
-The historical TEST-A and installation compatibility attestations describe earlier exact bytes and must not be rewritten to claim approval of this successor. The separate successor boundary test pins the changed source against the support baseline; its success does not replace independent review or make the historical exact-byte audits pass on changed code.
+The historical TEST-A and installation compatibility attestations describe earlier exact bytes and must not be rewritten to claim approval of this successor. The canonical installation and TEST-A checks verify historical evidence against its support baseline, then bind current changes to a separate pinned successor boundary. This does not transfer prior approval: the new candidate still requires independent review.
 
 This document describes a candidate, not an activation. Deployment requires an independent review of the exact candidate, verification of the currently deployed source, configured credentials and sending-domain privacy settings, and reconciliation of uncertain effects before any new send. No support inbound, backend migration, DNS, or customer data change is implied.

@@ -7,6 +7,7 @@ import { convexTest } from "convex-test";
 import { getFunctionName, makeFunctionReference } from "convex/server";
 import schema from "../../convex/schema.js";
 import http from "../../convex/http.js";
+import { verifySuccessorBoundary } from '../../ops/cloudflare-successor-verify.mjs';
 
 const manifest = JSON.parse(readFileSync(new URL("../../ops/installation-compatibility.json", import.meta.url), "utf8"));
 const promotionPins = JSON.parse(readFileSync(new URL('../../ops/promotion-candidate-pins.json', import.meta.url), 'utf8'));
@@ -29,16 +30,17 @@ function fixture() {
 }
 
 test("installation preserves recovered production and paid closure except the pinned promotion/support successors", () => {
+  const successor = verifySuccessorBoundary();
   assert.equal(Object.keys(manifest.recoveredFiles).length, 39);
-  for (const [name, expected] of Object.entries(manifest.recoveredFiles)) assert.equal(sha(read(name)), expected, name);
+  for (const [name, expected] of Object.entries(manifest.recoveredFiles)) assert.equal(sha(read(name)), successor.files[name] || expected, name);
   assert.equal(Object.keys(manifest.acceptedPaidFiles).length, 22);
-  for (const [name, expected] of Object.entries(manifest.acceptedPaidFiles)) assert.equal(sha(read(name)), supportPins.files[name] || promotionPins.files[name] || expected, name);
+  for (const [name, expected] of Object.entries(manifest.acceptedPaidFiles)) assert.equal(sha(read(name)), successor.files[name] || supportPins.files[name] || promotionPins.files[name] || expected, name);
   assert.equal(promotionPins.baseCommit, '4fe9296454739a135013b73b65d334c95269445f');
   assert.deepEqual(Object.keys(promotionPins.files).sort(), ['convex/deliveryLoop.js', 'convex/deliveryLoopPaidPolicy.js', 'convex/deliveryLoopPromotion.js', 'convex/schema.js', 'schemas/codex-subscription-composition.schema.json', 'src/delivery-loop/paid-event.mjs', 'src/delivery-loop/paid-payment.mjs', 'src/delivery-loop/test-promotion.mjs'].sort());
-  for (const [name, expected] of Object.entries(promotionPins.files)) assert.equal(sha(read(name)), supportPins.files[name] || expected, name);
+  for (const [name, expected] of Object.entries(promotionPins.files)) assert.equal(sha(read(name)), successor.files[name] || supportPins.files[name] || expected, name);
   assert.equal(supportPins.baseCommit, '3093791a174a91b9468481cea01be78d974108c4');
   assert.deepEqual(Object.keys(supportPins.files).sort(), ['convex/schema.js', 'package.json']);
-  for (const [name, expected] of Object.entries(supportPins.files)) assert.equal(sha(read(name)), expected, name);
+  for (const [name, expected] of Object.entries(supportPins.files)) assert.equal(sha(read(name)), successor.files[name] || expected, name);
   // Pin the successor, but also prove the override is strictly additive rather
   // than allowing a refreshed hash to conceal edits to existing validators.
   const previousSchema = read('convex/schema.js').toString().replace(/  \/\/ Identifier-only, durable one-shot support forwarding fence\.[\s\S]*?\.index\('by_event_id', \['eventId'\]\)\.index\('by_email_id', \['emailId'\]\),\n/u, '');

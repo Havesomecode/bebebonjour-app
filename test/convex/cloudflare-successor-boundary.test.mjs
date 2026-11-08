@@ -9,7 +9,6 @@ import { createTestAOperatorIsolationInventory } from '../../src/config/test-a-o
 const root = new URL('../../', import.meta.url);
 const base = '3dd9fa2683948ea32e7fd7b341a3e5559ae6f06c';
 const proofPath = 'ops/cloudflare-successor-boundary.json';
-const testPath = 'test/convex/cloudflare-successor-boundary.test.mjs';
 const git = (...args) => execFileSync('git', args, { cwd: root, encoding: 'utf8' });
 const sha = data => createHash('sha256').update(data).digest('hex');
 const read = path => readFileSync(new URL(`../../${path}`, import.meta.url));
@@ -42,6 +41,6 @@ test('successor source is restricted to the explicitly pinned changes', () => {
   const changed = git('diff', '--name-only', base, '--').trim().split('\n').filter(Boolean);
   const untracked = git('ls-files', '--others', '--exclude-standard').trim().split('\n').filter(Boolean);
   const paths = [...new Set([...changed, ...untracked])].sort();
-  assert.deepEqual(paths, [...Object.keys(proof.files), proofPath, testPath].sort());
+  assert.deepEqual(paths, [...Object.keys(proof.files), proofPath].sort());
   for (const [path, hash] of Object.entries(proof.files)) assert.equal(sha(read(path)), hash, path);
 });
