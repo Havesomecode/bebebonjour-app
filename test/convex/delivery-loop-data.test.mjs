@@ -9,8 +9,21 @@ import { convexTest } from 'convex-test';
 import { makeFunctionReference, getFunctionName } from 'convex/server';
 import schema from '../../convex/schema.js';
 import { DAY } from '../../convex/deliveryLoopData.js';
-import { narrate } from '../../convex/deliveryLoopProviders.js';
+import { narrate, sendEmail } from '../../convex/deliveryLoopProviders.js';
 const ref = name => makeFunctionReference(`deliveryLoop:${name}`);
+test('an uncomposed Cloudflare admission cannot accidentally send through Resend', async () => {
+  let calls = 0;
+  const original = globalThis.fetch;
+  globalThis.fetch = async () => { calls++; throw new Error('unexpected_network'); };
+  try {
+    const ctx = {
+      runQuery: async () => ({ jobId: 'job_offline', intake: { baby: { firstName: 'Mila' }, customer: { email: 'test@example.invalid' } }, publicUrl: 'https://example.invalid', reviewUrl: 'https://example.invalid/review' }),
+      runMutation: async fn => getFunctionName(fn).endsWith(':fence') ? { emailProvider: 'cloudflare' } : null,
+    };
+    await assert.rejects(sendEmail._handler(ctx, { workerToken, jobId: 'job_offline', leaseToken: 'offline-lease', revision: 1, stage: 'draft_email' }), /cloudflare_transport_unavailable/);
+    assert.equal(calls, 0);
+  } finally { globalThis.fetch = original; }
+});
 const dataRef = name => makeFunctionReference(`deliveryLoopData:${name}`);
 const sha = s => createHash('sha256').update(s).digest('hex');
 const workerToken='offline-data-worker-'+'w'.repeat(36), editorialToken='offline-data-editor-'+'e'.repeat(36);

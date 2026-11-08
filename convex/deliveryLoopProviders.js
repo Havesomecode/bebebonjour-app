@@ -50,9 +50,10 @@ export const sendEmail = actionGeneric({
   handler: async (context, args) => {
     const job = await context.runQuery(ref('authorizeProvider'), args);
     const payload = emailPayload(job, args.stage, args.revision);
-    await context.runMutation(ref('fence'), args);
+    const admission = await context.runMutation(ref('fence'), args);
     let receipt;
     try {
+      if (admission.emailProvider === 'cloudflare') throw new Error('cloudflare_transport_unavailable');
       receipt = await provider('sendEmail', payload);
     } catch (error) {
       // Never blindly re-send an uncertain email. Resend's canonical idempotency
