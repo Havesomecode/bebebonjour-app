@@ -96,8 +96,9 @@ export function createCloudflareEmailTransport(options = {}) {
       const outcomes = { sent: "pending", delivered: "delivered", deliveryFailed: "failed", rejected: "failed", failed: "failed" };
       const outcome = Object.hasOwn(outcomes, latest.status) ? outcomes[latest.status] : null;
       if (!outcome) throw failure("cloudflare_status_unavailable", true);
+      const failureCodes = { deliveryFailed: "cloudflare_delivery_failed", rejected: "cloudflare_rejected", failed: "cloudflare_failed" };
       return { providerMessageId, outcome, recordedAt: new Date(endMs).toISOString(), retryable: false,
-        reasonCode: outcome === "failed" ? `cloudflare_${latest.status}` : null };
+        reasonCode: outcome === "failed" ? failureCodes[latest.status] : null };
     },
   });
 }

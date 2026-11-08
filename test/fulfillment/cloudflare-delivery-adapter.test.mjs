@@ -110,6 +110,24 @@ async function fulfillment(t, fetchImpl) {
 }
 const digests = { pageDigest: "1".repeat(64), transcriptDigest: "2".repeat(64), assetManifestDigest: "3".repeat(64) };
 
+for (const [providerStatus, reasonCode] of Object.entries({ deliveryFailed: "cloudflare_delivery_failed",
+  rejected: "cloudflare_rejected", failed: "cloudflare_failed" })) {
+  test(`terminal ${providerStatus} persists after reopening without another send`, async t => {
+    let sends = 0;
+    const fixture = await fulfillment(t, async url => {
+      if (url.endsWith("/send")) { sends++; return accepted(); }
+      return Response.json({ data: { viewer: { zones: [{ emailSendingAdaptive: [{ messageId, status: providerStatus, datetime: now }] }] } } });
+    });
+    assert.equal((await fixture.orchestrator.runNext(policy.jobId)).state, "sent");
+    assert.equal((await fixture.open().reconcileDelivery(policy.jobId, { commandId: `check-${providerStatus}` })).state, "sent");
+    const reopened = await fixture.open().status(policy.jobId);
+    assert.equal(reopened.delivery.lastOutcome.outcome, "failed");
+    assert.equal(reopened.delivery.lastOutcome.reasonCode, reasonCode);
+    assert.match(reopened.delivery.lastOutcome.reasonCode, /^[a-z0-9_]{1,64}$/u);
+    assert.equal(sends, 1);
+  });
+}
+
 test("parallel durable workers issue at most one Cloudflare send for the same queued operation", async t => {
   let sends = 0;
   const fixture = await fulfillment(t, async () => { sends++; return accepted(); });

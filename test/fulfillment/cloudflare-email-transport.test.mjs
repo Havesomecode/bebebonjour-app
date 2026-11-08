@@ -139,7 +139,8 @@ test("status reads only bounded metadata, matches exact ID, and never equates se
     assert.equal(result.providerMessageId, messageId);
     assert.equal(result.outcome, outcome);
     assert.equal(result.retryable, false);
-    assert.equal(result.reasonCode, outcome === "failed" ? `cloudflare_${status}` : null);
+    const reasonCodes = { deliveryFailed: "cloudflare_delivery_failed", rejected: "cloudflare_rejected", failed: "cloudflare_failed" };
+    assert.equal(result.reasonCode, outcome === "failed" ? reasonCodes[status] : null);
     assert.equal(calls, 1);
   }
 });
