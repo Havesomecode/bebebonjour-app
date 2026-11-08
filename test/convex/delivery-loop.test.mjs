@@ -315,6 +315,15 @@ test("uploads/publication are lease-fenced, digest-bound and reject private capa
   assert.equal((await read(t, job.jobId)).latestRevision, 0);
 });
 
+test("a repeated email fence cannot admit a second provider call", async () => {
+  const t = fixture(); const job = await submit(t); const generation = await claim(t);
+  await publish(t, job.jobId, generation, "Single admission draft");
+  const lease = await claim(t, "single-admission-email-lease");
+  const args = { workerToken, jobId: job.jobId, leaseToken: lease.leaseToken, revision: 1, stage: "draft_email" };
+  await t.mutation(ref("fence"), args);
+  await assert.rejects(t.mutation(ref("fence"), args), /email_reconciliation_required/);
+});
+
 test("explicit definitive email rejection retries the same key; ambiguous failure stays reconciliable", async () => {
   const t = fixture(); const job = await submit(t); const generation = await claim(t); await publish(t, job.jobId, generation, "Email failure draft");
   const first = await claim(t, "offline-email-rejected-001");

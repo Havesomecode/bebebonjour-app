@@ -284,7 +284,7 @@ export const fence = mutationGeneric({
       lease.emailIdempotencyKey = `bebe-loop:${row.jobId}:${row.data.desiredRevision}:${args.stage}`;
       audit(row, "email_effect_started", { stage: args.stage, revision: row.data.desiredRevision, idempotencyKey: lease.emailIdempotencyKey });
       await save(ctx, row);
-    } else if (isPaid(row)) throw new Error("email_reconciliation_required");
+    } else throw new Error("email_reconciliation_required");
     return work(row);
   },
 });
