@@ -49,7 +49,7 @@ L'initialiseur a été exécuté sur la base locale puis a refusé une URL dista
 
 ## Composition, revue et ressources temporaires
 
-Branche mail observée : `31e0ca1dc2d82496b453e9512e0c55599d1ff220`, six fichiers mail, aucun recouvrement avec ce dossier. Aucune fusion ni activation mail effectuée. Avant toute bascule future, réconcilier aussi les sources plus récentes du canonique et les changements non committés du worktree ops ; préserver leurs fonctionnalités et décisions.
+Mail initial : `31e0ca1dc2d82496b453e9512e0c55599d1ff220`. Successeur R1 vérifié signé avant remise : `bf94f9a01057664b996a41ddde4ed94717b3fa03`, carte `t_780975dc`, revue `t_31d4406e` ; toujours six fichiers mail et aucun recouvrement avec ce dossier. `git merge-tree --write-tree` ne signale aucun conflit pour les deux candidats ; ce contrôle structurel n'est pas un test intégré d'envoi. Aucune fusion ni activation mail effectuée. Avant toute bascule future, réconcilier aussi les sources plus récentes du canonique et les changements non committés du worktree ops ; préserver leurs fonctionnalités et décisions.
 
 La prochaine action est la revue indépendante du candidat signé, de sa frontière synthétique et de cette matrice ; pas un déploiement. Auth/session/throttle opérateur, file de commandes, stores de génération, stockage/publication cible, données existantes et réception réelle restent non qualifiés. Aucune opération client n'a été déplacée dans Kanban.
 
