@@ -11,9 +11,10 @@ L'incrément donne un parcours cible synthétique vérifié ; il ne constitue pa
 | Contrôle | Résultat |
 | --- | --- |
 | Node cible | `v22.23.4`, binaire de l'image officielle épinglée ; Node hôte initial `v24.21.0`, non retenu comme preuve cible |
-| PostgreSQL | Serveur réel `16.15`, conteneur local `postgres:16-alpine`, base synthétique dédiée `bb_candidate_verified` |
-| Tests candidat sur Node 22 | **10 passent, 0 échec, 0 ignoré** |
-| Tests dans l'image finale, utilisateur `node` | **10 passent, 0 échec, 0 ignoré** ; inclut rendu réel, validation audio par ffprobe et arrêt du processus Node sur SIGTERM |
+| PostgreSQL | Serveur réel `16.15`, conteneur local `postgres:16-alpine`, base synthétique dédiée finale `bb_candidate_review` |
+| Tests candidat sur Node 22 | **16 passent, 0 échec, 0 ignoré** |
+| Tests dans l'image finale, utilisateur `node` | **16 passent, 0 échec, 0 ignoré** ; inclut rendu réel, validation audio par ffprobe, arrêt du processus Node sur SIGTERM et ledger mail durable |
+| `npm --prefix migration/railway run test:mail-composition` | **3 passent, 0 échec, 0 ignoré**, PostgreSQL réel + transport corrigé et SDK Resend réels, fetch exclusivement simulé ; aucune lecture/envoi fournisseur réel |
 | `npm --prefix migration/railway run check` | PASS — syntaxe de tous les modules du candidat |
 | `npm run build` | PASS — vérifications canoniques JS/Python/shell |
 | `npm run test:integration` | PASS — tracer historique, 1 test |
@@ -37,9 +38,13 @@ L'unique échec du dernier `npm test` est `successor consolidated audit binds th
 
 Le parcours complet vérifié est narré. Le premier essai non narré s'est arrêté sur la garde existante `Non-narrated release requires the exact content-approved artifact digests` entre revue privée et bundle préparé. Cette parité n'est pas qualifiée ; aucune égalité de digests ni approbation artificielle n'a été injectée pour passer la garde.
 
+La précision opérateur a ajouté une preuve locale dédiée au delivery loop courant : admission SQL commitée avant callback, une seule émission concurrente, reprise sans réseau après acknowledgement SQL perdu, clôture durable après incertitude et refus de changer de bail/fournisseur pour réémettre. Le reçu Resend persistant choisit uniquement Resend ; son lecteur SDK impose l'origine, un GET borné et l'identité exacte. Le transport Cloudflare corrigé est exécuté avec un ID opaque de **998 caractères**, un événement concurrent à casse différente et un échec terminal `cloudflare_delivery_failed` persisté sans retry. Ces preuves conditionnelles utilisent un intent préparé par un contrôle interne de confiance : elles ne qualifient pas son raccordement aux capacités/baux, consentements, révisions ou publications du delivery loop réel. Aucun nouvel endpoint mail n'est exposé.
+
+Les sources courantes `DELIVERY_LOOP.md`, `convex/deliveryLoop.js`, `convex/deliveryLoopProviders.js` et `src/delivery-loop/` ont été lues sans modification. Première version avant révision, corrections et reçus courants restent sur ce cycle ; le parcours historique du candidat n'est pas son remplacement. Les refus filesystem/attestation et scopes Resend restent ouverts. Voir `EMAIL-INTERACTIONS.md`.
+
 ## Image et configuration
 
-Image locale testée : `sha256:396ddb7fe9e9e33c5da9aa29f2c79b44134ea5348adf237bd90c4c2372b00ae1`, utilisateur `node`. L'image est construite depuis une liste de fichiers source, sans `.git`, secret d'environnement ni dépendances hôte ; les dépendances sont réinstallées depuis les deux locks. FFmpeg/ffprobe est installé dans l'image. Le build ne se connecte à aucune base et ne crée pas de schéma.
+Image locale testée : `sha256:d88bdbec50a67a0d977420c35265be03e53d580037dbfe5eb9f31bad787a6e9e`, utilisateur `node`. L'image est construite depuis une liste de fichiers source, sans `.git`, secret d'environnement ni dépendances hôte ; les dépendances sont réinstallées depuis les deux locks. FFmpeg/ffprobe est installé dans l'image. Le build ne se connecte à aucune base et ne crée pas de schéma.
 
 Commande de reconstruction depuis le commit signé : `git archive HEAD | docker build -f migration/railway/Dockerfile -t bb-railway-candidate:review -`. Le contexte Dockerfile spécifique protège les builds modernes ; l'archive source évite également le transfert des dépendances locales avec le builder Docker classique.
 
@@ -49,7 +54,7 @@ L'initialiseur a été exécuté sur la base locale puis a refusé une URL dista
 
 ## Composition, revue et ressources temporaires
 
-Mail initial : `31e0ca1dc2d82496b453e9512e0c55599d1ff220`. Successeur R1 vérifié signé avant remise : `bf94f9a01057664b996a41ddde4ed94717b3fa03`, carte `t_780975dc`, revue `t_31d4406e` ; toujours six fichiers mail et aucun recouvrement avec ce dossier. `git merge-tree --write-tree` ne signale aucun conflit pour les deux candidats ; ce contrôle structurel n'est pas un test intégré d'envoi. Aucune fusion ni activation mail effectuée. Avant toute bascule future, réconcilier aussi les sources plus récentes du canonique et les changements non committés du worktree ops ; préserver leurs fonctionnalités et décisions.
+Seul delta mail à composer : `bf94f9a01057664b996a41ddde4ed94717b3fa03`, carte `t_780975dc`, revue `t_31d4406e` **PASS préparation confirmé par l'opérateur** ; pas son prédécesseur `31e0ca1`. Il contient six fichiers mail, sans recouvrement avec ce dossier. Le test de composition matérialise uniquement deux blobs de transport/adaptateur depuis ce commit signé, vérifie mode/taille/identité Git et SHA-256, puis charge le transport sans toucher à sa branche. Tree source `936a14d43f1e601f6872ec81387c6daeca246dbf` ; transport SHA-256 `7d068a4393e48598b6a52483d0d9a89742fb8e0dbbcb64a0af00400b8e9e12f2`. Les trois tests ci-dessus sont une qualification locale du seam, pas une intégration active au worker courant ni une livraison réelle. Aucune fusion ou activation mail effectuée. Avant toute bascule future, réconcilier aussi les sources plus récentes du canonique et les changements non committés du worktree ops ; préserver leurs fonctionnalités et décisions.
 
 La prochaine action est la revue indépendante du candidat signé, de sa frontière synthétique et de cette matrice ; pas un déploiement. Auth/session/throttle opérateur, file de commandes, stores de génération, stockage/publication cible, données existantes et réception réelle restent non qualifiés. Aucune opération client n'a été déplacée dans Kanban.
 

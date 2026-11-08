@@ -82,6 +82,7 @@ export function createCandidateRuntime({ config, pool = createPool(config.databa
       await pool.query("SELECT 1 FROM bb_candidate.submissions LIMIT 0");
       await pool.query("SELECT 1 FROM bb_candidate.provider_events LIMIT 0");
       await pool.query("SELECT 1 FROM bb_candidate.review_approvals LIMIT 0");
+      await pool.query("SELECT 1 FROM bb_candidate.email_effects LIMIT 0");
       return c.json({ ok: true, persistence: "postgresql", mode: "synthetic" });
     } catch { return c.json({ ok: false }, 503); }
   };

@@ -8,7 +8,8 @@
     "start": "node server.mjs",
     "init-db": "node init-db.mjs",
     "check": "node check.mjs",
-    "test": "node --test --test-concurrency=1 test/*.test.mjs"
+    "test": "node --test --test-concurrency=1 test/*.test.mjs",
+    "test:mail-composition": "node --test --test-concurrency=1 test/mail-composition.mjs"
   },
   "dependencies": { "pg": "8.23.1" }
 }

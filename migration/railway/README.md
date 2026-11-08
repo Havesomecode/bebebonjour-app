@@ -2,11 +2,19 @@
 
 Préparation locale du 8 novembre 2026. Aucun changement de production. Les opérations clients restent dans Convex. Ce dossier est un incrément additif, pas une migration achevée ni un remplacement de l'interface opérateur.
 
-## Parcours livré
+**Delivery loop courant préservé :** ses sources plus récentes publient/envoient une première version avant révision humaine et conservent corrections, narration et reçus. Elles ne sont ni remplacées ni rétrogradées par le parcours historique ci-dessous. Le complément `EMAIL-INTERACTIONS.md` décrit l'admission one-shot PostgreSQL, le routage des reçus par fournisseur et les identifiants opaques ; le raccordement au contrôle de capacités/baux courant reste à qualifier.
+
+## Parcours historique ciblé
 
 Un service Node 22 exécute les routes existantes `/api/customer-flow/v1/*` et le webhook Stripe sur corps brut, avec un adaptateur PostgreSQL réel. Il réutilise les validations d'intake, le jeton privé de chaque commande, le chiffrement des réponses idempotentes et les transitions de fulfillment existantes. Intake et agrégat initial sont créés dans une transaction. Les transitions concurrentes sont sérialisées par verrou de ligne ; l'unicité des submissions et événements est durable. Aucun SDK Convex n'est invoqué par ce runtime.
 
 Le candidat accepte **uniquement des données synthétiques et Stripe test**. Sans `BB_CANDIDATE_MODE=synthetic`, il refuse de démarrer. Il ne démarre aucun worker et n'expose aucune mutation opérateur : un jeton client ne donne donc pas accès aux approbations, à la publication ou à l'envoi. Les tests exercent ces transitions séparément avec les véritables commandes de rendu locales ; les effets Stripe/OpenAI/publication/mail y restent simulés et explicitement nommés.
+
+## Contrats delivery-loop, non activés
+
+Le ledger PostgreSQL prépare une admission one-shot avant effet, interdit la réémission après incertitude et conserve un reçu déjà accepté après perte d'acknowledgement. L'inspection sélectionne le lecteur du fournisseur persistant : les reçus Resend ne passent pas chez Cloudflare. Les IDs Cloudflare opaques sont conservés exactement, y compris à 998 caractères, et les échecs terminaux ne deviennent pas des succès ni des retries.
+
+`BB_TEST_DATABASE_URL=<base locale dédiée> npm --prefix migration/railway run test:mail-composition` matérialise deux blobs du seul delta signé corrigé `bf94f9a`, vérifie leurs identités Git puis exerce son transport réel et le SDK Resend avec fetch simulé, contre PostgreSQL réel. Ce test exige Git et le commit accepté dans le dépôt local ; aucun worktree mail n'est modifié. Il n'est pas une preuve d'envoi, d'import de reçus existants ni de raccordement aux capacités/baux courants. Voir `EMAIL-INTERACTIONS.md`.
 
 ## Exécuter localement
 
@@ -43,6 +51,8 @@ Les contraintes SQL refusent les identités/versions manquantes. JSONB conserve 
 | `fulfillmentCodexAuthState` | Non porté ; ne pas copier envelope, secret, lease ou credential |
 | Blobs privés et publication Vercel | Non portés ; R2 différé tant que permissions, URLs, TTL et octets exacts ne sont pas qualifiés |
 | Landing / ops séparés, Tally, cron, abonnements Convex | Non reroutés ; aucun remplacement fictif de réactivité ; requalification et branchement séparés |
+| `deliveryLoopJobs` et cycle courant de première version/corrections | Non portés par le parcours historique ; le cycle avant révision reste l'autorité courante, intacte |
+| Admission mail one-shot / provenance des reçus | Nouveau ledger synthétique `email_effects` testé séparément ; aucun import, grant ou worker courant branché |
 
 Variables : `DATABASE_URL`, `BB_CANDIDATE_MODE`, `CUSTOMER_FLOW_TOKEN_ENCRYPTION_KEY`, `CUSTOMER_FLOW_TEST_ACCESS_TOKEN`, `CUSTOMER_FLOW_ALLOWED_ORIGINS`, `STRIPE_SECRET_KEY`, `STRIPE_CUSTOMER_FLOW_WEBHOOK_SECRET`, `STRIPE_CHECKOUT_SUCCESS_URL`, `STRIPE_CHECKOUT_CANCEL_URL`, `PORT`. Réutiliser les secrets existants seulement lors d'une autorisation distincte ; les fixtures ne sont pas des credentials. Aucun compte utilisateur ou mot de passe n'est migré.
 
@@ -50,7 +60,7 @@ Variables : `DATABASE_URL`, `BB_CANDIDATE_MODE`, `CUSTOMER_FLOW_TOKEN_ENCRYPTION
 
 Socle imposé : `caa06ca6be0a8fd86600a79808ca2a90c0fe7ea5`, tree `0d8b58aa7c75f49c7255ffd530fadc297482c92e`. Le canonique est à `a4e9fab20ea97c694e32ac5509139085942f38fe`, avec ses propres changements ; il n'est pas rétrogradé. La branche privée ops contient des changements non committés, conservés. Landing observée à `ea4cc9165711801801bebceac175b47b67b06cdb`, ops à `2a7251a8a4e72b428c3f492900418264da4fa7a0` : aucune qualification de déploiement déduite de ces SHA.
 
-Tous les nouveaux fichiers sont sous `migration/railway/`. Ni package/lock racine, ni mail, ni fichiers des worktrees pairs ne sont modifiés. La branche mail initiale est à `31e0ca1dc2d82496b453e9512e0c55599d1ff220`. Son successeur R1, `bf94f9a01057664b996a41ddde4ed94717b3fa03` (carte `t_780975dc`, revue `t_31d4406e`), a également été vérifié signé : toujours six fichiers mail, sans recouvrement. `git merge-tree --write-tree` compose les deux candidats sans conflit ; aucune fusion de branches ni validation intégrée des effets mail n'est revendiquée. Composer ensuite les candidats acceptés après leurs revues ; l'adaptateur mail n'est pas une dépendance de ce runtime sans envoi. Avant toute activation, réconcilier également les évolutions acceptées du canonique et du worktree ops : ce candidat ancien socle ne les remplace pas.
+Tous les nouveaux fichiers sont sous `migration/railway/`. Ni package/lock racine, ni mail, ni fichiers des worktrees pairs ne sont modifiés. La branche mail initiale est à `31e0ca1dc2d82496b453e9512e0c55599d1ff220`. Son successeur R1, `bf94f9a01057664b996a41ddde4ed94717b3fa03` (carte `t_780975dc`, revue `t_31d4406e` PASS préparation confirmé par l'opérateur), a également été vérifié signé : toujours six fichiers mail, sans recouvrement. `git merge-tree --write-tree` compose les deux candidats sans conflit ; aucune fusion de branches ni qualification d'effets mail réels n'est revendiquée. Composer ensuite les candidats acceptés après leurs revues ; l'adaptateur mail n'est pas une dépendance de ce runtime sans envoi. Avant toute activation, réconcilier également les évolutions acceptées du canonique et du worktree ops : ce candidat ancien socle ne les remplace pas.
 
 ## Import à blanc et bascule future
 
