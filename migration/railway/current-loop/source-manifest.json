@@ -1,0 +1,40 @@
+{
+  "commit": "5f9e63928b7489f92b4d5e5e8f2807e4c1edbc7d",
+  "tree": "82415b3abe5bbdfb559258f3e8a3639c713f2be2",
+  "files": [
+    {
+      "path": "convex/deliveryLoop.js",
+      "blob": "7d4cc19c28a37330b446107b385ae599a22e3829",
+      "sha256": "4f69c746df0a1c83f841c8d31e7c7ab8a792c7d1d1816cc9a0eb31ded55efdc6",
+      "candidate_sha256": "91a7ae40b22bc83b785eb45394f5d346cb56cfeee54ce0c1459d05f4505615b2",
+      "allowed_delta": "completeEmail export block only: explicit provider and unnormalized printable opaque ID, 1..998 bytes"
+    },
+    {
+      "path": "convex/deliveryLoopPaidPolicy.js",
+      "blob": "d72ad6d6fee9235b134052468f9afa488d3e0a6e",
+      "sha256": "0c0898e5c9ace6c0a29758fe3b027727fbb5eeda60dc54cbb48b32eea39b149f"
+    },
+    {
+      "path": "convex/deliveryLoopPromotion.js",
+      "blob": "b8bed09df8ce39153f46d6c980086738498726c3",
+      "sha256": "6dd7ff19b0a06b56bf1abe92fd297498ac593bd3998f25b32f0ae69825677606"
+    },
+    {
+      "path": "src/delivery-loop/test-promotion.mjs",
+      "blob": "1590318909f2754d54786cefc1b03e3198179540",
+      "sha256": "6580b7709ad14c62ecace7baa7b6ce4c34b17ec297c3d6e58a4a424bf4b4beb8"
+    },
+    {
+      "path": "src/delivery-loop/reviewed-narration.mjs",
+      "blob": "e2ce793987902256ecb29a2fd95d0f9e1e541480",
+      "sha256": "9b2a141dc933a09cc4ce460894f53a071092b01dc82bf53f3f92a0a48dacbd35"
+    },
+    {
+      "path": "convex/deliveryLoopProviders.js",
+      "blob": "f8e7c46c187af9c6ddf5f989e02a8113180a157a",
+      "sha256": "0e37c3385cd7d1100a06e641de660dfbfb9962d19d882f53310226bf9856de48",
+      "derived": "email-payload.mjs",
+      "candidate_sha256": "af3122c687c249dab413baa09171ce05a28fccd4d8424730a352ad2416a69907"
+    }
+  ]
+}

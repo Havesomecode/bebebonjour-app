@@ -2,7 +2,7 @@
 
 Préparation locale du 8 novembre 2026. Aucun changement de production. Les opérations clients restent dans Convex. Ce dossier est un incrément additif, pas une migration achevée ni un remplacement de l'interface opérateur.
 
-**Delivery loop courant préservé :** ses sources plus récentes publient/envoient une première version avant révision humaine et conservent corrections, narration et reçus. Elles ne sont ni remplacées ni rétrogradées par le parcours historique ci-dessous. Le complément `EMAIL-INTERACTIONS.md` décrit l'admission one-shot PostgreSQL, le routage des reçus par fournisseur et les identifiants opaques ; le raccordement au contrôle de capacités/baux courant reste à qualifier.
+**Delivery loop courant préservé :** ses sources plus récentes publient/envoient une première version avant révision humaine et conservent corrections, narration et reçus. Elles ne sont ni remplacées ni rétrogradées par le parcours historique ci-dessous. `DELIVERY-LOOP-BRIDGE.md` borne le nouveau raccord synthétique aux vrais contrôles courants et au ledger PostgreSQL; il ne branche pas les writers opérationnels. `EMAIL-INTERACTIONS.md` décrit l'admission one-shot et le routage fournisseur. La nouvelle composition exige sa propre revue indépendante.
 
 ## Parcours historique ciblé
 
@@ -14,7 +14,9 @@ Le candidat accepte **uniquement des données synthétiques et Stripe test**. Sa
 
 Le ledger PostgreSQL prépare une admission one-shot avant effet, interdit la réémission après incertitude et conserve un reçu déjà accepté après perte d'acknowledgement. L'inspection sélectionne le lecteur du fournisseur persistant : les reçus Resend ne passent pas chez Cloudflare. Les IDs Cloudflare opaques sont conservés exactement, y compris à 998 caractères, et les échecs terminaux ne deviennent pas des succès ni des retries.
 
-`BB_TEST_DATABASE_URL=<base locale dédiée> npm --prefix migration/railway run test:mail-composition` matérialise deux blobs du seul delta signé corrigé `bf94f9a`, vérifie leurs identités Git puis exerce son transport réel et le SDK Resend avec fetch simulé, contre PostgreSQL réel. Ce test exige Git et le commit accepté dans le dépôt local ; aucun worktree mail n'est modifié. Il n'est pas une preuve d'envoi, d'import de reçus existants ni de raccordement aux capacités/baux courants. Voir `EMAIL-INTERACTIONS.md`.
+`BB_TEST_DATABASE_URL=<base locale dédiée> npm --prefix migration/railway run test:mail-composition` matérialise deux blobs du seul delta signé corrigé `bf94f9a`, vérifie leurs identités Git puis exerce son transport réel et le SDK Resend avec fetch simulé, contre PostgreSQL réel. Ce test exige Git et le commit accepté dans le dépôt local ; aucun worktree mail n'est modifié. Il n'est pas une preuve d'envoi ni d'import de reçus existants.
+
+`BB_TEST_DATABASE_URL=<base loopback neuve dédiée> npm --prefix migration/railway run test:delivery-loop` vérifie le manifeste signé des contrôles courants, produit les fixtures par leurs handlers dans `convex-test`, puis exerce le raccord PostgreSQL et le mail corrigé. Installer les dépendances de développement racine pour ce banc hôte séparé; elles ne sont pas ajoutées à l'image de production. Le banc couvre refus avant préparation/admission, corrections, décisions payantes, concurrence, crash de processus, ACK perdu, reçus historiques et IDs opaques. Aucun fournisseur réel n'est joint. Voir `DELIVERY-LOOP-BRIDGE.md`.
 
 ## Exécuter localement
 
@@ -51,8 +53,8 @@ Les contraintes SQL refusent les identités/versions manquantes. JSONB conserve 
 | `fulfillmentCodexAuthState` | Non porté ; ne pas copier envelope, secret, lease ou credential |
 | Blobs privés et publication Vercel | Non portés ; R2 différé tant que permissions, URLs, TTL et octets exacts ne sont pas qualifiés |
 | Landing / ops séparés, Tally, cron, abonnements Convex | Non reroutés ; aucun remplacement fictif de réactivité ; requalification et branchement séparés |
-| `deliveryLoopJobs` et cycle courant de première version/corrections | Non portés par le parcours historique ; le cycle avant révision reste l'autorité courante, intacte |
-| Admission mail one-shot / provenance des reçus | Nouveau ledger synthétique `email_effects` testé séparément ; aucun import, grant ou worker courant branché |
+| `deliveryLoopJobs` et cycle courant de première version/corrections | Document synthétique courant sous verrou et handlers d'autorisation/fence/complétion réutilisés; ni moteur complet ni writers opérationnels portés |
+| Admission mail one-shot / provenance des reçus | Ledger synthétique `email_effects` relié au contrôle courant et gardant une FK exclusive par domaine; inspection historique explicite sans admission; aucun import réel ni worker branché |
 
 Variables : `DATABASE_URL`, `BB_CANDIDATE_MODE`, `CUSTOMER_FLOW_TOKEN_ENCRYPTION_KEY`, `CUSTOMER_FLOW_TEST_ACCESS_TOKEN`, `CUSTOMER_FLOW_ALLOWED_ORIGINS`, `STRIPE_SECRET_KEY`, `STRIPE_CUSTOMER_FLOW_WEBHOOK_SECRET`, `STRIPE_CHECKOUT_SUCCESS_URL`, `STRIPE_CHECKOUT_CANCEL_URL`, `PORT`. Réutiliser les secrets existants seulement lors d'une autorisation distincte ; les fixtures ne sont pas des credentials. Aucun compte utilisateur ou mot de passe n'est migré.
 

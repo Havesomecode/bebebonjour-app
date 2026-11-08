@@ -15,6 +15,7 @@ COPY --chown=node:node template ./template
 COPY --chown=node:node bin ./bin
 COPY --chown=node:node test/integration/fulfillment-workflow-tracer.test.mjs ./test/integration/fulfillment-workflow-tracer.test.mjs
 COPY --chown=node:node migration/railway/*.mjs migration/railway/schema.sql ./migration/railway/
+COPY --chown=node:node migration/railway/current-loop ./migration/railway/current-loop
 COPY --chown=node:node migration/railway/test ./migration/railway/test
 RUN test ! -e .git && test ! -e node_modules/vercel && npm --prefix migration/railway run check
 USER node

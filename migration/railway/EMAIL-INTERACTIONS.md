@@ -4,7 +4,7 @@ Précision opérateur du 8 novembre 2026 : le PASS mail porte sur le delta corri
 
 ## Préserver le produit courant
 
-Le canonique contient un `deliveryLoop` additif plus récent, non committé dans le socle affecté. Ses sources ont été lues sans modification. Son contrat publie/envoie la première version avant révision humaine, conserve les corrections sur une URL stable, les anciennes révisions, la narration Cedar et les reçus. Le parcours historique `/api/customer-flow` du présent candidat ne remplace **pas** cette autorité, ses approbations ni ses writers. Ne pas transférer à ce delivery loop les anciennes barrières de revue TEST-A.
+Le canonique avait été lu sans modification lors de la préparation backend. Le raccord actuel fige maintenant le descendant commercial signé `5f9e639`, avec sa chaîne de corrections acceptées explicitée dans `DELIVERY-LOOP-BRIDGE.md`; il ne rebascule ni canonique ni worktree de vente. Le contrat courant publie/envoie la première version avant révision humaine, conserve les corrections sur une URL stable, les anciennes révisions, la narration Cedar et les reçus. Le parcours historique `/api/customer-flow` ne remplace **pas** cette autorité, ses approbations ni ses writers. Ne pas transférer à ce delivery loop les anciennes barrières de revue TEST-A.
 
 Aucun worker, route opérateur, sélection de fournisseur ou reçu courant n'est modifié. Le port intégral de `deliveryLoop` (auth, consentement, waiver réel sans faux paiement, génération, corrections, assets, publication, reprise) reste à faire sur une source acceptée. Les refus filesystem/attestation, la lecture Resend limitée par les scopes et les avis de dépendances restent visibles. Aucun envoi ou accès fournisseur réel n'est autorisé ici.
 
@@ -17,7 +17,7 @@ Le nouveau ledger `bb_candidate.email_effects` est un contrat interne de prépar
 3. Aucun verrou SQL n'est tenu pendant l'appel externe. Si l'issue est inconnue, le ledger reste `issued` ou `reconciliation_required` : pas de remise à zéro après timeout, expiration ou redémarrage. Un nouveau callback n'est jamais admis pour cet effet.
 4. Un reçu accepté est persisté avant de retourner. Un rejeu identique restitue ce reçu sans callback. Une collision d'identité, un reçu différent, une panne de persistance ou un état incertain ne déclenchent aucun retry réseau. La preuve ne promet pas exactement-un-envoi : un crash après admission et avant réseau peut produire zéro envoi, ce qui exige une réconciliation plutôt qu'un doublon.
 
-La préparation d'intent est une API interne de confiance. Son raccordement aux capacités et baux réels du futur contrôle `deliveryLoop` reste à qualifier ; elle n'est pas exposée au client. La présence d'une fonction de préparation ne vaut pas autorisation de s'en servir sur des données existantes.
+La préparation d'intent est une API interne de confiance. Son raccordement synthétique aux vrais handlers courants est décrit dans `DELIVERY-LOOP-BRIDGE.md` et qualifié séparément par `test:delivery-loop`; aucune route client, aucun worker ni autorité opérationnelle n'est activé. La présence d'une fonction de préparation ne vaut pas autorisation de s'en servir sur des données existantes.
 
 ## Fournisseur et reçus
 
@@ -31,4 +31,4 @@ L'inspection Resend utilise uniquement le GET `/emails/{id}` du SDK Resend sur l
 
 Les tests par défaut utilisent PostgreSQL réel et des callbacks/lecteurs synthétiques explicitement identifiés. Un test de composition séparé doit matérialiser le **seul delta corrigé signé** sans écrire dans sa branche, l'appeler avec le véritable fence PostgreSQL et un fetch simulé, puis vérifier concurrence, reprise incertaine, ID opaque et inspection d'échec terminal. Il ne doit faire aucun appel Cloudflare ou Resend réel.
 
-Le test de composition n'autorise pas une activation : intégrer ensuite les capacités/baux courants, qualifier les imports, l'attestation des artefacts, les interfaces et les reçus historiques avant toute action à effet réel. Les migrations backend et mail restent des candidats distincts.
+Le test de composition n'autorise pas une activation. Le banc `test:delivery-loop` raccorde localement les capacités/baux courants au ledger, mais ne porte pas tous leurs writers; qualifier séparément imports, attestation des artefacts, interfaces et provenance des reçus historiques avant toute action réelle. Les candidats backend, contrôle courant et mail gardent leurs frontières et leurs revues propres.

@@ -9,7 +9,8 @@
     "init-db": "node init-db.mjs",
     "check": "node check.mjs",
     "test": "node --test --test-concurrency=1 test/*.test.mjs",
-    "test:mail-composition": "node --test --test-concurrency=1 test/mail-composition.mjs"
+    "test:mail-composition": "node --test --test-concurrency=1 test/mail-composition.mjs",
+    "test:delivery-loop": "node --test --test-concurrency=1 test/source-provenance.mjs test/delivery-loop-bridge.mjs test/delivery-loop-mail.mjs"
   },
   "dependencies": { "pg": "8.23.1" }
 }

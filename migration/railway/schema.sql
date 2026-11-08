@@ -24,9 +24,22 @@ CREATE TABLE IF NOT EXISTS bb_candidate.review_approvals (
   approval_id text PRIMARY KEY,
   approval jsonb NOT NULL CHECK ((approval->>'approvalId' = approval_id) IS TRUE)
 );
+-- Synthetic snapshot of the current deliveryLoopJobs document, not a second order model.
+-- No importer or production writer is exposed by this candidate.
+CREATE TABLE IF NOT EXISTS bb_candidate.delivery_loop_jobs (
+  job_id text PRIMARY KEY CHECK (job_id ~ '^job_[A-Za-z0-9_-]{1,124}$'),
+  document jsonb NOT NULL CHECK ((document->>'jobId' = job_id
+    AND document->'data'->'intake'->>'fictional' = 'true'
+    AND document->'data'->'intake'->'customer'->>'email' ~ '^[^@[:space:]]+@[^@[:space:]]+\.test$') IS TRUE)
+);
 CREATE TABLE IF NOT EXISTS bb_candidate.email_effects (
   idempotency_key text PRIMARY KEY,
-  job_id text NOT NULL REFERENCES bb_candidate.customer_jobs(job_id),
+  -- The configured control validates either the current document or historical fixture.
+  job_id text NOT NULL,
+  historical_job_id text REFERENCES bb_candidate.customer_jobs(job_id),
+  delivery_loop_job_id text REFERENCES bb_candidate.delivery_loop_jobs(job_id),
+  CHECK (((historical_job_id = job_id AND delivery_loop_job_id IS NULL)
+    OR (delivery_loop_job_id = job_id AND historical_job_id IS NULL)) IS TRUE),
   revision integer NOT NULL CHECK (revision > 0),
   stage text NOT NULL CHECK (stage IN ('draft_email', 'final_email')),
   provider text NOT NULL CHECK (provider IN ('resend', 'cloudflare')),
