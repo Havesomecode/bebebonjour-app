@@ -46,8 +46,8 @@ async function retain(ctx, row, reason) {
   // customer capabilities, storage links, or arbitrary provider response bodies.
   const evidence = { payment: d.payment, approval: d.paidApproval || null, permissions: d.paidPermissions || null,
     editorial: d.editorialApproval || null, deliveredAtMs: d.deliveredAtMs || null,
-    emailReceipts: d.emailReceipts.map(({ revision, stage, providerMessageId, idempotencyKey, sentAtMs }) => ({ revision, stage, providerMessageId, idempotencyKey, sentAtMs })),
-    uncertainEffect: d.lease?.effectStartedAtMs ? { stage: d.lease.stage, revision: d.desiredRevision, startedAtMs: d.lease.effectStartedAtMs, emailIdempotencyKey: d.lease.emailIdempotencyKey || null } : null,
+    emailReceipts: d.emailReceipts.map(({ revision, stage, provider, providerMessageId, idempotencyKey, sentAtMs }) => ({ revision, stage, provider: provider || "resend", providerMessageId, idempotencyKey, sentAtMs })),
+    uncertainEffect: d.lease?.effectStartedAtMs ? { stage: d.lease.stage, revision: d.desiredRevision, startedAtMs: d.lease.effectStartedAtMs, emailIdempotencyKey: d.lease.emailIdempotencyKey || null, ...(["draft_email", "final_email"].includes(d.lease.stage) ? { emailProvider: d.lease.emailProvider || "resend" } : {}) } : null,
     narrationEffects: (d.narrationEffects || []).map(({ revision, language, textDigest, status, startedAtMs }) => ({ revision, language, textDigest, status, startedAtMs })),
     notice: d.closureNotice || null };
   const prior = await ctx.db.query("deliveryLoopRetainedEvidence").withIndex("by_job_id", q => q.eq("jobId", row.jobId)).unique();

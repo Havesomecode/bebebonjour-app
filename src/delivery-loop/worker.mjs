@@ -336,7 +336,7 @@ function findPublication(remote, revision, digest, finalizing = false) {
 }
 function findEmail(remote, revision, stage) {
   const value = (remote?.emailReceipts ?? remote?.emails)?.find((entry) => entry.revision === revision && entry.stage === stage);
-  if (!value || typeof value.providerMessageId !== "string" || !/^[A-Za-z0-9_-]{1,256}$/u.test(value.providerMessageId)) return null;
+  if (!value || typeof value.providerMessageId !== "string" || !/^[\x21-\x7e]{1,998}$/u.test(value.providerMessageId)) return null;
   return value;
 }
 function safeFailure(error) {

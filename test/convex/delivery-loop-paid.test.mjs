@@ -210,6 +210,23 @@ test('actual paid HTTP views and private/review/operator contracts are bounded a
   assert.equal((await post('/delivery/review',{jobId:job.jobId,reviewToken:job.reviewToken,expectedRevision:1,action:'accept_permissions',termsVersion:TERMS_VERSION,termsAccepted:true,publication:true})).status,200);
 });
 
+for (const lostAck of [false, true]) test(`worker reconciles opaque Cloudflare receipt with${lostAck ? '' : 'out'} lost action acknowledgement`, async context => {
+  const t=fixture();
+  Object.assign(process.env,{BEBEBONJOUR_DELIVERY_LOOP_EMAIL_PROVIDER:'cloudflare',BEBEBONJOUR_CLOUDFLARE_ACCOUNT_ID:'a'.repeat(32),BEBEBONJOUR_CLOUDFLARE_ZONE_ID:'b'.repeat(32),BEBEBONJOUR_CLOUDFLARE_EMAIL_TOKEN:'synthetic-send-token',BEBEBONJOUR_CLOUDFLARE_ANALYTICS_TOKEN:'synthetic-read-token'});
+  context.after(()=>{for(const k of ['BEBEBONJOUR_DELIVERY_LOOP_EMAIL_PROVIDER','BEBEBONJOUR_CLOUDFLARE_ACCOUNT_ID','BEBEBONJOUR_CLOUDFLARE_ZONE_ID','BEBEBONJOUR_CLOUDFLARE_EMAIL_TOKEN','BEBEBONJOUR_CLOUDFLARE_ANALYTICS_TOKEN']) delete process.env[k];});
+  const id='<opaque+receipt@example.invalid>'; let sends=0;
+  context.mock.method(globalThis,'fetch',async (url,options)=>{sends++;assert.match(url,/api\.cloudflare\.com/);const body=JSON.parse(options.body);return Response.json({success:true,errors:[],result:{message_id:id,queued:[body.to],delivered:[],permanent_bounces:[]}});});
+  const job=await submit(t);const lease=await claim(t);const contentHtml='<html><body>Offline preview</body></html>';
+  const composition={schemaVersion:'1.0',languages:{fr:{description:'Un bonheur.',introLines:['Bienvenue.'],introNarration:'Bienvenue.',blessingLines:['Des jours doux.'],blessingNarration:'Des jours doux.',closingLines:['Notre amour.'],closingNarration:'Notre amour.'}}};
+  await t.mutation(ref('publish'),{workerToken,jobId:job.jobId,leaseToken:lease.leaseToken,revision:1,contentHtml,contentDigest:sha(contentHtml),composition,compositionJson:JSON.stringify(composition),compositionReceipt:{provider:'openai-codex-subscription',outputDigest:sha(JSON.stringify(composition))},audioFiles:[]});
+  const client=Object.fromEntries(['mutation','query','action'].map(method=>[method,async(name,args)=>{const result=await t[method](makeFunctionReference(name),args);if(lostAck && name==='deliveryLoopProviders:sendEmail') throw new Error('lost_ack');return result;}]));
+  const root=await mkdtemp(path.join(process.env.TMPDIR,'opaque-worker-'));context.after(()=>rm(root,{recursive:true,force:true}));
+  const worker=createDeliveryLoopWorker({client,composer:{async compose(){throw new Error('unexpected_composition');}},stateDir:root,workerToken,workerId:'offline',reconciliationAttempts:1,logger(){}});
+  const result=await worker.runOnce();assert.equal(result.status,'email_sent',JSON.stringify(result));assert.equal(result.providerMessageId,id);
+  const row=await read(t,job);assert.equal(row.emailReceipts[0].provider,'cloudflare');assert.equal(row.emailReceipts[0].providerMessageId,id);
+  assert.equal((await worker.runOnce()).status,'idle');assert.equal(sends,1);
+});
+
 test('actual durable worker and Convex provider actions complete corrected paid Route A offline without preapproval speech/publication/final mail',async context=>{
   const t=fixture();process.env.OPENAI_API_KEY='offline-not-a-real-key';process.env.RESEND_API_KEY='offline-not-a-real-key';delete process.env.BEBEBONJOUR_DELIVERY_LOOP_PROVIDER_URL;
   const effects=[];

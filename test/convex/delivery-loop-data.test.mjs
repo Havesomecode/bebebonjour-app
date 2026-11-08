@@ -84,6 +84,19 @@ test('unpaid preview has no exports; revocation closes public text/audio immedia
   assert.equal(await t2.query(ref('publicPage'),{publicToken:row.publicToken}),null);assert.equal(await t2.query(ref('publicAudio'),{publicToken:row.publicToken,revision:1,language:'fr'}),null);
   assert.equal((await t2.fetch(exportUrl(job,'page'))).status,200);assert.equal(await claim(t2),null);
 });
+for (const admissionProvider of ['cloudflare', undefined]) test(`deletion retains each receipt and ${admissionProvider || 'legacy Resend'} admission provider`,async()=>{
+  const t=fixture();const {job}=await delivered(t);const row=await raw(t,job);
+  const [first,second]=row.data.emailReceipts;
+  const legacy={...first};delete legacy.provider;
+  const cloudflare={...second,provider:'cloudflare',providerMessageId:'<opaque+receipt@example.invalid>'};
+  await patchData(t,job,{emailReceipts:[legacy,cloudflare],lease:{stage:'final_email',effectStartedAtMs:123,emailIdempotencyKey:'offline-uncertain',...(admissionProvider ? {emailProvider:admissionProvider} : {})},desiredRevision:1});
+  await t.mutation(dataRef('customerControl'),{...capability(job),action:'delete'});
+  const evidence=(await t.query(dataRef('inspect'),{editorialToken,jobId:job.jobId})).retainedEvidence;
+  assert.deepEqual(evidence.emailReceipts.map(({provider,providerMessageId})=>({provider,providerMessageId})),[{provider:'resend',providerMessageId:legacy.providerMessageId},{provider:'cloudflare',providerMessageId:cloudflare.providerMessageId}]);
+  assert.equal(evidence.uncertainEffect.emailProvider,admissionProvider || 'resend');
+  assert.doesNotMatch(JSON.stringify(evidence),/FictionalBaby|data-fixture@example.invalid|reviewToken/);
+});
+
 test('confirmed deletion erases content and storage, invalidates all reads/effects and keeps allowlisted financial evidence separately',async()=>{
   const t=fixture();const {job,storageId}=await delivered(t);const row=await raw(t,job);
   const payload={jobId:job.jobId,token:job.reviewToken,action:'delete'};
