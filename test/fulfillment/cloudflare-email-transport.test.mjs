@@ -124,92 +124,14 @@ test("no send errors trigger a retry or provider fallback; untrusted provider co
   }
 });
 
-test("status finds a recent or old receipt in a busy zone without trusting truncated results", async () => {
-  for (const ageDays of [0, 20]) {
-    const end = Date.parse(now);
-    const target = { messageId, status: "delivered", datetime: new Date(end - ageDays * 86400000 - 1000).toISOString() };
-    const noise = Array.from({ length: 80 }, (_, i) => ({ messageId: `noise-${i}`, status: "sent", datetime: new Date(end - i * 60000).toISOString() }));
-    let calls = 0;
-    const transport = setup(async (_url, options) => {
-      calls++;
-      const { start, end } = JSON.parse(options.body).variables;
-      const rows = [...noise, target].filter(e => e.datetime >= start && e.datetime <= end)
-        .sort((a, b) => b.datetime.localeCompare(a.datetime)).slice(0, 50);
-      return json(analytics(rows));
-    });
-    assert.equal((await transport.status({ providerMessageId: messageId })).outcome, "delivered");
-    assert(calls > 1 && calls <= 128);
-  }
-});
-
-test("a truly saturated timestamp and conflicting latest events fail closed", async () => {
-  const at = "2026-11-08T10:59:00.000Z";
-  for (const events of [
-    Array.from({ length: 50 }, (_, i) => ({ messageId: i ? `other-${i}` : messageId, status: "delivered", datetime: at })),
-    [{ messageId, status: "delivered", datetime: at }, { messageId, status: "failed", datetime: at }],
-  ]) {
-    let calls = 0;
-    const transport = setup(async (_url, options) => {
-      calls++;
-      const { start, end } = JSON.parse(options.body).variables;
-      return json(analytics(events.filter(event => event.datetime >= start && event.datetime <= end)));
-    });
-    await assert.rejects(transport.status({ providerMessageId: messageId }), /cloudflare_status_unavailable/);
-    assert(calls <= 128);
-  }
-});
-
-test("status reads only bounded metadata, matches exact ID, and never equates sent with delivered", async () => {
-  const mapping = { sent: "pending", delivered: "delivered", deliveryFailed: "failed", rejected: "failed", failed: "failed" };
-  for (const [status, outcome] of Object.entries(mapping)) {
-    let calls = 0;
-    const transport = setup(async (url, options) => {
-      calls++;
-      assert.equal(url, "https://api.cloudflare.com/client/v4/graphql");
-      assert.equal(options.headers.authorization, `Bearer ${environment.BEBEBONJOUR_CLOUDFLARE_ANALYTICS_TOKEN}`);
-      assert.equal(options.redirect, "error");
-      const body = JSON.parse(options.body);
-      assert.deepEqual(body.variables, { zoneTag: config.zoneId, start: "2026-10-08T11:01:00.000Z", end: now });
-      assert.match(body.query, /emailSendingAdaptive/);
-      assert.match(body.query, /limit: 50/);
-      assert(!/\b(subject|from|to|errorDetail)\b/.test(body.query));
-      return json(analytics([
-        { messageId: "different", status: "delivered", datetime: now },
-        { messageId, status, datetime: "2026-11-08T10:59:00.000Z" },
-        { messageId, status: "sent", datetime: "2026-11-08T10:58:00.000Z" },
-      ]));
-    });
-    const result = await transport.status({ providerMessageId: messageId });
-    assert.equal(result.providerMessageId, messageId);
-    assert.equal(result.outcome, outcome);
-    assert.equal(result.retryable, false);
-    const reasonCodes = { deliveryFailed: "cloudflare_delivery_failed", rejected: "cloudflare_rejected", failed: "cloudflare_failed" };
-    assert.equal(result.reasonCode, outcome === "failed" ? reasonCodes[status] : null);
-    assert.equal(calls, 1);
-  }
-});
-
-test("absent, truncated, unknown, conflicting or invalid status cannot confirm delivery", async () => {
-  const event = { messageId, status: "delivered", datetime: now };
-  const responses = [
-    {}, analytics([]), { errors: [{ message: "private" }], ...analytics([event]) },
-    { data: { viewer: { zones: [] } } }, analytics([{ ...event, messageId: "different" }]),
-    analytics([{ ...event, status: "opened" }]), analytics([{ ...event, datetime: "bad" }]),
-    analytics([{ ...event, datetime: "2026-11-09T00:00:00Z" }]),
-    analytics([{ ...event, datetime: "2026-10-07T00:00:00Z" }]),
-    analytics([event, { ...event, status: "failed" }]),
-    analytics(Array.from({ length: 50 }, () => event)), analytics([event, null]),
-  ];
-  for (const body of responses) {
-    const transport = setup(async () => json(body));
-    await assert.rejects(transport.status({ providerMessageId: messageId }), error => {
-      assert.equal(error.reasonCode, "cloudflare_status_unavailable");
-      assert.equal(error.retryable, true);
-      return true;
-    });
-  }
-  for (const response of [async () => { throw new Error("private"); }, async () => new Response("bad"),
-    async () => json(analytics([event]), 403)]) {
-    await assert.rejects(setup(response).status({ providerMessageId: messageId }), /cloudflare_status_unavailable/);
-  }
+test("sampled analytics cannot establish terminal state and no provider call is made", async () => {
+  let calls = 0;
+  const transport = setup(async () => { calls++; return json(analytics([{ messageId, status: "delivered", datetime: now }])); });
+  await assert.rejects(transport.status({ providerMessageId: messageId }), error => {
+    assert.equal(error.reasonCode, "cloudflare_status_unavailable");
+    assert.equal(error.retryable, true);
+    return true;
+  });
+  assert.equal(calls, 0);
+  await assert.rejects(transport.status({ providerMessageId: "bad\r\nid" }), /cloudflare_status_input_invalid/);
 });

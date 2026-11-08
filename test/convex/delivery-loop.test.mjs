@@ -345,7 +345,7 @@ test("actual Cloudflare action admits one concurrent send and survives a lost co
   try {const first=sendEmail._handler(ctx,args);await reached;await assert.rejects(sendEmail._handler(ctx,args),/email_reconciliation_required/);release();await assert.rejects(first,/lost_db_ack/);const row=await read(t,job.jobId);assert.equal(calls,1);assert.equal(row.emailReceipts[0].provider,'cloudflare');assert.equal(row.emailReceipts[0].providerMessageId,'<durable@example.invalid>');await assert.rejects(sendEmail._handler(ctx,args));assert.equal(calls,1);
     process.env.BEBEBONJOUR_DELIVERY_LOOP_EMAIL_PROVIDER='resend';
     globalThis.fetch=async(url,opts)=>{assert.equal(url,'https://api.cloudflare.com/client/v4/graphql');const datetime=JSON.parse(opts.body).variables.end;return Response.json({data:{viewer:{zones:[{emailSendingAdaptive:[{messageId:'<durable@example.invalid>',status:'delivered',datetime}]}]}}});};
-    const status=await inspectEmail._handler(ctx,{workerToken,jobId:job.jobId,providerMessageId:'<durable@example.invalid>'});assert.equal(status.outcome,'delivered');}
+    await assert.rejects(inspectEmail._handler(ctx,{workerToken,jobId:job.jobId,providerMessageId:'<durable@example.invalid>'}), /cloudflare_status_unavailable/);}
   finally {release();globalThis.fetch=original;for(const k of names)if(saved[k]===undefined)delete process.env[k];else process.env[k]=saved[k];}
 });
 

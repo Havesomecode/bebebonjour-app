@@ -5,15 +5,16 @@
     "convex/deliveryLoopData.js": "d226ba30f28461be55f4dedfed80565ca7af99d60974f44df17b20db7048c3b1",
     "convex/deliveryLoopDataProviders.js": "24a3dd413ce49dfe84ce805cc0db352c8d4e3572da31b709564f8674307f2e04",
     "convex/deliveryLoopProviders.js": "06ff43b85d9fc79902f6394d389505df0b7bb4f90392bda13c26a5fac7907d2a",
-    "docs/cloudflare-delivery-loop.md": "a90c0a725b224e61b1dacf26dedd264fa90df0e505f113d04ac453cb6c72bbb6",
+    "docs/cloudflare-delivery-loop.md": "fdd69a03e8423be7611a33667d96bea1643cd2c53e4ed5744a1462060b21d508",
+    "ops/cloudflare-email-status.md": "57a9a532b706e5a0cc10e74e8a00c456642c1c45de527de8c1b83095cff7f4fc",
     "ops/cloudflare-email.example.json": "165c768dc843b2fd6cfbc79ef947258ff9550aae06a59fcba7c09269d829fec5",
     "src/delivery-loop/cloudflare-runtime.mjs": "0cc78830edd094599369dc44b2557297e6c02c2b3ff42bcc1cf011743cb5609f",
     "src/fulfillment/cloudflare-delivery-adapter.mjs": "d10548df90fb806dccb46a062f0143b7fa6810a18ae372cfc33b15a2aa8f92cf",
-    "src/fulfillment/cloudflare-email-transport.mjs": "c151d871efa8a2e9c476538dc6fa85b82759cdb0fe9c67bf7b0ee6d78e1ed0de",
-    "test/convex/cloudflare-loop-composition.test.mjs": "350fcd4b3089a51fa7ea17153d0523f559b4383235857adcc4bcee89150bd756",
+    "src/fulfillment/cloudflare-email-transport.mjs": "52c505f46ed7cd62c539ff57faa9f2c377413f5eb6e4ed44e2d357e2fe465c34",
+    "test/convex/cloudflare-loop-composition.test.mjs": "77f0bd339b43bee44ac56a36f8562c61a035853048722781f1ad223df415e97d",
     "test/convex/delivery-loop-data.test.mjs": "ae2f9480e870c1241e2b678eea0ee5c2f0892dc66e08ca421cd3f460c09b040f",
-    "test/convex/delivery-loop.test.mjs": "6c0c7c04e4833a10bd09e735fc33b81147502768ce894b3a0c2489274792b8b4",
-    "test/fulfillment/cloudflare-delivery-adapter.test.mjs": "b79e748f1be2cf7b700ad62fb39fe718b98a7ac4476d92627b08a447506e8b8c",
-    "test/fulfillment/cloudflare-email-transport.test.mjs": "4dfc4e1ed64274d7ce3815cb468f01bd7db86d35cb816d313c539ab455b64b8a"
+    "test/convex/delivery-loop.test.mjs": "b1fe7b1b80fa3ca9d3cc3de92d06e637cf078b311b6a3b2a36cc2f63bc0555ae",
+    "test/fulfillment/cloudflare-delivery-adapter.test.mjs": "6b0be287025e8e2349f471f512c6cbaad10c85d36322a8c97cf29272ad4c9a0c",
+    "test/fulfillment/cloudflare-email-transport.test.mjs": "3f0f2b2c30e98426052f14a3c9781f520a7e56145203e843e53c2e4e3af41521"
   }
 }

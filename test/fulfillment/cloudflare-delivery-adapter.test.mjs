@@ -110,24 +110,6 @@ async function fulfillment(t, fetchImpl) {
 }
 const digests = { pageDigest: "1".repeat(64), transcriptDigest: "2".repeat(64), assetManifestDigest: "3".repeat(64) };
 
-for (const [providerStatus, reasonCode] of Object.entries({ deliveryFailed: "cloudflare_delivery_failed",
-  rejected: "cloudflare_rejected", failed: "cloudflare_failed" })) {
-  test(`terminal ${providerStatus} persists after reopening without another send`, async t => {
-    let sends = 0;
-    const fixture = await fulfillment(t, async url => {
-      if (url.endsWith("/send")) { sends++; return accepted(); }
-      return Response.json({ data: { viewer: { zones: [{ emailSendingAdaptive: [{ messageId, status: providerStatus, datetime: now }] }] } } });
-    });
-    assert.equal((await fixture.orchestrator.runNext(policy.jobId)).state, "sent");
-    assert.equal((await fixture.open().reconcileDelivery(policy.jobId, { commandId: `check-${providerStatus}` })).state, "sent");
-    const reopened = await fixture.open().status(policy.jobId);
-    assert.equal(reopened.delivery.lastOutcome.outcome, "failed");
-    assert.equal(reopened.delivery.lastOutcome.reasonCode, reasonCode);
-    assert.match(reopened.delivery.lastOutcome.reasonCode, /^[a-z0-9_]{1,64}$/u);
-    assert.equal(sends, 1);
-  });
-}
-
 test("parallel durable workers issue at most one Cloudflare send for the same queued operation", async t => {
   let sends = 0;
   const fixture = await fulfillment(t, async () => { sends++; return accepted(); });
@@ -151,19 +133,17 @@ test("a lost Cloudflare response persists a started effect; reopened orchestrato
   assert.equal(calls, 1);
 });
 
-test("a persisted Cloudflare receipt stays sent until exact provider status confirms delivery", async t => {
+test("sampled delivered event cannot finalize an effect when a later failure is omitted", async t => {
   let sends = 0;
   const fixture = await fulfillment(t, async url => {
     if (url.endsWith("/send")) { sends++; return accepted(); }
+    // The real history may include a newer failure omitted from this sampled response.
     return Response.json({ data: { viewer: { zones: [{ emailSendingAdaptive: [{ messageId, status: "delivered", datetime: now }] }] } } });
   });
-  const sent = await fixture.orchestrator.runNext(policy.jobId);
-  assert.equal(sent.state, "sent");
-  assert.equal(sent.delivery.provider, "cloudflare");
-  assert.equal(sent.delivery.providerMessageId, messageId);
-  const reopened = fixture.open();
-  assert.equal((await reopened.status(policy.jobId)).state, "sent");
-  const complete = await reopened.reconcileDelivery(policy.jobId, { commandId: "check-status" });
-  assert.equal(complete.state, "complete");
+  await fixture.orchestrator.runNext(policy.jobId);
+  await assert.rejects(fixture.open().reconcileDelivery(policy.jobId, { commandId: "sampled-status" }), /cloudflare_status_unavailable/);
+  const persisted = await fixture.open().status(policy.jobId);
+  assert.notEqual(persisted.state, "complete");
+  assert.notEqual(persisted.delivery.lastOutcome?.outcome, "delivered");
   assert.equal(sends, 1);
 });

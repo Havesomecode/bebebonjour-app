@@ -29,6 +29,6 @@ test('inspection uses the receipt provider, not the current selector', async () 
   Object.assign(process.env, { BEBEBONJOUR_DELIVERY_LOOP_EMAIL_PROVIDER: 'resend', BEBEBONJOUR_CLOUDFLARE_ACCOUNT_ID: 'a'.repeat(32), BEBEBONJOUR_CLOUDFLARE_ZONE_ID: 'b'.repeat(32), BEBEBONJOUR_CLOUDFLARE_EMAIL_TOKEN: 'synthetic-send-token', BEBEBONJOUR_CLOUDFLARE_ANALYTICS_TOKEN: 'synthetic-read-token' });
   const id='<opaque@example.invalid>'; let calls=0;
   globalThis.fetch=async (url,options)=>{ calls++; assert.equal(url,'https://api.cloudflare.com/client/v4/graphql');const end=JSON.parse(options.body).variables.end;return Response.json({data:{viewer:{zones:[{emailSendingAdaptive:[{messageId:id,status:'delivered',datetime:end}]}]}}}); };
-  try {const ctx={runQuery:async()=>({emailReceipts:[{provider:'cloudflare',providerMessageId:id}]})};const result=await inspectEmail._handler(ctx,{workerToken:'offline',jobId:'job_offline',providerMessageId:id});assert.equal(result.outcome,'delivered');assert.equal(calls,1);}
+  try {const ctx={runQuery:async()=>({emailReceipts:[{provider:'cloudflare',providerMessageId:id}]})};await assert.rejects(inspectEmail._handler(ctx,{workerToken:'offline',jobId:'job_offline',providerMessageId:id}), /cloudflare_status_unavailable/);assert.equal(calls,0);}
   finally {globalThis.fetch=original;for(const key of Object.keys(process.env))if(!(key in saved))delete process.env[key];Object.assign(process.env,saved);}
 });
