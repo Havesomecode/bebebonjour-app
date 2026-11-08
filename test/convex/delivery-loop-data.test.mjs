@@ -11,7 +11,7 @@ import schema from '../../convex/schema.js';
 import { DAY } from '../../convex/deliveryLoopData.js';
 import { narrate, sendEmail } from '../../convex/deliveryLoopProviders.js';
 const ref = name => makeFunctionReference(`deliveryLoop:${name}`);
-test('an uncomposed Cloudflare admission cannot accidentally send through Resend', async () => {
+test('a Cloudflare admission without configuration cannot accidentally send through Resend', async () => {
   let calls = 0;
   const original = globalThis.fetch;
   globalThis.fetch = async () => { calls++; throw new Error('unexpected_network'); };
@@ -20,7 +20,7 @@ test('an uncomposed Cloudflare admission cannot accidentally send through Resend
       runQuery: async () => ({ jobId: 'job_offline', intake: { baby: { firstName: 'Mila' }, customer: { email: 'test@example.invalid' } }, publicUrl: 'https://example.invalid', reviewUrl: 'https://example.invalid/review' }),
       runMutation: async fn => getFunctionName(fn).endsWith(':fence') ? { emailProvider: 'cloudflare' } : null,
     };
-    await assert.rejects(sendEmail._handler(ctx, { workerToken, jobId: 'job_offline', leaseToken: 'offline-lease', revision: 1, stage: 'draft_email' }), /cloudflare_transport_unavailable/);
+    await assert.rejects(sendEmail._handler(ctx, { workerToken, jobId: 'job_offline', leaseToken: 'offline-lease', revision: 1, stage: 'draft_email' }), /cloudflare_configuration_invalid/);
     assert.equal(calls, 0);
   } finally { globalThis.fetch = original; }
 });
@@ -113,6 +113,14 @@ test('scheduled closure notice invokes actual Resend adapter once; successful/un
     const t2=fixture();const {job:other}=await delivered(t2);await patchData(t2,other,{hostingEndsAtMs:Date.now()+30*DAY-1000});globalThis.fetch=async()=>{sends++;throw new Error('offline_timeout');};await t2.mutation(dataRef('sweep'),{});await t2.finishAllScheduledFunctions(()=>mock.timers.tick(0));assert.equal((await raw(t2,other)).data.closureNotice.status,'reconciliation_required');await t2.action(makeFunctionReference('deliveryLoopDataProviders:sendClosureNotice'),{jobId:other.jobId});assert.equal(sends,2);
   }finally{globalThis.fetch=original;delete process.env.RESEND_API_KEY;}
   process.env.BEBEBONJOUR_PAID_DATA_AUTOMATION_ENABLED='false';assert.deepEqual(await t.mutation(dataRef('sweep'),{}),{disabled:true});
+});
+test('Cloudflare closure uses its own durable admission and records provider identity', async()=>{
+  const t=fixture(); const {job}=await delivered(t); await patchData(t,job,{hostingEndsAtMs:Date.now()+30*DAY-1000});
+  const original=globalThis.fetch; const names=['BEBEBONJOUR_DELIVERY_LOOP_EMAIL_PROVIDER','BEBEBONJOUR_CLOUDFLARE_ACCOUNT_ID','BEBEBONJOUR_CLOUDFLARE_ZONE_ID','BEBEBONJOUR_CLOUDFLARE_EMAIL_TOKEN','BEBEBONJOUR_CLOUDFLARE_ANALYTICS_TOKEN']; const saved=Object.fromEntries(names.map(k=>[k,process.env[k]]));
+  Object.assign(process.env,{BEBEBONJOUR_DELIVERY_LOOP_EMAIL_PROVIDER:'cloudflare',BEBEBONJOUR_CLOUDFLARE_ACCOUNT_ID:'a'.repeat(32),BEBEBONJOUR_CLOUDFLARE_ZONE_ID:'b'.repeat(32),BEBEBONJOUR_CLOUDFLARE_EMAIL_TOKEN:'synthetic-send-token',BEBEBONJOUR_CLOUDFLARE_ANALYTICS_TOKEN:'synthetic-read-token'});
+  let calls=0; globalThis.fetch=async(url,opts)=>{calls++;assert.match(url,/api\.cloudflare\.com/);const body=JSON.parse(opts.body);assert.match(body.headers['X-Bebe-Operation'],/:closure_notice$/);return Response.json({success:true,errors:[],result:{message_id:'<notice@example.invalid>',queued:[body.to],delivered:[],permanent_bounces:[]}});};
+  try { await t.mutation(dataRef('sweep'),{});await t.finishAllScheduledFunctions(()=>mock.timers.tick(0));const notice=(await raw(t,job)).data.closureNotice;assert.equal(calls,1);assert.equal(notice.status,'sent');assert.equal(notice.provider,'cloudflare');assert.equal(notice.providerMessageId,'<notice@example.invalid>');await t.action(makeFunctionReference('deliveryLoopDataProviders:sendClosureNotice'),{jobId:job.jobId});assert.equal(calls,1); }
+  finally {globalThis.fetch=original;for(const k of names)if(saved[k]===undefined)delete process.env[k];else process.env[k]=saved[k];}
 });
 test('hourly pagination schedules continuation past ten legacy records; privacy UI and operator scripts compile',async()=>{
   const t=fixture();for(let i=0;i<11;i++)await t.run(ctx=>ctx.db.insert('deliveryLoopJobs',{jobId:`legacy_${i}`,publicToken:`public_${i}`,idempotencyKey:`key_${i}`,status:'old',data:{createdAtMs:1}}));const job=await submit(t);await patchData(t,job,{createdAtMs:Date.now()-8*DAY});const result=await t.mutation(dataRef('sweep'),{});assert.equal(result.done,false);await t.finishAllScheduledFunctions(()=>mock.timers.tick(0));assert.equal((await raw(t,job)).status,'data_deleted');

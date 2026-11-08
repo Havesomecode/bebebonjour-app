@@ -6,6 +6,7 @@ import { paymentEventRejection } from "../src/delivery-loop/paid-event.mjs";
 import { v } from "convex/values";
 import { createHash } from "node:crypto";
 import { performNarration, performEmail } from "../src/delivery-loop/provider-transport.mjs";
+import { cloudflareTransport, alreadyAdmitted } from "../src/delivery-loop/cloudflare-runtime.mjs";
 import { inspectPaidPayment, PaidPaymentInspectionError } from "../src/delivery-loop/paid-payment.mjs";
 
 const ref = (name) => makeFunctionReference(`deliveryLoop:${name}`);
@@ -53,8 +54,9 @@ export const sendEmail = actionGeneric({
     const admission = await context.runMutation(ref('fence'), args);
     let receipt;
     try {
-      if (admission.emailProvider === 'cloudflare') throw new Error('cloudflare_transport_unavailable');
-      receipt = await provider('sendEmail', payload);
+      receipt = admission.emailProvider === 'cloudflare'
+        ? await cloudflareTransport().send(payload, { fenceExternalEffect: alreadyAdmitted })
+        : await provider('sendEmail', payload);
     } catch (error) {
       // Never blindly re-send an uncertain email. Resend's canonical idempotency
       // key stays recorded so the exact effect can be reconciled rather than duplicated.
@@ -62,7 +64,7 @@ export const sendEmail = actionGeneric({
         leaseToken: args.leaseToken, reason: safeReason(error), retryable: false });
       throw new Error(safeReason(error));
     }
-    await context.runMutation(ref('completeEmail'), { ...args, providerMessageId: receipt.providerMessageId });
+    await context.runMutation(ref('completeEmail'), { ...args, provider: admission.emailProvider || 'resend', providerMessageId: receipt.providerMessageId });
     return { providerMessageId: receipt.providerMessageId, status: args.stage === 'final_email' ? 'approved_sent' : 'awaiting_review' };
   },
 });
@@ -71,9 +73,13 @@ export const inspectEmail = actionGeneric({
   args: { workerToken: v.string(), jobId: v.string(), providerMessageId: v.string() },
   handler: async (context, args) => {
     const job = await context.runQuery(ref('read'), { workerToken: args.workerToken, jobId: args.jobId });
-    if (!job || !(job.emailReceipts || job.emails || []).some(receipt => receipt.providerMessageId === args.providerMessageId)) {
-      throw new Error('email_receipt_not_bound');
-    }
+    const matches = (job?.emailReceipts || job?.emails || []).filter(receipt => receipt.providerMessageId === args.providerMessageId);
+    if (!matches.length) throw new Error('email_receipt_not_bound');
+    const providers = new Set(matches.map(receipt => receipt.provider || 'resend'));
+    if (providers.size !== 1) throw new Error('email_receipt_provider_ambiguous');
+    const selected = [...providers][0];
+    if (selected === 'cloudflare') return cloudflareTransport().status({ providerMessageId: args.providerMessageId });
+    if (selected !== 'resend') throw new Error('email_provider_invalid');
     return provider('inspectEmail', { providerMessageId: args.providerMessageId });
   },
 });

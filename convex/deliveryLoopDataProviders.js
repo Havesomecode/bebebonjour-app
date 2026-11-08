@@ -2,6 +2,7 @@
 import { internalActionGeneric, makeFunctionReference } from "convex/server";
 import { v } from "convex/values";
 import { performEmail } from "../src/delivery-loop/provider-transport.mjs";
+import { cloudflareTransport, alreadyAdmitted } from "../src/delivery-loop/cloudflare-runtime.mjs";
 const ref = name => makeFunctionReference(`deliveryLoopData:${name}`);
 export const sendClosureNotice = internalActionGeneric({
   args: { jobId: v.string() },
@@ -15,7 +16,10 @@ export const sendClosureNotice = internalActionGeneric({
       if (origin.protocol !== "https:" || origin.username || origin.password || origin.pathname !== "/" || origin.search || origin.hash) throw new Error("invalid_origin");
       const url = `${origin.origin}/delivery/review?${new URLSearchParams({ jobId: args.jobId, token: notice.reviewToken })}`;
       const text = `Votre hébergement Bébé Bonjour se termine le ${new Date(notice.hostingEndsAtMs).toISOString().slice(0, 10)}. La page et son audio seront fermés et supprimés à cette échéance, sans renouvellement ni charge automatique. Téléchargez auparavant votre texte final, votre audio et votre archive de page depuis votre espace privé : ${url}\nSupport : contact@bebebonjour.com`;
-      const receipt = await performEmail({ to: notice.to, subject: "Votre annonce : fin de l’hébergement", text, html: `<p>${text.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;")}</p>`, idempotencyKey: notice.idempotencyKey });
+      const payload = { to: notice.to, subject: "Votre annonce : fin de l’hébergement", text, html: `<p>${text.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;")}</p>`, idempotencyKey: notice.idempotencyKey };
+      const receipt = notice.provider === 'cloudflare'
+        ? await cloudflareTransport().send(payload, { fenceExternalEffect: alreadyAdmitted })
+        : await performEmail(payload);
       await ctx.runMutation(ref("finishNotice"), { ...args, providerMessageId: receipt.providerMessageId });
       return { sent: true };
     } catch {

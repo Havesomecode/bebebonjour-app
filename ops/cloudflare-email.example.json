@@ -3,6 +3,6 @@
   "enabled": false,
   "accountId": "REPLACE_WITH_APPROVED_ACCOUNT_ID",
   "zoneId": "REPLACE_WITH_APPROVED_SENDING_ZONE_ID",
-  "from": "Bébé Bonjour <bonjour@updates.bebebonjour.com>",
+  "from": "Bébé Bonjour <bonjour@mail.havesomecode.io>",
   "replyTo": "contact@bebebonjour.com"
 }

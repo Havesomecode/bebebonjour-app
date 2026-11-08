@@ -3,7 +3,8 @@ import { createHash } from "node:crypto";
 import test from "node:test";
 import { Script } from "node:vm";
 import { convexTest } from "convex-test";
-import { makeFunctionReference } from "convex/server";
+import { makeFunctionReference, getFunctionName } from "convex/server";
+import { sendEmail, inspectEmail } from '../../convex/deliveryLoopProviders.js';
 import schema from "../../convex/schema.js";
 
 const workerToken = "offline-delivery-worker-token-over-32-characters";
@@ -331,6 +332,21 @@ test("email admissions retain provider identity and opaque Cloudflare receipts",
     assert.equal(stored.provider, "cloudflare");
     assert.equal(stored.providerMessageId, opaque);
   } finally { delete process.env.BEBEBONJOUR_DELIVERY_LOOP_EMAIL_PROVIDER; }
+});
+
+test("actual Cloudflare action admits one concurrent send and survives a lost completion acknowledgement", async () => {
+  const t=fixture(), job=await submit(t), generation=await claim(t); await publish(t,job.jobId,generation,'Cloudflare draft');
+  const lease=await claim(t,'cloudflare-concurrent-lease'); const args={workerToken,jobId:job.jobId,leaseToken:lease.leaseToken,revision:1,stage:'draft_email'};
+  const names=['BEBEBONJOUR_DELIVERY_LOOP_EMAIL_PROVIDER','BEBEBONJOUR_CLOUDFLARE_ACCOUNT_ID','BEBEBONJOUR_CLOUDFLARE_ZONE_ID','BEBEBONJOUR_CLOUDFLARE_EMAIL_TOKEN','BEBEBONJOUR_CLOUDFLARE_ANALYTICS_TOKEN'];const saved=Object.fromEntries(names.map(k=>[k,process.env[k]]));const original=globalThis.fetch;
+  Object.assign(process.env,{BEBEBONJOUR_DELIVERY_LOOP_EMAIL_PROVIDER:'cloudflare',BEBEBONJOUR_CLOUDFLARE_ACCOUNT_ID:'a'.repeat(32),BEBEBONJOUR_CLOUDFLARE_ZONE_ID:'b'.repeat(32),BEBEBONJOUR_CLOUDFLARE_EMAIL_TOKEN:'synthetic-send-token',BEBEBONJOUR_CLOUDFLARE_ANALYTICS_TOKEN:'synthetic-read-token'});
+  let started, release; const reached=new Promise(r=>started=r), gate=new Promise(r=>release=r);let calls=0;
+  globalThis.fetch=async(_url,opts)=>{calls++;started();await gate;const body=JSON.parse(opts.body);return Response.json({success:true,errors:[],result:{message_id:'<durable@example.invalid>',queued:[body.to],delivered:[],permanent_bounces:[]}});};
+  const ctx={runQuery:(fn,a)=>t.query(fn,a),runMutation:async(fn,a)=>{const result=await t.mutation(fn,a);if(getFunctionName(fn).endsWith(':completeEmail'))throw new Error('lost_db_ack');return result;}};
+  try {const first=sendEmail._handler(ctx,args);await reached;await assert.rejects(sendEmail._handler(ctx,args),/email_reconciliation_required/);release();await assert.rejects(first,/lost_db_ack/);const row=await read(t,job.jobId);assert.equal(calls,1);assert.equal(row.emailReceipts[0].provider,'cloudflare');assert.equal(row.emailReceipts[0].providerMessageId,'<durable@example.invalid>');await assert.rejects(sendEmail._handler(ctx,args));assert.equal(calls,1);
+    process.env.BEBEBONJOUR_DELIVERY_LOOP_EMAIL_PROVIDER='resend';
+    globalThis.fetch=async(url,opts)=>{assert.equal(url,'https://api.cloudflare.com/client/v4/graphql');const datetime=JSON.parse(opts.body).variables.end;return Response.json({data:{viewer:{zones:[{emailSendingAdaptive:[{messageId:'<durable@example.invalid>',status:'delivered',datetime}]}]}}});};
+    const status=await inspectEmail._handler(ctx,{workerToken,jobId:job.jobId,providerMessageId:'<durable@example.invalid>'});assert.equal(status.outcome,'delivered');}
+  finally {release();globalThis.fetch=original;for(const k of names)if(saved[k]===undefined)delete process.env[k];else process.env[k]=saved[k];}
 });
 
 test("a repeated email fence cannot admit a second provider call", async () => {

@@ -1,4 +1,4 @@
-const SENDER = "Bébé Bonjour <bonjour@updates.bebebonjour.com>";
+const SENDER = "Bébé Bonjour <bonjour@mail.havesomecode.io>";
 const REPLY_TO = "contact@bebebonjour.com";
 const DAY_MS = 24 * 60 * 60 * 1000;
 const EVENT_LIMIT = 50;
@@ -41,7 +41,7 @@ export function createCloudflareEmailTransport(options = {}) {
     },
     async send(message, { fenceExternalEffect } = {}) {
       validateMessage(message);
-      const payload = { from: { address: "bonjour@updates.bebebonjour.com", name: "Bébé Bonjour" },
+      const payload = { from: { address: "bonjour@mail.havesomecode.io", name: "Bébé Bonjour" },
         to: message.to, reply_to: config.replyTo, subject: message.subject, html: message.html, text: message.text,
         headers: { "X-Bebe-Operation": message.idempotencyKey } };
       const idempotencyKey = message.idempotencyKey;

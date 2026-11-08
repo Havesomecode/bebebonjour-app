@@ -7,7 +7,7 @@ import {
 } from "../../src/fulfillment/cloudflare-email-transport.mjs";
 
 const config = { provider: "cloudflare", enabled: true, accountId: "a".repeat(32), zoneId: "b".repeat(32),
-  from: "Bébé Bonjour <bonjour@updates.bebebonjour.com>", replyTo: "contact@bebebonjour.com" };
+  from: "Bébé Bonjour <bonjour@mail.havesomecode.io>", replyTo: "contact@bebebonjour.com" };
 const environment = { BEBEBONJOUR_CLOUDFLARE_EMAIL_TOKEN: "synthetic-send-token",
   BEBEBONJOUR_CLOUDFLARE_ANALYTICS_TOKEN: "synthetic-read-token" };
 const message = { to: "recipient@example.invalid", subject: "Une annonce est prête", html: "<p>Annonce</p>",
@@ -55,7 +55,7 @@ test("REST preserves real delivery-loop content, support reply-to and opaque mes
     assert.equal(options.headers.authorization, `Bearer ${environment.BEBEBONJOUR_CLOUDFLARE_EMAIL_TOKEN}`);
     assert(!("idempotency-key" in options.headers));
     assert.deepEqual(JSON.parse(options.body), { to: message.to,
-      from: { address: "bonjour@updates.bebebonjour.com", name: "Bébé Bonjour" },
+      from: { address: "bonjour@mail.havesomecode.io", name: "Bébé Bonjour" },
       reply_to: config.replyTo, subject: message.subject, html: message.html, text: message.text,
       headers: { "X-Bebe-Operation": message.idempotencyKey } });
     return json(accepted());

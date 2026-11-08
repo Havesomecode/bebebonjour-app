@@ -10,7 +10,7 @@ import { createFulfillmentOrchestrator, EDITORIAL_POLICY_VERSION } from "../../s
 import { createLocalTestFulfillmentStore } from "../../src/persistence/local-test-fulfillment-store.mjs";
 
 const config = { provider: "cloudflare", enabled: true, accountId: "a".repeat(32), zoneId: "b".repeat(32),
-  from: "Bébé Bonjour <bonjour@updates.bebebonjour.com>", replyTo: "contact@bebebonjour.com" };
+  from: "Bébé Bonjour <bonjour@mail.havesomecode.io>", replyTo: "contact@bebebonjour.com" };
 const environment = { BEBEBONJOUR_CLOUDFLARE_EMAIL_TOKEN: "synthetic-send-token",
   BEBEBONJOUR_CLOUDFLARE_ANALYTICS_TOKEN: "synthetic-read-token" };
 const policy = { jobId: "job_synthetic_001", revisionId: "r1", artifactManifestDigest: "3".repeat(64),
