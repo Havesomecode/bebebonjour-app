@@ -315,6 +315,24 @@ test("uploads/publication are lease-fenced, digest-bound and reject private capa
   assert.equal((await read(t, job.jobId)).latestRevision, 0);
 });
 
+test("email admissions retain provider identity and opaque Cloudflare receipts", async () => {
+  const t = fixture(); const job = await submit(t); const generation = await claim(t);
+  await publish(t, job.jobId, generation, "Provider binding draft");
+  const lease = await claim(t, "provider-binding-email-lease");
+  const args = { workerToken, jobId: job.jobId, leaseToken: lease.leaseToken, revision: 1, stage: "draft_email" };
+  process.env.BEBEBONJOUR_DELIVERY_LOOP_EMAIL_PROVIDER = "cloudflare";
+  try {
+    const fenced = await t.mutation(ref("fence"), args);
+    assert.equal(fenced.emailProvider, "cloudflare");
+    const opaque = `<${"opaque".repeat(40)}@example.invalid>`;
+    await assert.rejects(t.mutation(ref("completeEmail"), { ...args, provider: "resend", providerMessageId: opaque }), /provider_mismatch/);
+    await t.mutation(ref("completeEmail"), { ...args, provider: "cloudflare", providerMessageId: opaque });
+    const stored = (await read(t, job.jobId)).emailReceipts.at(-1);
+    assert.equal(stored.provider, "cloudflare");
+    assert.equal(stored.providerMessageId, opaque);
+  } finally { delete process.env.BEBEBONJOUR_DELIVERY_LOOP_EMAIL_PROVIDER; }
+});
+
 test("a repeated email fence cannot admit a second provider call", async () => {
   const t = fixture(); const job = await submit(t); const generation = await claim(t);
   await publish(t, job.jobId, generation, "Single admission draft");

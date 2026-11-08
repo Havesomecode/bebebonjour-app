@@ -154,7 +154,7 @@ export const status = queryGeneric({ args: { jobId: v.string(), reviewToken: v.s
 
 function work(row) {
   const latest = row.data.revisions.find((r) => r.revision === row.data.latestRevision);
-  return { ...full(row), revision: row.data.desiredRevision, stage: row.data.lease.stage, leaseToken: row.data.lease.leaseToken, leaseExpiresAtMs: row.data.lease.leaseExpiresAtMs, effectStartedAtMs: row.data.lease.effectStartedAtMs ?? null, emailIdempotencyKey: `bebe-loop:${row.jobId}:${row.data.desiredRevision}:${row.data.lease.stage}`, previousComposition: latest?.composition ?? null, ...(isPaid(row) ? { approvedPreview: latest } : {}) };
+  return { ...full(row), revision: row.data.desiredRevision, stage: row.data.lease.stage, leaseToken: row.data.lease.leaseToken, leaseExpiresAtMs: row.data.lease.leaseExpiresAtMs, effectStartedAtMs: row.data.lease.effectStartedAtMs ?? null, emailProvider: row.data.lease.emailProvider ?? null, emailIdempotencyKey: `bebe-loop:${row.jobId}:${row.data.desiredRevision}:${row.data.lease.stage}`, previousComposition: latest?.composition ?? null, ...(isPaid(row) ? { approvedPreview: latest } : {}) };
 }
 export const claim = mutationGeneric({
   args: { workerToken: v.string(), workerId: v.string(), leaseToken: v.string() },
@@ -280,7 +280,10 @@ export const fence = mutationGeneric({
     auth(args.workerToken); const row = await get(ctx, args.jobId); const lease = authorizeLease(row, args.leaseToken, args.revision, args.stage);
     if (["generate", "finalize"].includes(args.stage)) throw new Error("email_stage_required");
     if (lease.effectStartedAtMs === undefined) {
+      const provider = process.env.BEBEBONJOUR_DELIVERY_LOOP_EMAIL_PROVIDER || "resend";
+      if (!["resend", "cloudflare"].includes(provider)) throw new Error("email_provider_invalid");
       lease.effectStartedAtMs = Date.now();
+      lease.emailProvider = provider;
       lease.emailIdempotencyKey = `bebe-loop:${row.jobId}:${row.data.desiredRevision}:${args.stage}`;
       audit(row, "email_effect_started", { stage: args.stage, revision: row.data.desiredRevision, idempotencyKey: lease.emailIdempotencyKey });
       await save(ctx, row);
@@ -289,18 +292,20 @@ export const fence = mutationGeneric({
   },
 });
 export const completeEmail = mutationGeneric({
-  args: { ...leaseArgs, revision: v.number(), stage: stageValue, providerMessageId: v.string() },
+  args: { ...leaseArgs, revision: v.number(), stage: stageValue, providerMessageId: v.string(), provider: v.optional(v.union(v.literal("resend"), v.literal("cloudflare"))) },
   handler: async (ctx, args) => {
-    auth(args.workerToken); const row = await get(ctx, args.jobId); text(args.providerMessageId, 200);
+    auth(args.workerToken); const row = await get(ctx, args.jobId);
+    if (!/^[\x21-\x7e]{1,998}$/.test(args.providerMessageId)) throw new Error("invalid_provider_message_id");
     if (["generate", "finalize"].includes(args.stage)) throw new Error("email_stage_required");
     const previous = row.data.emailReceipts.find((e) => e.revision === args.revision && e.stage === args.stage);
     if (previous) {
-      if (previous.providerMessageId !== args.providerMessageId || previous.leaseToken !== args.leaseToken) throw new Error("email_completion_conflict");
+      if (previous.providerMessageId !== args.providerMessageId || previous.leaseToken !== args.leaseToken || (previous.provider || "resend") !== (args.provider || "resend")) throw new Error("email_completion_conflict");
       return safeStatus(row);
     }
     const lease = authorizeLease(row, args.leaseToken, args.revision, args.stage);
     if (lease.effectStartedAtMs === undefined) throw new Error("email_not_fenced");
-    row.data.emailReceipts.push({ revision: args.revision, stage: args.stage, providerMessageId: args.providerMessageId, idempotencyKey: lease.emailIdempotencyKey, leaseToken: args.leaseToken, sentAtMs: Date.now() });
+    if ((lease.emailProvider || "resend") !== (args.provider || "resend")) throw new Error("provider_mismatch");
+    row.data.emailReceipts.push({ revision: args.revision, stage: args.stage, provider: lease.emailProvider || "resend", providerMessageId: args.providerMessageId, idempotencyKey: lease.emailIdempotencyKey, leaseToken: args.leaseToken, sentAtMs: Date.now() });
     if (isPaid(row)) {
       if (args.stage === "draft_email") row.data.previewExpiresAtMs = Date.now() + PREVIEW_MS;
       else {
