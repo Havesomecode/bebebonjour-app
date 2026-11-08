@@ -1,6 +1,9 @@
 const SENDER = "Bébé Bonjour <bonjour@mail.havesomecode.io>";
 const REPLY_TO = "contact@bebebonjour.com";
 const DAY_MS = 24 * 60 * 60 * 1000;
+// Keep a minute inside the documented 31-day retention boundary.
+const LOOKBACK_MS = 31 * DAY_MS - 60_000;
+const MAX_STATUS_QUERIES = 128;
 const EVENT_LIMIT = 50;
 const QUERY = `query BebeEmailStatus($zoneTag: string!, $start: Time!, $end: Time!) {
   viewer {
@@ -74,25 +77,41 @@ export function createCloudflareEmailTransport(options = {}) {
       const end = clock();
       const endMs = Date.parse(end);
       if (!Number.isFinite(endMs)) throw failure("cloudflare_status_input_invalid", false);
-      const start = new Date(endMs - DAY_MS).toISOString();
-      const body = await requestJson(fetchImpl, "https://api.cloudflare.com/client/v4/graphql",
-        config.analyticsToken, { query: QUERY, variables: { zoneTag: config.zoneId, start, end } },
-        "cloudflare_status_unavailable", true);
-      const zones = body?.data?.viewer?.zones;
-      const events = zones?.[0]?.emailSendingAdaptive;
-      if ((body?.errors !== undefined && (!Array.isArray(body.errors) || body.errors.length))
-          || !Array.isArray(zones) || zones.length !== 1 || !Array.isArray(events)
-          || events.length >= EVENT_LIMIT || events.some(event => !event || !isMessageId(event.messageId)
-            || typeof event.status !== "string" || typeof event.datetime !== "string"
-            || !Number.isFinite(Date.parse(event.datetime)) || Date.parse(event.datetime) > endMs
-            || Date.parse(event.datetime) < endMs - DAY_MS)) {
-        throw failure("cloudflare_status_unavailable", true);
+      const windows = [[endMs - LOOKBACK_MS, endMs]];
+      let latest;
+      let calls = 0;
+      while (windows.length) {
+        const [startMs, windowEndMs] = windows.pop();
+        if (++calls > MAX_STATUS_QUERIES) throw failure("cloudflare_status_unavailable", true);
+        const start = new Date(startMs).toISOString();
+        const end = new Date(windowEndMs).toISOString();
+        const body = await requestJson(fetchImpl, "https://api.cloudflare.com/client/v4/graphql",
+          config.analyticsToken, { query: QUERY, variables: { zoneTag: config.zoneId, start, end } },
+          "cloudflare_status_unavailable", true);
+        const zones = body?.data?.viewer?.zones;
+        const events = zones?.[0]?.emailSendingAdaptive;
+        if ((body?.errors !== undefined && (!Array.isArray(body.errors) || body.errors.length))
+            || !Array.isArray(zones) || zones.length !== 1 || !Array.isArray(events)
+            || events.some(event => !event || !isMessageId(event.messageId)
+              || typeof event.status !== "string" || typeof event.datetime !== "string"
+              || !Number.isFinite(Date.parse(event.datetime)) || Date.parse(event.datetime) > windowEndMs
+              || Date.parse(event.datetime) < startMs)) throw failure("cloudflare_status_unavailable", true);
+        if (events.length >= EVENT_LIMIT) {
+          if (windowEndMs - startMs <= 1) throw failure("cloudflare_status_unavailable", true);
+          const midpoint = Math.floor((startMs + windowEndMs) / 2);
+          windows.push([startMs, midpoint], [midpoint, windowEndMs]);
+          continue;
+        }
+        const matches = events.filter(event => event.messageId === providerMessageId)
+          .sort((a, b) => Date.parse(b.datetime) - Date.parse(a.datetime));
+        latest = matches[0];
+        if (latest) {
+          if (matches.some(event => Date.parse(event.datetime) === Date.parse(latest.datetime)
+              && event.status !== latest.status)) throw failure("cloudflare_status_unavailable", true);
+          break;
+        }
       }
-      const matches = events.filter(event => event.messageId === providerMessageId)
-        .sort((a, b) => Date.parse(b.datetime) - Date.parse(a.datetime));
-      const latest = matches[0];
-      if (!latest || matches.some(event => Date.parse(event.datetime) === Date.parse(latest.datetime)
-          && event.status !== latest.status)) throw failure("cloudflare_status_unavailable", true);
+      if (!latest) throw failure("cloudflare_status_unavailable", true);
       const outcomes = { sent: "pending", delivered: "delivered", deliveryFailed: "failed", rejected: "failed", failed: "failed" };
       const outcome = Object.hasOwn(outcomes, latest.status) ? outcomes[latest.status] : null;
       if (!outcome) throw failure("cloudflare_status_unavailable", true);

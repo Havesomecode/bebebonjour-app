@@ -124,6 +124,41 @@ test("no send errors trigger a retry or provider fallback; untrusted provider co
   }
 });
 
+test("status finds a recent or old receipt in a busy zone without trusting truncated results", async () => {
+  for (const ageDays of [0, 20]) {
+    const end = Date.parse(now);
+    const target = { messageId, status: "delivered", datetime: new Date(end - ageDays * 86400000 - 1000).toISOString() };
+    const noise = Array.from({ length: 80 }, (_, i) => ({ messageId: `noise-${i}`, status: "sent", datetime: new Date(end - i * 60000).toISOString() }));
+    let calls = 0;
+    const transport = setup(async (_url, options) => {
+      calls++;
+      const { start, end } = JSON.parse(options.body).variables;
+      const rows = [...noise, target].filter(e => e.datetime >= start && e.datetime <= end)
+        .sort((a, b) => b.datetime.localeCompare(a.datetime)).slice(0, 50);
+      return json(analytics(rows));
+    });
+    assert.equal((await transport.status({ providerMessageId: messageId })).outcome, "delivered");
+    assert(calls > 1 && calls <= 128);
+  }
+});
+
+test("a truly saturated timestamp and conflicting latest events fail closed", async () => {
+  const at = "2026-11-08T10:59:00.000Z";
+  for (const events of [
+    Array.from({ length: 50 }, (_, i) => ({ messageId: i ? `other-${i}` : messageId, status: "delivered", datetime: at })),
+    [{ messageId, status: "delivered", datetime: at }, { messageId, status: "failed", datetime: at }],
+  ]) {
+    let calls = 0;
+    const transport = setup(async (_url, options) => {
+      calls++;
+      const { start, end } = JSON.parse(options.body).variables;
+      return json(analytics(events.filter(event => event.datetime >= start && event.datetime <= end)));
+    });
+    await assert.rejects(transport.status({ providerMessageId: messageId }), /cloudflare_status_unavailable/);
+    assert(calls <= 128);
+  }
+});
+
 test("status reads only bounded metadata, matches exact ID, and never equates sent with delivered", async () => {
   const mapping = { sent: "pending", delivered: "delivered", deliveryFailed: "failed", rejected: "failed", failed: "failed" };
   for (const [status, outcome] of Object.entries(mapping)) {
@@ -134,7 +169,7 @@ test("status reads only bounded metadata, matches exact ID, and never equates se
       assert.equal(options.headers.authorization, `Bearer ${environment.BEBEBONJOUR_CLOUDFLARE_ANALYTICS_TOKEN}`);
       assert.equal(options.redirect, "error");
       const body = JSON.parse(options.body);
-      assert.deepEqual(body.variables, { zoneTag: config.zoneId, start: "2026-11-07T11:00:00.000Z", end: now });
+      assert.deepEqual(body.variables, { zoneTag: config.zoneId, start: "2026-10-08T11:01:00.000Z", end: now });
       assert.match(body.query, /emailSendingAdaptive/);
       assert.match(body.query, /limit: 50/);
       assert(!/\b(subject|from|to|errorDetail)\b/.test(body.query));
@@ -161,7 +196,7 @@ test("absent, truncated, unknown, conflicting or invalid status cannot confirm d
     { data: { viewer: { zones: [] } } }, analytics([{ ...event, messageId: "different" }]),
     analytics([{ ...event, status: "opened" }]), analytics([{ ...event, datetime: "bad" }]),
     analytics([{ ...event, datetime: "2026-11-09T00:00:00Z" }]),
-    analytics([{ ...event, datetime: "2026-11-06T00:00:00Z" }]),
+    analytics([{ ...event, datetime: "2026-10-07T00:00:00Z" }]),
     analytics([event, { ...event, status: "failed" }]),
     analytics(Array.from({ length: 50 }, () => event)), analytics([event, null]),
   ];
