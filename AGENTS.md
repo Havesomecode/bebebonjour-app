@@ -21,6 +21,12 @@ Keep customer and baby data, private artifacts, credentials, customer URLs and p
 
 `DELIVERY_LOOP.md` describes a distinct password-waived first-party path and its scoped mandate, including first-version publication before review and simulated acceptance decisions. Do not apply the older TEST-A review sequence to that path or generalize either document's authority. Check current scope before provider spend, deployment, publication, email, payment changes or production access. For uncertain external effects, stop and reconcile rather than replaying blindly. `OWNER_PUBLICATION_DELIVERY_RUNBOOK.md` is scoped to its exact job and revision.
 
+## Shared workspace rules
+
+Read and follow the shared workspace policy for every project, including projects with real users.
+
+@/home/hermes/repos/prompts-lib/AGENTS_WORKSPACE.md
+
 ## Shared building rules
 
 Read the shared file below before changing this project. Its development rules apply only if the project has no real users yet; confirm that status before applying them. Existing project-specific security, data-preservation, and release requirements still apply.
