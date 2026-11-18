@@ -3,6 +3,7 @@ import test from "node:test";
 
 import {
   CustomerFlowError,
+  createCustomerFlowRuntime,
   createCustomerFlowService,
 } from "../../src/customer-flow/service.mjs";
 import { createInMemoryCustomerFlowStore } from "../../src/customer-flow/memory-store.mjs";
@@ -37,8 +38,8 @@ function harness(options = {}) {
     ],
     event: ["event_test_001", "event_test_002"],
   };
-  const store = createInMemoryCustomerFlowStore();
-  const service = createCustomerFlowService({
+  const store = options.store || createInMemoryCustomerFlowStore();
+  const runtime = createCustomerFlowRuntime({
     store,
     now: () => "2026-08-11T00:00:00.000Z",
     createId(kind) {
@@ -58,8 +59,15 @@ function harness(options = {}) {
     },
 
     fulfillmentOrchestrator: options.fulfillmentOrchestrator,
+    enqueueWorkItem: options.enqueueWorkItem,
+    atomicFulfillment: options.atomicFulfillment,
   });
-  return { checkoutCalls, service, store };
+  return {
+    checkoutCalls,
+    service: runtime.customerService,
+    operationsCheckout: runtime.operationsCheckout,
+    store,
+  };
 }
 
 async function createJob(service, intake = syntheticIntake, options = {}) {
@@ -124,6 +132,74 @@ test("synthetic intake creates a canonical private job and reusable test checkou
   assert.equal(first.checkoutUrl.includes(syntheticIntake.customer.email), false);
 });
 
+test("operations-created checkout persists immutable command provenance", async () => {
+  const { service, operationsCheckout, store } = harness();
+  const submission = await createJob(service);
+  const operationsCommandId = "command_checkout_provenance_000001";
+  await operationsCheckout.createCheckout(submission.jobId, operationsCommandId);
+  const stored = await store.readJob(submission.jobId);
+  assert.equal(stored.payment.checkout.operationsCommandId, operationsCommandId);
+});
+
+test("customer checkout cannot forge Operations command provenance", async () => {
+  const { service, store } = harness();
+  const submission = await createJob(service);
+  await service.createCheckout(submission.jobId, submission.intakeToken, {
+    operationsCommandId: "command_customer_forged_000001",
+  });
+  const stored = await store.readJob(submission.jobId);
+  assert.equal(stored.payment.checkout.operationsCommandId, undefined);
+});
+
+test("only an explicitly operational intake enqueues Kanban work", async () => {
+  const syntheticHarness = harness();
+  await createJob(syntheticHarness.service);
+  assert.deepEqual(await syntheticHarness.store.claimWorkItems({
+    workerId: "bridge_test_worker",
+    limit: 10,
+    nowMs: 1_788_000_000_000,
+    leaseMs: 120_000,
+  }), []);
+
+  const backingStore = createInMemoryCustomerFlowStore();
+  let createOptions;
+  let nonAtomicCreateCalls = 0;
+  const operationalStore = {
+    ...backingStore,
+    async createJob(...args) {
+      createOptions = structuredClone(args[4]);
+      return backingStore.createJob(...args);
+    },
+  };
+  const operationalHarness = harness({
+    store: operationalStore,
+    enqueueWorkItem: true,
+    atomicFulfillment: true,
+    fulfillmentOrchestrator: {
+      async createJob() {
+        nonAtomicCreateCalls += 1;
+      },
+      async recordPayment() {},
+      async status() {},
+    },
+  });
+  const submission = await createJob(operationalHarness.service);
+  assert.equal(createOptions.enqueueWorkItem, true);
+  assert.equal(createOptions.fulfillmentAggregate.jobId, submission.jobId);
+  assert.equal(createOptions.fulfillmentAggregate.product, "announcement-page");
+  assert.equal(createOptions.fulfillmentAggregate.paymentCorrelation.product, "announcement-page");
+  assert.equal(createOptions.fulfillmentAggregate.state, "awaiting_payment");
+  assert.equal(nonAtomicCreateCalls, 0);
+  const claimed = await operationalHarness.store.claimWorkItems({
+    workerId: "bridge_test_worker",
+    limit: 10,
+    nowMs: 1_788_000_000_000,
+    leaseMs: 120_000,
+  });
+  assert.equal(claimed.length, 1);
+  assert.equal(claimed[0].jobId, submission.jobId);
+});
+
 test("explicit intake idempotency replays only the same request and rejects conflicts", async () => {
   const { service } = harness();
   const options = { idempotencyKey: "intake:test:request-001" };
@@ -140,6 +216,16 @@ test("explicit intake idempotency replays only the same request and rejects conf
       && error.statusCode === 409
       && error.code === "idempotency_conflict",
   );
+});
+
+test("synthetic-only intake accepts the documented Resend delivery test sink", async () => {
+  const { service } = harness();
+  const submission = await createJob(service, {
+    ...structuredClone(syntheticIntake),
+    customer: { email: "delivered@resend.dev", consent: true },
+  });
+
+  assert.equal(submission.status, "payment_pending");
 });
 
 test("customer-flow service exposes no parallel editorial or delivery lifecycle", () => {
@@ -182,10 +268,30 @@ test("payment authority is idempotent and cannot satisfy another job", async () 
     currency: "EUR",
     livemode: false,
     metadata: checkout.metadata,
+    payloadSha256: "e".repeat(64),
   };
   const accepted = await service.recordPaymentSucceeded(payment);
   const replay = await service.recordPaymentSucceeded(payment);
   assert.deepEqual(replay, accepted);
+  await assert.rejects(
+    service.recordPaymentSucceeded({ ...payment, payloadSha256: "f".repeat(64) }),
+    (error) => error instanceof CustomerFlowError && error.code === "payment_event_conflict",
+  );
+  const duplicate = await service.recordPaymentSucceeded({
+    ...payment,
+    providerEventId: "evt_stripe_test_duplicate_identity",
+    payloadSha256: "d".repeat(64),
+  });
+  assert.deepEqual(duplicate, accepted);
+  await assert.rejects(
+    service.recordPaymentSucceeded({
+      ...payment,
+      providerEventId: "evt_stripe_test_other_payment",
+      paymentIntentId: "pi_test_other_payment",
+      payloadSha256: "c".repeat(64),
+    }),
+    (error) => error instanceof CustomerFlowError && error.code === "payment_event_conflict",
+  );
   assert.equal((await service.getStatus(first.jobId, first.intakeToken)).payment, "paid");
   assert.equal((await service.getStatus(second.jobId, second.intakeToken)).payment, "pending");
 });
@@ -225,9 +331,58 @@ test("intake, payment, and customer status bind to the canonical fulfillment orc
   await payJob(service, submission);
   const recorded = calls.find(({ method }) => method === "recordPayment");
   assert.equal(recorded.jobId, submission.jobId);
-  assert.equal(recorded.payment.commandId, "stripe:evt_stripe_test_001");
+  assert.match(recorded.payment.commandId, /^stripe-payment:[a-f0-9]{64}$/);
   assert.deepEqual(recorded.payment.correlation, created.input.paymentCorrelation);
   assert.equal((await service.getStatus(submission.jobId, submission.intakeToken)).status, "generation_pending");
+});
+
+test("concurrent same-id Stripe payload conflicts are fenced before a second effect", async () => {
+  let paymentCalls = 0;
+  let releaseFirst;
+  let markEntered;
+  const entered = new Promise((resolve) => { markEntered = resolve; });
+  const holdFirst = new Promise((resolve) => { releaseFirst = resolve; });
+  const fulfillmentOrchestrator = {
+    async createJob(input) { return { jobId: input.jobId, state: "awaiting_payment" }; },
+    async status(jobId) { return { jobId, state: "awaiting_payment" }; },
+    async recordPayment(jobId) {
+      paymentCalls += 1;
+      if (paymentCalls === 1) {
+        markEntered();
+        await holdFirst;
+      }
+      return { jobId, state: "generation_queued" };
+    },
+  };
+  const { service } = harness({ fulfillmentOrchestrator });
+  const submission = await createJob(service);
+  const checkout = await service.createCheckout(submission.jobId, submission.intakeToken);
+  const payment = {
+    providerEventId: "evt_test_concurrent",
+    sessionId: checkout.sessionId,
+    paymentIntentId: "pi_test_concurrent",
+    amountMinor: 3900,
+    currency: "EUR",
+    livemode: false,
+    metadata: checkout.metadata,
+    payloadSha256: "a".repeat(64),
+  };
+
+  const first = service.recordPaymentSucceeded(payment).then(
+    (value) => ({ value }),
+    (error) => ({ error }),
+  );
+  await entered;
+  const second = await service.recordPaymentSucceeded({
+    ...payment,
+    payloadSha256: "b".repeat(64),
+  }).then((value) => ({ value }), (error) => ({ error }));
+  releaseFirst();
+  const firstOutcome = await first;
+
+  assert.equal(firstOutcome.error, undefined);
+  assert.equal(second.error?.code, "payment_event_conflict");
+  assert.equal(paymentCalls, 1);
 });
 
 test("invalid customer credentials and fields fail with stable redacted errors", async () => {

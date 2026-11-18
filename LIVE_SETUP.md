@@ -1,213 +1,259 @@
-# Live TTS And Deploy
+# Bébé Bonjour live setup
 
-> **Authorization status:** This file documents operator preparation only. No
-> live TTS generation, deployment, hosted database migration, database-role
-> credential provisioning, provider change, or compensating migration has been
-> approved. Each live operation requires separate, explicit human authorization
-> before an operator executes it.
+This document describes the current production-boundary topology. Historical
+provider reports under `openspec/reports/` are evidence only and are not runtime
+instructions.
 
-## Credentials
+## Canonical topology
 
-Copy `.env.example` to `.env.local` and set:
+1. `https://bebebonjour.com` links to the public Tally intake form.
+2. Tally sends a signed, intake-only `FORM_RESPONSE` webhook to
+   `https://bebebonjour-fulfillment.vercel.app/api/webhooks/tally`.
+3. The Vercel handler verifies the raw-body HMAC and exact form ID, maps stable
+   question/option IDs, and creates one unpaid customer-flow job in Convex.
+4. The same Convex transaction creates its canonical fulfillment aggregate and
+   one PII-free work item containing only the canonical job reference.
+5. A local Hermes dispatcher claims work under a bounded lease and creates one
+   idempotent card on the `personal-projects` Kanban board for tenant
+   `bebe-bonjour`.
+6. Stripe checkout and the Stripe webhook remain a separate payment transition.
+   Generation, publication, and delivery remain behind canonical payment state
+   and exact human approval.
 
-- `OPENAI_API_KEY` for live narration generation
-- `BEBEBONJOUR_APPROVAL_HMAC_KEY` with at least 32 bytes of high-entropy secret material for content and narration approval evidence
-- `VERCEL_TOKEN` for live deployment
-- `VERCEL_ORG_ID` and `VERCEL_PROJECT_ID` if this repo is not already linked to a Vercel project
+Tally is **not** a payment system in this topology. Remove every Tally payment
+block before enabling the webhook. Payment fields are intentionally rejected by
+the field-map contract.
 
-Shell environment variables still win over `.env.local`.
+## Canonical provider identity
 
-## Media Validation Prerequisite
+- Convex account/team: `havesomecode`
+- Convex project: `bebebonjour-test-a`
+- Convex environment: `prod`
+- Current deployment: resolve with
+  `npx convex deployments --deployment havesomecode:bebebonjour-test-a:prod`
+- Vercel project: `bebebonjour-fulfillment`
+- Vercel production alias: `https://bebebonjour-fulfillment.vercel.app`
+- Isolated generation worker project: `bebebonjour-generation-worker` (resolve
+  and record its provider project ID before the first separately authorized deploy)
 
-Narration generation, approval, deploy, and send require the `ffprobe`
-executable supplied by FFmpeg. Install it before authorizing any paid TTS call
-(on macOS: `brew install ffmpeg`) and verify:
+Always resolve the production alias immediately before deploy. Do not reuse a
+retired preview deployment name from an old manifest.
+
+## Convex deployment
+
+From the exact reviewed worktree:
 
 ```bash
-ffprobe -version
+npx convex deploy --deployment havesomecode:bebebonjour-test-a:prod
 ```
 
-The TTS command checks this prerequisite before contacting the provider. Every
-later gate probes each segment again and reconstructs cumulative timing from the
-decoded media durations.
+Set `CUSTOMER_FLOW_BACKEND_TOKEN` and `BEBEBONJOUR_OPERATIONS_WORKER_TOKEN` on
+that exact Convex production deployment. The first token is mounted only in the
+fulfillment project; the second is mounted only in the isolated generation
+project. The values must be distinct and neither may be printed, committed,
+copied into Kanban, or exposed to browser code.
 
-## Render The Content-Approved Base
+The deployed schema must include:
+
+- `customerFlowJobs`
+- `customerFlowSubmissions`
+- `customerFlowProviderEvents`
+- `customerFlowWorkItems`
+- `customerFlowOperationsCommands` and `customerFlowOperationsLoginThrottle`
+- `fulfillmentJobs` and `fulfillmentReviewApprovals`
+- `fulfillmentGenerationEditorialApprovals` and
+  `fulfillmentGenerationArtifactSets`; artifact bytes live in Convex `_storage`
+
+## Vercel production variables
+
+The fulfillment project requires these server-side names:
+
+- `CONVEX_URL`
+- `CUSTOMER_FLOW_BACKEND_TOKEN`
+- `CUSTOMER_FLOW_TOKEN_ENCRYPTION_KEY`
+- `CUSTOMER_FLOW_TEST_ACCESS_TOKEN`
+- `CUSTOMER_FLOW_ALLOWED_ORIGINS`
+- `BEBEBONJOUR_OPERATIONS_TOKEN`
+- `BEBEBONJOUR_OPS_RATE_LIMIT_TOKEN`
+- `STRIPE_SECRET_KEY` (test mode until a separately approved live rollout)
+- `STRIPE_CUSTOMER_FLOW_WEBHOOK_SECRET`
+- `STRIPE_CHECKOUT_SUCCESS_URL`
+- `STRIPE_CHECKOUT_CANCEL_URL`
+- `TALLY_INTAKE_FORM_ID`
+- `TALLY_INTAKE_FIELD_MAP`
+- `TALLY_INTAKE_SIGNING_SECRET`
+
+`CONVEX_URL` must point to the current production deployment returned by the
+provider, not a deleted preview. List variable names with `vercel env ls`; never
+print values.
+
+The separate `bebebonjour-generation-worker` project uses
+`vercel.generation-worker.json`, packages only
+`generation-worker/api/worker.mjs`, and has exactly these application variables:
+
+- `CONVEX_URL`
+- `BEBEBONJOUR_OPERATIONS_WORKER_TOKEN`
+- `BEBEBONJOUR_OPERATIONS_WORKER_ID`
+- `BEBEBONJOUR_OPERATIONS_WORKER_ACTIONS=generate`
+- `BEBEBONJOUR_OPERATIONS_WORKER_LIMIT=5`
+- `BEBEBONJOUR_OPERATIONS_WORKER_LEASE_MS=120000`
+- `CRON_SECRET`
+
+It must not contain `CUSTOMER_FLOW_BACKEND_TOKEN`, operations UI credentials,
+payment, email, Tally, publication, provider-management, or model-provider
+credentials. Read back variable names and the provider project ID before deploy;
+never print values. The main fulfillment project must not contain any of the six
+`BEBEBONJOUR_OPERATIONS_WORKER_*`/`CRON_SECRET` worker inputs.
+
+## Tally form and webhook
+
+Before enabling the webhook:
+
+1. Remove the payment block and any payment-derived fields.
+2. Add an explicit required consent checkbox.
+3. Keep required questions for email, language, narration voice, baby first name,
+   baby gender, and announcement context.
+4. Record the stable question and option IDs from a synthetic response.
+5. Build `TALLY_INTAKE_FIELD_MAP` with only the supported keys shown in
+   `test/fixtures/tally-intake-field-map.json`.
+6. Add the production webhook URL in Tally integrations.
+7. Store Tally's generated signing secret as `TALLY_INTAKE_SIGNING_SECRET` in
+   Vercel. Never paste it into the repository or a Kanban card.
+
+Send one synthetic submission using an `.test` address before accepting a real
+customer. Verify that Tally receives HTTP 200, Convex contains one job and one
+work item, and a replay creates neither a second job nor a second card.
+
+## Hermes intake dispatcher
+
+Run `scripts/dispatch-intakes-to-kanban.mjs` with only these environment values:
+
+- `CONVEX_URL`
+- `CUSTOMER_FLOW_BACKEND_TOKEN`
+
+The dispatcher:
+
+- claims one work item per poll for a two-minute lease;
+- bounds the local Hermes create call to 30 seconds;
+- passes only a job reference to Kanban;
+- uses `bebebonjour:intake:<job-id>` as the Hermes idempotency key;
+- records the durable Kanban task ID back in Convex; and
+- releases a failed claim with a bounded reason code, never a provider error or
+  customer payload.
+
+The production backend token is stored as
+`BEBEBONJOUR_CUSTOMER_FLOW_BACKEND_TOKEN` in the active Hermes profile's
+secret-only `.env` (`${HERMES_HOME:-$HOME/.hermes}/.env`, mode `0600`). It must
+never be copied into the repository. Use the wrappers:
 
 ```bash
-node ./bin/announce.mjs render \
-  --input out/approved-bayane/page.json \
-  --approval out/approved-bayane/approval.json \
-  --output out/bayane-base
+./scripts/dispatch-intakes-from-hermes-secrets.sh
+./scripts/private-intake-status-from-hermes-secrets.sh <job_id>
 ```
 
-## Generate Narration Into A Fresh Review Root
+The production scheduler should run the dispatch wrapper every minute and stay
+silent when no work or failure exists. The status wrapper is the only documented
+way for a Kanban worker to inspect the private canonical job; its output must not
+be copied into Kanban comments or logs.
+
+### Isolated private generation
+
+Vercel generation uses only invocation-local `/tmp` as a private staging area.
+Every completed private-review file is uploaded to Convex file storage, and the
+exact job/revision/kind metadata is committed insert-once to
+`fulfillmentGenerationArtifactSets` before the fulfillment stage can complete.
+A cold invocation requests each file through the claim-scoped authenticated
+`GET /generation/artifact` Convex HTTP action and verifies its byte length and
+SHA-256 digest before replay. Each file is limited to 20 MiB and no direct
+storage URL is returned. The staging
+directory is removed in `finally`; no Vercel filesystem path is a durability
+authority.
+
+The human-issued job-scoped editorial approval must validate against
+`schemas/job-scoped-editorial-approval.schema.json`, bind the exact `job_...`
+identifier, carry the SHA-256 digest of its canonical `sourceEvidence` JSON, and
+contain exactly the `unknown_name_general_wishes` policy: preserve submitted
+Latin/Arabic spelling, allow generic blessings, forbid meaning and scriptural
+name-association claims, and stop at `content_review_required`. Make the record
+owner-readable and immutable to the invocation (`0400`); symlinks, aliases,
+hardlinks, writable files, and group/world-readable files are rejected.
 
 ```bash
-node ./bin/announce.mjs tts \
-  --input out/approved-bayane/page.json \
-  --approval out/approved-bayane/approval.json \
-  --prepared out/bayane-base \
-  --output out/bayane-narration-review \
-  --lang all
+mkdir -m 700 /absolute/private/path/bebebonjour-generation
+mkdir -m 700 /absolute/private/path/bebebonjour-generation/approvals
+# A human decision authority writes and validates this JSON before generation.
+chmod 400 /absolute/private/path/bebebonjour-generation/approvals/job_...json
+CONVEX_URL=https://the-reviewed-deployment.convex.cloud \
+CUSTOMER_FLOW_BACKEND_TOKEN=... \
+  node ops/persist-test-a-generation-approval.mjs \
+    <job_id> /absolute/private/path/bebebonjour-generation \
+    /absolute/private/path/bebebonjour-generation/approvals/job_...json
 ```
 
-This is a paid external-provider operation and requires separate explicit
-authorization. It leaves `out/bayane-base` unchanged. Listen to every generated
-language from the private narration-review root before approving it.
+The private provisioning command validates the root isolation, immutable file,
+closed JSON schema, exact job binding, exact non-broadening policy, and evidence
+digests before the approval can be inserted. Repeating the exact approval is
+idempotent; a conflicting record for the same job is rejected.
 
-If any language fails generation or media decoding, the command records
-`narration_generation_failed` and exits with code `9`. Treat the entire review
-root as failed evidence: inspect the recorded per-language error, discard that
-root, correct the provider/media problem, and generate again into a fresh root.
-Never run `approve-narration` against a failed or partial generation.
-The private `review.json` stores each requested language's status and either its
-segment count or a redacted error category; raw provider responses are not
-persisted.
+The isolated Vercel cron endpoint authenticates `CRON_SECRET`, health-checks the
+exact worker protocol, and claims only the configured `generate` action. Every
+Convex read, transition, upload URL, commit, and byte read binds the worker token,
+command ID, worker ID, lease token, exact job, active lease, and `generate`
+action. The worker reads the canonical customer/fulfillment records plus the persisted approval,
+rejects unpaid, mismatched, or ineligible jobs before artifact upload, crosses
+the Operations effect fence once, advances only `prepare_review`, persists the
+complete private artifact set in Convex, and stops at `content_review_required`.
+Replay after successful generation returns `already_generated`; a bounded
+prepare-review retry resumes only that same stage. Output is a PII-free status
+projection and must never be augmented with intake, email, names, notes, page
+content, or raw artifact bytes.
 
-## Approve Exact Narration Bytes
+If the Operations effect fence rejects an exact persisted `prepare_review`
+claim before any effect starts, the fence mutation atomically fails the
+Operations command and closes the stage attempt. An attempt remaining within
+the current bound enters `retry_wait`; after its persisted backoff, an operator
+must run `retry` and then request a fresh `generate` command at the resulting
+job version. The worker must not compose, upload, or issue a client-side
+compensating fulfillment write on this path.
+Expired-command discovery in the next worker poll applies the same atomic
+closure if a worker exits after the stage claim and before the effect fence.
 
-```bash
-node ./bin/announce.mjs approve-narration \
-  --review out/bayane-narration-review/review.json \
-  --prepared out/bayane-base \
-  --output out/bayane \
-  --reviewer <operator-id> \
-  --acknowledge ar,fr
-```
+The generated private dossier binds the editorial approval record digest, source
+digest, exact job, and exact policy into `generationMaterials` and therefore the
+dossier `materialDigest`. The policy applies only when the ordinary resolver
+returns `unknown`; exact, alias, ambiguous, cross-script-conflict, and invalid
+orthography outcomes remain rejected. The submitted name is never rewritten to
+obtain a fallback, and the approved path always uses the general-wishes fallback.
 
-The same `BEBEBONJOUR_APPROVAL_HMAC_KEY` used for content approval is required.
-This creates a fresh final prepared root and signs a separate narration approval;
-it does not deploy, publish, email, or deliver.
+This entrypoint has only canonical Convex reads/writes and Convex private-file
+storage. It has no persisted content-approval, TTS, render-after-approval,
+publication, delivery, Vercel management, Resend, Stripe mutation, or generic
+run-next capability. Do not replace it with
+`ops/run-test-a-operator.mjs run-next` and do not add provider credentials to
+its environment.
 
-## Deploy Live
+## Verification gates
 
-```bash
-node ./bin/announce.mjs deploy --input out/bayane
-```
-
-Deploy and send revalidate both the original content approval and the exact
-narration review/approval chain before any remote or delivery action.
-
-If `.vercel/project.json` is missing and both `VERCEL_ORG_ID` and `VERCEL_PROJECT_ID` are present, the deploy command will create the local Vercel link automatically before deploying.
-
-## Notion-Free Fulfillment Ingress
-
-The fulfillment ingress stops at one durable `review_required` job and one
-queued generation run for the exact intake digest. It does not compose,
-narrate, publish, upload a preview, or email a customer until a separate worker
-is implemented and explicitly deployed.
-
-An open review job is one continuous eligibility cycle. Idempotent provider
-replays reuse it. An eligibility regression or canonical-intake change closes
-the cycle; a later eligible state creates a fresh review-job/run identity while
-terminal runs remain immutable historical evidence.
-
-### Isolation
-
-Deploy the two functions in `api/webhooks/` to a dedicated Vercel project such
-as `bebebonjour-fulfillment`. Do not deploy this repository root through the
-existing linked customer-site project: a deployment can replace previously
-published baby routes.
-
-### Database
-
-All database work below is **unapproved operator preparation**. Before requesting
-live authorization, review the exact candidate forward migration and prepare,
-review, and test a separate compensating forward migration against a disposable
-local database. Neither the forward migration nor any compensating migration may
-be applied to a hosted project without explicit human authorization for that
-specific operation and project.
-
-After that authorization, apply every file in `supabase/migrations/` to the
-approved Supabase project in timestamp order, preferably with `supabase db push`.
-Together they create the private, RLS-enabled tables for redacted webhook audit
-events, Stripe payments, orders, review jobs, and leased generation runs; lock
-the transactional RPC functions to explicit server roles; and support Supabase's
-hosted `pgcrypto` schema layout. Webhook ingestion remains service-role only.
-Generation claim, complete, and fail RPCs are available only to the dedicated
-`fulfillment_generation_worker` database role, not the service role. The adapter
-only requires an injected client with an `rpc` method and cannot inspect its
-credentials or role; PostgreSQL grants enforce this boundary, so a service-role
-call fails at the database.
-
-Provisioning a worker-role credential is a separate, unapproved live operation.
-Only after explicit human authorization, provision a separately issued credential
-that assumes only `fulfillment_generation_worker`; never put a service-role key
-or a JWT signing key in the generation worker. These operations use bounded
-lease-token compare-and-set transitions; completion rechecks the paid order and
-open review job before accepting an order/run/digest-bound private artifact
-record. Claim responses expose an explicit generation-only intake projection and
-omit the customer email and submission timestamp. Provider audit payloads retain
-only identifiers, payment facts, and an exact-raw-byte SHA-256 fingerprint.
-Stripe email matching uses a normalized SHA-256 digest; provider tables do not
-duplicate plaintext names or email. Signed events that fail normalization are
-acknowledged only after an idempotent redacted audit row is stored. The
-application sends exact-byte SHA-256 evidence to v2 RPCs instead of sending raw
-provider payloads across the persistence boundary.
-
-If both operations are separately authorized, apply the database migrations before
-deploying application code that calls the v2 RPCs. The new code intentionally
-fails closed if those RPCs are unavailable. No such hosted migration or
-deployment is authorized by this document.
-
-The canonical `fulfillment_orders.intake` still contains the customer data
-needed to generate an announcement. Before accepting live customer data, define
-the deletion window for abandoned, delivered, and blocked orders; this first
-ingress slice does not automate that lifecycle yet.
-
-### Server Environment
-
-Configure every fulfillment variable from `.env.example` in the dedicated
-Vercel project. `TALLY_FIELD_MAP_JSON` must come from a synthetic Tally test
-submission after the final form fields and options exist. Production code fails
-closed if a field key, option ID, form ID, configured product price/currency, or
-secret differs. A signed Stripe event with mismatched payment facts is still
-recorded idempotently and moves its order to `blocked` for investigation.
-
-### Provider Configuration
-
-1. Add the required baby gender, conditional Arabic spelling, context, and
-   EUR 39 payment block to Tally.
-2. Connect the payment block to the existing Stripe account.
-3. Capture one synthetic Tally webhook and map its stable `question_*` keys and
-   option IDs into `TALLY_FIELD_MAP_JSON`.
-4. Configure Tally to POST to `/api/webhooks/tally` and copy its signing secret
-   to `TALLY_WEBHOOK_SECRET`.
-5. Configure a Stripe endpoint for `payment_intent.succeeded` at
-   `/api/webhooks/stripe` and copy its signing secret to
-   `STRIPE_WEBHOOK_SECRET`.
-6. Submit one synthetic paid order and verify exactly two webhook events, one
-   payment, one order, one review job with status `review_required`, and one
-   queued generation run.
-7. Replay both provider events and verify every count remains unchanged.
-8. Only after that verification, disable the Zapier workflow and retire the
-   Notion board from the fulfillment path.
-
-### Local Verification
-
-Docker Desktop must be running for the PostgreSQL integration test.
+Run from the exact candidate:
 
 ```bash
-node --test test/integration/fulfillment-workflow-tracer.test.mjs
-npm run compose:bayane
 npm run verify
+npm run test:vercel-routing
+npm audit --omit=dev
 ```
 
-The focused fulfillment tracer is local TEST-A evidence only. It uses a
-synthetic in-process `fetch` stub around the TTS command path and dry-run
-publication/delivery, exercises both editorial review gates plus trusted
-delivery confirmation, and persists one simulated retry across a store restart.
-It does not enforce a socket-level egress blockade, so it must run without real
-Stripe, Convex, Vercel, Resend, or OpenAI credentials. A hosted migration or
-deployment, a real URL, removal of a dry-run flag, or any provider send still
-requires a separate explicit authorization for that exact target and operation.
+Then verify the deployed alias:
 
-The integration harness uses an ephemeral Postgres 16 container from Quay and
-removes it after the test. No customer data is used.
+- `GET /api/customer-flow/health` returns the reviewed health contract.
+- `POST /api/webhooks/tally` without a valid signature returns 401 and creates no
+  state.
+- a signed synthetic Tally fixture creates one unpaid Convex job and one work
+  item;
+- replay is idempotent;
+- the dispatcher creates one PII-free Kanban task and records its ID;
+- no live payment, publication, email delivery, or customer-data migration occurs
+  during verification.
 
-## Delivery Preview
-
-`announce send --provider console` is intentionally non-mutating. It reports
-only whether a recipient and public URL are configured, without printing either
-value or recording a successful delivery. A real delivery provider must persist
-success only after the provider confirms acceptance.
+Do not declare the bridge live until the exact deployed Vercel alias, exact
+Convex production deployment, Tally integration, and Hermes scheduler have all
+been read back after mutation.

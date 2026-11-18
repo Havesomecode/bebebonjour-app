@@ -150,3 +150,22 @@ test("customer HTTP API bounds streamed bodies and exposes only canonical errors
     error: { code: "invalid_intake", message: "Submitted intake fields are invalid." },
   });
 });
+
+test("customer HTTP API can mount behind the Vercel customer-flow prefix", async () => {
+  const api = createCustomerFlowHttpApi({
+    service: serviceStub(),
+    pathPrefix: "/api/customer-flow",
+  });
+  const response = await api.request("/api/customer-flow/v1/intakes", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ baby: { firstName: "Amal Test" } }),
+  });
+
+  assert.equal(response.status, 201);
+  assert.equal((await api.request("/v1/intakes", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: "{}",
+  })).status, 404);
+});

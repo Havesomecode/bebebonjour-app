@@ -66,6 +66,68 @@
         "rendererDigest": {
           "type": "string",
           "pattern": "^[a-f0-9]{64}$"
+        },
+        "editorialApproval": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "approvalType",
+            "jobId",
+            "policy",
+            "recordDigest",
+            "sourceDigest"
+          ],
+          "properties": {
+            "approvalType": {
+              "const": "job_scoped_editorial_policy"
+            },
+            "jobId": {
+              "type": "string",
+              "pattern": "^job_[A-Za-z0-9][A-Za-z0-9_-]{2,127}$"
+            },
+            "policy": {
+              "$ref": "job-scoped-editorial-approval.schema.json#/properties/policy"
+            },
+            "recordDigest": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            },
+            "sourceDigest": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            }
+          }
+        },
+        "composition": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "adapterVersion",
+            "provider",
+            "model",
+            "requestDigest",
+            "outputDigest"
+          ],
+          "properties": {
+            "adapterVersion": {
+              "const": "1.0.0"
+            },
+            "provider": {
+              "const": "openai-codex-subscription"
+            },
+            "model": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"
+            },
+            "requestDigest": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            },
+            "outputDigest": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            }
+          }
         }
       }
     },

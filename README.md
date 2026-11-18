@@ -5,33 +5,30 @@ Bébé Bonjour is an operator-controlled birth-announcement workflow with a priv
 The repository currently contains three connected but deliberately separated parts:
 
 - a structured CLI workflow for composing, rendering, narrating, and deploying reviewed announcement pages;
-- signed Tally and Stripe webhook ingress that durably reconciles a paid order in Supabase/Postgres.
-- a TEST-A first-party customer-flow contract for synthetic local validation.
+- a signed, intake-only Tally bridge into the canonical Convex customer flow;
+- a leased Convex outbox dispatcher that creates idempotent, PII-free Hermes Kanban work; and
+- a TEST-A first-party Stripe checkout contract for synthetic payment validation.
+
+## Support email routing
+
+The disabled-by-default Resend receiving route forwards only `contact@bebebonjour.com` to `z@havesomecode.io` through the existing Convex backend. See [routing, effect-fence semantics and release/rollback instructions](docs/resend-support-forwarding.md). Source verification does not establish live routing or inbox delivery.
 
 ## Safety boundary
 
-The fulfillment ingress stops after persisting a durable `review_required` job
-and queuing one inert generation run for the exact canonical intake digest. It
-does **not** automatically compose content, generate narration, upload a preview,
-publish a page, email a customer, issue a refund, or deliver an order.
+Tally is an intake surface only. A signed form response creates an unpaid
+customer-flow job, its canonical fulfillment aggregate, and one PII-free work
+item in the same Convex transaction. The work item contains only a private job
+reference. A local bridge claims that item
+under a bounded lease and creates one Hermes Kanban card with a deterministic
+idempotency key. Customer and baby data stay in Convex and must never be copied
+into Kanban comments or worker logs.
 
-Each open review job represents one continuous eligibility cycle. Provider
-replays reuse that cycle; an eligibility regression or canonical-intake change
-closes it, and a later eligible state receives a fresh review-job/run identity.
-Terminal generation runs remain immutable history and are never restarted by
-reconciliation.
-
-Internal claim, complete, and fail RPCs define bounded leases, immutable
-generator-material identities, eligibility rechecks, and digest-bound private
-artifact metadata. The RPC adapter exists, but no worker or private artifact
-upload path is deployed; the queued run is therefore inert. The adapter requires
-an injected client with an `rpc` method. It neither creates that client nor can
-it introspect the client's credentials or database role. PostgreSQL function
-grants are the authorization boundary: the dedicated
-`fulfillment_generation_worker` role may call the generation RPCs, while calls
-made as `service_role` fail at the database boundary. The claim RPC also
-allowlists generation fields instead of returning the customer email or any
-future intake fields by default.
+Intake does **not** prove payment and does not authorize generation,
+publication, delivery, a refund, or any provider spend. Payment remains a
+separate Stripe checkout/webhook transition. Generation must re-read canonical
+payment state, and publication and delivery remain behind the exact human review
+gates described below. Tally payment blocks and payment fields are deliberately
+unsupported.
 
 The local review tracer can validate a synthetic intake, apply the catalog-backed
 name policy, produce a deterministic private preview, and record an explicit
@@ -41,11 +38,46 @@ or deployable job state.
 
 Stripe `payment_intent.succeeded` is the authoritative payment signal. The economic contract is fixed at **€39 EUR**. Provider events are signature-verified from their exact raw request bytes and processed idempotently.
 
+### One-order operator Checkout handoff (Stripe test mode)
+
+The signed Tally webhook acknowledges **only the job ID**; it never sends a
+customer capability, email, or Checkout URL to the Tally webhook receiver.
+For one known, fictional, unpaid Tally job, an operator can use the existing
+scoped Convex Operations token to authorize `create_checkout` and run a
+checkout-only, job-scoped worker. The resulting URL is returned privately to
+the operator (who can share it with that fictional customer); there is no
+public job-ID lookup, automatic email, or payment claim.
+
+Set `CONVEX_URL`, `BEBEBONJOUR_OPERATIONS_TOKEN`,
+`BEBEBONJOUR_OPERATIONS_WORKER_TOKEN`, `BEBEBONJOUR_OPERATIONS_WORKER_ID`,
+`BEBEBONJOUR_OPERATIONS_WORKER_ACTIONS=create_checkout`,
+`CUSTOMER_FLOW_BACKEND_TOKEN`, `CUSTOMER_FLOW_TOKEN_ENCRYPTION_KEY`,
+`STRIPE_SECRET_KEY=sk_test_...`, and HTTPS `STRIPE_CHECKOUT_SUCCESS_URL` and
+`STRIPE_CHECKOUT_CANCEL_URL` in the operator's private environment. The
+operator and worker tokens must match the corresponding Convex deployment
+secrets. Use a job ID obtained from the signed intake acknowledgement or an
+already authorized operator view, not by searching customer records:
+
+```bash
+node ops/create-tally-checkout.mjs job_<known-id>
+```
+
+The command verifies the operator capability and canonical unpaid state,
+requests an Operations command, fences the Stripe effect, persists the test
+Checkout Session, and reads back its exact command provenance before printing
+`{"jobId":"...","checkoutUrl":"https://checkout.stripe.com/..."}`.
+A repeated call reads the same persisted link without creating another
+session. Failure prints only a generic code; inspect the private Operations
+command state before deciding whether reconciliation is needed. **Creating a
+link does not mark a job paid.** Only the separately signed Stripe webhook can
+authorize the paid transition, and generation remains paid-only. This path is
+not enabled in the Tally webhook runtime.
+
 ## Requirements
 
 - Node.js 22
 - npm
-- Docker Desktop for PostgreSQL integration tests
+
 
 ## Install and verify
 
@@ -54,7 +86,8 @@ npm ci
 npm run verify
 ```
 
-The verification command runs the unit suite, Docker-backed PostgreSQL integration tests, and the production dependency audit.
+The verification command runs the complete unit and synthetic workflow suites,
+the consolidated production-boundary audit, and the production dependency audit.
 
 ## Synthetic fulfillment tracer
 
@@ -133,6 +166,22 @@ server removes its canonical state file on shutdown. In a second terminal, run t
 with `npm run dev:local`. This is not a deployable production persistence adapter;
 Convex, Stripe test mode, Resend test mode, hosted URLs, and production remain
 behind their recorded authorization gates.
+
+## Synthetic workflow demo artifact
+
+Export the deterministic, provider-free workflow packet into the sibling landing:
+
+```bash
+NODE_NO_WARNINGS=1 npm run demo:export -- ../bebebonjour-landing/public/demo
+```
+
+The exporter runs two built-in `.test` intakes through the canonical TEST-A customer
+flow, fulfillment orchestrator, exact-revision review, publication, and delivery
+projections. It creates static announcement slugs for Amal and Bayane. The public
+approval key, checkout, payment event, narration placeholders, publication receipt,
+and delivery receipt are synthetic test fixtures; no Stripe, Resend, TTS, Vercel, or
+other provider call is made. Re-running the command replaces only the target demo
+directory and produces the same manifest and static paths.
 
 ## Render an example
 
@@ -248,7 +297,12 @@ Public page data and deployable narration manifests omit operator-only TTS
 provider, model, voice, and instruction metadata.
 TTS never mutates the content-approved prepared base. It writes audio,
 browser-only manifests, updated timing data, and private provider evidence to a
-fresh narration-review root. `approve-narration` requires exact language
+fresh narration-review root. The narration-review artifact manifest commits the
+exact public overlay as one `deploy/<slug>/...` namespace: prepared HTML/assets
+plus the reviewed transcript and audio. Publication reconstructs that projection
+from the two immutable roots and verifies every byte against the persisted
+manifest; private review evidence is never included in the deploy tree.
+`approve-narration` requires exact language
 acknowledgement, validates the complete managed media inventory and cumulative
 timeline against durations decoded by `ffprobe`, and creates a
 fresh final prepared root with an HMAC-authenticated narration approval bound to
@@ -272,18 +326,21 @@ without requiring a public URL. Neither mode sends email or marks a job delivere
 
 ## Repository map
 
-- `api/webhooks/` — Vercel Node webhook entrypoints
-- `src/webhooks/` — signature verification and provider normalization
-- `src/persistence/` — Supabase RPC boundary
-- `supabase/migrations/` — durable reconciliation and generation leases, RLS, and RPC permissions
+- `api/webhooks/` — the intake-only Tally Vercel entrypoint
+- `convex/` — canonical customer-flow, work-outbox, and fulfillment persistence
+- `src/customer-flow/` — intake, checkout, and signed-provider normalization
+- `src/operations/` — leased PII-free Hermes Kanban dispatch
+- `src/persistence/` — Convex persistence adapters
 - `schemas/` — intake, page, job, transcript, and narration contracts
 - `bin/` and `scripts/` — operator CLI
 - `template/` — deterministic announcement-page runtime
-- `test/` — unit and PostgreSQL integration coverage
+- `test/` — unit, Convex, and synthetic workflow coverage
 - `openspec/` — design history and behavioral specifications
 
 ## Configuration and operations
 
-Copy `.env.example` to `.env.local` for local configuration. Never commit provider credentials, Supabase service-role keys, customer submissions, live customer URLs, or local provider-link metadata.
+Copy `.env.example` to `.env.local` for local configuration. Never commit provider
+credentials, customer submissions, live customer URLs, Convex snapshots, or local
+provider-link metadata.
 
 See [`LIVE_SETUP.md`](./LIVE_SETUP.md) for the controlled provider and infrastructure workflow. Production identifiers and secrets must remain in the approved secret stores, not in this repository.

@@ -12,12 +12,15 @@ import {
   confirmDeliveryTransition,
   createJobAggregate,
   failStageTransition,
+  fenceExternalEffectTransition,
+  markExternalEffectStartedTransition,
   queueDeliveryTransition,
   reconcileDeliveryTransition,
   recordPaymentTransition,
   recordReviewDecisionTransition,
+  recoverFailedPrepareReviewTransition,
   resumeRetryTransition,
-} from "../fulfillment/job-machine.mjs";
+} from "../forward-coexistence/live/src/fulfillment/job-machine.mjs";
 
 const persistenceSchema = JSON.parse(
   await readFile(new URL("../../schemas/fulfillment-job-store.schema.json", import.meta.url), "utf8"),
@@ -194,12 +197,24 @@ export function createLocalTestFulfillmentStore({ filePath }) {
       });
     },
 
+    markExternalEffectStarted(jobId, command, at) {
+      return change(jobId, (aggregate) => markExternalEffectStartedTransition(aggregate, command, at));
+    },
+
+    fenceExternalEffect(jobId, command, at) {
+      return change(jobId, (aggregate) => fenceExternalEffectTransition(aggregate, command, at));
+    },
+
     completeStage(jobId, completion, at) {
       return change(jobId, (aggregate) => completeStageTransition(aggregate, completion, at));
     },
 
     failStage(jobId, failure, policy, at) {
       return change(jobId, (aggregate) => failStageTransition(aggregate, failure, policy, at));
+    },
+
+    recoverFailedPrepareReview(jobId, recovery, at) {
+      return change(jobId, (aggregate) => recoverFailedPrepareReviewTransition(aggregate, recovery, at));
     },
 
     resumeRetry(jobId, command, at) {

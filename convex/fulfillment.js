@@ -1,0 +1,1045 @@
+import { internalQueryGeneric, mutationGeneric, queryGeneric } from "convex/server";
+import { v } from "convex/values";
+import { assertCanonicalToken, canonicalScope, assertCanonicalRelease,
+  CANONICAL_WORKER_ID } from "./canonicalCompletionScope.js";
+import { enqueueCanonicalCompletionSuccessor } from "./operations.js";
+
+export const createJob = mutationGeneric({
+  args: {
+    backendToken: v.string(),
+    jobId: v.string(),
+    aggregate: v.any(),
+  },
+  handler: async (context, args) => {
+    assertBackendToken(args.backendToken);
+    assertAggregateIdentity(args.jobId, args.aggregate);
+    const existing = await findJob(context, args.jobId);
+    if (existing) return { created: false, aggregate: existing.aggregate };
+    await context.db.insert("fulfillmentJobs", {
+      jobId: args.jobId,
+      aggregate: args.aggregate,
+    });
+    return { created: true, aggregate: args.aggregate };
+  },
+});
+
+export const getJob = queryGeneric({
+  args: { backendToken: v.string(), jobId: v.string() },
+  handler: async (context, args) => {
+    assertBackendToken(args.backendToken);
+    const document = await findJob(context, args.jobId);
+    return document?.aggregate || null;
+  },
+});
+
+export const saveReviewApproval = mutationGeneric({
+  args: {
+    backendToken: v.string(),
+    approval: v.any(),
+  },
+  handler: async (context, args) => {
+    assertBackendToken(args.backendToken);
+    assertReviewApproval(args.approval);
+    const existing = await findReviewApproval(context, args.approval.approvalId);
+    if (existing) return { created: false, approval: existing.approval };
+    await context.db.insert("fulfillmentReviewApprovals", {
+      approvalId: args.approval.approvalId,
+      approval: args.approval,
+    });
+    return { created: true, approval: args.approval };
+  },
+});
+
+export const getReviewApproval = queryGeneric({
+  args: { backendToken: v.string(), approvalId: v.string() },
+  handler: async (context, args) => {
+    assertBackendToken(args.backendToken);
+    assertApprovalId(args.approvalId);
+    const document = await findReviewApproval(context, args.approvalId);
+    return document?.approval || null;
+  },
+});
+
+export const getCompletionJob = queryGeneric({
+  args: {
+    completionToken: v.string(),
+    workerId: v.optional(v.string()),
+    commandId: v.optional(v.string()),
+    leaseToken: v.optional(v.string()),
+    jobId: v.string(),
+  },
+  handler: async (context, args) => {
+    const scope = assertCompletionAuthority(args.completionToken, args.jobId);
+    const document = await findJob(context, args.jobId);
+    if (scope === "canonical_test_completion") {
+      const config = await canonicalScope(context, args.jobId);
+      await assertCanonicalRelease(context, config, document?.aggregate);
+    }
+    return document?.aggregate || null;
+  },
+});
+
+export const getCompletionReviewApproval = queryGeneric({
+  args: { completionToken: v.string(), approvalId: v.string(), jobId: v.string() },
+  handler: async (context, args) => {
+    const scope = assertCompletionAuthority(args.completionToken, args.jobId);
+    assertApprovalId(args.approvalId);
+    if (scope === "canonical_test_completion") {
+      const config = await canonicalScope(context, args.jobId);
+      await assertCanonicalRelease(context, config, (await findJob(context, args.jobId))?.aggregate);
+      if (![config.contentApprovalId, config.narrationApprovalId].includes(args.approvalId)) return null;
+    }
+    const document = await findReviewApproval(context, args.approvalId);
+    if (document?.approval?.binding?.jobId !== args.jobId) return null;
+    return document.approval;
+  },
+});
+
+export const replaceCompletionJob = mutationGeneric({
+  args: {
+    completionToken: v.string(),
+    workerId: v.string(),
+    commandId: v.string(),
+    leaseToken: v.string(),
+    jobId: v.string(),
+    expectedVersion: v.number(),
+    aggregate: v.any(),
+  },
+  handler: async (context, args) => {
+    const completionScope = assertCompletionAuthority(args.completionToken, args.jobId);
+    assertAggregateIdentity(args.jobId, args.aggregate);
+    const document = await findJob(context, args.jobId);
+    if (!document || document.aggregate.version !== args.expectedVersion) {
+      return { updated: false, current: document?.aggregate || null };
+    }
+    if (completionScope === "owner_completion") {
+      assertOwnerCompletionAggregate(document.aggregate);
+      assertOwnerCompletionAggregate(args.aggregate);
+    }
+    let canonical = null;
+    if (completionScope === "canonical_test_completion") {
+      canonical = await canonicalScope(context, args.jobId);
+      await assertCanonicalRelease(context, canonical, document.aggregate);
+      await assertCanonicalRelease(context, canonical, args.aggregate);
+      if (args.workerId !== CANONICAL_WORKER_ID) throw new Error("Canonical completion worker identity invalid.");
+    }
+    const command = await assertActiveCompletionTransition(context, args, document.aggregate, args.aggregate);
+    await assertCompletionReplacement(
+      context,
+      document.aggregate,
+      args.aggregate,
+      args.expectedVersion,
+      args,
+      command,
+      canonical,
+    );
+    if (completionScope === "canonical_test_completion") {
+      await enqueueCanonicalCompletionSuccessor(context, canonical, command, document.aggregate, args.aggregate);
+    }
+    await context.db.patch(document._id, { aggregate: args.aggregate });
+    return { updated: true, aggregate: args.aggregate };
+  },
+});
+
+export const authorizeCompletionArtifactRead = internalQueryGeneric({
+  args: {
+    completionToken: v.string(),
+    workerId: v.string(),
+    commandId: v.string(),
+    leaseToken: v.string(),
+    jobId: v.string(),
+    revisionId: v.string(),
+    storageId: v.string(),
+  },
+  handler: async (context, args) => {
+    const completionScope = assertCompletionAuthority(args.completionToken, args.jobId);
+    await assertClaimedCompletionAuthority(context, args, "publish", { effectFenceRequired: true });
+    const document = await findJob(context, args.jobId);
+    const aggregate = document?.aggregate;
+    if (completionScope === "canonical_test_completion") {
+      const config = await canonicalScope(context, args.jobId);
+      const release = await assertCanonicalRelease(context, config, aggregate);
+      if (args.workerId !== CANONICAL_WORKER_ID || args.revisionId !== config.revisionId
+          || release.kind !== (aggregate.narrationRequired ? "narration_review" : "prepared_bundle")) {
+        throw new Error("Canonical completion artifact scope invalid.");
+      }
+      const file = release.files.find((entry) => entry.storageId === args.storageId);
+      if (!file) throw new Error("Canonical completion artifact is outside the exact approved manifest.");
+      return file;
+    }
+    if (completionScope === "owner_completion") {
+      const source = assertOwnerCompletionAggregate(aggregate);
+      const file = source.files?.find((entry) => entry.storageId === args.storageId);
+      if (!file || args.revisionId !== "r1") {
+        throw new Error("Owner completion artifact is not bound to the exact approved narration manifest.");
+      }
+      return file;
+    }
+    const contentDecision = [...(aggregate?.reviewDecisions || [])].reverse().find((decision) => (
+      decision.decisionType === "content" && decision.revisionId === args.revisionId
+    ));
+    if (!aggregate || aggregate.environment !== "test" || aggregate.product !== "announcement-page"
+        || aggregate.currentRevisionId !== args.revisionId
+        || contentDecision?.outcome !== "approved"
+        || contentDecision.policyVersion !== "bebebonjour-editorial-v1") {
+      throw new Error("Completion artifact synthetic identity is invalid.");
+    }
+    const source = [...(aggregate.artifactSets || [])].reverse().find((artifact) => (
+      artifact.kind === "private_review" && artifact.revisionId === args.revisionId
+    ));
+    if (source?.assetManifestDigest !== contentDecision.artifactDigests?.assetManifestDigest) {
+      throw new Error("Completion artifact is not bound to the approved manifest.");
+    }
+    const file = source?.files?.find((entry) => entry.storageId === args.storageId);
+    if (!file) throw new Error("Completion artifact is not bound to the reviewed revision.");
+    return file;
+  },
+});
+
+export const replaceJob = mutationGeneric({
+  args: {
+    backendToken: v.string(),
+    jobId: v.string(),
+    expectedVersion: v.number(),
+    aggregate: v.any(),
+  },
+  handler: async (context, args) => {
+    assertBackendToken(args.backendToken);
+    assertAggregateIdentity(args.jobId, args.aggregate);
+    const document = await findJob(context, args.jobId);
+    if (!document) return { updated: false, current: null };
+    if (document.aggregate.version !== args.expectedVersion) {
+      return { updated: false, current: document.aggregate };
+    }
+    if (args.aggregate.version !== args.expectedVersion + 1) {
+      throw new Error("Fulfillment replacement must increment version exactly once.");
+    }
+    await context.db.patch(document._id, { aggregate: args.aggregate });
+    return { updated: true, aggregate: args.aggregate };
+  },
+});
+
+function findJob(context, jobId) {
+  return context.db
+    .query("fulfillmentJobs")
+    .withIndex("by_job_id", (query) => query.eq("jobId", jobId))
+    .unique();
+}
+
+function findReviewApproval(context, approvalId) {
+  return context.db
+    .query("fulfillmentReviewApprovals")
+    .withIndex("by_approval_id", (query) => query.eq("approvalId", approvalId))
+    .unique();
+}
+
+function assertAggregateIdentity(jobId, aggregate) {
+  if (!aggregate || aggregate.jobId !== jobId) {
+    throw new Error("Fulfillment aggregate must preserve the canonical job id.");
+  }
+}
+
+function assertReviewApproval(approval) {
+  const allowedFields = ["schemaVersion", "approvalId", "binding", "decision", "signature"];
+  assertOnlyFields(approval, allowedFields);
+  assertOnlyFields(
+    approval.binding,
+    ["jobId", "intakeDigest", "environment", "product", "revisionId", "runId", "artifactManifestDigest"],
+  );
+  assertOnlyFields(approval.decision, [
+    "commandId",
+    "decisionType",
+    "revisionId",
+    "outcome",
+    "policyVersion",
+    "rubricVersion",
+    "reviewer",
+    "decidedAt",
+    "artifactDigests",
+    "reasons",
+  ]);
+  if (approval.decision.reviewer) {
+    assertOnlyFields(approval.decision.reviewer, ["id", "role", "competencies"]);
+  }
+  if (approval.decision.artifactDigests) {
+    assertOnlyFields(
+      approval.decision.artifactDigests,
+      ["pageDigest", "transcriptDigest", "assetManifestDigest"],
+    );
+  }
+  assertApprovalId(approval?.approvalId);
+  if (
+    approval.schemaVersion !== "1.0"
+    || !approval.binding
+    || !approval.decision
+    || typeof approval.signature !== "string"
+    || !/^[a-f0-9]{64}$/.test(approval.signature)
+  ) {
+    throw new Error("Fulfillment review approval is invalid.");
+  }
+}
+
+function assertOnlyFields(value, allowedFields) {
+  if (!value || typeof value !== "object" || Array.isArray(value)
+      || Object.keys(value).some((field) => !allowedFields.includes(field))) {
+    throw new Error("Fulfillment review approval contains unexpected fields.");
+  }
+}
+
+function assertApprovalId(value) {
+  if (typeof value !== "string" || !/^approval_[a-f0-9]{24}$/.test(value)) {
+    throw new Error("Fulfillment review approval id is invalid.");
+  }
+}
+
+function assertBackendToken(value) {
+  const expected = process.env.CUSTOMER_FLOW_BACKEND_TOKEN;
+  if (!expected || expected.length < 32 || value !== expected) {
+    throw new Error("Customer-flow backend authorization failed.");
+  }
+}
+
+async function assertClaimedCompletionAuthority(
+  context,
+  args,
+  expectedAction,
+  { effectFenceRequired = false } = {},
+) {
+  const command = await context.db
+    .query("customerFlowOperationsCommands")
+    .withIndex("by_command_id", (query) => query.eq("commandId", args.commandId))
+    .unique();
+  if (!command
+      || command.jobId !== args.jobId
+      || command.action !== expectedAction
+      || command.state !== "running"
+      || command.claim?.workerId !== args.workerId
+      || command.claim?.leaseToken !== args.leaseToken
+      || (effectFenceRequired && !Number.isFinite(command.claim?.effectStartedAtMs))
+      || !Number.isFinite(command.claim?.leaseExpiresAtMs)
+      || command.claim.leaseExpiresAtMs <= Date.now()) {
+    throw new Error("Completion command claim authorization failed.");
+  }
+  return command;
+}
+
+const COMPLETION_ACTION_BY_TRANSITION = Object.freeze({
+  "content_review_required>render_queued": "approve_content",
+  "render_queued>rendering": "render",
+  "rendering>publish_ready": "render",
+  "rendering>retry_wait": "render",
+  "rendering>failed": "render",
+  "publish_ready>publishing": "publish",
+  "publishing>publishing": "publish",
+  "publishing>published": "publish",
+  "publishing>retry_wait": "publish",
+  "publishing>failed": "publish",
+  "published>delivery_queued": "queue_delivery",
+  "delivery_queued>sending": "deliver",
+  "sending>sending": "deliver",
+  "sending>sent": "deliver",
+  "sending>retry_wait": "deliver",
+  "sending>failed": "deliver",
+  "retry_wait>render_queued": "retry",
+  "retry_wait>publish_ready": "retry",
+  "retry_wait>delivery_queued": "retry",
+});
+
+async function assertActiveCompletionTransition(context, args, current, next) {
+  const action = COMPLETION_ACTION_BY_TRANSITION[`${current.state}>${next?.state}`];
+  if (!action || current.jobId !== args.jobId) {
+    throw new Error("Completion replacement requires one active matching command claim.");
+  }
+  const command = await assertClaimedCompletionAuthority(context, args, action, {
+    effectFenceRequired: action === "publish" || action === "deliver",
+  });
+  const origin = {
+    approve_content: "content_review_required",
+    render: "render_queued",
+    publish: "publish_ready",
+    queue_delivery: "published",
+    deliver: "delivery_queued",
+    retry: "retry_wait",
+  }[action];
+  const beginsCommand = current.state === origin;
+  const activeAttempt = [...(current.stageAttempts || [])].reverse().find((attempt) => (
+    attempt.status === "running" && attempt.operationsCommandId === args.commandId
+  ));
+  if (command.expectedState !== origin
+      || (beginsCommand && command.expectedVersion !== current.version)
+      || (!beginsCommand && !activeAttempt && action !== "retry")) {
+    throw new Error("Completion command does not match its exact requested job transition.");
+  }
+  return command;
+}
+
+function assertCompletionAuthority(token, jobId) {
+  const canonicalToken = process.env.BEBEBONJOUR_CANONICAL_COMPLETION_WORKER_TOKEN;
+  if (canonicalToken && token === canonicalToken) {
+    const config = assertCanonicalToken(token);
+    if (jobId !== config.jobId) throw new Error("Canonical completion worker authorization failed.");
+    return "canonical_test_completion";
+  }
+  const syntheticToken = process.env.BEBEBONJOUR_COMPLETION_WORKER_TOKEN;
+  if (syntheticToken && syntheticToken.length >= 32 && token === syntheticToken
+      && jobId === "job_03c25b08-8476-4fe1-923b-43d73feab3ff") {
+    return "completion";
+  }
+  const ownerToken = process.env.BEBEBONJOUR_OWNER_COMPLETION_WORKER_TOKEN;
+  if (ownerToken && ownerToken.length >= 32 && token === ownerToken
+      && jobId === "job_narration_test_650a15d1-39bd-4dec-bc0d-3519ace71aa7") {
+    return "owner_completion";
+  }
+  throw new Error("Completion worker authorization failed.");
+}
+
+function assertOwnerCompletionAggregate(aggregate) {
+  const manifestDigest = "182a2b2d6d99a3a1887aed9b7ae84c4dae9be3cef04b7c563122144ed8095209";
+  const source = [...(aggregate?.artifactSets || [])].reverse().find((artifact) => (
+    artifact.kind === "narration_review" && artifact.revisionId === "r1"
+  ));
+  const decision = [...(aggregate?.reviewDecisions || [])].reverse().find((entry) => (
+    entry.decisionId === "review_c4c5a7589bf08d2f674671d0"
+  ));
+  const audio = source?.files?.filter((file) => (
+    file.path?.startsWith("artifacts/audio/") && file.path.endsWith(".mp3")
+  ));
+  const expectedAudioSha256 = process.env.OWNER_APPROVED_AUDIO_SHA256;
+  if (!aggregate
+      || aggregate.jobId !== "job_narration_test_650a15d1-39bd-4dec-bc0d-3519ace71aa7"
+      || aggregate.environment !== "test"
+      || aggregate.product !== "announcement-page"
+      || aggregate.narrationRequired !== true
+      || aggregate.currentRevisionId !== "r1"
+      || aggregate.version < 8
+      || source?.assetManifestDigest !== manifestDigest
+      || decision?.decisionType !== "narration"
+      || decision.revisionId !== "r1"
+      || decision.outcome !== "approved"
+      || decision.artifactDigests?.assetManifestDigest !== manifestDigest
+      || !/^[a-f0-9]{64}$/.test(expectedAudioSha256 || "")
+      || audio?.length !== 1
+      || audio[0].bytes !== 173568
+      || audio[0].sha256 !== expectedAudioSha256) {
+    throw new Error("Owner completion aggregate is outside the exact approved narrated release.");
+  }
+  return source;
+}
+
+async function assertCompletionReplacement(context, current, next, expectedVersion, args, command, canonical = null) {
+  const transitions = new Set([
+    "content_review_required>render_queued",
+    "render_queued>rendering",
+    "rendering>publish_ready",
+    "rendering>retry_wait",
+    "rendering>failed",
+    "publish_ready>publishing",
+    "publishing>publishing",
+    "publishing>published",
+    "publishing>retry_wait",
+    "publishing>failed",
+    "published>delivery_queued",
+    "delivery_queued>sending",
+    "sending>sending",
+    "sending>sent",
+    "sending>retry_wait",
+    "sending>failed",
+    "retry_wait>render_queued",
+    "retry_wait>publish_ready",
+    "retry_wait>delivery_queued",
+  ]);
+  const mutableFields = new Set([
+    "artifactSets", "deliveryAttempts", "events", "publication", "publishedRevisionId",
+    "retry", "reviewDecisions", "stageAttempts", "state", "updatedAt", "version",
+  ]);
+  const transition = `${current.state}>${next?.state}`;
+  if (!isIsoTimestamp(next?.updatedAt)
+      || !isIsoTimestamp(current.updatedAt)
+      || Date.parse(next.updatedAt) < Date.parse(current.updatedAt)) {
+    throw new Error("Completion replacement requires a monotonic timestamp.");
+  }
+  assertExactCompletionTransitionBoundary(current, next, transition);
+  const exactKeys = Object.keys(current).sort().join("\0") === Object.keys(next || {}).sort().join("\0");
+  const immutableChanged = Object.keys(current).some((field) => (
+    !mutableFields.has(field) && JSON.stringify(current[field]) !== JSON.stringify(next[field])
+  ));
+  if (!next || next.version !== expectedVersion + 1
+      || next.environment !== "test" || next.product !== "announcement-page"
+      || !transitions.has(transition)
+      || !exactKeys
+      || immutableChanged
+      || appendDelta(current.events, next.events) !== 1
+      || appendDelta(current.reviewDecisions, next.reviewDecisions)
+        !== (transition === "content_review_required>render_queued" ? 1 : 0)
+      || appendDelta(current.artifactSets, next.artifactSets)
+        !== (transition === "rendering>publish_ready" ? 1 : 0)
+      || appendDelta(current.deliveryAttempts, next.deliveryAttempts)
+        !== (transition === "sending>sent" ? 1 : 0)
+      || !await validStageAttemptChange(current, next, transition, args, canonical)) {
+    throw new Error("Completion worker replacement exceeds its synthetic stage authority.");
+  }
+  if (!await validCompletionEvent(current, next.events.at(-1), transition, next, args, command)) {
+    throw new Error("Completion worker replacement lacks canonical transition evidence.");
+  }
+  await assertCompletionTransitionPayload(context, current, next, transition, args, canonical);
+}
+
+const COMPLETION_OWNED_FIELDS_BY_TRANSITION = Object.freeze({
+  "content_review_required>render_queued": ["reviewDecisions"],
+  "render_queued>rendering": ["stageAttempts"],
+  "rendering>publish_ready": ["artifactSets", "stageAttempts"],
+  "rendering>retry_wait": ["retry", "stageAttempts"],
+  "rendering>failed": ["retry", "stageAttempts"],
+  "publish_ready>publishing": ["stageAttempts"],
+  "publishing>publishing": ["stageAttempts"],
+  "publishing>published": ["publication", "publishedRevisionId", "stageAttempts"],
+  "publishing>retry_wait": ["retry", "stageAttempts"],
+  "publishing>failed": ["retry", "stageAttempts"],
+  "published>delivery_queued": [],
+  "delivery_queued>sending": ["stageAttempts"],
+  "sending>sending": ["stageAttempts"],
+  "sending>sent": ["deliveryAttempts", "stageAttempts"],
+  "sending>retry_wait": ["retry", "stageAttempts"],
+  "sending>failed": ["retry", "stageAttempts"],
+  "retry_wait>render_queued": ["retry"],
+  "retry_wait>publish_ready": ["retry"],
+  "retry_wait>delivery_queued": ["retry"],
+});
+
+function assertExactCompletionTransitionBoundary(current, next, transition) {
+  const transitionOwned = COMPLETION_OWNED_FIELDS_BY_TRANSITION[transition];
+  if (!next || !transitionOwned) return;
+  const owned = new Set(["events", "state", "updatedAt", "version", ...transitionOwned]);
+  const unrelatedChanged = Object.keys(current).some((field) => (
+    !owned.has(field) && JSON.stringify(current[field]) !== JSON.stringify(next[field])
+  ));
+  if (unrelatedChanged) {
+    throw new Error(
+      "Completion worker replacement exceeds its synthetic stage authority: exact transition mutation boundary.",
+    );
+  }
+}
+
+function appendDelta(current, next) {
+  if (!Array.isArray(current) || !Array.isArray(next) || next.length < current.length) return -1;
+  if (current.some((value, index) => JSON.stringify(value) !== JSON.stringify(next[index]))) return -1;
+  return next.length - current.length;
+}
+
+const COMPLETION_STAGE_LEASE_MS = 300_000;
+const COMPLETION_STAGE_MAX_ATTEMPTS = 2;
+const COMPLETION_RETRY_BACKOFF_MS = 60_000;
+const COMPLETION_STAGE_ATTEMPT_FIELDS = Object.freeze([
+  "attemptId", "stage", "revisionId", "attemptNumber", "operationNumber",
+  "idempotencyKey", "operationBinding", "operationsCommandId", "status", "leaseToken",
+  "leaseExpiresAt", "startedAt", "effectStartedAt", "completedAt", "failure",
+]);
+const COMPLETION_FAILURE_REASON_CODES_BY_STAGE = Object.freeze({
+  render_approved: new Set(["lease_expired", "provider_unavailable", "stage_error"]),
+  publish: new Set([
+    "lease_expired", "provider_outcome_unknown", "provider_receipt_invalid", "provider_unavailable",
+    "publication_binding_invalid", "publication_provider_unavailable", "publication_scope_invalid",
+    "publication_source_binding_invalid", "stage_error",
+  ]),
+  deliver: new Set([
+    "lease_expired", "provider_outcome_unknown", "provider_receipt_invalid", "provider_unavailable",
+    "resend_send_failed", "resend_status_failed", "stage_error",
+  ]),
+});
+
+async function validStageAttemptChange(currentAggregate, nextAggregate, transition, args, canonical) {
+  const current = currentAggregate.stageAttempts;
+  const next = nextAggregate.stageAttempts;
+  const claims = new Set([
+    "render_queued>rendering",
+    "publish_ready>publishing",
+    "delivery_queued>sending",
+  ]);
+  const updates = new Set([
+    "rendering>publish_ready", "rendering>retry_wait", "rendering>failed",
+    "publishing>publishing", "publishing>published", "publishing>retry_wait", "publishing>failed",
+    "sending>sending", "sending>sent",
+    "sending>retry_wait", "sending>failed",
+  ]);
+  if (claims.has(transition)) {
+    if (appendDelta(current, next) !== 1) return false;
+    const attempt = next.at(-1);
+    const expectedStage = transition === "render_queued>rendering" ? "render_approved"
+      : transition === "publish_ready>publishing" ? "publish" : "deliver";
+    const expectedRevisionId = currentAggregate.currentRevisionId;
+    const expectedAttemptNumber = current.filter((entry) => (
+      entry.stage === expectedStage && entry.revisionId === expectedRevisionId
+    )).length + 1;
+    const expectedOperationNumber = current.filter((entry) => (
+      entry.stage === expectedStage
+      && entry.revisionId === expectedRevisionId
+      && entry.status === "completed"
+    )).length + 1;
+    const expectedAttemptId = `attempt_${(await sha256Hex([
+      currentAggregate.jobId,
+      expectedRevisionId || "unassigned",
+      expectedStage,
+      String(expectedAttemptNumber),
+    ].join("\0"))).slice(0, 24)}`;
+    const expectedIdempotencyKey = `bb_${await sha256Hex([
+      currentAggregate.jobId,
+      expectedRevisionId || "unassigned",
+      expectedStage,
+      String(expectedOperationNumber),
+    ].join("\0"))}`;
+    const expectedLeaseExpiry = new Date(
+      Date.parse(nextAggregate.updatedAt) + COMPLETION_STAGE_LEASE_MS,
+    ).toISOString();
+    return hasExactKeys(attempt, COMPLETION_STAGE_ATTEMPT_FIELDS)
+      && attempt.attemptId === expectedAttemptId
+      && attempt.stage === expectedStage
+      && attempt.revisionId === expectedRevisionId
+      && attempt.attemptNumber === expectedAttemptNumber
+      && expectedAttemptNumber <= COMPLETION_STAGE_MAX_ATTEMPTS
+      && attempt.operationNumber === expectedOperationNumber
+      && attempt.idempotencyKey === expectedIdempotencyKey
+      && await validCompletionOperationBinding(expectedStage, attempt.operationBinding, canonical)
+      && attempt.operationsCommandId === args.commandId
+      && attempt.status === "running"
+      && typeof attempt.leaseToken === "string" && attempt.leaseToken.length >= 8
+      && attempt.leaseToken !== args.leaseToken
+      && attempt.leaseExpiresAt === expectedLeaseExpiry
+      && attempt.startedAt === nextAggregate.updatedAt
+      && attempt.effectStartedAt === null
+      && attempt.completedAt === null
+      && attempt.failure === null;
+  }
+  if (!updates.has(transition)) return appendDelta(current, next) === 0;
+  if (!Array.isArray(current) || !Array.isArray(next) || current.length === 0 || next.length !== current.length) {
+    return false;
+  }
+  const prior = current.at(-1);
+  const updated = next.at(-1);
+  const leaseExpiredFailure = updated.failure?.reasonCode === "lease_expired";
+  const transitionBeforeLeaseExpiry = isIsoTimestamp(prior.leaseExpiresAt)
+    && Date.parse(nextAggregate.updatedAt) < Date.parse(prior.leaseExpiresAt);
+  const identifiersPreserved = current.slice(0, -1)
+    .every((value, index) => JSON.stringify(value) === JSON.stringify(next[index]))
+    && [
+      "attemptId", "stage", "revisionId", "attemptNumber", "operationNumber",
+      "idempotencyKey", "operationBinding", "operationsCommandId", "startedAt",
+    ].every((field) => JSON.stringify(prior[field]) === JSON.stringify(updated[field]));
+  if (!hasExactKeys(prior, COMPLETION_STAGE_ATTEMPT_FIELDS)
+      || !hasExactKeys(updated, COMPLETION_STAGE_ATTEMPT_FIELDS)
+      || !identifiersPreserved
+      || prior.status !== "running"
+      || typeof prior.leaseToken !== "string" || prior.leaseToken.length < 8
+      || prior.leaseToken === args.leaseToken
+      || (leaseExpiredFailure
+        ? Date.parse(nextAggregate.updatedAt) < Date.parse(prior.leaseExpiresAt)
+        : !transitionBeforeLeaseExpiry)
+      || updated.operationsCommandId !== args.commandId) return false;
+  if (transition === "publishing>publishing" || transition === "sending>sending") {
+    const expectedLeaseExpiry = new Date(
+      Date.parse(nextAggregate.updatedAt) + COMPLETION_STAGE_LEASE_MS,
+    ).toISOString();
+    return updated.status === "running"
+      && updated.leaseToken === prior.leaseToken
+      && updated.completedAt === null
+      && updated.failure === null
+      && updated.leaseExpiresAt === expectedLeaseExpiry
+      && updated.effectStartedAt === (prior.effectStartedAt || nextAggregate.updatedAt);
+  }
+  if (transition.endsWith(">retry_wait") || transition.endsWith(">failed")) {
+    const retrying = transition.endsWith(">retry_wait");
+    return updated.status === (retrying ? "retry_wait" : "failed")
+      && updated.leaseToken === null
+      && updated.leaseExpiresAt === null
+      && updated.completedAt === nextAggregate.updatedAt
+      && hasExactKeys(updated.failure, ["reasonCode", "retryable"])
+      && COMPLETION_FAILURE_REASON_CODES_BY_STAGE[updated.stage]?.has(updated.failure.reasonCode)
+      && updated.failure.retryable === retrying
+      && updated.effectStartedAt === prior.effectStartedAt
+      && (retrying
+        ? hasExactKeys(nextAggregate.retry, ["availableAt", "stage"])
+          && nextAggregate.retry.stage === prior.stage
+          && nextAggregate.retry.availableAt === new Date(
+            Date.parse(nextAggregate.updatedAt) + COMPLETION_RETRY_BACKOFF_MS,
+          ).toISOString()
+        : nextAggregate.retry === null);
+  }
+  return updated.status === "completed"
+    && updated.leaseToken === null
+    && updated.leaseExpiresAt === null
+    && updated.completedAt === nextAggregate.updatedAt
+    && updated.effectStartedAt === prior.effectStartedAt
+    && updated.failure === null;
+}
+
+async function validCompletionOperationBinding(stage, binding, canonical) {
+  if (stage !== "deliver") return binding === null;
+  const targetRef = canonical ? `resend:fictional:${canonical.jobId}` : "resend:test-a-sink";
+  const email = canonical ? canonical.recipient : "delivered@resend.dev";
+  const expectedTargetDigest = await sha256Hex(canonicalJson({
+    targetRef, email,
+  }));
+  return hasExactKeys(binding, ["targetDigest", "targetRef"])
+    && binding.targetRef === targetRef
+    && binding.targetDigest === expectedTargetDigest;
+}
+
+const COMPLETION_EVENT_TYPES_BY_TRANSITION = Object.freeze({
+  "content_review_required>render_queued": ["review_decision_recorded"],
+  "render_queued>rendering": ["stage_claimed"],
+  "rendering>publish_ready": ["stage_completed"],
+  "rendering>retry_wait": ["stage_failed"],
+  "rendering>failed": ["stage_failed"],
+  "publish_ready>publishing": ["stage_claimed"],
+  "publishing>publishing": ["external_effect_fenced"],
+  "publishing>published": ["stage_completed"],
+  "publishing>retry_wait": ["stage_failed"],
+  "publishing>failed": ["stage_failed"],
+  "published>delivery_queued": ["delivery_queued"],
+  "delivery_queued>sending": ["stage_claimed"],
+  "sending>sending": ["external_effect_fenced"],
+  "sending>sent": ["stage_completed"],
+  "sending>retry_wait": ["stage_failed"],
+  "sending>failed": ["stage_failed"],
+  "retry_wait>render_queued": ["retry_resumed"],
+  "retry_wait>publish_ready": ["retry_resumed"],
+  "retry_wait>delivery_queued": ["retry_resumed"],
+});
+
+async function validCompletionEvent(current, event, transition, next, args, command) {
+  const commandIdValid = validCompletionEventCommandId(current, event, transition, next, args);
+  if (!commandIdValid) return false;
+  const expectedEventId = `event_${(await sha256Hex(`${next.jobId}\0${event.commandId}`)).slice(0, 24)}`;
+  const expectedCommandDigest = await completionCommandDigest(
+    current,
+    next,
+    event,
+    args,
+    command,
+  );
+
+  return hasExactKeys(event, ["eventId", "commandId", "commandDigest", "type", "at", "state"])
+    && event.eventId === expectedEventId
+    && event.commandDigest === expectedCommandDigest
+    && COMPLETION_EVENT_TYPES_BY_TRANSITION[transition]?.includes(event.type)
+    && event.at === next.updatedAt
+    && isIsoTimestamp(event.at)
+    && event.state === next.state;
+}
+
+async function completionCommandDigest(current, next, event, args, command) {
+  const attempt = next.stageAttempts?.at(-1);
+  let replayPayload;
+  if (event.type === "stage_claimed") {
+    replayPayload = {
+      commandId: event.commandId,
+      stage: attempt.stage,
+      leaseMs: COMPLETION_STAGE_LEASE_MS,
+      maxAttempts: COMPLETION_STAGE_MAX_ATTEMPTS,
+      operationBinding: attempt.operationBinding,
+      operationsCommandId: args.commandId,
+    };
+  } else if (event.type === "external_effect_fenced") {
+    replayPayload = {
+      commandId: event.commandId,
+      stage: attempt.stage,
+      attemptId: attempt.attemptId,
+      leaseMs: COMPLETION_STAGE_LEASE_MS,
+      effectMayBeIssued: true,
+    };
+  } else if (event.type === "stage_completed") {
+    replayPayload = {
+      commandId: event.commandId,
+      stage: attempt.stage,
+      leaseToken: current.stageAttempts.at(-1).leaseToken,
+      result: canonicalCompletionResult(next, attempt.stage),
+    };
+  } else if (event.type === "stage_failed") {
+    replayPayload = {
+      commandId: event.commandId,
+      stage: attempt.stage,
+      leaseToken: current.stageAttempts.at(-1).leaseToken,
+      retryable: attempt.failure.retryable,
+      reasonCode: attempt.failure.reasonCode,
+    };
+  } else if (event.type === "review_decision_recorded") {
+    const decision = next.reviewDecisions.at(-1);
+    replayPayload = {
+      commandId: args.commandId,
+      operationsCommandId: args.commandId,
+      ...(decision.approvalId ? { approvalId: decision.approvalId } : {}),
+      decisionType: decision.decisionType,
+      revisionId: decision.revisionId,
+      outcome: decision.outcome,
+      policyVersion: decision.policyVersion,
+      rubricVersion: decision.rubricVersion,
+      reviewer: decision.reviewer,
+      decidedAt: decision.decidedAt,
+      artifactDigests: decision.artifactDigests,
+      reasons: decision.reasons,
+    };
+  } else if (event.type === "delivery_queued") {
+    replayPayload = {
+      commandId: args.commandId,
+      revisionId: command.payload.revisionId,
+      publicationId: command.payload.publicationId,
+    };
+  } else if (event.type === "retry_resumed") {
+    replayPayload = { commandId: args.commandId };
+  } else {
+    return null;
+  }
+  return sha256Hex(`${event.type}\0${canonicalJson(replayPayload)}`);
+}
+
+function canonicalCompletionResult(next, stage) {
+  if (stage === "render_approved") {
+    const artifactSet = structuredClone(next.artifactSets.at(-1));
+    delete artifactSet.operationsCommandId;
+    return { artifactSet };
+  }
+  if (stage === "publish") {
+    const { provider, revisionId, stableUrl, artifactManifestDigest, providerReceiptId } = next.publication;
+    return { publication: { provider, revisionId, stableUrl, artifactManifestDigest, providerReceiptId } };
+  }
+  if (stage === "deliver") {
+    const { provider, revisionId, providerMessageId } = next.deliveryAttempts.at(-1);
+    return { delivery: { provider, revisionId, providerMessageId } };
+  }
+  return null;
+}
+
+function validCompletionEventCommandId(current, event, transition, next, args) {
+  if ([
+    "content_review_required>render_queued",
+    "published>delivery_queued",
+    "retry_wait>render_queued",
+    "retry_wait>publish_ready",
+    "retry_wait>delivery_queued",
+  ].includes(transition)) return event.commandId === args.commandId;
+
+  const attempt = next.stageAttempts?.at(-1);
+  if (!attempt || attempt.operationsCommandId !== args.commandId) return false;
+  if (event.type === "stage_claimed") {
+    return event.commandId === [
+      "claim",
+      next.jobId,
+      attempt.revisionId || "unassigned",
+      attempt.stage,
+      attempt.attemptNumber,
+    ].join(":");
+  }
+  if (event.type === "stage_completed") {
+    return event.commandId === `complete:${attempt.attemptId}`;
+  }
+  if (event.type === "stage_failed") {
+    return event.commandId === `fail:${attempt.attemptId}:${attempt.failure?.reasonCode}`
+      || (attempt.failure?.reasonCode === "lease_expired"
+        && event.commandId === `expire:${attempt.attemptId}`);
+  }
+  if (event.type === "external_effect_fenced") {
+    const priorFenceCount = current.events.filter((entry) => (
+      entry.commandId.startsWith(`effect-fence:${attempt.attemptId}:`)
+    )).length;
+    return event.commandId === `effect-fence:${attempt.attemptId}:${priorFenceCount + 1}`;
+  }
+  return false;
+}
+
+function hasExactKeys(value, expectedKeys) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+  const keys = Object.keys(value).sort();
+  const expected = [...expectedKeys].sort();
+  return keys.length === expected.length && keys.every((key, index) => key === expected[index]);
+}
+
+function isIsoTimestamp(value) {
+  const parsed = typeof value === "string" ? Date.parse(value) : Number.NaN;
+  return Number.isFinite(parsed) && new Date(parsed).toISOString() === value;
+}
+
+async function sha256Hex(value) {
+  const digest = await globalThis.crypto.subtle.digest("SHA-256", new TextEncoder().encode(value));
+  return [...new Uint8Array(digest)]
+    .map((byte) => byte.toString(16).padStart(2, "0"))
+    .join("");
+}
+
+function canonicalJson(value) {
+  if (value === null || typeof value === "string" || typeof value === "boolean") {
+    return JSON.stringify(value);
+  }
+  if (typeof value === "number") {
+    if (!Number.isFinite(value)) throw new Error("Canonical completion values must be finite.");
+    return Object.is(value, -0) ? "0" : JSON.stringify(value);
+  }
+  if (Array.isArray(value)) return `[${value.map(canonicalJson).join(",")}]`;
+  if (value && typeof value === "object") {
+    return `{${Object.keys(value)
+      .filter((key) => value[key] !== undefined)
+      .sort()
+      .map((key) => `${JSON.stringify(key)}:${canonicalJson(value[key])}`)
+      .join(",")}}`;
+  }
+  throw new Error("Canonical completion values must be deterministic JSON.");
+}
+
+async function assertCompletionTransitionPayload(context, current, next, transition, args, canonical) {
+  if (transition === "content_review_required>render_queued") {
+    const decision = next.reviewDecisions.at(-1);
+    const source = current.artifactSets.find((artifact) => (
+      artifact.kind === "private_review" && artifact.revisionId === current.currentRevisionId
+    ));
+    const expectedDecisionId = `review_${(await sha256Hex([
+      current.jobId,
+      decision?.revisionId,
+      decision?.decisionType,
+      decision?.outcome,
+      decision?.decidedAt,
+      decision?.reviewer?.id,
+    ].join("\0"))).slice(0, 24)}`;
+    if (!hasExactKeys(decision, [
+      "decisionId", "approvalId", "operationsCommandId", "decisionType", "revisionId",
+      "outcome", "policyVersion", "rubricVersion", "reviewer", "decidedAt",
+      "artifactDigests", "reasons",
+    ])
+        || decision.decisionId !== expectedDecisionId
+        || decision.decisionType !== "content" || decision.outcome !== "approved"
+        || decision.revisionId !== current.currentRevisionId
+        || decision.operationsCommandId !== args.commandId
+        || decision.artifactDigests?.pageDigest !== source?.pageDigest
+        || decision.artifactDigests?.transcriptDigest !== source?.transcriptDigest
+        || decision.artifactDigests?.assetManifestDigest !== source?.assetManifestDigest) {
+      throw new Error("Completion approval does not bind the reviewed synthetic artifact.");
+    }
+    const approval = (await findReviewApproval(context, decision.approvalId))?.approval;
+    if (!approval || approval.binding?.jobId !== current.jobId
+        || approval.binding?.intakeDigest !== current.intakeDigest
+        || approval.binding?.environment !== current.environment
+        || approval.binding?.product !== current.product
+        || approval.binding?.revisionId !== current.currentRevisionId
+        || approval.binding?.artifactManifestDigest !== source.assetManifestDigest
+        || approval.decision?.decisionType !== decision.decisionType
+        || approval.decision?.outcome !== decision.outcome
+        || approval.decision?.policyVersion !== decision.policyVersion
+        || approval.decision?.rubricVersion !== decision.rubricVersion
+        || approval.decision?.decidedAt !== decision.decidedAt
+        || JSON.stringify(approval.decision?.reviewer) !== JSON.stringify(decision.reviewer)
+        || JSON.stringify(approval.decision?.artifactDigests) !== JSON.stringify(decision.artifactDigests)
+        || JSON.stringify(approval.decision?.reasons || []) !== JSON.stringify(decision.reasons || [])) {
+      throw new Error("Completion approval does not match the persisted human decision.");
+    }
+  }
+  if (transition === "rendering>publish_ready") {
+    const source = current.artifactSets.find((artifact) => (
+      artifact.kind === "private_review" && artifact.revisionId === current.currentRevisionId
+    ));
+    const prepared = next.artifactSets.at(-1);
+    if (!await isExactCompletionPromotion(current, source, prepared, args.commandId)) {
+      throw new Error("Completion replacement lacks an exact artifact promotion.");
+    }
+  }
+  if (transition === "publishing>published") {
+    const origin = canonical ? canonical.origin : process.env.TEST_A_PUBLICATION_ORIGIN;
+    const attempt = current.stageAttempts.at(-1);
+    const releaseKind = current.narrationRequired ? "narration_review" : "prepared_bundle";
+    const releaseArtifact = [...current.artifactSets].reverse().find((artifact) => (
+      artifact.kind === releaseKind && artifact.revisionId === current.currentRevisionId
+    ));
+    if (!hasExactKeys(next.publication, [
+      "provider", "revisionId", "stableUrl", "artifactManifestDigest", "providerReceiptId",
+      "idempotencyKey", "operationsCommandId", "status",
+    ])
+        || next.publication.provider !== "vercel"
+        || next.publication.status !== "published"
+        || next.publication.revisionId !== current.currentRevisionId
+        || next.publication.stableUrl !== `${origin}/announcements/${current.jobId}`
+        || next.publication.artifactManifestDigest !== releaseArtifact?.assetManifestDigest
+        || !/^dpl_(?:[A-Za-z0-9]{28}|completion_store_(?:boundary|seam))$/.test(
+          next.publication.providerReceiptId || "",
+        )
+        || next.publication.idempotencyKey !== attempt?.idempotencyKey
+        || next.publication.operationsCommandId !== args.commandId
+        || next.publishedRevisionId !== current.currentRevisionId) {
+      throw new Error("Completion replacement lacks an exact publication result.");
+    }
+  }
+  if (transition === "sending>sent") {
+    const delivery = next.deliveryAttempts.at(-1);
+    const attempt = current.stageAttempts.at(-1);
+    if (!hasExactKeys(delivery, [
+      "provider", "revisionId", "providerMessageId", "idempotencyKey", "operationsCommandId",
+      "targetRef", "status", "deliveredAt", "lastOutcome",
+    ])
+        || delivery.provider !== "resend"
+        || delivery.targetRef !== (canonical ? `resend:fictional:${canonical.jobId}` : "resend:test-a-sink")
+        || delivery.targetRef !== attempt?.operationBinding?.targetRef
+        || delivery.revisionId !== current.currentRevisionId
+        || !/^(?:[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}|email_completion_store_(?:boundary|seam))$/.test(
+          delivery.providerMessageId || "",
+        )
+        || delivery.idempotencyKey !== attempt?.idempotencyKey
+        || delivery.operationsCommandId !== args.commandId
+        || delivery.status !== "sent"
+        || delivery.deliveredAt !== null
+        || delivery.lastOutcome !== null) {
+      throw new Error("Completion replacement lacks an exact delivery result.");
+    }
+  }
+  if (transition.startsWith("retry_wait>")) {
+    const expectedState = {
+      render_approved: "render_queued",
+      publish: "publish_ready",
+      deliver: "delivery_queued",
+    }[current.retry?.stage];
+    if (!hasExactKeys(current.retry, ["availableAt", "stage"])
+        || !isIsoTimestamp(current.retry.availableAt)
+        || next.state !== expectedState
+        || next.retry !== null
+        || Date.parse(next.updatedAt) < Date.parse(current.retry.availableAt)) {
+      throw new Error("Completion replacement lacks an exact retry transition.");
+    }
+  }
+  if (next.retry && !new Set(["render_approved", "publish", "deliver"]).has(next.retry.stage)) {
+    throw new Error("Completion retry exceeds the completion-only stages.");
+  }
+}
+
+async function isExactCompletionPromotion(current, source, prepared, operationsCommandId) {
+  if (!source || !hasExactKeys(prepared, [
+    "artifactSetId", "kind", "revisionId", "pageDigest", "transcriptDigest",
+    "assetManifestDigest", "manifestRef", "files", "operationsCommandId",
+  ])
+      || prepared.kind !== "prepared_bundle" || prepared.revisionId !== current.currentRevisionId
+      || prepared.pageDigest !== source.pageDigest || prepared.transcriptDigest !== source.transcriptDigest
+      || prepared.operationsCommandId !== operationsCommandId
+      || prepared.manifestRef
+        !== `jobs/${current.jobId}/revisions/${current.currentRevisionId}/manifests/prepared_bundle.json`
+      || !Array.isArray(source.files) || source.files.length === 0
+      || !Array.isArray(prepared.files) || prepared.files.length !== source.files.length) return false;
+  const namespace = source.files[0].path.split("/")[1];
+  if (!namespace || !source.files.every((file) => file.path.startsWith(`private-preview/${namespace}/`))) {
+    return false;
+  }
+  const expectedFiles = source.files.map((file) => ({
+    ...file,
+    path: `deploy/${file.path.slice(`private-preview/${namespace}/`.length)}`,
+  }));
+  if (JSON.stringify(prepared.files) !== JSON.stringify(expectedFiles)) return false;
+  const expectedAssetManifestDigest = await sha256Hex(`${JSON.stringify({
+    schemaVersion: "1.0",
+    kind: "prepared_bundle",
+    revisionId: current.currentRevisionId,
+    files: expectedFiles,
+  }, null, 2)}\n`);
+  if (prepared.assetManifestDigest !== expectedAssetManifestDigest) return false;
+  const expectedArtifactSetId = `artifacts_${(await sha256Hex([
+    current.jobId,
+    current.currentRevisionId,
+    prepared.kind,
+    prepared.pageDigest,
+    prepared.transcriptDigest,
+    prepared.assetManifestDigest,
+  ].join("\0"))).slice(0, 24)}`;
+  if (prepared.artifactSetId !== expectedArtifactSetId) return false;
+  return true;
+}

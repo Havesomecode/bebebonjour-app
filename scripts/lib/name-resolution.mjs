@@ -87,6 +87,32 @@ export function resolveName(intake, catalog) {
   return unknownResolution({ display, normalized, catalog, intake });
 }
 
+export function resolveNameWithJobScopedEditorialPolicy(intake, catalog, policy) {
+  assertUnknownNameGeneralWishesPolicy(policy);
+  const resolution = resolveName(intake, catalog);
+  if (resolution.match.kind === "unknown") {
+    return unknownResolution({
+      display: resolution.display,
+      normalized: resolution.normalized,
+      catalog,
+      intake,
+      forceGeneralFallback: true,
+    });
+  }
+  return {
+    ...resolution,
+    status: "review_required",
+    claimPolicy: {
+      meaningAllowed: false,
+      scripturalNameAssociationAllowed: false,
+      genericBlessingsAllowed: true,
+    },
+    reviewReasons: ["job_scoped_unknown_name_policy_not_applicable"],
+    sourceKeys: [],
+    suggestions: [],
+  };
+}
+
 function buildCatalogIndex(catalog) {
   const entries = [];
   for (const [canonicalKey, entry] of Object.entries(catalog?.names || {})) {
@@ -157,9 +183,9 @@ function resolveCandidates({ display, normalized, candidates, latin, arabic, cat
   };
 }
 
-function unknownResolution({ display, normalized, catalog, intake }) {
+function unknownResolution({ display, normalized, catalog, intake, forceGeneralFallback = false }) {
   const religion = intake?.context?.religion || null;
-  const source = religion
+  const source = religion && !forceGeneralFallback
     ? catalog?.fallbacks?.religious?.[religion]
     : catalog?.fallbacks?.general;
   const fallback = source
@@ -282,6 +308,26 @@ function collectSourceKeys(suggestions) {
     }
   }
   return [...keys].sort();
+}
+
+export function assertUnknownNameGeneralWishesPolicy(policy) {
+  const expected = {
+    id: "unknown_name_general_wishes",
+    preserveSubmittedName: true,
+    meaningAllowed: false,
+    scripturalNameAssociationAllowed: false,
+    genericBlessingsAllowed: true,
+    maxStage: "content_review_required",
+  };
+  const keys = Object.keys(policy || {}).sort();
+  const expectedKeys = Object.keys(expected).sort();
+  if (
+    keys.length !== expectedKeys.length
+    || keys.some((key, index) => key !== expectedKeys[index])
+    || expectedKeys.some((key) => policy[key] !== expected[key])
+  ) {
+    throw new Error("Invalid job-scoped unknown-name editorial policy.");
+  }
 }
 
 function intersection(left, right) {

@@ -71,7 +71,7 @@ async function availablePort() {
 }
 
 async function waitForHealth(baseUrl, child, diagnostics) {
-  for (let attempt = 0; attempt < 50; attempt += 1) {
+  for (let attempt = 0; attempt < 200; attempt += 1) {
     if (child.exitCode !== null) {
       throw new Error(`Local server exited before readiness: ${diagnostics()}`);
     }
@@ -81,7 +81,7 @@ async function waitForHealth(baseUrl, child, diagnostics) {
     } catch {
       // The loopback listener is still starting.
     }
-    await new Promise((resolve) => setTimeout(resolve, 20));
+    await new Promise((resolve) => setTimeout(resolve, 25));
   }
   throw new Error(`Local server did not become ready: ${diagnostics()}`);
 }

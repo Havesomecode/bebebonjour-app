@@ -22,7 +22,8 @@ function fixture() {
     status: record("status"),
   };
   const paths = {
-    intakePath: "/synthetic/intake.json",
+    inputRecordPath: "/synthetic/generation-input.json",
+    intakeSnapshot: { schemaVersion: "1.0", requestId: "req_synthetic", baby: {} },
     reviewRoot: "/synthetic/private-review",
     approvedPagePath: "/synthetic/approved/page.json",
     approvalPath: "/synthetic/approved/approval.json",
@@ -86,7 +87,7 @@ test("local command handlers map every lifecycle stage to the existing generator
     "prepared_bundle",
   ]);
   assert.deepEqual(calls, [
-    { name: "prepare-review", args: { input: "/synthetic/intake.json", output: "/synthetic/private-review" } },
+    { name: "prepare-review", args: { input: "/synthetic/generation-input.json", output: "/synthetic/private-review" } },
     {
       name: "render",
       args: {

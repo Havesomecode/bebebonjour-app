@@ -1,0 +1,30 @@
+{
+  "email": "question_email",
+  "consent": "question_consent",
+  "consentOption": "option_consent_yes",
+  "languages": "question_languages",
+  "languageOptions": {
+    "option_fr": "fr",
+    "option_ar": "ar"
+  },
+  "voice": "question_voice",
+  "voiceOptions": {
+    "option_voice_male": "male",
+    "option_voice_female": "female"
+  },
+  "firstName": "question_first_name",
+  "arabicName": "question_arabic_name",
+  "birthDate": "question_birth_date",
+  "babyGender": "question_baby_gender",
+  "babyGenderOptions": {
+    "option_baby_girl": "girl",
+    "option_baby_boy": "boy",
+    "option_baby_neutral": "neutral"
+  },
+  "context": "question_context",
+  "contextOptions": {
+    "option_context_general": "general",
+    "option_context_islam": "islam"
+  },
+  "extraRequest": "question_extra_request"
+}

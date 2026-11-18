@@ -21,6 +21,17 @@ export function createExternalEffectStageHandlers(options = {}) {
 
     async publish(context) {
       const operation = requireOperation(context, "publish");
+      const reconciliationCursor = Date.parse(context.attemptStartedAt);
+      if (!Number.isSafeInteger(reconciliationCursor) || reconciliationCursor < 0) {
+        throw new Error("Publication reconciliation requires the persisted attempt start time.");
+      }
+      const priorEffectStartedAt = context.priorEffectStartedAt;
+      if (
+        priorEffectStartedAt !== undefined
+        && (typeof priorEffectStartedAt !== "string" || !Number.isFinite(Date.parse(priorEffectStartedAt)))
+      ) {
+        throw new Error("Publication reconciliation requires a valid persisted prior effect start time.");
+      }
       const request = Object.freeze({
         jobId: operation.jobId,
         environment: operation.environment,
@@ -29,9 +40,17 @@ export function createExternalEffectStageHandlers(options = {}) {
         artifactSetId: operation.artifactSetId,
         artifactManifestDigest: operation.artifactManifestDigest,
         artifactSet: structuredClone(operation.artifactSet),
+        reconciliationCursor,
+        priorEffectStartedAt,
         idempotencyKey: requireIdempotencyKey(context),
+        reconciliationOnly: context.reconciliationOnly === true,
+        fenceExternalEffect: requireEffectFence(context),
+        ...(context.artifactReadAuthority
+          ? { artifactReadAuthority: structuredClone(context.artifactReadAuthority) }
+          : {}),
       });
       const reconciled = await publicationAdapter.reconcile(request);
+      if (!reconciled && context.reconciliationOnly) throw reconciliationPending("publication");
       const publication = reconciled || await publicationAdapter.publish(request);
       return { publication: normalizePublication(publication, request) };
     },
@@ -46,12 +65,15 @@ export function createExternalEffectStageHandlers(options = {}) {
         artifactManifestDigest: operation.artifactManifestDigest,
         publication: structuredClone(operation.publication),
         targetDigest: operation.deliveryTarget.targetDigest,
+        attemptStartedAt: operation.attemptStartedAt,
         idempotencyKey: requireIdempotencyKey(context),
+        fenceExternalEffect: requireEffectFence(context),
       });
       const reconciled = await deliveryAdapter.reconcile(reconciliationRequest);
       if (reconciled) {
         return { delivery: normalizeDelivery(reconciled, reconciliationRequest) };
       }
+      if (context.reconciliationOnly) throw reconciliationPending("delivery");
       const target = await resolveDeliveryTarget(context.job, operation.deliveryTarget.targetRef);
       assertDeliveryTarget(target);
       const currentBinding = deliveryTargetBinding(target);
@@ -184,6 +206,13 @@ function requireIdempotencyKey(context) {
   return value;
 }
 
+function requireEffectFence(context) {
+  if (typeof context?.fenceExternalEffect !== "function") {
+    throw new Error("A persisted external-effect lease fence is required.");
+  }
+  return context.fenceExternalEffect;
+}
+
 function assertDeliveryTarget(target) {
   if (!target || typeof target !== "object" || Object.keys(target).length === 0) {
     throw new Error("A private delivery target projection is required.");
@@ -225,6 +254,13 @@ function providerResultError(message) {
   const error = new Error(message);
   error.reasonCode = "provider_receipt_invalid";
   error.retryable = false;
+  return error;
+}
+
+function reconciliationPending(effect) {
+  const error = new Error(`Prior ${effect} effect has no reconciled provider receipt yet.`);
+  error.reasonCode = "provider_outcome_unknown";
+  error.retryable = true;
   return error;
 }
 

@@ -1,0 +1,272 @@
+{
+  "schemaVersion": "1.0",
+  "auditId": "test-a-publication-regression-audit-v10",
+  "baselineCommit": "956c62ddee38d876be984285a9fcc953c361b942",
+  "candidateBoundary": {
+    "pathAllowlist": [
+      "ops/test-a-production-audit.mjs",
+      "ops/test-a-publication-regression-audit.json",
+      "src/fulfillment/exact-revision-publication-adapter.mjs",
+      "src/fulfillment/external-effect-stage-handlers.mjs",
+      "src/fulfillment/job-orchestrator.mjs",
+      "src/fulfillment/resend-delivery-adapter.mjs",
+      "src/fulfillment/vercel-test-a-publication-provider.mjs",
+      "test/fulfillment/resend-delivery-adapter.test.mjs",
+      "test/fulfillment/test-a-operator-runner.test.mjs",
+      "test/fulfillment/vercel-test-a-publication-provider.test.mjs"
+    ],
+    "reviewedFileDigests": [
+      {
+        "path": "schemas/fulfillment-job-store.schema.json",
+        "sha256": "9efb50f788c7b086ff541f1ac998fe96b1dacc460b85cb000a525decd2f23311"
+      },
+      {
+        "path": "src/fulfillment/exact-revision-publication-adapter.mjs",
+        "sha256": "335b2ca984309dc3834c365d3c6382587c8ca26e7110fe724501b93f9a2257fc"
+      },
+      {
+        "path": "src/fulfillment/external-effect-stage-handlers.mjs",
+        "sha256": "bb03f2c99c4ec3da6a9630ebd26e343aa0f9b5e7badafa123b488e91e3f9f7ea"
+      },
+      {
+        "path": "src/fulfillment/job-machine.mjs",
+        "sha256": "5b926816dbf03d89c8edadaf9fc0b42b37a5522b06811532bfdd1ddc1987cc88"
+      },
+      {
+        "path": "src/fulfillment/job-orchestrator.mjs",
+        "sha256": "852fbdfcf3344e7c8e828fe2331e9f17d837fc485581a6010c62c54d1af08e2d"
+      },
+      {
+        "path": "src/fulfillment/resend-delivery-adapter.mjs",
+        "sha256": "a9c7b3ec54832461d1fa80b535312df5c74d55b91cbf8ba17a4b91e5694ed74b"
+      },
+      {
+        "path": "src/fulfillment/vercel-test-a-publication-provider.mjs",
+        "sha256": "2472db7388a100cb45dd32f68d045df87786c045ec508c12816219553f114e77"
+      },
+      {
+        "path": "src/persistence/convex-fulfillment-store.mjs",
+        "sha256": "ba85d94fbbee1dc3e20b13c1b906fe548110294c219e4d4b28abdb41772cab3e"
+      },
+      {
+        "path": "src/persistence/local-test-fulfillment-store.mjs",
+        "sha256": "d596cb9eb1af8b73993d32a41c62b277c9d606d3e753215922449692831af65b"
+      },
+      {
+        "path": "test/fulfillment/job-orchestration.test.mjs",
+        "sha256": "e662cfce6f1d6047e00ea25992b3352a28b1cba8c81ecca09be1687c16cb4ed4"
+      },
+      {
+        "path": "test/fulfillment/resend-delivery-adapter.test.mjs",
+        "sha256": "aaace631a08f4902a3116d26cf2d9f4c61c03e62416aba5428f4775720b089e5"
+      },
+      {
+        "path": "test/fulfillment/test-a-operator-runner.test.mjs",
+        "sha256": "686d88a9e6599f92e7bbd0d8b96cccb3e5393ce3f0057d7e868380da5ece3c58"
+      },
+      {
+        "path": "test/fulfillment/vercel-test-a-publication-provider.test.mjs",
+        "sha256": "d993b2155eea4e52c01ef1f8cc70e4cfd0daeff48faaa8d05ce9b0b5ce4c5525"
+      }
+    ]
+  },
+  "auditScript": "ops/test-a-production-audit.mjs",
+  "scope": "Offline consolidated production-readiness evidence for durable external-effect fencing, canonical Resend TEST-A sink enforcement, exact TEST-A artifact binding, provider-authoritative deployment and alias evidence, strict deployment-list validation, and retry-safe read-only Vercel reconciliation from the persisted attempt cursor. No provider mutation or live data is used.",
+  "controls": [
+    {
+      "id": "durable-external-effect-fencing",
+      "requirement": "Publication and delivery persist an exact-attempt effect_started marker before provider I/O. Any retry or expired-lease reclaim for the same logical operation is reconciliation-only and cannot create a deployment, mutate the stable alias, retarget a recipient, or resend.",
+      "implementation": [
+        "schemas/fulfillment-job-store.schema.json",
+        "src/fulfillment/external-effect-stage-handlers.mjs",
+        "src/fulfillment/job-machine.mjs",
+        "src/fulfillment/job-orchestrator.mjs",
+        "src/fulfillment/vercel-test-a-publication-provider.mjs",
+        "src/persistence/convex-fulfillment-store.mjs",
+        "src/persistence/local-test-fulfillment-store.mjs"
+      ],
+      "proofs": [
+        "test/fulfillment/job-orchestration.test.mjs: an external effect marker cannot be rebound to another attempt",
+        "test/fulfillment/job-orchestration.test.mjs: delivery retries reconcile only and never retarget or resend",
+        "test/fulfillment/vercel-test-a-publication-provider.test.mjs: expired publication overlap creates one deployment and one stable alias through the real adapter"
+      ],
+      "failureMode": "Retryable provider_outcome_unknown without a second external mutation; bounded terminal failure after the configured reconciliation attempts are exhausted"
+    },
+    {
+      "id": "canonical-resend-test-sink",
+      "requirement": "TEST-A delivery must reject every recipient value except the exact documented Resend sink and must submit the hard-coded canonical sink rather than a request-derived address.",
+      "implementation": [
+        "src/fulfillment/resend-delivery-adapter.mjs"
+      ],
+      "proofs": [
+        "test/fulfillment/resend-delivery-adapter.test.mjs: Resend delivery adapter sends the approved publication with the persisted idempotency key",
+        "test/fulfillment/resend-delivery-adapter.test.mjs: Resend delivery adapter rejects every non-canonical test sink before sending"
+      ],
+      "failureMode": "Immediate fail-closed rejection before provider invocation; accepted delivery always targets delivered@resend.dev"
+    },
+    {
+      "id": "nested-artifact-set-binding",
+      "requirement": "The top-level publication artifactSetId must equal a valid artifactSet.artifactSetId before adapter or provider I/O and remain bound in provider metadata, stable read-back, and receipts.",
+      "implementation": [
+        "src/fulfillment/exact-revision-publication-adapter.mjs",
+        "src/fulfillment/vercel-test-a-publication-provider.mjs"
+      ],
+      "proofs": [
+        "test/fulfillment/exact-revision-publication-adapter.test.mjs: exact revision publication adapter rejects an absent or mismatched nested artifact-set id",
+        "test/fulfillment/exact-revision-publication-adapter.test.mjs: exact revision publication adapter rejects a provider receipt for another artifact set",
+        "test/fulfillment/vercel-test-a-publication-provider.test.mjs: Vercel TEST-A provider rejects an absent or mismatched nested artifact-set id before provider I/O"
+      ],
+      "failureMode": "Non-retryable rejection before provider invocation"
+    },
+    {
+      "id": "exact-publication-manifest-bytes",
+      "requirement": "Immediately before stable alias mutation, the immutable deployment .publication.json response bytes must equal the exact generated manifest bytes, including formatting and trailing newline; semantic JSON equivalence is insufficient.",
+      "implementation": [
+        "src/fulfillment/vercel-test-a-publication-provider.mjs"
+      ],
+      "proofs": [
+        "test/fulfillment/vercel-test-a-publication-provider.test.mjs: Vercel TEST-A reconciliation rejects a semantically equal manifest with different raw bytes",
+        "test/fulfillment/vercel-test-a-publication-provider.test.mjs: Vercel TEST-A provider resolves exact source bytes before one scoped alias mutation"
+      ],
+      "failureMode": "Immediate non-retryable fail-closed rejection with zero alias mutation"
+    },
+    {
+      "id": "provider-ready-deployment-evidence",
+      "requirement": "Before any immutable public read or alias mutation, provider-authoritative deployment detail and vercel.json file-content evidence must prove the selected deployment id, project, READY state, exact metadata, immutable URL, and exact routing/header configuration bytes.",
+      "implementation": [
+        "src/fulfillment/vercel-test-a-publication-provider.mjs"
+      ],
+      "proofs": [
+        "test/fulfillment/vercel-test-a-publication-provider.test.mjs: Vercel TEST-A provider reconciles a fully aliased deployment without provider mutation",
+        "test/fulfillment/vercel-test-a-publication-provider.test.mjs: Vercel TEST-A reconciliation rejects mismatched provider configuration evidence",
+        "test/fulfillment/vercel-test-a-publication-provider.test.mjs: Vercel TEST-A provider evidence fails closed when missing, malformed, or unavailable"
+      ],
+      "failureMode": "Non-retryable rejection for malformed, incomplete, or mismatched evidence; retryable provider-unavailable rejection for transport and 5xx responses; zero alias mutation"
+    },
+    {
+      "id": "provider-exact-file-inventory",
+      "requirement": "Provider-authoritative deployment inventory must be structurally valid and contain exactly every approved uploaded announcement file plus .publication.json and vercel.json, with no missing, duplicate, or unexpected file paths.",
+      "implementation": [
+        "src/fulfillment/vercel-test-a-publication-provider.mjs"
+      ],
+      "proofs": [
+        "test/fulfillment/vercel-test-a-publication-provider.test.mjs: Vercel TEST-A reconciliation rejects an unexpected provider inventory file",
+        "test/fulfillment/vercel-test-a-publication-provider.test.mjs: Vercel TEST-A provider evidence fails closed when missing, malformed, or unavailable"
+      ],
+      "failureMode": "Immediate non-retryable fail-closed rejection with zero alias mutation"
+    },
+    {
+      "id": "immutable-deployment-pre-alias-verification",
+      "requirement": "Immediately before stable alias mutation, the selected immutable Vercel deployment URL must return the exact publication manifest and Vercel configuration digest, language redirect, private cache policy, and every approved file digest. Any content or configuration mismatch fails immediately without alias mutation.",
+      "implementation": [
+        "src/fulfillment/vercel-test-a-publication-provider.mjs"
+      ],
+      "proofs": [
+        "test/fulfillment/vercel-test-a-publication-provider.test.mjs: Vercel TEST-A provider reconciles a fully aliased deployment without provider mutation",
+        "test/fulfillment/vercel-test-a-publication-provider.test.mjs: Vercel TEST-A reconciliation rejects mismatched immutable deployment bytes before alias mutation",
+        "test/fulfillment/vercel-test-a-publication-provider.test.mjs: Vercel TEST-A reconciliation rejects mismatched immutable deployment configuration before alias mutation"
+      ],
+      "failureMode": "Immediate fail-closed rejection with zero alias mutation for any mismatch; bounded retry only for transport or provider availability failures"
+    },
+    {
+      "id": "provider-alias-readback",
+      "requirement": "Only a documented HTTP 200 alias-assignment response with the exact hostname, a valid uid, and an RFC 3339 created timestamp may advance. Any optional deployment or project field must match the request boundary; exact ownership is established only by provider-authoritative alias read-back before stable-public verification.",
+      "implementation": [
+        "src/fulfillment/vercel-test-a-publication-provider.mjs"
+      ],
+      "proofs": [
+        "test/fulfillment/vercel-test-a-publication-provider.test.mjs: Vercel TEST-A provider resolves exact source bytes before one scoped alias mutation",
+        "test/fulfillment/vercel-test-a-publication-provider.test.mjs: Vercel TEST-A provider reconciles a fully aliased deployment without provider mutation",
+        "test/fulfillment/vercel-test-a-publication-provider.test.mjs: Vercel TEST-A provider rejects undocumented or unbound alias responses before read-back",
+        "test/fulfillment/vercel-test-a-publication-provider.test.mjs: Vercel TEST-A provider alias evidence fails closed when malformed, mismatched, or unavailable"
+      ],
+      "failureMode": "Non-retryable rejection for undocumented status, malformed or unbound assignment response, or malformed, incomplete, or mismatched alias evidence; retryable rejection for provider-unavailable evidence; stable-public verification is not attempted"
+    },
+    {
+      "id": "deployment-list-response-validation",
+      "requirement": "Every successful Vercel deployment-list response must contain a deployments array and pagination object with an explicit next value. Missing or malformed page structure fails non-retryably before the response can be treated as an exhausted no-match page.",
+      "implementation": [
+        "src/fulfillment/vercel-test-a-publication-provider.mjs"
+      ],
+      "proofs": [
+        "test/fulfillment/vercel-test-a-publication-provider.test.mjs: Vercel TEST-A deployment discovery rejects malformed list responses before mutation"
+      ],
+      "failureMode": "Immediate non-retryable fail-closed rejection with zero file upload, deployment creation, alias mutation, or stable read-back"
+    },
+    {
+      "id": "global-exact-deployment-uniqueness",
+      "requirement": "Reconciliation must scan every bounded Vercel result page and reject more than one exact metadata match across the complete scanned result set.",
+      "implementation": [
+        "src/fulfillment/vercel-test-a-publication-provider.mjs"
+      ],
+      "proofs": [
+        "test/fulfillment/vercel-test-a-publication-provider.test.mjs: Vercel TEST-A reconciliation rejects duplicate exact matches across deployment pages",
+        "test/fulfillment/vercel-test-a-publication-provider.test.mjs: Vercel TEST-A reconciliation selects one exact deployment found only on a later page",
+        "test/fulfillment/vercel-test-a-publication-provider.test.mjs: Vercel TEST-A reconciliation returns no match only after exhausting deployment pages"
+      ],
+      "failureMode": "Non-retryable rejection before alias mutation or stable read-back"
+    },
+    {
+      "id": "deployment-pagination-progress",
+      "requirement": "Every Vercel until cursor must be a non-negative safe integer, unseen, and strictly decreasing; repeated, cyclic, and non-monotonic cursors fail closed.",
+      "implementation": [
+        "src/fulfillment/vercel-test-a-publication-provider.mjs"
+      ],
+      "proofs": [
+        "test/fulfillment/vercel-test-a-publication-provider.test.mjs: Vercel TEST-A reconciliation rejects invalid deployment pagination cursors"
+      ],
+      "failureMode": "Retryable provider-unavailable rejection before alias mutation or stable read-back"
+    },
+    {
+      "id": "interrupted-publication-reconciliation",
+      "requirement": "Every TEST-A publication attempt must derive a non-negative safe Vercel until cursor from its persisted attempt start time, start reconciliation at that exact cursor, and recover an already-created exact deployment before any duplicate upload or deployment creation.",
+      "implementation": [
+        "src/fulfillment/job-orchestrator.mjs",
+        "src/fulfillment/external-effect-stage-handlers.mjs",
+        "src/fulfillment/exact-revision-publication-adapter.mjs",
+        "src/fulfillment/vercel-test-a-publication-provider.mjs"
+      ],
+      "proofs": [
+        "test/fulfillment/test-a-operator-runner.test.mjs: private TEST-A operator runner persists review before exact publication and one sink delivery",
+        "test/fulfillment/vercel-test-a-publication-provider.test.mjs: Vercel TEST-A publication retry starts reconciliation at the supplied cursor after an interrupted deployment",
+        "test/fulfillment/vercel-test-a-publication-provider.test.mjs: expired publication overlap creates one deployment and one stable alias through the real adapter"
+      ],
+      "failureMode": "Invalid persisted cursor fails before provider mutation; retry recovery remains reconciliation-only and performs no duplicate deployment or alias mutation"
+    }
+  ],
+  "verification": [
+    {
+      "command": "node ops/test-a-production-audit.mjs",
+      "requiredResult": "deterministic PASS with no provider mutation"
+    },
+    {
+      "command": "node --test test/fulfillment/resend-delivery-adapter.test.mjs test/fulfillment/exact-revision-publication-adapter.test.mjs test/fulfillment/job-orchestration.test.mjs test/fulfillment/test-a-operator-runner.test.mjs test/fulfillment/vercel-test-a-publication-provider.test.mjs",
+      "requiredResult": "106 passed, 0 failed"
+    },
+    {
+      "command": "npm run test",
+      "requiredResult": "exit 0"
+    },
+    {
+      "command": "npm run test:integration",
+      "requiredResult": "exit 0 with RUN_DB_TESTS=1"
+    },
+    {
+      "command": "npm run build",
+      "requiredResult": "exit 0"
+    },
+    {
+      "command": "npm run test:vercel-routing",
+      "requiredResult": "exit 0"
+    },
+    {
+      "command": "npm audit --omit=dev",
+      "requiredResult": "exit 0 with 0 vulnerabilities"
+    },
+    {
+      "command": "git diff --check 956c62ddee38d876be984285a9fcc953c361b942",
+      "requiredResult": "exit 0"
+    }
+  ],
+  "releaseConstraint": "This evidence authorizes only a reviewed release candidate. It does not authorize provider mutation, deployment, alias changes, publication, or live customer-data access."
+}

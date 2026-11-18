@@ -1,0 +1,54 @@
+{
+  "schemaVersion": "1.0",
+  "evidenceId": "codex-strict-response-format-remediation-2026-09-06",
+  "rejectedCandidate": {
+    "commit": "f01b8058885a48fbd05bdf55b3554156636c899e",
+    "tree": "2f03cafc73062128cb141710b1f5ea5120aa8218",
+    "parent": "8522322013ddb49baeb47388d3d8169598d7a6a8",
+    "allowlistedRawDiffSha256": "87c3d5021e6778eead700a18c3d3e3d44bcc2128cba4923379ffe329e2defb39",
+    "reviewerFinding": "OpenAI 400 invalid_json_schema: schemaVersion used const without an explicit type"
+  },
+  "correction": {
+    "schemaPath": "schemas/codex-subscription-composition.schema.json",
+    "schemaSourceSha256": "042b96d94b7c77461e02e55a92af7a828b4619c7701aab25f9abb41d98f56914",
+    "serializedSchemaSha256": "2eecf6d157443e0c19009530c7601145b2ba02fa50715e12852e96adcc5202df",
+    "schemaVersionProperty": {
+      "type": "string",
+      "const": "1.0"
+    }
+  },
+  "packagedRuntime": {
+    "packageVersion": "0.146.0",
+    "targetTriple": "aarch64-apple-darwin",
+    "binaryBytes": 271056976,
+    "binarySha256": "ae1d3ffe6d48aec6a4dc3f50e7eb8e0d11962485a6a9406c5a7012139383da02",
+    "archiveBytes": 106040063,
+    "archiveSha256": "b7cbd2ee4768249163aac1fb50e82fdde0085ebeec40a556d3ac520bf4bf8ef2",
+    "manifestSha256": "e003461f5eefaa95d31bf5777ef1a672cb77ba7d8afaf646466ff1154745442f"
+  },
+  "syntheticProviderProbe": {
+    "observedAt": "2026-09-06T19:58:31Z",
+    "command": "RUN_CODEX_STRICT_RESPONSE_FORMAT_TEST=1 node --test test/operations/codex-packaged-response-schema.test.mjs",
+    "status": "PASS",
+    "testCount": 2,
+    "passCount": 2,
+    "failCount": 0,
+    "skipCount": 0,
+    "durationMs": 17176.743458,
+    "provider": "openai-codex-subscription",
+    "model": "gpt-5.6-sol",
+    "adapterVersion": "1.0.0",
+    "requestDigest": "eadfd811ba5fea7e7d0a11a5faad0649fe24106f02c47107b24dd0e5b1cd2a6b",
+    "outputDigest": "c35ed6cee679206ff5aebafd53cfea973b76255e5a373341a21255c3b7c8258c",
+    "fixture": "synthetic-only",
+    "boundaryResult": "The exact production composer passed the serialized corrected schema to the integrity-checked packaged Codex 0.146.0 executable; OpenAI accepted the strict response format and returned schema-valid output."
+  },
+  "privacyAndReleaseBoundary": {
+    "persistedProviderContent": false,
+    "persistedCredentials": false,
+    "pendingOperationsCommandConsumed": false,
+    "liveCustomerDataAccessed": false,
+    "providerMutation": "one authorized synthetic composition inference only; no deployment, publication, delivery, checkout, webhook, email, DNS, or secret-store mutation",
+    "releaseConstraint": "Corrected candidate evidence only. This probe does not prove Vercel deployment, managed auth rotation, or real-customer execution; those remain independently gated."
+  }
+}

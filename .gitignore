@@ -1,6 +1,9 @@
 .env.local
 .vercel/
+.codex-runtime/
+codex-runtime/
 out/
+node_modules
 node_modules/
 .worktrees/
 .DS_Store
@@ -8,3 +11,4 @@ node_modules/
 .env*
 !.env.example
 supabase/.temp/
+.verification/

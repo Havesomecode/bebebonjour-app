@@ -1,7 +1,28 @@
 import { createHash } from "node:crypto";
 import { isDeepStrictEqual } from "node:util";
 
+import { serializeCanonicalJobScopedEditorialApprovalRecord } from "./job-scoped-editorial-approval-canonicalization.mjs";
+
+import { createJobEffectTransitions } from "./job-effect-transitions.mjs";
+
+export const {
+  recoverUnfencedNarrationEffectTransition,
+  failStageTransition,
+  reconcileAbsentExternalEffectTransition,
+} = createJobEffectTransitions(withCommand, isDeepStrictEqual);
+
 export const EDITORIAL_POLICY_VERSION = "bebebonjour-editorial-v1";
+export const RECOVERABLE_FAILED_PREPARE_REVIEW_JOB_ID =
+  "job_c633aa4c-0039-4257-8913-eaa6f6197d0c";
+
+const FAILED_PREPARE_REVIEW_EDITORIAL_POLICY = Object.freeze({
+  id: "unknown_name_general_wishes",
+  preserveSubmittedName: true,
+  meaningAllowed: false,
+  scripturalNameAssociationAllowed: false,
+  genericBlessingsAllowed: true,
+  maxStage: "content_review_required",
+});
 
 const STAGES_BY_STATE = Object.freeze({
   generation_queued: "prepare_review",
@@ -73,6 +94,33 @@ export function createJobAggregate(input, { commandId, at }) {
   };
 }
 
+// Explicit creation path for an unpaid fictional narration check. Never imports customer data,
+// claims payment/generation, or modifies an existing aggregate.
+export function createOperatorNarrationTestAggregate({ jobId, artifactSet, at }) {
+  const intakeDigest = artifactSet.pageDigest;
+  const product = "operator_narration_test";
+  const base = createJobAggregate({
+    jobId,
+    environment: "test",
+    product,
+    intakeDigest,
+    narrationRequired: true,
+    customerRef: "fictional-operator-authored",
+    paymentCorrelation: { project: "bebebonjour", product, environment: "test", jobId, intakeDigest },
+  }, { commandId: `create:${jobId}`, at });
+  return withCommand(base, { commandId: `author:${jobId}` }, "operator_test_content_authored", at, (next) => {
+    const revision = {
+      revisionId: "r1", ordinal: 1, inputDigest: intakeDigest, createdAt: at,
+      source: "operator_authored_fictional_test", providerGeneration: false,
+    };
+    assertRevision(revision, next);
+    next.revisions.push(revision);
+    next.currentRevisionId = "r1";
+    addArtifactSet(next, { ...artifactSet, kind: "private_review", revisionId: "r1" }, "private_review");
+    next.state = "content_review_required";
+  });
+}
+
 export function recordPaymentTransition(aggregate, payment, at) {
   return withCommand(aggregate, payment, "payment_recorded", at, (next) => {
     requireState(next, "awaiting_payment", "record payment");
@@ -89,6 +137,10 @@ export function recordPaymentTransition(aggregate, payment, at) {
       recordedAt: payment.recordedAt,
     });
     next.state = "generation_queued";
+  }, {
+    commandId: payment.commandId,
+    providerPaymentId: payment.providerPaymentId,
+    correlation: payment.correlation,
   });
 }
 
@@ -121,6 +173,7 @@ export function claimStageTransition(aggregate, claim, at) {
         && attempt.status === "completed",
     ).length + 1;
     const operationBinding = normalizeOperationBinding(claim.stage, claim.operationBinding);
+    const operationsCommandId = normalizeOperationsCommandId(claim.operationsCommandId);
     next.stageAttempts.push({
       attemptId,
       stage: claim.stage,
@@ -129,10 +182,12 @@ export function claimStageTransition(aggregate, claim, at) {
       operationNumber,
       idempotencyKey: stageIdempotencyKey(next.jobId, revisionId, claim.stage, operationNumber),
       operationBinding,
+      ...(operationsCommandId ? { operationsCommandId } : {}),
       status: "running",
       leaseToken: claim.leaseToken,
       leaseExpiresAt: new Date(Date.parse(at) + claim.leaseMs).toISOString(),
       startedAt: at,
+      effectStartedAt: null,
       completedAt: null,
       failure: null,
     });
@@ -144,6 +199,56 @@ export function claimStageTransition(aggregate, claim, at) {
     leaseMs: claim.leaseMs,
     maxAttempts: claim.maxAttempts,
     operationBinding: claim.operationBinding || null,
+    operationsCommandId: claim.operationsCommandId || null,
+  });
+}
+
+export function markExternalEffectStartedTransition(aggregate, command, at) {
+  return withCommand(aggregate, command, "external_effect_started", at, (next) => {
+    if (!["generate_tts", "publish", "deliver"].includes(command.stage)) {
+      throw new Error("Only narration, publication, and delivery stages can start an external effect.");
+    }
+    const attempt = currentRunningAttempt(next, command.stage, command.leaseToken);
+    if (attempt.attemptId !== command.attemptId) {
+      throw new Error(`External effect marker must bind running attempt ${attempt.attemptId}.`);
+    }
+    if (Date.parse(at) >= Date.parse(attempt.leaseExpiresAt)) {
+      throw new Error("External effect cannot start after its stage lease expired.");
+    }
+    if (attempt.effectStartedAt !== null) {
+      throw new Error("External effect start is already persisted for this attempt.");
+    }
+    attempt.effectStartedAt = at;
+  }, {
+    commandId: command.commandId,
+    stage: command.stage,
+    attemptId: command.attemptId,
+  });
+}
+
+export function fenceExternalEffectTransition(aggregate, command, at) {
+  return withCommand(aggregate, command, "external_effect_fenced", at, (next) => {
+    if (!["generate_tts", "publish", "deliver"].includes(command.stage)) {
+      throw new Error("Only narration, publication, and delivery stages can fence an external effect.");
+    }
+    assertPositiveInteger(command.leaseMs, "leaseMs");
+    const attempt = currentRunningAttempt(next, command.stage, command.leaseToken);
+    if (attempt.attemptId !== command.attemptId) {
+      throw new Error(`External effect fence must bind running attempt ${attempt.attemptId}.`);
+    }
+    if (Date.parse(at) >= Date.parse(attempt.leaseExpiresAt)) {
+      throw new Error("External effect cannot cross its provider boundary after the stage lease expired.");
+    }
+    if (command.effectMayBeIssued === true && attempt.effectStartedAt === null) {
+      attempt.effectStartedAt = at;
+    }
+    attempt.leaseExpiresAt = new Date(Date.parse(at) + command.leaseMs).toISOString();
+  }, {
+    commandId: command.commandId,
+    stage: command.stage,
+    attemptId: command.attemptId,
+    leaseMs: command.leaseMs,
+    effectMayBeIssued: command.effectMayBeIssued === true,
   });
 }
 
@@ -155,16 +260,16 @@ export function completeStageTransition(aggregate, completion, at) {
     }
     switch (completion.stage) {
       case "prepare_review":
-        completePreparedReview(next, completion.result);
+        completePreparedReview(next, completion.result, attempt);
         break;
       case "render_approved":
-        completeApprovedRender(next, completion.result);
+        completeApprovedRender(next, completion.result, attempt);
         break;
       case "generate_tts":
-        completeNarrationGeneration(next, completion.result);
+        completeNarrationGeneration(next, completion.result, attempt);
         break;
       case "publish":
-        completePublication(next, completion.result, attempt.idempotencyKey);
+        completePublication(next, completion.result, attempt);
         break;
       case "deliver":
         completeDeliverySend(next, completion.result, attempt);
@@ -179,43 +284,96 @@ export function completeStageTransition(aggregate, completion, at) {
   });
 }
 
-export function failStageTransition(aggregate, failure, policy, at) {
-  return withCommand(aggregate, failure, "stage_failed", at, (next) => {
-    const attempt = currentRunningAttempt(next, failure.stage, failure.leaseToken);
-    assertNonEmptyString(failure.reasonCode, "failure reasonCode");
-    if (!/^[a-z0-9_]{1,64}$/.test(failure.reasonCode)) {
-      throw new Error("Failure reasonCode must be a bounded machine-readable value.");
+export function recoverFailedPrepareReviewTransition(aggregate, recovery, at) {
+  return withCommand(aggregate, recovery, "failed_prepare_review_recovered", at, (next) => {
+    const attempt = next.stageAttempts?.at(-1);
+    const expectedCorrelation = {
+      project: "bebebonjour",
+      product: "announcement-page",
+      environment: "test",
+      jobId: RECOVERABLE_FAILED_PREPARE_REVIEW_JOB_ID,
+      intakeDigest: next.intakeDigest,
+    };
+    const expectedApproval = {
+      approvalType: "job_scoped_editorial_policy",
+      jobId: RECOVERABLE_FAILED_PREPARE_REVIEW_JOB_ID,
+      policy: FAILED_PREPARE_REVIEW_EDITORIAL_POLICY,
+      record: recovery?.editorialApproval?.record,
+      recordDigest: recovery?.editorialApproval?.recordDigest,
+      sourceDigest: recovery?.editorialApproval?.sourceDigest,
+      intakeDigest: next.intakeDigest,
+    };
+    const eligible =
+      hasExactKeys(recovery, [
+        "commandId",
+        "editorialApproval",
+        "failedAttemptId",
+        "intakeDigest",
+        "jobId",
+        "paymentCorrelation",
+      ])
+      && hasExactKeys(recovery?.editorialApproval, [
+        "approvalType",
+        "intakeDigest",
+        "jobId",
+        "policy",
+        "record",
+        "recordDigest",
+        "sourceDigest",
+      ])
+      && next.jobId === RECOVERABLE_FAILED_PREPARE_REVIEW_JOB_ID
+      && recovery.jobId === RECOVERABLE_FAILED_PREPARE_REVIEW_JOB_ID
+      && next.environment === "test"
+      && next.product === "announcement-page"
+      && next.state === "failed"
+      && next.currentRevisionId === null
+      && next.publishedRevisionId === null
+      && next.retry === null
+      && next.intakeDigest === recovery.intakeDigest
+      && isDeepStrictEqual(next.paymentCorrelation, expectedCorrelation)
+      && isDeepStrictEqual(recovery.paymentCorrelation, expectedCorrelation)
+      && isDeepStrictEqual(next.payment?.correlation, expectedCorrelation)
+      && typeof next.payment?.providerEventId === "string"
+      && next.payment.providerEventId.length > 0
+      && typeof next.payment?.providerPaymentId === "string"
+      && next.payment.providerPaymentId.length > 0
+      && Array.isArray(next.stageAttempts)
+      && next.stageAttempts.length === 1
+      && attempt?.attemptId === recovery.failedAttemptId
+      && attempt?.stage === "prepare_review"
+      && attempt?.revisionId === null
+      && attempt?.attemptNumber === 1
+      && attempt?.operationNumber === 1
+      && attempt?.operationBinding === null
+      && attempt?.status === "failed"
+      && attempt?.effectStartedAt === null
+      && attempt?.leaseToken === null
+      && attempt?.leaseExpiresAt === null
+      && typeof attempt?.completedAt === "string"
+      && isDeepStrictEqual(attempt?.failure, { retryable: false, reasonCode: "stage_error" })
+      && Array.isArray(next.revisions)
+      && next.revisions.length === 0
+      && Array.isArray(next.artifactSets)
+      && next.artifactSets.length === 0
+      && Array.isArray(next.reviewDecisions)
+      && next.reviewDecisions.length === 0
+      && next.publication === null
+      && Array.isArray(next.deliveryAttempts)
+      && next.deliveryAttempts.length === 0
+      && DIGEST_PATTERN.test(recovery.editorialApproval.recordDigest || "")
+      && DIGEST_PATTERN.test(recovery.editorialApproval.sourceDigest || "")
+      && isValidFailedPrepareReviewApproval(recovery.editorialApproval.record)
+      && recovery.editorialApproval.recordDigest === createHash("sha256")
+        .update(serializeCanonicalJobScopedEditorialApprovalRecord(
+          recovery.editorialApproval.record,
+        ))
+        .digest("hex")
+      && recovery.editorialApproval.sourceDigest === recovery.editorialApproval.record.sourceDigest
+      && isDeepStrictEqual(recovery.editorialApproval, expectedApproval);
+    if (!eligible) {
+      throw new Error("Failed prepare-review recovery rejected.");
     }
-    if (
-      Date.parse(at) >= Date.parse(attempt.leaseExpiresAt)
-      && (failure.reasonCode !== "lease_expired" || failure.retryable !== true)
-    ) {
-      throw new Error("An expired lease can only be fenced as a retryable lease_expired failure.");
-    }
-    const maxAttempts = configuredPositiveInteger(policy?.maxAttemptsByStage?.[failure.stage], "max attempts");
-    const retryable = failure.retryable === true && attempt.attemptNumber < maxAttempts;
-    attempt.status = retryable ? "retry_wait" : "failed";
-    attempt.completedAt = at;
-    attempt.leaseToken = null;
-    attempt.leaseExpiresAt = null;
-    attempt.failure = { retryable, reasonCode: failure.reasonCode };
-
-    if (retryable) {
-      const backoffs = policy?.backoffMsByStage?.[failure.stage];
-      if (!Array.isArray(backoffs) || backoffs.length < attempt.attemptNumber) {
-        throw new Error(`Retry backoff for ${failure.stage} attempt ${attempt.attemptNumber} is not configured.`);
-      }
-      const backoffMs = configuredPositiveInteger(backoffs[attempt.attemptNumber - 1], "retry backoff");
-      next.state = "retry_wait";
-      next.retry = {
-        stage: failure.stage,
-        availableAt: new Date(Date.parse(at) + backoffMs).toISOString(),
-      };
-      return;
-    }
-
-    next.state = "failed";
-    next.retry = null;
+    next.state = "generation_queued";
   });
 }
 
@@ -242,6 +400,7 @@ export function recordReviewDecisionTransition(aggregate, decision, at) {
     assertNonEmptyString(decision.rubricVersion, "rubricVersion");
     assertTimestamp(decision.decidedAt, "review decidedAt");
     assertReviewer(decision.reviewer);
+    const operationsCommandId = normalizeOperationsCommandId(decision.operationsCommandId);
     const reasons = normalizeReviewReasons(decision.reasons);
     if (decision.revisionId !== next.currentRevisionId) {
       throw new Error("Review decision must bind the exact current revision.");
@@ -267,6 +426,8 @@ export function recordReviewDecisionTransition(aggregate, decision, at) {
         decision.decidedAt,
         decision.reviewer.id,
       ),
+      ...(decision.approvalId ? { approvalId: reviewApprovalId(decision.approvalId) } : {}),
+      ...(operationsCommandId ? { operationsCommandId } : {}),
       decisionType: decision.decisionType,
       revisionId: decision.revisionId,
       outcome: decision.outcome,
@@ -407,9 +568,22 @@ export function statusFromAggregate(aggregate) {
       operationNumber: attempt.operationNumber,
       idempotencyKey: attempt.idempotencyKey,
       status: attempt.status,
+      effectStartedAt: attempt.effectStartedAt,
       failure: attempt.failure,
     })),
   });
+}
+
+export function approvedInputArtifactSetFromAggregate(aggregate, stage) {
+  if (stage !== "generate_tts" && (stage !== "publish" || !aggregate.narrationRequired)) {
+    throw new Error(`Approved input artifacts are not available for stage ${stage}.`);
+  }
+  assertApprovedContent(aggregate);
+  const prepared = latestArtifactSet(aggregate, "prepared_bundle", aggregate.currentRevisionId);
+  if (!prepared) {
+    throw new Error("Narration generation requires the persisted approved prepared artifact identity.");
+  }
+  return clone(prepared);
 }
 
 export function externalEffectInputFromAggregate(aggregate, stage) {
@@ -442,11 +616,20 @@ export function externalEffectInputFromAggregate(aggregate, stage) {
   if (!deliveryAttempt?.operationBinding) {
     throw new Error("Delivery requires one persisted exact target binding.");
   }
+  const firstOperationAttempt = aggregate.stageAttempts.find(
+    (attempt) => attempt.stage === "deliver"
+      && attempt.revisionId === aggregate.currentRevisionId
+      && attempt.idempotencyKey === deliveryAttempt.idempotencyKey,
+  );
+  if (!firstOperationAttempt?.startedAt) {
+    throw new Error("Delivery requires the persisted first operation attempt time.");
+  }
   return clone({
     ...input,
     publication: aggregate.publication,
     delivery: aggregate.deliveryAttempts.at(-1) || null,
     deliveryTarget: deliveryAttempt.operationBinding,
+    attemptStartedAt: firstOperationAttempt.startedAt,
   });
 }
 
@@ -460,7 +643,7 @@ export function stageIdempotencyKey(jobId, revisionId, stage, operationNumber = 
   ].join("\0"))}`;
 }
 
-function completePreparedReview(next, result) {
+function completePreparedReview(next, result, attempt) {
   if (next.state !== "generating") throw new Error("Prepared review completion is out of sequence.");
   assertRevision(result?.revision, next);
   const currentRevision = next.revisions.find(
@@ -476,32 +659,33 @@ function completePreparedReview(next, result) {
   }
   next.revisions.push(clone(result.revision));
   next.currentRevisionId = result.revision.revisionId;
-  addArtifactSet(next, result.artifactSet, "private_review");
+  addArtifactSet(next, result.artifactSet, "private_review", attempt.operationsCommandId);
   next.state = "content_review_required";
 }
 
-function completeApprovedRender(next, result) {
+function completeApprovedRender(next, result, attempt) {
   if (next.state !== "rendering") throw new Error("Approved render completion is out of sequence.");
   const contentDecision = assertApprovedContent(next);
-  addArtifactSet(next, result?.artifactSet, "prepared_bundle");
+  addArtifactSet(next, result?.artifactSet, "prepared_bundle", attempt.operationsCommandId);
   const preparedBundle = latestArtifactSet(next, "prepared_bundle", next.currentRevisionId);
-  if (!next.narrationRequired && !isDeepStrictEqual(
-    contentDecision.artifactDigests,
-    pickDigests(preparedBundle),
+  if (!next.narrationRequired && !preparedBundleMatchesContentApproval(
+    next,
+    contentDecision,
+    preparedBundle,
   )) {
     throw new Error("Non-narrated release requires the exact content-approved artifact digests.");
   }
   next.state = next.narrationRequired ? "tts_queued" : "publish_ready";
 }
 
-function completeNarrationGeneration(next, result) {
+function completeNarrationGeneration(next, result, attempt) {
   if (next.state !== "tts_generating") throw new Error("Narration completion is out of sequence.");
   assertApprovedContent(next);
-  addArtifactSet(next, result?.artifactSet, "narration_review");
+  addArtifactSet(next, result?.artifactSet, "narration_review", attempt.operationsCommandId);
   next.state = "narration_review_required";
 }
 
-function completePublication(next, result, idempotencyKey) {
+function completePublication(next, result, attempt) {
   if (next.state !== "publishing") throw new Error("Publication completion is out of sequence.");
   assertReleaseEligible(next);
   const publication = result?.publication;
@@ -522,7 +706,8 @@ function completePublication(next, result, idempotencyKey) {
     stableUrl: publication.stableUrl,
     artifactManifestDigest: publication.artifactManifestDigest,
     providerReceiptId: publication.providerReceiptId,
-    idempotencyKey,
+    idempotencyKey: attempt.idempotencyKey,
+    ...(attempt.operationsCommandId ? { operationsCommandId: attempt.operationsCommandId } : {}),
     status: "published",
   });
   next.publishedRevisionId = next.currentRevisionId;
@@ -546,6 +731,7 @@ function completeDeliverySend(next, result, attempt) {
     revisionId: delivery.revisionId,
     providerMessageId: delivery.providerMessageId,
     idempotencyKey: attempt.idempotencyKey,
+    ...(attempt.operationsCommandId ? { operationsCommandId: attempt.operationsCommandId } : {}),
     targetRef: attempt.operationBinding.targetRef,
     status: "sent",
     deliveredAt: null,
@@ -554,12 +740,13 @@ function completeDeliverySend(next, result, attempt) {
   next.state = "sent";
 }
 
-function addArtifactSet(next, artifactSet, expectedKind) {
+function addArtifactSet(next, artifactSet, expectedKind, operationsCommandId = null) {
   if (artifactSet?.kind !== expectedKind || artifactSet.revisionId !== next.currentRevisionId) {
     throw new Error(`${expectedKind} artifacts must bind the exact current revision.`);
   }
   for (const key of DIGEST_KEYS) assertDigest(artifactSet[key], `${expectedKind}.${key}`);
   const references = normalizeArtifactReferences(artifactSet);
+  const provenance = normalizeArtifactProvenance(next, artifactSet, expectedKind);
   const normalized = clone({
     artifactSetId: digestId(
       "artifacts",
@@ -567,17 +754,58 @@ function addArtifactSet(next, artifactSet, expectedKind) {
       artifactSet.revisionId,
       artifactSet.kind,
       ...DIGEST_KEYS.map((key) => artifactSet[key]),
+      ...Object.values(provenance),
     ),
     kind: artifactSet.kind,
     revisionId: artifactSet.revisionId,
+    ...(operationsCommandId ? { operationsCommandId } : {}),
     ...pickDigests(artifactSet),
     ...references,
+    ...provenance,
   });
   const existing = next.artifactSets.find((entry) => entry.artifactSetId === normalized.artifactSetId);
   if (existing && !isDeepStrictEqual(existing, normalized)) {
     throw new Error("Artifact set identity cannot be rebound to different immutable references.");
   }
   if (!existing) next.artifactSets.push(normalized);
+}
+
+function normalizeArtifactProvenance(next, artifactSet, expectedKind) {
+  if (expectedKind === "prepared_bundle" && next.narrationRequired === true) {
+    const source = latestArtifactSet(
+      next,
+      "private_review",
+      next.currentRevisionId,
+    );
+    if (
+      !source ||
+      (artifactSet.sourcePrivateReviewManifestDigest !== undefined &&
+        artifactSet.sourcePrivateReviewManifestDigest !== source.assetManifestDigest)
+    ) {
+      throw new Error("Prepared bundle source provenance is invalid.");
+    }
+    return {
+      sourcePrivateReviewManifestDigest: source.assetManifestDigest,
+    };
+  }
+  if (expectedKind === "narration_review") {
+    const source = latestArtifactSet(
+      next,
+      "prepared_bundle",
+      next.currentRevisionId,
+    );
+    if (
+      !source ||
+      (artifactSet.sourcePreparedBundleManifestDigest !== undefined &&
+        artifactSet.sourcePreparedBundleManifestDigest !== source.assetManifestDigest)
+    ) {
+      throw new Error("Narration review source provenance is invalid.");
+    }
+    return {
+      sourcePreparedBundleManifestDigest: source.assetManifestDigest,
+    };
+  }
+  return {};
 }
 
 function assertStageClaimEligible(aggregate, stage) {
@@ -592,6 +820,16 @@ function assertStageClaimEligible(aggregate, stage) {
       throw new Error("Delivery requires the published exact revision.");
     }
   }
+}
+
+const OPERATIONS_COMMAND_ID_PATTERN = /^command_[A-Za-z0-9][A-Za-z0-9_-]{7,127}$/u;
+
+function normalizeOperationsCommandId(value) {
+  if (value === undefined || value === null) return null;
+  if (typeof value !== "string" || !OPERATIONS_COMMAND_ID_PATTERN.test(value)) {
+    throw new Error("operationsCommandId must be a valid immutable operations command identifier.");
+  }
+  return value;
 }
 
 function normalizeOperationBinding(stage, binding) {
@@ -615,9 +853,10 @@ function assertReleaseEligible(aggregate) {
   if (!preparedBundle) {
     throw new Error("Release requires the exact prepared bundle.");
   }
-  if (!aggregate.narrationRequired && !isDeepStrictEqual(
-    contentDecision.artifactDigests,
-    pickDigests(preparedBundle),
+  if (!aggregate.narrationRequired && !preparedBundleMatchesContentApproval(
+    aggregate,
+    contentDecision,
+    preparedBundle,
   )) {
     throw new Error("Non-narrated release requires the exact content-approved artifact digests.");
   }
@@ -632,6 +871,31 @@ function releaseArtifactSet(aggregate) {
   const artifactSet = latestArtifactSet(aggregate, kind, aggregate.currentRevisionId);
   if (!artifactSet) throw new Error(`Release requires the exact ${kind} artifacts.`);
   return artifactSet;
+}
+
+function preparedBundleMatchesContentApproval(aggregate, contentDecision, preparedBundle) {
+  if (isDeepStrictEqual(contentDecision.artifactDigests, pickDigests(preparedBundle))) return true;
+  const source = latestArtifactSet(aggregate, "private_review", aggregate.currentRevisionId);
+  if (
+    !source
+    || preparedBundle.pageDigest !== source.pageDigest
+    || preparedBundle.transcriptDigest !== source.transcriptDigest
+    || preparedBundle.manifestRef
+      !== `jobs/${aggregate.jobId}/revisions/${aggregate.currentRevisionId}/manifests/prepared_bundle.json`
+    || !Array.isArray(source.files)
+    || source.files.length === 0
+    || !Array.isArray(preparedBundle.files)
+    || preparedBundle.files.length !== source.files.length
+  ) return false;
+  const namespace = source.files[0].path.split("/")[1];
+  if (!namespace) return false;
+  return source.files.every((file, index) => (
+    file.path.startsWith(`private-preview/${namespace}/`)
+    && isDeepStrictEqual(preparedBundle.files[index], {
+      ...file,
+      path: `deploy/${file.path.slice(`private-preview/${namespace}/`.length)}`,
+    })
+  ));
 }
 
 function assertApprovedContent(aggregate) {
@@ -750,6 +1014,41 @@ function assertRevision(revision, aggregate) {
   }
 }
 
+const DIGEST_PATTERN = /^[a-f0-9]{64}$/;
+
+function hasExactKeys(value, expectedKeys) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+  const actualKeys = Object.keys(value).sort();
+  const sortedExpectedKeys = [...expectedKeys].sort();
+  return actualKeys.length === sortedExpectedKeys.length
+    && sortedExpectedKeys.every((key, index) => actualKeys[index] === key);
+}
+
+function isValidFailedPrepareReviewApproval(record) {
+  if (
+    !hasExactKeys(record, [
+      "approvalType",
+      "jobId",
+      "policy",
+      "schemaVersion",
+      "sourceDigest",
+      "sourceEvidence",
+    ])
+    || !hasExactKeys(record?.sourceEvidence, ["kind", "reference"])
+    || record.schemaVersion !== "1.0"
+    || record.approvalType !== "job_scoped_editorial_policy"
+    || record.jobId !== RECOVERABLE_FAILED_PREPARE_REVIEW_JOB_ID
+    || !isDeepStrictEqual(record.policy, FAILED_PREPARE_REVIEW_EDITORIAL_POLICY)
+    || record.sourceEvidence.kind !== "kanban_human_decision"
+    || !/^kanban:t_[A-Za-z0-9_-]{3,128}$/.test(record.sourceEvidence.reference || "")
+  ) {
+    return false;
+  }
+  return record.sourceDigest === createHash("sha256")
+    .update(JSON.stringify(record.sourceEvidence))
+    .digest("hex");
+}
+
 function assertPaymentCorrelation(correlation, input) {
   const expected = {
     project: "bebebonjour",
@@ -761,6 +1060,13 @@ function assertPaymentCorrelation(correlation, input) {
   if (!isDeepStrictEqual(correlation, expected)) {
     throw new Error("Payment correlation must bind project, product, environment, job, and intake digest.");
   }
+}
+
+function reviewApprovalId(value) {
+  if (typeof value !== "string" || !/^approval_[a-f0-9]{24}$/.test(value)) {
+    throw new Error("Review approval id is invalid.");
+  }
+  return value;
 }
 
 function assertReviewer(reviewer) {

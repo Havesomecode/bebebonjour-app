@@ -1,5 +1,7 @@
 import { createHash, randomBytes, randomUUID, timingSafeEqual } from "node:crypto";
 
+import { createJobAggregate } from "../forward-coexistence/live/src/fulfillment/job-machine.mjs";
+
 const PRICE_MINOR = 3900;
 const CURRENCY = "EUR";
 const CHECKOUT_METADATA = Object.freeze({
@@ -7,6 +9,12 @@ const CHECKOUT_METADATA = Object.freeze({
   product: "announcement-page",
   environment: "test",
 });
+const RESEND_TEST_SINKS = new Set([
+  "bounced@resend.dev",
+  "complained@resend.dev",
+  "delivered@resend.dev",
+  "suppressed@resend.dev",
+]);
 
 export class CustomerFlowError extends Error {
   constructor(statusCode, code, message) {
@@ -17,13 +25,19 @@ export class CustomerFlowError extends Error {
   }
 }
 
-export function createCustomerFlowService({
+export function createCustomerFlowService(options) {
+  return createCustomerFlowRuntime(options).customerService;
+}
+
+export function createCustomerFlowRuntime({
   store,
   paymentGateway,
   fulfillmentOrchestrator = null,
   syntheticOnly = true,
+  enqueueWorkItem = false,
+  atomicFulfillment = false,
   now = () => new Date().toISOString(),
-  createId = defaultCreateId,
+  createId = createCustomerFlowId,
 }) {
   if (!store) throw new Error("A customer-flow store is required.");
   if (!paymentGateway?.createCheckoutSession) throw new Error("A payment gateway is required.");
@@ -32,15 +46,23 @@ export function createCustomerFlowService({
   )) {
     throw new Error("The canonical fulfillment orchestrator contract is incomplete.");
   }
+  if (atomicFulfillment && !fulfillmentOrchestrator) {
+    throw new Error("Atomic fulfillment requires the canonical fulfillment orchestrator.");
+  }
 
   const pendingCheckouts = new Map();
 
-  return {
-    submitIntake,
-    getStatus,
-    createCheckout,
-    recordPaymentSucceeded,
-  };
+  return Object.freeze({
+    customerService: Object.freeze({
+      submitIntake,
+      getStatus,
+      createCheckout,
+      recordPaymentSucceeded,
+    }),
+    operationsCheckout: Object.freeze({
+      createCheckout: createCheckoutAsOperator,
+    }),
+  });
 
   async function submitIntake(input, options = {}) {
     const intake = normalizeIntake(input, syntheticOnly);
@@ -55,7 +77,7 @@ export function createCustomerFlowService({
       submittedAt,
     };
     const response = { jobId, intakeToken, status: "payment_pending" };
-    const result = await store.createJob({
+    const customerJob = {
       schemaVersion: "1.0",
       jobId,
       version: 1,
@@ -65,11 +87,21 @@ export function createCustomerFlowService({
       intakeDigest,
       intakeTokenDigest: digestText(intakeToken),
       payment: { status: "pending", checkout: null, acceptedEventId: null },
-    }, idempotencyKey, response, intakeDigest);
+    };
+    const fulfillmentAggregate = atomicFulfillment
+      ? createJobAggregate(canonicalJobInput(customerJob), {
+        commandId: `customer-intake:${jobId}`,
+        at: submittedAt,
+      })
+      : undefined;
+    const result = await store.createJob(customerJob, idempotencyKey, response, intakeDigest, {
+      enqueueWorkItem,
+      fulfillmentAggregate,
+    });
     if (result.conflict) {
       throw flowError(409, "idempotency_conflict", "Idempotency key was already used for another request.");
     }
-    if (fulfillmentOrchestrator) {
+    if (fulfillmentOrchestrator && !atomicFulfillment) {
       const persistedJob = await store.readJob(result.response.jobId);
       await fulfillmentOrchestrator.createJob(canonicalJobInput(persistedJob), {
         commandId: `customer-intake:${persistedJob.jobId}`,
@@ -88,15 +120,28 @@ export function createCustomerFlowService({
 
   async function createCheckout(jobId, intakeToken) {
     const job = await authenticatedJob(jobId, intakeToken);
-    if (job.payment.checkout) return checkoutResponse(job);
-    if (pendingCheckouts.has(jobId)) return pendingCheckouts.get(jobId);
+    return startCheckout(job, null);
+  }
 
-    const operation = createCheckoutForJob(job).finally(() => pendingCheckouts.delete(jobId));
-    pendingCheckouts.set(jobId, operation);
+  async function createCheckoutAsOperator(jobId, operationsCommandId) {
+    const normalizedCommandId = normalizeOperationsCommandId(operationsCommandId);
+    if (!isNonEmptyString(jobId)) throw notFound();
+    const job = await store.readJob(jobId);
+    if (!job) throw notFound();
+    return startCheckout(job, normalizedCommandId);
+  }
+
+  function startCheckout(job, operationsCommandId) {
+    if (job.payment.checkout) return checkoutResponse(job);
+    if (pendingCheckouts.has(job.jobId)) return pendingCheckouts.get(job.jobId);
+
+    const operation = createCheckoutForJob(job, operationsCommandId)
+      .finally(() => pendingCheckouts.delete(job.jobId));
+    pendingCheckouts.set(job.jobId, operation);
     return operation;
   }
 
-  async function createCheckoutForJob(job) {
+  async function createCheckoutForJob(job, operationsCommandId) {
     const metadata = paymentMetadata(job);
     const session = await paymentGateway.createCheckoutSession({
       amountMinor: PRICE_MINOR,
@@ -119,6 +164,7 @@ export function createCustomerFlowService({
         mode: "test",
         metadata,
         createdAt: now(),
+        ...(operationsCommandId ? { operationsCommandId } : {}),
       };
       current.updatedAt = now();
       return current;
@@ -128,13 +174,13 @@ export function createCustomerFlowService({
 
   async function recordPaymentSucceeded(event) {
     const normalized = normalizePaymentEvent(event);
-    const fingerprint = digestJson(normalized);
+    const fingerprint = normalized.payloadSha256 || digestJson(normalized);
     const replay = await store.readProviderEvent(normalized.providerEventId);
     if (replay) {
       if (replay.fingerprint !== fingerprint) {
         throw flowError(409, "payment_event_conflict", "Payment event replay did not match its original payload.");
       }
-      return replay.result;
+      if (replay.result) return replay.result;
     }
 
     const jobId = normalized.metadata.job_id;
@@ -142,10 +188,32 @@ export function createCustomerFlowService({
     if (!job || !paymentMatchesJob(normalized, job)) {
       throw flowError(409, "payment_correlation_failed", "Payment could not be correlated to its canonical job.");
     }
+    if (job.payment.status === "paid"
+        && job.payment.paymentIntentId !== normalized.paymentIntentId) {
+      throw flowError(409, "payment_event_conflict", "A different payment event is already bound to this job.");
+    }
+
+    const claim = await store.claimProviderEvent(normalized.providerEventId, fingerprint);
+    if (claim.event.fingerprint !== fingerprint) {
+      throw flowError(409, "payment_event_conflict", "Payment event replay did not match its original payload.");
+    }
+    if (claim.event.result) return claim.event.result;
+
+    if (job.payment.status === "paid") {
+      const canonical = fulfillmentOrchestrator
+        ? await fulfillmentOrchestrator.status(jobId)
+        : null;
+      return completePaymentEvent(
+        store,
+        normalized.providerEventId,
+        fingerprint,
+        publicStatus(job, canonical),
+      );
+    }
 
     const canonical = fulfillmentOrchestrator
       ? await fulfillmentOrchestrator.recordPayment(jobId, {
-          commandId: `stripe:${normalized.providerEventId}`,
+          commandId: paymentCommandId(normalized),
           providerEventId: normalized.providerEventId,
           providerPaymentId: normalized.paymentIntentId,
           correlation: canonicalPaymentCorrelation(job),
@@ -156,7 +224,7 @@ export function createCustomerFlowService({
     const updated = await store.updateJob(jobId, (current) => {
       if (current.payment.status === "paid") {
         if (current.payment.paymentIntentId !== normalized.paymentIntentId) {
-          throw flowError(409, "payment_correlation_failed", "A different payment is already bound to this job.");
+          throw flowError(409, "payment_event_conflict", "A different payment event is already bound to this job.");
         }
         return current;
       }
@@ -171,11 +239,7 @@ export function createCustomerFlowService({
       return current;
     });
     const result = publicStatus(updated, canonical);
-    const recorded = await store.recordProviderEvent(normalized.providerEventId, { fingerprint, result });
-    if (recorded.event.fingerprint !== fingerprint) {
-      throw flowError(409, "payment_event_conflict", "Payment event replay did not match its original payload.");
-    }
-    return recorded.event.result;
+    return completePaymentEvent(store, normalized.providerEventId, fingerprint, result);
   }
 
 
@@ -188,13 +252,40 @@ export function createCustomerFlowService({
 
 }
 
+async function completePaymentEvent(store, providerEventId, fingerprint, result) {
+  const completed = await store.completeProviderEvent(providerEventId, fingerprint, result);
+  if (completed.event?.fingerprint !== fingerprint) {
+    throw flowError(409, "payment_event_conflict", "Payment event replay did not match its original payload.");
+  }
+  return completed.event.result;
+}
+
+function paymentCommandId(payment) {
+  return `stripe-payment:${digestJson({
+    jobId: payment.metadata.job_id,
+    sessionId: payment.sessionId,
+    paymentIntentId: payment.paymentIntentId,
+  })}`;
+}
+
 function normalizeIntake(input, syntheticOnly) {
-  if (!input || typeof input !== "object" || Array.isArray(input)) invalidIntake();
+  requireAllowedKeys(input, ["schemaVersion", "customer", "baby", "languages", "voicePreference", "context", "request", "preferences"]);
   const customer = input.customer;
   const baby = input.baby;
   const voice = input.voicePreference;
+  requireAllowedKeys(customer, ["email", "consent"]);
+  requireAllowedKeys(baby, ["firstName", "nameArabic", "gender", "birthDate"]);
+  requireAllowedKeys(voice, ["enabled", "gender"]);
+  if (input.context !== undefined) {
+    requireAllowedKeys(input.context, ["religion"]);
+    if (!boundedText(input.context.religion, 1, 100)) invalidIntake();
+  }
+  if (input.preferences !== undefined) {
+    requireAllowedKeys(input.preferences, ["selfContainedFonts"]);
+    if (typeof input.preferences.selfContainedFonts !== "boolean") invalidIntake();
+  }
   if (!customer || !isEmail(customer.email) || customer.consent !== true
-      || (syntheticOnly && !customer.email.toLowerCase().endsWith(".test"))) invalidIntake();
+      || (syntheticOnly && !isSyntheticTestEmail(customer.email))) invalidIntake();
   if (!baby || !boundedText(baby.firstName, 1, 100)) invalidIntake();
   if (baby.nameArabic !== undefined && !boundedText(baby.nameArabic, 1, 100)) invalidIntake();
   if (!["girl", "boy", "neutral"].includes(baby.gender)) invalidIntake();
@@ -210,8 +301,18 @@ function normalizeIntake(input, syntheticOnly) {
   return structuredClone(input);
 }
 
+function requireAllowedKeys(value, keys) {
+  if (!value || typeof value !== "object" || Array.isArray(value)
+      || Object.keys(value).some((key) => !keys.includes(key))) invalidIntake();
+}
+
 function invalidIntake() {
   throw flowError(400, "invalid_intake", "Submitted intake fields are invalid.");
+}
+
+function isSyntheticTestEmail(value) {
+  const email = value.toLowerCase();
+  return email.endsWith(".test") || RESEND_TEST_SINKS.has(email);
 }
 
 function normalizePaymentEvent(event) {
@@ -225,6 +326,9 @@ function normalizePaymentEvent(event) {
       || event.livemode !== false || !event.metadata || typeof event.metadata !== "object") {
     throw flowError(409, "payment_correlation_failed", "Payment could not be correlated to its canonical job.");
   }
+  if (event.payloadSha256 !== undefined && !/^[a-f0-9]{64}$/.test(event.payloadSha256)) {
+    throw flowError(400, "invalid_payment_event", "Payment event is invalid.");
+  }
   return {
     providerEventId: event.providerEventId,
     sessionId: event.sessionId,
@@ -233,6 +337,7 @@ function normalizePaymentEvent(event) {
     currency: CURRENCY,
     livemode: false,
     metadata: { ...event.metadata },
+    payloadSha256: event.payloadSha256 || null,
   };
 }
 
@@ -351,7 +456,7 @@ function normalizeIdempotencyKey(value) {
   return value;
 }
 
-function defaultCreateId(kind) {
+export function createCustomerFlowId(kind) {
   if (kind === "job") return `job_${randomUUID().replaceAll("-", "")}`;
   if (kind === "token") return `tok_${randomBytes(32).toString("base64url")}`;
   return `${kind}_${randomUUID().replaceAll("-", "")}`;
@@ -395,13 +500,24 @@ function isEmail(value) {
 }
 
 function boundedText(value, minimum, maximum) {
-  return typeof value === "string" && value.trim().length >= minimum && value.length <= maximum;
+  return typeof value === "string" && value.trim().length >= minimum && value.length <= maximum
+    && !/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/u.test(value);
 }
 
 function isIsoDate(value) {
   if (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
   const date = new Date(`${value}T00:00:00.000Z`);
   return !Number.isNaN(date.valueOf()) && date.toISOString().startsWith(value);
+}
+
+const OPERATIONS_COMMAND_ID_PATTERN = /^command_[A-Za-z0-9][A-Za-z0-9_-]{7,127}$/u;
+
+function normalizeOperationsCommandId(value) {
+  if (value === undefined || value === null) return null;
+  if (typeof value !== "string" || !OPERATIONS_COMMAND_ID_PATTERN.test(value)) {
+    throw new CustomerFlowError(400, "invalid_operations_command", "Operations command provenance is invalid.");
+  }
+  return value;
 }
 
 function isNonEmptyString(value) {

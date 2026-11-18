@@ -1,9 +1,10 @@
 import {
   EDITORIAL_POLICY_VERSION,
+  approvedInputArtifactSetFromAggregate,
   externalEffectInputFromAggregate,
   nextStageForState,
   statusFromAggregate,
-} from "./job-machine.mjs";
+} from "../forward-coexistence/live/src/fulfillment/job-machine.mjs";
 
 export { EDITORIAL_POLICY_VERSION };
 
@@ -38,8 +39,8 @@ export function createFulfillmentOrchestrator(options) {
       return statusFromAggregate(await store.recordPayment(jobId, payment, clock()));
     },
 
-    async recordReviewDecision(jobId, decision) {
-      const aggregate = await requireJob(store, jobId);
+    async recordReviewDecision(jobId, decision, workerAuthority) {
+      const aggregate = await requireJob(store, jobId, workerAuthority);
       const verifier = handlers.verify_review_decision;
       if (typeof verifier !== "function") {
         throw new Error("A trusted review decision verifier is required.");
@@ -48,11 +49,18 @@ export function createFulfillmentOrchestrator(options) {
         job: statusFromAggregate(aggregate),
         decision: structuredClone(decision),
       }));
-      return statusFromAggregate(await store.recordReviewDecision(jobId, verified, clock()));
+      return statusFromAggregate(await store.recordReviewDecision(jobId, verified, clock(), workerAuthority));
     },
 
-    async queueDelivery(jobId, command) {
-      return statusFromAggregate(await store.queueDelivery(jobId, command, clock()));
+    async queueDelivery(jobId, command, workerAuthority) {
+      return statusFromAggregate(await store.queueDelivery(jobId, command, clock(), workerAuthority));
+    },
+
+    async resumeRetry(jobId, command, workerAuthority) {
+      if (typeof command?.commandId !== "string" || command.commandId.trim() === "") {
+        throw new Error("Retry resume requires a commandId.");
+      }
+      return statusFromAggregate(await store.resumeRetry(jobId, command, clock(), workerAuthority));
     },
 
     async confirmDelivery(jobId, confirmation) {
@@ -97,8 +105,25 @@ export function createFulfillmentOrchestrator(options) {
       }, clock()));
     },
 
-    async runNext(jobId) {
-      let aggregate = await requireJob(store, jobId);
+    async runExpectedStage(jobId, expectedStage, options = {}) {
+      if (typeof expectedStage !== "string" || expectedStage.trim() === "") {
+        throw new Error("An exact expected fulfillment stage is required.");
+      }
+      return this.runNext(jobId, expectedStage, options);
+    },
+
+    async runNext(jobId, expectedStage = null, options = {}) {
+      const operationsCommandId = normalizeOperationsCommandId(options.operationsCommandId);
+      const workerAuthority = options.workerAuthority;
+      const operationsEffectBoundary = options.operationsEffectBoundary;
+      if (operationsEffectBoundary !== undefined && typeof operationsEffectBoundary !== "function") {
+        throw new Error("operationsEffectBoundary must be a function when provided.");
+      }
+      if (operationsEffectBoundary && !operationsCommandId) {
+        throw new Error("operationsEffectBoundary requires operationsCommandId provenance.");
+      }
+      let aggregate = await requireJob(store, jobId, workerAuthority);
+      assertExpectedStageAuthority(aggregate, expectedStage);
       const now = clock();
       const expiredAttempt = findExpiredRunningAttempt(aggregate, now);
       if (expiredAttempt) {
@@ -108,18 +133,26 @@ export function createFulfillmentOrchestrator(options) {
           leaseToken: expiredAttempt.leaseToken,
           retryable: true,
           reasonCode: "lease_expired",
-        }, retryPolicy, now);
+        }, retryPolicy, now, workerAuthority);
         return statusFromAggregate(aggregate);
       }
       if (aggregate.state === "retry_wait") {
         if (Date.parse(now) < Date.parse(aggregate.retry.availableAt)) return null;
         aggregate = await store.resumeRetry(jobId, {
-          commandId: `resume:${jobId}:${aggregate.retry.stage}:${aggregate.retry.availableAt}`,
-        }, now);
+          commandId: operationsCommandId || `resume:${jobId}:${aggregate.retry.stage}:${aggregate.retry.availableAt}`,
+        }, now, workerAuthority);
       }
 
       const stage = nextStageForState(aggregate);
-      if (!stage) return null;
+      if (!stage) {
+        if (expectedStage !== null) {
+          throw new Error(`Expected stage ${expectedStage} is not eligible while job is ${aggregate.state}.`);
+        }
+        return null;
+      }
+      if (expectedStage !== null && stage !== expectedStage) {
+        throw new Error(`Expected stage ${expectedStage} does not match eligible stage ${stage}.`);
+      }
       const handler = handlers[stage];
       if (typeof handler !== "function") {
         throw new Error(`No fulfillment handler is configured for stage ${stage}.`);
@@ -157,12 +190,22 @@ export function createFulfillmentOrchestrator(options) {
         leaseMs,
         maxAttempts,
         operationBinding,
-      }, clock());
+        operationsCommandId,
+      }, clock(), workerAuthority);
       aggregate = claim.aggregate;
       if (!claim.acquired) return null;
       const attempt = [...aggregate.stageAttempts].reverse().find(
         (entry) => entry.stage === stage && entry.status === "running",
       );
+      const externalEffectStage = stage === "publish" || stage === "deliver";
+      const priorEffectAttempt = externalEffectStage && aggregate.stageAttempts.find(
+        (entry) => entry.attemptId !== attempt.attemptId
+          && entry.stage === stage
+          && entry.revisionId === attempt.revisionId
+          && entry.idempotencyKey === attempt.idempotencyKey
+          && typeof entry.effectStartedAt === "string",
+      );
+      const reconciliationOnly = Boolean(priorEffectAttempt);
 
       const failAttempt = async (error, at = clock()) => {
         const classification = hasLeaseExpired(attempt, at)
@@ -173,24 +216,98 @@ export function createFulfillmentOrchestrator(options) {
           stage,
           leaseToken,
           ...classification,
-        }, retryPolicy, at);
+        }, retryPolicy, at, workerAuthority);
         return statusFromAggregate(failed);
       };
 
       let result;
       try {
-        result = await handler(Object.freeze({
+        let effectFenceNumber = 0;
+        const fenceExternalEffect = externalEffectStage
+          ? async ({ effectMayBeIssued = false } = {}, providerMutation) => {
+            if (typeof providerMutation !== "function") {
+              throw new Error("External-effect fencing requires the exact provider mutation callback.");
+            }
+            await store.fenceExternalEffect(jobId, {
+              commandId: `effect-fence:${attempt.attemptId}:${effectFenceNumber += 1}`,
+              stage,
+              attemptId: attempt.attemptId,
+              leaseToken,
+              leaseMs,
+              effectMayBeIssued,
+            }, clock(), workerAuthority);
+            aggregate = await store.getJob(jobId, workerAuthority);
+            const fencedAttempt = aggregate?.stageAttempts.find(
+              (entry) => entry.attemptId === attempt.attemptId,
+            );
+            const checkedAt = clock();
+            if (
+              fencedAttempt?.status !== "running"
+              || fencedAttempt.leaseToken !== leaseToken
+              || Date.parse(checkedAt) >= Date.parse(fencedAttempt.leaseExpiresAt)
+            ) {
+              throw new Error("Provider mutation requires current unexpired stage ownership.");
+            }
+            attempt.leaseExpiresAt = fencedAttempt.leaseExpiresAt;
+            attempt.effectStartedAt = fencedAttempt.effectStartedAt;
+            return providerMutation();
+          }
+          : null;
+        const stageContext = Object.freeze({
           job: statusFromAggregate(aggregate),
           stage,
           attemptId: attempt.attemptId,
           attemptNumber: attempt.attemptNumber,
+          attemptStartedAt: attempt.startedAt,
+          priorEffectStartedAt: priorEffectAttempt?.effectStartedAt,
           idempotencyKey: attempt.idempotencyKey,
+          operationsCommandId: attempt.operationsCommandId || null,
+          ...((stage === "generate_tts" || (stage === "publish" && aggregate.narrationRequired))
+            ? { approvedInputArtifactSet: approvedInputArtifactSetFromAggregate(aggregate, stage) }
+            : {}),
+          ...(options.workerAuthority
+            ? { artifactReadAuthority: normalizeWorkerAuthority(options.workerAuthority) }
+            : {}),
+          reconciliationOnly,
+          fenceExternalEffect,
+          async assertStageOwnership() {
+            const checkedAt = clock();
+            const current = await requireJob(store, jobId, workerAuthority);
+            const running = [...current.stageAttempts].reverse().find(
+              (entry) => entry.attemptId === attempt.attemptId,
+            );
+            if (
+              running?.status !== "running"
+              || running.leaseToken !== leaseToken
+              || Date.parse(checkedAt) >= Date.parse(running.leaseExpiresAt)
+            ) {
+              throw new Error("Stage output requires current unexpired stage ownership.");
+            }
+          },
           leaseToken,
-          operation: stage === "publish" || stage === "deliver"
+          operation: externalEffectStage
             ? externalEffectInputFromAggregate(aggregate, stage)
             : null,
-        }));
+        });
+        let stageInvoked = false;
+        const invokeStage = async () => {
+          if (stageInvoked) throw new Error("Operations effect boundary cannot invoke a stage twice.");
+          stageInvoked = true;
+          return handler(stageContext);
+        };
+        result = operationsEffectBoundary
+          ? await operationsEffectBoundary(Object.freeze({
+            jobId,
+            stage,
+            attemptId: attempt.attemptId,
+            operationsCommandId,
+          }), invokeStage)
+          : await invokeStage();
+        if (!stageInvoked) {
+          throw new Error("Operations effect boundary did not invoke the claimed stage.");
+        }
       } catch (error) {
+        if (error?.reasonCode === "active_claim_expired") throw error;
         return failAttempt(error);
       }
 
@@ -204,7 +321,7 @@ export function createFulfillmentOrchestrator(options) {
           stage,
           leaseToken,
           result,
-        }, completedAt);
+        }, completedAt, workerAuthority);
         return statusFromAggregate(completed);
       } catch (error) {
         return failAttempt(error);
@@ -213,8 +330,8 @@ export function createFulfillmentOrchestrator(options) {
   };
 }
 
-async function requireJob(store, jobId) {
-  const aggregate = await store.getJob(jobId);
+async function requireJob(store, jobId, authority) {
+  const aggregate = await store.getJob(jobId, authority);
   if (!aggregate) throw new Error(`Unknown fulfillment job: ${jobId}`);
   return aggregate;
 }
@@ -226,6 +343,43 @@ function classifyFailure(error) {
     retryable: error?.retryable === true,
     reasonCode,
   };
+}
+
+const OPERATIONS_COMMAND_ID_PATTERN = /^command_[A-Za-z0-9][A-Za-z0-9_-]{7,127}$/u;
+
+function normalizeOperationsCommandId(value) {
+  if (value === undefined || value === null) return null;
+  if (typeof value !== "string" || !OPERATIONS_COMMAND_ID_PATTERN.test(value)) {
+    throw new Error("operationsCommandId must be a valid immutable operations command identifier.");
+  }
+  return value;
+}
+
+function normalizeWorkerAuthority(value) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    throw new Error("Completion artifact access requires worker claim authority.");
+  }
+  const normalized = {};
+  for (const name of ["workerId", "commandId", "leaseToken"]) {
+    if (typeof value[name] !== "string" || value[name].trim() === "") {
+      throw new Error("Completion artifact access requires worker claim authority.");
+    }
+    normalized[name] = value[name];
+  }
+  return Object.freeze(normalized);
+}
+
+function assertExpectedStageAuthority(aggregate, expectedStage) {
+  if (expectedStage === null) return;
+  const running = [...aggregate.stageAttempts].reverse().find(
+    (attempt) => attempt.status === "running",
+  );
+  const authoritativeStage = aggregate.state === "retry_wait"
+    ? aggregate.retry?.stage
+    : nextStageForState(aggregate) || running?.stage;
+  if (authoritativeStage !== expectedStage) {
+    throw new Error(`Expected stage ${expectedStage} is outside the current job authority.`);
+  }
 }
 
 function findExpiredRunningAttempt(aggregate, at) {

@@ -91,6 +91,7 @@ export function renderHtml({
     .map((sectionId) => sectionMarkup(sectionId, page.sections[sectionId]))
     .join("\n\n      ");
   const externalFontMarkup = reviewMode === "private"
+    || page.featureFlags?.includes("self-contained-fonts")
     ? ""
     : `    <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />

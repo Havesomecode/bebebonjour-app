@@ -1,0 +1,22 @@
+[Unit]
+Description=Bebe Bonjour automatic delivery loop
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=simple
+User=hermes
+Group=hermes
+WorkingDirectory=/home/hermes/repos/bebebonjour-app
+EnvironmentFile=/home/hermes/.config/bebebonjour-delivery-loop/runtime.env
+ExecStart=/usr/bin/env node scripts/run-delivery-loop-worker.mjs
+Restart=always
+RestartSec=5
+TimeoutStopSec=30
+KillMode=control-group
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target
