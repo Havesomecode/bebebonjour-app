@@ -11,7 +11,7 @@ A parent creates a French or Arabic digital birth announcement (optional Cedar n
 - **Landing** https://www.bebebonjour.com — offer "Essentiel 39 €", demo https://www.bebebonjour.com/demo/announcements/bayane/fr/ (live, HTTP 200).
 - **Order path today = free only**: "Créer mon faire-part" → `/delivery` (proxied by the landing's Vercel rewrites to `https://tacit-antelope-577.convex.site`, same domain since 18/11) → form with consent and an *offer password* → payment waived. No card is asked anywhere.
 - **Loop behind it** (Convex + `bebebonjour-delivery-loop.service`, running since 9 Nov): Codex composes, OpenAI Cedar narrates, the announcement is published at an unguessable link, the first version is emailed *before* human review; correction request → republished at the same link; approval → final email. Verified 5 Oct on a fictional family up to provider send acceptance (not inbox delivery). Source of this loop: `DELIVERY_LOOP.md`.
-- **Paid €39 route (Stripe Checkout, signed webhooks)**: Checkout is coded and tested offline; it is not yet enabled in production (`docs/paid-route-a-current-delivery.md`).
+- **Paid €39 route (Stripe Checkout, signed webhooks)**: merged into `main` (fda6e48, payments review PASS) and deployed to Convex prod `tacit-antelope-577` on 18/11, but **still OFF** (`BEBEBONJOUR_PAID_ROUTE_A_ENABLED=false`): the prod `rk_live_…AGnm` key is missing `Checkout Sessions: Write` (Stripe returns `more_permissions_required`), and a live `payment_intent.succeeded` webhook endpoint to `https://www.bebebonjour.com/delivery/payment/webhook` could not be confirmed (key lacks `webhook_read`; no Stripe dashboard login available). Once both are fixed: set the flag to `true` and open Checkout to confirm live mode.
 - `bebebonjour-ops` main: private operations console with narration and owner-completion controls (builds, 37 tests pass). Not checked against the delivery loop.
 
 ## 3. To make the product viable (ordered, one session each)
@@ -34,7 +34,7 @@ A parent creates a French or Arabic digital birth announcement (optional Cedar n
 ## 5. Real blockers (need Zacaria)
 
 - **GitHub push protection** rejects any history containing commit `f64d2f8` (fake `rk_live_…` key in a test fixture). 7 archive tags that contain it stay local (`git tag -l 'archive/2026-11-18/*'`, backed up in a bundle). Question: allow that one alert on the GitHub repo, or leave them local?
-- Live Stripe key and go-live decision for item 3: do you want paying customers now, or after items 1–2?
+- Stripe live: enable `Checkout Sessions: Write` on the restricted key `rk_live_…AGnm` (Convex prod `STRIPE_SECRET_KEY`) and confirm/create the live `payment_intent.succeeded` webhook whose signing secret is in `BEBEBONJOUR_PAID_STRIPE_WEBHOOK_SECRET`.
 
 ## Git map
 
