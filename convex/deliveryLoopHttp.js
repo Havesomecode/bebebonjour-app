@@ -14,7 +14,9 @@ export function errorResponse(error) {
 }
 export async function body(request) {
   const origin = request.headers.get("origin");
-  if (origin && origin !== new URL(request.url).origin) throw new Error("forbidden");
+  // The public origin (same-domain proxy) is accepted next to the HTTP-actions origin itself.
+  const publicOrigin = process.env.BEBEBONJOUR_DELIVERY_LOOP_ORIGIN;
+  if (origin && origin !== new URL(request.url).origin && origin !== publicOrigin) throw new Error("forbidden");
   if (request.headers.get("sec-fetch-site") === "cross-site") throw new Error("forbidden");
   if (!/^application\/json(?:;|$)/i.test(request.headers.get("content-type") || "")) throw new Error("json_required");
   if (Number(request.headers.get("content-length")) > 16000) throw new Error("body_too_large");

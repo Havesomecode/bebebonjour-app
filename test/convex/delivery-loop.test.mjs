@@ -269,6 +269,25 @@ test("narration receipts survive generation reclaim, immutable public audio reso
   assert.equal((await t.fetch(`/announcements/${publicToken}/audio/1/ar`)).status, 404);
 });
 
+test("same-domain proxy: configured public origin is accepted, others stay forbidden, links use it", async () => {
+  const saved = process.env.BEBEBONJOUR_DELIVERY_LOOP_ORIGIN;
+  process.env.BEBEBONJOUR_DELIVERY_LOOP_ORIGIN = "https://www.bebebonjour.com";
+  try {
+    const t = fixture();
+    const post = (value, origin) => t.fetch("/delivery/intake", { method: "POST", headers: { "content-type": "application/json", origin }, body: JSON.stringify(value) });
+    const payload = { intake, idempotencyKey: "same-domain-001", magicPassword: password };
+    assert.equal((await post(payload, "https://attacker.invalid")).status, 403);
+    assert.equal((await post(payload, "https://www.bebebonjour.com.attacker.invalid")).status, 403);
+    const ok = await post(payload, "https://www.bebebonjour.com");
+    assert.equal(ok.status, 200);
+    const job = await ok.json();
+    assert.match(job.reviewUrl, /^https:\/\/www\.bebebonjour\.com\/delivery\/review\?/);
+    assert.match(job.publicUrl, /^https:\/\/www\.bebebonjour\.com\/announcements\//);
+  } finally {
+    if (saved === undefined) delete process.env.BEBEBONJOUR_DELIVERY_LOOP_ORIGIN; else process.env.BEBEBONJOUR_DELIVERY_LOOP_ORIGIN = saved;
+  }
+});
+
 test("HTTP intake/review/publication journey works without credentials or provider effects", async () => {
   const t = fixture();
   const page = await t.fetch('/delivery'); const html = await page.text();
