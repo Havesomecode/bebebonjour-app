@@ -20,6 +20,12 @@ Time-to-market correction: Discord1559083511955062846 and global priority1559084
 4. Reuse existing real-provider adapters and the current durable job lifecycle. For paid mode, final narration, public announcement and final email require the applicable customer approvals, payment evidence and genuine human editorial approval. Check eligibility both when claiming and when recording effects. Deduplicate notifications and payment evidence; do not rerun uncertain effects.
 5. Reuse existing delivery/reviewer UI and show €39, included narration, pending payment, expiry/cancellation/failure and support honestly. Keep the approved twenty-four-hour preview window, one manual renewal and corrected-preview window distinct from hosted-page duration. Provide the hooks needed for downstream export, revocation and retention work; do not claim those controls operate merely because a field exists.
 
+## Checkout
+
+After approving the exact private preview and accepting terms and publication, the customer pays €39 using Stripe Checkout on the review page. The signed `payment_intent.succeeded` webhook at `<site>/delivery/payment/webhook` reconciles payment before editorial approval and delivery; a browser return is not payment evidence. If session creation times out, a retry uses the same idempotency key and expiry until the uncertain session expires, preventing a second payable session.
+
+Configure `STRIPE_SECRET_KEY` (restricted key: Checkout Sessions write and PaymentIntents read), `BEBEBONJOUR_PAID_STRIPE_WEBHOOK_SECRET`, and `BEBEBONJOUR_PAID_STRIPE_ACCOUNT_ID`. Set `BEBEBONJOUR_PAID_STRIPE_LIVEMODE=false` only on test deployments; the default requires live-mode payments. Do not enable production sales without a separately authorized end-to-end rollout.
+
 ## Verification and handoff
 
 Leave focused runnable regressions covering unpaid/revision-changed/wrong-amount-or-job/wrong-currency/test-or-waived/duplicate-payment/no-editorial-approval denial, a properly correlated offline paid-mode success, no pre-approval public disclosure and unchanged complimentary behavior. Exercise the actual frontend/backend contracts and repository-required checks; report inherited failures separately, never call a partial pass full acceptance.

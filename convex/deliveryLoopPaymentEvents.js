@@ -1,7 +1,7 @@
 import { internalQueryGeneric, internalMutationGeneric } from 'convex/server';
 import { v } from 'convex/values';
 import { paymentEvidenceFields, preparePaymentEvidence, commitPaymentEvidence } from './deliveryLoop.js';
-import { activePreview, TERMS_VERSION } from './deliveryLoopPaidPolicy.js';
+import { activePreview, TERMS_VERSION, expectedLivemode } from './deliveryLoopPaidPolicy.js';
 import { PAYMENT_EVENT_REJECTION_REASONS, paymentEventRejection } from '../src/delivery-loop/paid-event.mjs';
 
 export const paymentEventFields = {
@@ -63,7 +63,7 @@ export const recordEvent = internalMutationGeneric({
     }
     if (!reason) await commitPaymentEvidence(ctx, evidence, prepared);
     const { rejectionReason: _discard, ...correlation } = event;
-    const receipt = { ...correlation, disposition: reason ? 'rejected' : event.livemode ? 'settled' : 'test_only',
+    const receipt = { ...correlation, disposition: reason ? 'rejected' : event.livemode === expectedLivemode() ? 'settled' : 'test_only',
       reason: reason || 'payment_verified', processedAtMs: Date.now() };
     await ctx.db.insert('deliveryLoopPaymentEvents', receipt);
     return response(receipt);

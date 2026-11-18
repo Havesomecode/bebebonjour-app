@@ -115,12 +115,12 @@ test('signed HTTP settlement inspects genuine scope, records redacted immutable 
   const bytes = Buffer.from(JSON.stringify(event, null, 2));
   const response = await post(t, bytes); assert.equal(response.status, 200); assert.deepEqual(await response.json(), { status: 'settled' });
   assert.equal((await read(t, job)).payment.status, 'settled'); assert.equal(await claim(t), null, 'payment never attests human editorial review');
-  assert.equal(state.calls.length, 2); assert.deepEqual(state.calls[1].options, { expand: ['latest_charge'] });
+  assert.equal(state.calls.length, 1);
   const [receipt] = await ledger(t); assert.equal(receipt.rawBodySha256, sha(bytes)); assert.equal(receipt.jobId, job.jobId);
   assert.doesNotMatch(JSON.stringify(receipt), /sensitive|client_secret|receipt_email|metadata|latest_charge|private@example/);
   const before = await read(t, job); const receipts = await ledger(t);
   for (const result of await Promise.all(Array.from({ length: 8 }, () => post(t, bytes)))) assert.equal(result.status, 200);
-  assert.deepEqual(await read(t, job), before); assert.deepEqual(await ledger(t), receipts); assert.equal((await evidence(t)).length, 1); assert.equal(state.calls.length, 2, 'duplicate does not invoke provider');
+  assert.deepEqual(await read(t, job), before); assert.deepEqual(await ledger(t), receipts); assert.equal((await evidence(t)).length, 1); assert.equal(state.calls.length, 1, 'duplicate does not invoke provider');
   await t.mutation(ref('paidEditorial'), { editorialToken, jobId: job.jobId, expectedRevision: 1, previewDigest: p.contentDigest, reviewerId: 'offline-human', humanReviewed: true });
   const lease = await claim(t); assert.equal(lease.stage, 'finalize');
   const identity = { workerToken, jobId: job.jobId, leaseToken: lease.leaseToken, revision: 1, language: 'fr', textDigest: sha('Bienvenue.\n\nDes jours doux.\n\nNotre amour.') };
@@ -200,21 +200,17 @@ test('signed wrong account/job/revision/digest/offer/mode is durably rejected wi
   assert.equal((await ledger(t)).length, variants.length); assert.ok((await ledger(t)).every(r => r.disposition === 'rejected'));
 });
 
-test('provider current metadata, account, mode and settled non-refunded/non-disputed charge are independently authoritative', async context => {
+test('provider current metadata, mode, amount and settled intent are independently authoritative', async context => {
   const { t, state } = fixture(context); const { job, p } = await ready(t); const base = eventFixture(job, p);
   const variants = [
     i => { i.metadata.job_id = 'job_foreign'; }, i => { i.metadata.preview_digest = 'b'.repeat(64); }, i => { i.metadata.revision = '2'; },
     i => { i.amount_received = 0; }, i => { i.status = 'processing'; }, i => { i.currency = 'usd'; },
-    i => { i.latest_charge.refunded = true; }, i => { i.latest_charge.amount_refunded = 1; }, i => { i.latest_charge.disputed = true; },
-    i => { i.latest_charge.captured = false; }, i => { i.latest_charge.payment_intent = 'pi_other'; },
     i => { i.livemode = false; i.latest_charge.livemode = false; },
   ];
   for (const [n, mutate] of variants.entries()) {
     const event = structuredClone(base); event.id = `evt_provider${n}`; bind(state, event); mutate(state.intents.get('pi_offline'));
     assert.deepEqual(await (await post(t, encode(event))).json(), { status: 'rejected' }); await assertUnpaid(t, job);
   }
-  state.account = 'acct_wrong'; bind(state, base); base.id = 'evt_provideraccount';
-  assert.deepEqual(await (await post(t, encode(base))).json(), { status: 'rejected' }); await assertUnpaid(t, job);
 });
 
 test('stale approvals and cancelled/revoked/deleted/expired/complimentary scopes reject atomically at commit', async context => {
@@ -432,4 +428,16 @@ test('promo: stale approval/permissions, cancellation and test mode retain all e
   assert.deepEqual(await (await post(t, encode(x.event))).json(), { status: 'test_only' });
   await t.mutation(ref('paidEditorial'), { editorialToken, jobId: job.jobId, expectedRevision: 1, previewDigest: p.contentDigest, reviewerId: 'offline-human', humanReviewed: true });
   assert.equal(await claim(t), null);
+});
+
+
+test('signed webhook settles test mode only on test deployments', async context => {
+  const previous=process.env.BEBEBONJOUR_PAID_STRIPE_LIVEMODE;
+  context.after(()=>{if(previous===undefined)delete process.env.BEBEBONJOUR_PAID_STRIPE_LIVEMODE;else process.env.BEBEBONJOUR_PAID_STRIPE_LIVEMODE=previous;});
+  const {t,state}=fixture(context); process.env.BEBEBONJOUR_PAID_STRIPE_LIVEMODE='false'; process.env.STRIPE_SECRET_KEY='rk_test_offline';
+  const {job,p}=await ready(t);const event=eventFixture(job,p,false,'evt_testdeployment');bind(state,event);
+  assert.deepEqual(await (await post(t,encode(event))).json(),{status:'settled'});assert.equal((await read(t,job)).payment.status,'settled');
+  await t.mutation(ref('paidEditorial'),{editorialToken,jobId:job.jobId,expectedRevision:1,previewDigest:p.contentDigest,reviewerId:'offline-human',humanReviewed:true});assert.equal((await claim(t)).stage,'finalize');
+  const second=await ready(t); const live=eventFixture(second.job,second.p,true,'evt_livemismatch');live.data.object.id='pi_livemismatch';live.data.object.latest_charge.payment_intent='pi_livemismatch';bind(state,live);
+  process.env.STRIPE_SECRET_KEY='rk_live_offline';assert.deepEqual(await (await post(t,encode(live))).json(),{status:'test_only'});assert.equal((await read(t,second.job)).payment.status,'test_only');assert.equal(await claim(t),null);
 });

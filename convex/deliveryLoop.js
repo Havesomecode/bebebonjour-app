@@ -3,7 +3,7 @@ import { v } from "convex/values";
 import { promotionEvidence } from './deliveryLoopPromotion.js';
 import { TEST_PROMOTION_POLICY, testPromotionBinding, isTestPromotionReceipt, samePromotion } from '../src/delivery-loop/test-promotion.mjs';
 import { reviewedNarrationText } from "../src/delivery-loop/reviewed-narration.mjs";
-import { PAID_MODE, TERMS_VERSION, PREVIEW_MS, isPaid, currentPreview, paidEnabled, activePaid, activePreview, paidEligible, stageState, paidStageGate, paidSafeStatus } from "./deliveryLoopPaidPolicy.js";
+import { PAID_MODE, TERMS_VERSION, PREVIEW_MS, isPaid, currentPreview, paidEnabled, activePaid, activePreview, paidEligible, stageState, paidStageGate, paidSafeStatus, expectedLivemode } from "./deliveryLoopPaidPolicy.js";
 
 const LEASE_MS = 15 * 60 * 1000;
 const WINDOW_MS = 15 * 60 * 1000;
@@ -439,6 +439,52 @@ export const preview = queryGeneric({
     return { contentHtml: revision.contentHtml, contentDigest: revision.contentDigest, revision: revision.revision };
   },
 });
+// Only the node action may finalize a provider checkout; callers cannot forge a URL.
+export const beginCheckout = internalMutationGeneric({
+  args: { jobId: v.string(), reviewToken: v.string(), expectedRevision: v.number() },
+  handler: async (ctx, args) => {
+    const row = await get(ctx, args.jobId);
+    if (!equal(row.data.reviewToken, args.reviewToken)) throw new Error("forbidden");
+    if (!isPaid(row)) throw new Error("paid_order_required");
+    const preview = exactPaidRevision(row, args.expectedRevision);
+    activePreview(row); paidEnabled();
+    const approval = row.data.paidApproval, permissions = row.data.paidPermissions;
+    if (approval?.revision !== args.expectedRevision || approval.previewDigest !== preview.contentDigest) throw new Error("content_approval_required");
+    if (permissions?.revision !== args.expectedRevision || permissions.previewDigest !== preview.contentDigest || permissions.termsVersion !== TERMS_VERSION || permissions.publication !== true) throw new Error("paid_permissions_required");
+    if (row.data.payment.status === "settled") throw new Error("paid_preview_locked");
+    const now = Date.now(), checkout = row.data.payment.checkout;
+    if (checkout?.revision === args.expectedRevision && checkout.url && checkout.expiresAtMs > now + 60000) return { url: checkout.url };
+    // Do not create another payable session during the final minute.
+    if (checkout?.url && checkout.expiresAtMs > now || checkout?.pendingSinceMs && checkout.pendingSinceMs > now - 60000) throw new Error("checkout_in_progress");
+    // A timed-out create may already exist at Stripe. Retry the same request and
+    // idempotency key until its original expiry, never create a second session.
+    const uncertain = checkout && !checkout.url && checkout.expiresAtSec * 1000 > now;
+    if (uncertain && checkout.revision !== args.expectedRevision) throw new Error("checkout_in_progress");
+    const expiresAtSec = uncertain ? checkout.expiresAtSec : Math.floor(Math.min(now + 24 * 60 * 60 * 1000, row.data.previewExpiresAtMs - 60000) / 1000);
+    if (expiresAtSec * 1000 < now + 31 * 60 * 1000) throw new Error("preview_expiring");
+    const attempt = uncertain ? checkout.attempt : (row.data.checkoutAttempts || 0) + 1; row.data.checkoutAttempts = attempt;
+    row.data.payment.checkout = { revision: args.expectedRevision, attempt, pendingSinceMs: now, expiresAtSec };
+    audit(row, "checkout_started", { revision: args.expectedRevision, attempt }); await save(ctx, row);
+    return { create: { jobId: row.jobId, revision: args.expectedRevision, previewDigest: preview.contentDigest, email: row.data.intake.customer.email, attempt, expiresAtSec, reviewUrl: links(row).reviewUrl } };
+  },
+});
+export const recordCheckout = internalMutationGeneric({
+  args: { jobId: v.string(), revision: v.number(), attempt: v.number(), sessionId: v.string(), url: v.string(), expiresAtMs: v.number() },
+  handler: async (ctx, args) => {
+    const row = await get(ctx, args.jobId), checkout = row.data.payment.checkout;
+    if (!checkout || checkout.attempt !== args.attempt || checkout.revision !== args.revision || !checkout.pendingSinceMs || row.data.payment.status === "settled") throw new Error("checkout_stale");
+    activePreview(row); exactPaidRevision(row, args.revision);
+    row.data.payment.checkout = { revision: args.revision, attempt: args.attempt, sessionId: args.sessionId, url: args.url, expiresAtMs: args.expiresAtMs };
+    audit(row, "checkout_created", { sessionId: args.sessionId }); await save(ctx, row);
+  },
+});
+export const clearCheckout = internalMutationGeneric({
+  args: { jobId: v.string(), attempt: v.number() },
+  handler: async (ctx, args) => {
+    const row = await get(ctx, args.jobId), checkout = row.data.payment.checkout;
+    if (checkout?.attempt === args.attempt && !checkout.url) { delete checkout.pendingSinceMs; await save(ctx, row); }
+  },
+});
 export const paidPermissions = mutationGeneric({
   args: { jobId: v.string(), reviewToken: v.string(), expectedRevision: v.number(), termsVersion: v.string(), termsAccepted: v.boolean(), publication: v.boolean() },
   handler: async (ctx, args) => {
@@ -537,9 +583,9 @@ export async function preparePaymentEvidence(ctx, args) {
 }
 export async function commitPaymentEvidence(ctx, args, { row, prior }) {
   if (prior) return safeStatus(row);
-  const receipt = { ...args, provider: "stripe", status: args.livemode ? "settled" : "test_only", verifiedAtMs: Date.now() };
+  const receipt = { ...args, provider: "stripe", status: args.livemode === expectedLivemode() ? "settled" : "test_only", verifiedAtMs: Date.now() };
   await ctx.db.insert("deliveryLoopPaymentEvidence", receipt);
-  row.data.payment = receipt;
+  row.data.payment = receipt.status === "test_only" && row.data.payment.checkout ? { ...receipt, checkout: row.data.payment.checkout } : receipt;
   audit(row, "stripe_payment_verified", { revision: args.revision, providerPaymentId: args.providerPaymentId, livemode: args.livemode });
   await queuePaidIfEligible(ctx, row); return safeStatus(row);
 }

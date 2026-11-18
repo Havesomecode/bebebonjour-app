@@ -7,9 +7,9 @@ const PRIVATE = { "cache-control": "private, no-store", "x-robots-tag": "noindex
 const escape = (value) => String(value).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
 export function json(value, status = 200) { return new Response(JSON.stringify(value), { status, headers: { ...PRIVATE, "content-type": "application/json; charset=utf-8" } }); }
 export function errorResponse(error) {
-  const allowed = ["paid_route_unavailable", "paid_permissions_required", "content_approval_required", "preview_consent_required", "preview_expired", "paid_preview_locked", "correction_limit", "order_cancelled", "customer_decision_required", "paid_offer_mismatch", "paid_waiver_forbidden", "payment_evidence_mismatch", "payment_evidence_conflict", "payment_configuration_invalid", "payment_account_mismatch", "editorial_approval_required", "preview_renewal_unavailable", "intake_rate_limited", "invalid_magic_password", "consent_required", "invalid_email", "invalid_baby_name", "invalid_intake", "invalid_input", "invalid_feedback", "feedback_required", "idempotency_conflict", "stale_revision", "draft_not_delivered", "review_not_available", "revision_limit", "trial_unavailable", "forbidden_actor", "forbidden", "not_found", "body_too_large", "json_required", "invalid_json", "job_capacity_reached"];
+  const allowed = ["checkout_in_progress", "preview_expiring", "checkout_unavailable","paid_route_unavailable", "paid_permissions_required", "content_approval_required", "preview_consent_required", "preview_expired", "paid_preview_locked", "correction_limit", "order_cancelled", "customer_decision_required", "paid_offer_mismatch", "paid_waiver_forbidden", "payment_evidence_mismatch", "payment_evidence_conflict", "payment_configuration_invalid", "payment_account_mismatch", "editorial_approval_required", "preview_renewal_unavailable", "intake_rate_limited", "invalid_magic_password", "consent_required", "invalid_email", "invalid_baby_name", "invalid_intake", "invalid_input", "invalid_feedback", "feedback_required", "idempotency_conflict", "stale_revision", "draft_not_delivered", "review_not_available", "revision_limit", "trial_unavailable", "forbidden_actor", "forbidden", "not_found", "body_too_large", "json_required", "invalid_json", "job_capacity_reached"];
   const code = allowed.find((c) => new RegExp(`\\b${c}\\b`).test(error?.message || "")) || "request_failed";
-  const status = code === "intake_rate_limited" ? 429 : code === "not_found" ? 404 : ["forbidden", "forbidden_actor", "invalid_magic_password"].includes(code) ? 403 : ["idempotency_conflict", "stale_revision", "draft_not_delivered", "review_not_available", "revision_limit"].includes(code) ? 409 : code === "body_too_large" ? 413 : code === "json_required" ? 415 : ["trial_unavailable", "request_failed"].includes(code) ? 503 : 400;
+  const status = code === "intake_rate_limited" ? 429 : code === "not_found" ? 404 : ["forbidden", "forbidden_actor", "invalid_magic_password"].includes(code) ? 403 : ["checkout_in_progress", "preview_expiring", "idempotency_conflict", "stale_revision", "draft_not_delivered", "review_not_available", "revision_limit"].includes(code) ? 409 : code === "body_too_large" ? 413 : code === "json_required" ? 415 : ["checkout_unavailable", "trial_unavailable", "request_failed"].includes(code) ? 503 : 400;
   return json({ status: "error", code }, status);
 }
 export async function body(request) {
@@ -44,9 +44,24 @@ const commonScript = `const messages={generation_queued:'Votre annonce est en pr
 const complimentaryIntakePage = async () => document("Votre annonce", `<h1>Bienvenue, petit bonheur.</h1><p>Créez une annonce de naissance en français ou en arabe, avec une voix si vous le souhaitez.</p><p class="notice">Votre première version est créée et envoyée avant révision humaine. Vous pourrez ensuite demander une correction ou l’approuver.</p><form id="intake"><label for="email">Votre adresse courriel</label><input id="email" name="email" type="email" maxlength="254" required autocomplete="email"><label for="babyName">Prénom de bébé</label><input id="babyName" name="babyName" maxlength="100" required><label for="gender">Bébé</label><select id="gender" name="gender"><option value="neutral">Neutre</option><option value="girl">Fille</option><option value="boy">Garçon</option></select><label for="language">Langue</label><select id="language" name="language"><option value="fr">Français</option><option value="ar">العربية — Arabe</option></select><label for="context">Contexte</label><select id="context" name="context"><option value="general">Vœux généraux</option><option value="islam">Vœux dans un contexte musulman</option></select><label class="check"><input type="checkbox" name="voiceEnabled" checked> Ajouter une narration audio</label><label class="check"><input type="checkbox" name="fictional"> Les informations de cette annonce sont fictives (essai)</label><label for="magicPassword">Mot de passe de l’offre</label><input id="magicPassword" name="magicPassword" type="password" maxlength="256" required autocomplete="off"><p class="muted">Cette offre dispense du paiement. Aucun paiement ne sera enregistré.</p><label class="check"><input type="checkbox" name="consent" required> J’accepte que ces informations soient utilisées pour créer et publier l’annonce à son lien non indexé, et pour m’envoyer les courriels de révision et de livraison. Toute personne ayant le lien de l’annonce peut la consulter.</label><button type="submit">Créer mon annonce offerte</button></form><p id="result" role="status" aria-live="polite"></p><div id="links"></div>`, `${commonScript}
 const form=document.querySelector('#intake');let key=crypto.randomUUID();form.addEventListener('input',()=>{key=crypto.randomUUID();});form.addEventListener('submit',async(event)=>{event.preventDefault();const button=form.querySelector('button');button.disabled=true;const data=new FormData(form);const out=document.querySelector('#result');try{const result=await post('/delivery/intake',{idempotencyKey:key,magicPassword:data.get('magicPassword'),intake:{email:data.get('email'),babyName:data.get('babyName'),gender:data.get('gender'),language:data.get('language'),context:data.get('context'),voiceEnabled:data.has('voiceEnabled'),consent:data.has('consent'),fictional:data.has('fictional')}});form.elements.magicPassword.value='';out.textContent='Votre demande offerte a été enregistrée. '+(messages[result.status]||result.status);const container=document.querySelector('#links');container.replaceChildren();for(const [label,url] of [['Suivre et réviser mon annonce',result.reviewUrl],['Ouvrir le lien de mon annonce',result.publicUrl]]){const p=document.createElement('p');const a=document.createElement('a');a.textContent=label;a.href=url;p.append(a);container.append(p);}form.hidden=true;}catch(error){out.textContent=error.message;button.disabled=false;}});`);
 export const intakePage = httpActionGeneric(async (ctx, request) => {
-  if (new URL(request.url).searchParams.get("mode") !== PAID_MODE) return complimentaryIntakePage(ctx, request);
-  try { return paidIntakeDocument(document, commonScript, paidEnabled(), escape); }
-  catch (error) { return errorResponse(error); }
+  const explicit = new URL(request.url).searchParams.get("mode");
+  let terms;
+  try { terms = paidEnabled(); } catch (error) {
+    if (explicit === PAID_MODE) return errorResponse(error);
+    return complimentaryIntakePage(ctx, request);
+  }
+  if (explicit === PAID_MODE) return paidIntakeDocument(document, commonScript, terms, escape);
+  const complimentary = await (await complimentaryIntakePage(ctx, request)).text();
+  let content = complimentary.split('<span class="brand">Bébé Bonjour</span>')[1].split('<footer>')[0];
+  let script = complimentary.match(/<script[^>]*>([\s\S]*?)<\/script>/)[1];
+  for (const id of ['intake','email','babyName','gender','language','context','magicPassword','result','links']) {
+    content = content.replaceAll(`id="${id}"`, `id="offered-${id}"`).replaceAll(`for="${id}"`, `for="offered-${id}"`);
+    script = script.replaceAll(`'#${id}'`, `'#offered-${id}'`);
+  }
+  const combined = (title, paidContent, paidScript) => document(title,
+    `<button id="show-offer" type="button">J’ai un mot de passe offert</button><section id="paid-section">${paidContent}</section><section id="offered-section" hidden>${content}</section>`,
+    `{${paidScript}}{${script}}document.querySelector('#show-offer').addEventListener('click',()=>{document.querySelector('#paid-section').hidden=true;document.querySelector('#offered-section').hidden=false;document.querySelector('#show-offer').hidden=true;});`);
+  return paidIntakeDocument(combined, commonScript, terms, escape);
 });
 export const privatePreview = httpActionGeneric(async (ctx, request) => {
   try {
@@ -67,6 +82,12 @@ export const operatorSubmit = httpActionGeneric(async (ctx, request) => {
     if (value.action === "reconcile_payment") return json(await ctx.runAction(makeFunctionReference("deliveryLoopProviders:reconcilePaidPayment"), { ...args, providerPaymentId: value.providerPaymentId }));
     if (["renew_preview", "cancel"].includes(value.action)) return json(await ctx.runMutation(ref("paidControl"), { ...args, action: value.action }));
     throw new Error("invalid_input");
+  } catch (error) { return errorResponse(error); }
+});
+export const checkoutSubmit = httpActionGeneric(async (ctx, request) => {
+  try {
+    const value = await body(request);
+    return json(await ctx.runAction(makeFunctionReference("deliveryLoopProviders:createCheckout"), { jobId: value.jobId, reviewToken: value.reviewToken, expectedRevision: value.expectedRevision }));
   } catch (error) { return errorResponse(error); }
 });
 export const intakeSubmit = httpActionGeneric(async (ctx, request) => {

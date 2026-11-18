@@ -7,7 +7,10 @@ import { v } from "convex/values";
 import { createHash } from "node:crypto";
 import { performNarration } from "../src/delivery-loop/provider-transport.mjs";
 import { cloudflareTransport, alreadyAdmitted } from "../src/delivery-loop/cloudflare-runtime.mjs";
-import { inspectPaidPayment, PaidPaymentInspectionError } from "../src/delivery-loop/paid-payment.mjs";
+import Stripe from "stripe";
+import { expectedLivemode } from "./deliveryLoopPaidPolicy.js";
+import { createPaidCheckoutSession } from "../src/delivery-loop/paid-checkout.mjs";
+import { inspectPaidPayment, PaidPaymentInspectionError, paidStripeKeyMode } from "../src/delivery-loop/paid-payment.mjs";
 
 const ref = (name) => makeFunctionReference(`deliveryLoop:${name}`);
 const identity = { workerToken: v.string(), jobId: v.string(), leaseToken: v.string(), revision: v.number() };
@@ -145,5 +148,26 @@ export const reconcilePaidEvent = internalActionGeneric({
     // Mutation rechecks current order/consent scope and handles races atomically.
     // Commit failures propagate to HTTP503; no rejected receipt masks a failed commit.
     return context.runMutation(events('recordEvent'), { event, evidence });
+  },
+});
+
+export const createCheckout = actionGeneric({
+  args: { jobId: v.string(), reviewToken: v.string(), expectedRevision: v.number() },
+  handler: async (ctx, args) => {
+    const result = await ctx.runMutation(ref('beginCheckout'), args);
+    if (result.url) return result;
+    const scope = result.create;
+    try {
+      const key = process.env.STRIPE_SECRET_KEY;
+      if (paidStripeKeyMode(key) !== expectedLivemode()) throw new Error('payment_configuration_invalid');
+      const stripe = new Stripe(key, { maxNetworkRetries: 2, timeout: 30000 });
+      const checkout = await createPaidCheckoutSession({ stripe, scope });
+      await ctx.runMutation(ref('recordCheckout'), { jobId: scope.jobId, revision: scope.revision, attempt: scope.attempt, ...checkout });
+      return { url: checkout.url };
+    } catch (error) {
+      await ctx.runMutation(ref('clearCheckout'), { jobId: scope.jobId, attempt: scope.attempt });
+      if (error?.message === 'payment_configuration_invalid') throw new Error('payment_configuration_invalid');
+      throw new Error('checkout_unavailable');
+    }
   },
 });
