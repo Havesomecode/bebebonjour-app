@@ -216,6 +216,7 @@ export function promoteReviewedArtifactSet(context) {
     pageDigest: source.pageDigest,
     transcriptDigest: source.transcriptDigest,
     assetManifestDigest,
+    sourcePrivateReviewManifestDigest: source.assetManifestDigest,
     manifestRef: `jobs/${context.job.jobId}/revisions/${source.revisionId}/manifests/prepared_bundle.json`,
     files,
   };

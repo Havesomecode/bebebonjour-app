@@ -48,7 +48,17 @@ function fixture() {
 test("local command handlers map every lifecycle stage to the existing generator commands", async () => {
   const { artifactKinds, calls, handlers } = fixture();
   const context = {
-    job: { jobId: "job_synthetic_001", currentRevisionId: "r1" },
+    job: {
+      jobId: "job_synthetic_001",
+      currentRevisionId: "r1",
+      artifactSets: [{ kind: "private_review", revisionId: "r1", ...DIGESTS }],
+      reviewDecisions: [{
+        decisionType: "content",
+        revisionId: "r1",
+        outcome: "approved",
+        artifactDigests: { ...DIGESTS },
+      }],
+    },
     idempotencyKey: "bb_stable_key",
   };
 
@@ -67,6 +77,7 @@ test("local command handlers map every lifecycle stage to the existing generator
     artifactSet: { kind: "private_review", revisionId: "r1", ...DIGESTS },
   });
   assert.equal(rendered.artifactSet.kind, "prepared_bundle");
+  assert.equal(rendered.artifactSet.sourcePrivateReviewManifestDigest, undefined);
   assert.equal(narration.artifactSet.kind, "narration_review");
   assert.deepEqual(publication.publication, {
     provider: "vercel-dry-run",

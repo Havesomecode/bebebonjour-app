@@ -379,6 +379,8 @@ test("production completion worker drives authenticated review through private p
       artifactSet: {
         kind: "private_review",
         revisionId: "r1",
+        sourceRunId: generationClaim.aggregate.stageAttempts.at(-1).attemptId,
+        operationsCommandId: "command_completion_seam_generation",
         ...sourceDigests,
         manifestRef: `jobs/${TEST_A_COMPLETION_JOB_ID}/revisions/r1/manifests/private_review.json`,
         files: [sourceFile],
@@ -386,6 +388,11 @@ test("production completion worker drives authenticated review through private p
     },
   }, "2026-09-08T10:00:03.000Z");
   assert.equal(generationClaim.acquired, true);
+  const generated = await store.getJob(TEST_A_COMPLETION_JOB_ID);
+  assert.equal(
+    generated.artifactSets.at(-1).sourceRunId,
+    generated.stageAttempts.at(-1).attemptId,
+  );
 
   const humanDecision = {
     commandId: "human-approve-completion-seam",
@@ -405,7 +412,7 @@ test("production completion worker drives authenticated review through private p
   };
   const approval = signPersistedReviewApproval({
     hmacKey: baseEnvironment.BEBEBONJOUR_APPROVAL_HMAC_KEY,
-    job: await store.getJob(TEST_A_COMPLETION_JOB_ID),
+    job: generated,
     decision: humanDecision,
   });
   await store.saveReviewApproval(approval);

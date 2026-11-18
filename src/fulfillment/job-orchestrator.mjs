@@ -45,7 +45,9 @@ export function createFulfillmentOrchestrator(options) {
         throw new Error("A trusted review decision verifier is required.");
       }
       const verified = await verifier(Object.freeze({
-        job: statusFromAggregate(aggregate),
+        // Approval binding is an internal verification boundary. It needs the
+        // immutable artifact provenance that the public status projection omits.
+        job: structuredClone(aggregate),
         decision: structuredClone(decision),
       }));
       return statusFromAggregate(await store.recordReviewDecision(jobId, verified, clock(), workerAuthority));
@@ -254,6 +256,10 @@ export function createFulfillmentOrchestrator(options) {
           : null;
         const stageContext = Object.freeze({
           job: statusFromAggregate(aggregate),
+          // Stage handlers are trusted internal code. Preserve the canonical
+          // aggregate separately from the intentionally narrow status view so
+          // a promotion can bind its output to the reviewed source artifacts.
+          aggregate: structuredClone(aggregate),
           stage,
           attemptId: attempt.attemptId,
           attemptNumber: attempt.attemptNumber,

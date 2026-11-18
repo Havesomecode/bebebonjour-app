@@ -42,7 +42,7 @@ const PAYLOAD_FIELDS_BY_ACTION = Object.freeze({
   create_checkout: Object.freeze([]),
   generate: Object.freeze([]),
   render: Object.freeze([]),
-  generate_narration: Object.freeze([]),
+  generate_narration: Object.freeze(["revisionId", "artifactManifestDigest"]),
   approve_content: Object.freeze(["revisionId", "artifactManifestDigest", "artifactDigests"]),
   request_content_changes: Object.freeze(["revisionId", "artifactManifestDigest", "artifactDigests", "reasonCodes"]),
   reject_content: Object.freeze(["revisionId", "artifactManifestDigest", "artifactDigests", "reasonCodes"]),
@@ -1303,6 +1303,22 @@ function assertActionPayload(action, payload) {
 }
 
 function assertCanonicalActionBinding(action, payload, aggregate) {
+  if (action === "generate_narration") {
+    const preparedBundle = [...(aggregate.artifactSets || [])].reverse().find((entry) => (
+      entry.revisionId === aggregate.currentRevisionId
+      && entry.kind === "prepared_bundle"
+      && typeof entry.assetManifestDigest === "string"
+    ));
+    const expected = preparedBundle && {
+      revisionId: aggregate.currentRevisionId,
+      artifactManifestDigest: preparedBundle.assetManifestDigest,
+    };
+    if (!expected || stableStringify(payload) !== stableStringify(expected)) {
+      throw new Error("Operator narration command does not bind the exact prepared bundle.");
+    }
+    return;
+  }
+
   if (action === "publish") {
     const releaseKind = aggregate.narrationRequired ? "narration_review" : "prepared_bundle";
     const releaseArtifact = [...(aggregate.artifactSets || [])].reverse().find((entry) => (

@@ -1,8 +1,12 @@
 import { ConvexHttpClient } from "convex/browser";
 
-import { requireReviewedTestAGenerationEnvironment } from "../config/test-a-hosted-provider-manifest.mjs";
+import {
+  requireReviewedTestAGenerationEnvironment,
+  requireReviewedTestANarrationEnvironment,
+} from "../config/test-a-hosted-provider-manifest.mjs";
 import { createOperationsWorkerRuntime } from "./operations-worker-runtime.mjs";
 import { createProductionGenerationWorker } from "./production-generation-worker.mjs";
+import { createProductionNarrationWorker } from "./production-narration-worker.mjs";
 
 const WORKER_ID = /^[A-Za-z0-9][A-Za-z0-9_-]{2,63}$/u;
 const ALL_ACTIONS = new Set([
@@ -23,7 +27,11 @@ export async function runOperationsWorkerCommand(options = {}) {
   const limit = boundedInteger(environment.BEBEBONJOUR_OPERATIONS_WORKER_LIMIT, 5, 1, 20);
   const leaseMs = boundedInteger(environment.BEBEBONJOUR_OPERATIONS_WORKER_LEASE_MS, 120_000, 1_000, 600_000);
   const client = options.client || new ConvexHttpClient(convexUrl);
-  if (typeof client.query !== "function" || typeof client.mutation !== "function") {
+  if (
+    typeof client.query !== "function"
+    || typeof client.mutation !== "function"
+    || (enabledActions.includes("generate_narration") && typeof client.action !== "function")
+  ) {
     throw new Error("Operations worker Convex client is invalid.");
   }
   const injectedCapabilities = [
@@ -34,11 +42,17 @@ export async function runOperationsWorkerCommand(options = {}) {
     options.authorizeReviewDecision,
     options.reconcileExternalEffect,
   ].some((value) => value !== undefined);
-  if (!injectedCapabilities && enabledActions.some((action) => action !== "generate")) {
-    throw new Error("Production Operations worker permits only the generate action.");
+  if (!injectedCapabilities && enabledActions.some((action) => !["generate", "generate_narration"].includes(action))) {
+    throw new Error("Production Operations worker permits only generate and generate_narration actions.");
   }
   if (!injectedCapabilities && enabledActions.includes("generate")) {
     requireReviewedTestAGenerationEnvironment(environment);
+  }
+  const narrationWorkerToken = enabledActions.includes("generate_narration")
+    ? requiredSecret(environment.BEBEBONJOUR_NARRATION_WORKER_TOKEN, "BEBEBONJOUR_NARRATION_WORKER_TOKEN")
+    : null;
+  if (!injectedCapabilities && enabledActions.includes("generate_narration")) {
+    requireReviewedTestANarrationEnvironment(environment);
   }
   const productionGeneration = !injectedCapabilities && enabledActions.includes("generate")
     ? createProductionGenerationWorker({
@@ -56,6 +70,12 @@ export async function runOperationsWorkerCommand(options = {}) {
         tokenFactory: options.tokenFactory,
       })
     : {};
+  const productionNarration = !injectedCapabilities && enabledActions.includes("generate_narration")
+    ? createProductionNarrationWorker({
+        client,
+        workerToken: narrationWorkerToken,
+      })
+    : {};
 
   const runtime = createOperationsWorkerRuntime({
     client,
@@ -63,8 +83,14 @@ export async function runOperationsWorkerCommand(options = {}) {
     enabledActions,
     operationsCheckout: options.operationsCheckout,
     customerStore: options.customerStore,
-    fulfillmentOrchestrator: options.fulfillmentOrchestrator || productionGeneration.fulfillmentOrchestrator,
-    fulfillmentStore: options.fulfillmentStore || productionGeneration.fulfillmentStore,
+    fulfillmentOrchestrator: options.fulfillmentOrchestrator || combineProductionOrchestrators(
+      productionGeneration.fulfillmentOrchestrator,
+      productionNarration.fulfillmentOrchestrator,
+    ),
+    fulfillmentStore: options.fulfillmentStore || combineProductionStores(
+      productionGeneration.fulfillmentStore,
+      productionNarration.fulfillmentStore,
+    ),
     authorizeReviewDecision: options.authorizeReviewDecision,
     reconcileExternalEffect: options.reconcileExternalEffect,
   });
@@ -83,6 +109,32 @@ export async function runOperationsWorkerCommand(options = {}) {
     workerId,
     enabledActionCount: enabledActions.length,
     ...result,
+  });
+}
+
+function combineProductionOrchestrators(generation, narration) {
+  if (!generation) return narration;
+  if (!narration) return generation;
+  return Object.freeze({
+    runExpectedStage(jobId, stage, options) {
+      return stage === "generate_tts"
+        ? narration.runExpectedStage(jobId, stage, options)
+        : generation.runExpectedStage(jobId, stage, options);
+    },
+  });
+}
+
+function combineProductionStores(generation, narration) {
+  if (!generation) return narration;
+  if (!narration) return generation;
+  return Object.freeze({
+    async getJob(jobId, authority) {
+      try {
+        return await narration.getJob(jobId, authority);
+      } catch {
+        return generation.getJob(jobId, authority);
+      }
+    },
   });
 }
 

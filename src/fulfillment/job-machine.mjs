@@ -53,7 +53,7 @@ export function createJobAggregate(input, { commandId, at }) {
   const creationCommand = { commandId, input };
 
   return {
-    schemaVersion: "1.0",
+    schemaVersion: "1.1",
     authority: "convex-target/local-test-projection",
     jobId: input.jobId,
     environment: input.environment,
@@ -218,6 +218,20 @@ export function fenceExternalEffectTransition(aggregate, command, at) {
 }
 
 export function completeStageTransition(aggregate, completion, at) {
+  const runningAttempt = currentRunningAttempt(aggregate, completion.stage, completion.leaseToken);
+  const replayPayload = clone(completion);
+  if (["prepare_review", "render_approved", "generate_tts"].includes(completion.stage)) {
+    replayPayload.result = {
+      ...completion.result,
+      artifactSet: {
+        ...completion.result?.artifactSet,
+        sourceRunId: runningAttempt.attemptId,
+        ...(runningAttempt.operationsCommandId
+          ? { operationsCommandId: runningAttempt.operationsCommandId }
+          : {}),
+      },
+    };
+  }
   return withCommand(aggregate, completion, "stage_completed", at, (next) => {
     const attempt = currentRunningAttempt(next, completion.stage, completion.leaseToken);
     if (Date.parse(at) >= Date.parse(attempt.leaseExpiresAt)) {
@@ -246,7 +260,7 @@ export function completeStageTransition(aggregate, completion, at) {
     attempt.completedAt = at;
     attempt.leaseToken = null;
     attempt.leaseExpiresAt = null;
-  });
+  }, replayPayload);
 }
 
 export function failStageTransition(aggregate, failure, policy, at) {
@@ -662,14 +676,14 @@ function completePreparedReview(next, result, attempt) {
   }
   next.revisions.push(clone(result.revision));
   next.currentRevisionId = result.revision.revisionId;
-  addArtifactSet(next, result.artifactSet, "private_review", attempt.operationsCommandId);
+  addArtifactSet(next, result.artifactSet, "private_review", attempt.attemptId, attempt.operationsCommandId);
   next.state = "content_review_required";
 }
 
 function completeApprovedRender(next, result, attempt) {
   if (next.state !== "rendering") throw new Error("Approved render completion is out of sequence.");
   const contentDecision = assertApprovedContent(next);
-  addArtifactSet(next, result?.artifactSet, "prepared_bundle", attempt.operationsCommandId);
+  addArtifactSet(next, result?.artifactSet, "prepared_bundle", attempt.attemptId, attempt.operationsCommandId);
   const preparedBundle = latestArtifactSet(next, "prepared_bundle", next.currentRevisionId);
   if (!next.narrationRequired && !preparedBundleMatchesContentApproval(
     next,
@@ -684,7 +698,7 @@ function completeApprovedRender(next, result, attempt) {
 function completeNarrationGeneration(next, result, attempt) {
   if (next.state !== "tts_generating") throw new Error("Narration completion is out of sequence.");
   assertApprovedContent(next);
-  addArtifactSet(next, result?.artifactSet, "narration_review", attempt.operationsCommandId);
+  addArtifactSet(next, result?.artifactSet, "narration_review", attempt.attemptId, attempt.operationsCommandId);
   next.state = "narration_review_required";
 }
 
@@ -743,12 +757,19 @@ function completeDeliverySend(next, result, attempt) {
   next.state = "sent";
 }
 
-function addArtifactSet(next, artifactSet, expectedKind, operationsCommandId = null) {
+function addArtifactSet(next, artifactSet, expectedKind, sourceRunId, operationsCommandId = null) {
   if (artifactSet?.kind !== expectedKind || artifactSet.revisionId !== next.currentRevisionId) {
     throw new Error(`${expectedKind} artifacts must bind the exact current revision.`);
   }
+  assertNonEmptyString(sourceRunId, `${expectedKind} sourceRunId`);
   for (const key of DIGEST_KEYS) assertDigest(artifactSet[key], `${expectedKind}.${key}`);
   const references = normalizeArtifactReferences(artifactSet);
+  const sourcePrivateReviewManifestDigest = expectedKind === "prepared_bundle"
+    ? exactApprovedPrivateReviewManifestDigest(next, artifactSet)
+    : null;
+  const sourcePreparedBundleManifestDigest = expectedKind === "narration_review"
+    ? exactPreparedBundleManifestDigest(next, artifactSet)
+    : null;
   const normalized = clone({
     artifactSetId: digestId(
       "artifacts",
@@ -759,15 +780,37 @@ function addArtifactSet(next, artifactSet, expectedKind, operationsCommandId = n
     ),
     kind: artifactSet.kind,
     revisionId: artifactSet.revisionId,
+    sourceRunId,
     ...(operationsCommandId ? { operationsCommandId } : {}),
     ...pickDigests(artifactSet),
     ...references,
+    ...(sourcePrivateReviewManifestDigest ? { sourcePrivateReviewManifestDigest } : {}),
+    ...(sourcePreparedBundleManifestDigest ? { sourcePreparedBundleManifestDigest } : {}),
   });
   const existing = next.artifactSets.find((entry) => entry.artifactSetId === normalized.artifactSetId);
   if (existing && !isDeepStrictEqual(existing, normalized)) {
     throw new Error("Artifact set identity cannot be rebound to different immutable references.");
   }
   if (!existing) next.artifactSets.push(normalized);
+}
+
+function exactApprovedPrivateReviewManifestDigest(aggregate, preparedBundle) {
+  const contentDecision = assertApprovedContent(aggregate);
+  const source = latestArtifactSet(aggregate, "private_review", aggregate.currentRevisionId);
+  if (!source || !preparedBundleMatchesContentApproval(aggregate, contentDecision, source)) {
+    throw new Error("Prepared bundle must be the exact approved private-review promotion.");
+  }
+  assertDigest(source.assetManifestDigest, "private review assetManifestDigest");
+  return source.assetManifestDigest;
+}
+
+function exactPreparedBundleManifestDigest(aggregate) {
+  const preparedBundle = latestArtifactSet(aggregate, "prepared_bundle", aggregate.currentRevisionId);
+  if (!preparedBundle) {
+    throw new Error("Narration review requires the exact immutable prepared bundle.");
+  }
+  assertDigest(preparedBundle.assetManifestDigest, "prepared bundle assetManifestDigest");
+  return preparedBundle.assetManifestDigest;
 }
 
 function assertStageClaimEligible(aggregate, stage) {

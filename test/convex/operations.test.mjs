@@ -87,7 +87,7 @@ function customerJob(overrides = {}) {
 
 function fulfillmentAggregate(overrides = {}) {
   return {
-    schemaVersion: "1.0",
+    schemaVersion: "1.1",
     authority: "convex-target/local-test-projection",
     jobId: "job_ops_001",
     environment: "test",
@@ -1526,6 +1526,59 @@ test("commands without operator input reject every payload field", async () => {
     }),
     /unexpected fields/i,
   );
+});
+
+test("narration commands bind the exact prepared bundle before a worker can claim them", async () => {
+  const convex = fixture();
+  const preparedManifestDigest = "4".repeat(64);
+  await seed(convex, {
+    fulfillment: fulfillmentAggregate({
+      state: "tts_queued",
+      version: 9,
+      currentRevisionId: "r1",
+      artifactSets: [{
+        artifactSetId: "artifacts_prepared_bundle_001",
+        kind: "prepared_bundle",
+        revisionId: "r1",
+        pageDigest: "1".repeat(64),
+        transcriptDigest: "2".repeat(64),
+        assetManifestDigest: preparedManifestDigest,
+      }],
+    }),
+  });
+  const input = {
+    operatorToken,
+    commandId: "command_narration_binding_000001",
+    jobId: "job_ops_001",
+    action: "generate_narration",
+    expectedState: "tts_queued",
+    expectedVersion: 9,
+    payload: {
+      revisionId: "r1",
+      artifactManifestDigest: preparedManifestDigest,
+    },
+  };
+
+  await assert.rejects(
+    convex.mutation(requestCommand, {
+      ...input,
+      commandId: "command_narration_binding_000002",
+      payload: { ...input.payload, artifactManifestDigest: "f".repeat(64) },
+    }),
+    /exact prepared bundle/i,
+  );
+
+  const created = await convex.mutation(requestCommand, input);
+  assert.deepEqual(created.command.payload, input.payload);
+  const [claimed] = await convex.mutation(claimCommands, {
+    workerToken,
+    actions: ["generate_narration"],
+    workerId: "ops-worker-narration",
+    limit: 1,
+    leaseMs: 120_000,
+  });
+  assert.equal(claimed.commandId, input.commandId);
+  assert.deepEqual(claimed.payload, input.payload);
 });
 
 test("review commands bind the exact current revision and artifact digests", async () => {

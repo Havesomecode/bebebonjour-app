@@ -118,7 +118,9 @@ export function createLocalCommandStageHandlers(options = {}) {
           output: requiredPath(paths, "preparedRoot"),
         }),
       });
-      return { artifactSet };
+      return {
+        artifactSet,
+      };
     },
 
     async generate_tts(context) {
@@ -195,6 +197,8 @@ export function createLocalCommandStageHandlers(options = {}) {
     },
   };
 }
+
+
 
 function requiredPath(paths, key) {
   const value = paths[key];

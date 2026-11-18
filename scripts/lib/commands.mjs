@@ -49,6 +49,10 @@ import {
   assertValidTranscript,
 } from "./schema-validation.mjs";
 import { assertValidIntake, assertValidJob, assertValidPage } from "./validators.mjs";
+import {
+  buildCanonicalNarrationInput,
+  CANONICAL_NARRATION_INPUT_PATH,
+} from "../../src/fulfillment/narration-input.mjs";
 
 const TEMPLATE_APP_PATH = path.join(PROJECT_ROOT, "template", "runtime", "app.js");
 const TEMPLATE_PHRASE_PROGRESS_PATH = path.join(
@@ -79,6 +83,7 @@ const RENDERER_MATERIAL_PATHS = [
   path.join(PROJECT_ROOT, "schemas", "job-scoped-editorial-approval.schema.json"),
   path.join(PROJECT_ROOT, "schemas", "name-resolution-evidence.schema.json"),
   path.join(PROJECT_ROOT, "schemas", "narration-approval.schema.json"),
+  path.join(PROJECT_ROOT, "schemas", "narration-input.schema.json"),
   path.join(PROJECT_ROOT, "schemas", "narration-manifest.schema.json"),
   path.join(PROJECT_ROOT, "schemas", "narration-review.schema.json"),
   path.join(PROJECT_ROOT, "schemas", "review-dossier.schema.json"),
@@ -835,9 +840,16 @@ async function writeProjectionArtifacts(
   const transcript = buildTranscript(page);
   const canonicalPage = cloneJson(page);
   canonicalPage.buildId = renderPaths.buildId;
+  const narrationInput = buildCanonicalNarrationInput(canonicalPage);
   const publicPage = buildPublicPage(canonicalPage);
   await writeJson(renderPaths.deployedPagePath, publicPage);
   await writeJson(renderPaths.transcriptPath, transcript);
+  if (!privateReview) {
+    await writeJson(
+      path.join(renderPaths.deployRoot, CANONICAL_NARRATION_INPUT_PATH.slice("deploy/".length)),
+      narrationInput,
+    );
+  }
   if (includeCanonicalArtifacts) {
     await writeJson(renderPaths.currentPagePath, canonicalPage);
     await writeJson(renderPaths.pageRevisionPath, canonicalPage);

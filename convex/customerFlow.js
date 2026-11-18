@@ -321,7 +321,7 @@ async function assertCanonicalInitialFulfillmentAggregate(aggregate, job) {
   const event = aggregate?.events?.[0];
   const valid = isRecord(aggregate)
     && hasExactKeys(aggregate, INITIAL_FULFILLMENT_KEYS)
-    && aggregate.schemaVersion === "1.0"
+    && aggregate.schemaVersion === "1.1"
     && aggregate.authority === "convex-target/local-test-projection"
     && aggregate.jobId === job.jobId
     && aggregate.environment === "test"

@@ -22,6 +22,15 @@ const generationEnvironment = Object.freeze({
   BEBEBONJOUR_CODEX_AUTH_LEASE_MS: "290000",
   CRON_SECRET: "cron-secret-with-at-least-thirty-two-bytes",
 });
+const narrationEnvironment = Object.freeze({
+  ...environment,
+  BEBEBONJOUR_OPERATIONS_WORKER_ID: "test-a-narration-worker",
+  BEBEBONJOUR_OPERATIONS_WORKER_ACTIONS: "generate_narration",
+  BEBEBONJOUR_OPERATIONS_WORKER_LIMIT: "1",
+  BEBEBONJOUR_OPERATIONS_WORKER_LEASE_MS: "300000",
+  BEBEBONJOUR_NARRATION_WORKER_TOKEN: "narration-worker-token-with-at-least-thirty-two-bytes",
+  CRON_SECRET: "narration-cron-secret-with-at-least-thirty-two-bytes",
+});
 
 
 test("no-action production worker proves scoped health and claims no command class", async () => {
@@ -133,6 +142,88 @@ test("generation-only worker fences and completes one synthetic command without 
     "operations:completeCommand",
   ]);
   assert.equal(syntheticEffects, 1);
+});
+
+test("narration-only worker fences the claim-only server action and completes from its canonical aggregate", async () => {
+  const calls = [];
+  let narrationActionCalls = 0;
+  const command = {
+    commandId: "command_synthetic_narration_000001",
+    jobId: "job_03c25b08-8476-4fe1-923b-43d73feab3ff",
+    action: "generate_narration",
+    expectedState: "tts_queued",
+    expectedVersion: 8,
+    payload: {
+      revisionId: "r1",
+      artifactManifestDigest: "a".repeat(64),
+    },
+    claim: {
+      workerId: "test-a-narration-worker",
+      leaseToken: "synthetic-narration-lease-token",
+      leaseExpiresAtMs: Date.now() + 120_000,
+    },
+  };
+  const result = await runOperationsWorkerCommand({
+    environment: narrationEnvironment,
+    client: {
+      async query(name, input) {
+        calls.push([name, structuredClone(input)]);
+        if (name === "operations:workerHealth") return { protocolVersion: "1.0", scope: "worker" };
+        if (name === "narration:readNarrationFulfillmentJob") {
+          assert.equal(input.workerToken, narrationEnvironment.BEBEBONJOUR_NARRATION_WORKER_TOKEN);
+          assert.equal(input.commandId, command.commandId);
+          return {
+            jobId: command.jobId,
+            state: "narration_review_required",
+            version: 10,
+            currentRevisionId: "r1",
+            artifactSets: [{
+              artifactSetId: "artifact_set_synthetic_narration_001",
+              kind: "narration_review",
+              revisionId: "r1",
+              operationsCommandId: command.commandId,
+            }],
+          };
+        }
+        throw new Error(`Unexpected query ${name}`);
+      },
+      async mutation(name, input) {
+        calls.push([name, structuredClone(input)]);
+        if (name === "operations:claimCommands") return [structuredClone(command)];
+        if (name === "operations:fenceCommand") return { active: true, command: structuredClone(command) };
+        if (name === "operations:completeCommand") return { ok: true };
+        throw new Error(`Unexpected mutation ${name}`);
+      },
+      async action(name, input) {
+        calls.push([name, structuredClone(input)]);
+        assert.equal(name, "narration:generateNarrationReview");
+        assert.equal(input.workerToken, narrationEnvironment.BEBEBONJOUR_NARRATION_WORKER_TOKEN);
+        assert.deepEqual(Object.keys(input).sort(), ["commandId", "jobId", "leaseToken", "workerId", "workerToken"]);
+        narrationActionCalls += 1;
+        return { created: true };
+      },
+    },
+  });
+
+  assert.deepEqual(result, {
+    status: "ok",
+    protocolVersion: "1.0",
+    workerId: "test-a-narration-worker",
+    enabledActionCount: 1,
+    claimed: 1,
+    completed: 1,
+    failed: 0,
+  });
+  assert.equal(narrationActionCalls, 1);
+  assert.deepEqual(calls.map(([name]) => name), [
+    "operations:workerHealth",
+    "operations:claimCommands",
+    "operations:fenceCommand",
+    "operations:fenceCommand",
+    "narration:generateNarrationReview",
+    "narration:readNarrationFulfillmentJob",
+    "operations:completeCommand",
+  ]);
 });
 
 test("production generation entrypoint composes job-scoped generation without fulfillment injection", async () => {
@@ -283,7 +374,7 @@ test("worker startup fails before queue access when an uncomposed action is enab
         async mutation() { calls += 1; },
       },
     }),
-    /only the generate action/u,
+    /only generate and generate_narration actions/u,
   );
   assert.equal(calls, 0);
 });
@@ -331,6 +422,30 @@ test("production generation rejects a cron secret equal to the worker token befo
     /CRON_SECRET must be distinct from BEBEBONJOUR_OPERATIONS_WORKER_TOKEN/u,
   );
   assert.equal(calls, 0);
+});
+
+test("production narration rejects broad, incomplete, or non-exact authority before queue access", async () => {
+  const environments = [
+    { ...narrationEnvironment, CUSTOMER_FLOW_BACKEND_TOKEN: "broad-backend-token-with-at-least-thirty-two-bytes" },
+    { ...narrationEnvironment, BEBEBONJOUR_NARRATION_WORKER_TOKEN: "" },
+    { ...narrationEnvironment, BEBEBONJOUR_OPERATIONS_WORKER_LIMIT: "2" },
+    { ...narrationEnvironment, CRON_SECRET: narrationEnvironment.BEBEBONJOUR_NARRATION_WORKER_TOKEN },
+  ];
+  for (const invalidEnvironment of environments) {
+    let calls = 0;
+    await assert.rejects(
+      runOperationsWorkerCommand({
+        environment: invalidEnvironment,
+        client: {
+          async query() { calls += 1; },
+          async mutation() { calls += 1; },
+          async action() { calls += 1; },
+        },
+      }),
+      /(is forbidden|must contain at least|must remain exact|must remain distinct)/u,
+    );
+    assert.equal(calls, 0);
+  }
 });
 
 test("production generation rejects invalid Codex bootstrap and lease windows before queue access", async () => {

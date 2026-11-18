@@ -181,7 +181,9 @@ async function reachContentReview(orchestrator) {
     correlation: syntheticJob().paymentCorrelation,
     recordedAt: "2026-08-11T00:01:00.000Z",
   });
-  await orchestrator.runNext("job_synthetic_001");
+  await orchestrator.runExpectedStage("job_synthetic_001", "prepare_review", {
+    operationsCommandId: "command_test_prepare_review_000001",
+  });
 }
 
 async function reachPublishReady(orchestrator) {
@@ -1158,8 +1160,22 @@ test("the local TEST-A job artifact is byte-deterministic for fixed inputs and d
 
 test("the durable TEST-A projection uses the versioned persistent field schema", async (t) => {
   const { orchestrator, storePath } = await fixture(t);
-  await reachContentReview(orchestrator);
-  await orchestrator.recordReviewDecision("job_synthetic_001", approvedContentDecision());
+  await orchestrator.createJob(syntheticJob(), { commandId: "create-job" });
+  await orchestrator.recordPayment("job_synthetic_001", {
+    commandId: "payment-succeeded",
+    providerEventId: "evt_test_synthetic_001",
+    providerPaymentId: "pi_test_synthetic_001",
+    correlation: syntheticJob().paymentCorrelation,
+    recordedAt: "2026-08-11T00:01:00.000Z",
+  });
+  await orchestrator.runExpectedStage("job_synthetic_001", "prepare_review", {
+    operationsCommandId: "command_schema_prepare_000001",
+  });
+  const contentReview = await orchestrator.status("job_synthetic_001");
+  await orchestrator.recordReviewDecision("job_synthetic_001", {
+    ...approvedContentDecision(),
+    revisionId: contentReview.currentRevisionId,
+  });
   await orchestrator.runNext("job_synthetic_001");
   await orchestrator.runNext("job_synthetic_001");
   await orchestrator.queueDelivery("job_synthetic_001", { commandId: "queue-delivery" });
@@ -1181,7 +1197,7 @@ test("the durable TEST-A projection uses the versioned persistent field schema",
     .compile(schema);
 
   assert.equal(validate(raw), true, JSON.stringify(validate.errors));
-  assert.equal(raw.schema_version, "1.0");
+  assert.equal(raw.schema_version, "1.1");
   assert.equal(raw.jobs.job_synthetic_001.current_revision_id, "r1");
   assert.equal(raw.jobs.job_synthetic_001.stage_attempts[0].status, "completed");
   assert.equal(
@@ -1198,7 +1214,31 @@ test("the durable TEST-A projection uses the versioned persistent field schema",
     (attempt) => attempt.stage === "deliver",
   ).operation_binding;
   assert.equal(validate(missingBinding), false);
+  const missingPrivateReviewProvenance = structuredClone(raw);
+  delete missingPrivateReviewProvenance.jobs.job_synthetic_001.artifact_sets.find(
+    (artifactSet) => artifactSet.kind === "private_review",
+  ).source_run_id;
+  assert.equal(validate(missingPrivateReviewProvenance), false);
+  const missingPreparedSource = structuredClone(raw);
+  delete missingPreparedSource.jobs.job_synthetic_001.artifact_sets.find(
+    (artifactSet) => artifactSet.kind === "prepared_bundle",
+  ).source_private_review_manifest_digest;
+  assert.equal(validate(missingPreparedSource), false);
   assert.doesNotMatch(rawText, /jobArtifactDigest|job_artifact_digest/);
+});
+
+test("legacy TEST-A persistence v1.0 fails closed rather than rebinding private-review provenance", async (t) => {
+  const { orchestrator, storePath } = await fixture(t);
+  await orchestrator.createJob(syntheticJob(), { commandId: "create-job" });
+  const raw = JSON.parse(await readFile(storePath, "utf8"));
+  raw.schema_version = "1.0";
+  await writeFile(storePath, `${JSON.stringify(raw, null, 2)}\n`, "utf8");
+
+  const reopened = createLocalTestFulfillmentStore({ filePath: storePath });
+  await assert.rejects(
+    () => reopened.getJob("job_synthetic_001"),
+    /cannot be migrated automatically/i,
+  );
 });
 
 test("a malformed durable aggregate is rejected before backend transitions inspect it", async (t) => {

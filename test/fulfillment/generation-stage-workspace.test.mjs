@@ -329,10 +329,15 @@ test("persisted orchestration drives compose, render, and retryable test-mode TT
   await withApprovalKey(async () => {
     status = await orchestrator.runNext(jobId);
   });
-  assert.equal(status.state, "tts_queued");
+  assert.equal(
+    status.state,
+    "tts_queued",
+    JSON.stringify(status.stageAttempts.at(-1)?.failure || null),
+  );
   const aggregateAfterRender = await createLocalTestFulfillmentStore({ filePath: storePath }).getJob(jobId);
   const preparedArtifacts = aggregateAfterRender.artifactSets.at(-1);
   assert.equal(preparedArtifacts.kind, "prepared_bundle");
+  assert.equal(preparedArtifacts.sourcePrivateReviewManifestDigest, privateArtifacts.assetManifestDigest);
   assert.equal(preparedArtifacts.pageDigest, createHash("sha256").update(
     await readFile(paths.approvedPagePath),
   ).digest("hex"));
@@ -365,6 +370,10 @@ test("persisted orchestration drives compose, render, and retryable test-mode TT
   );
   assert.match(narrationArtifacts.transcriptDigest, /^[a-f0-9]{64}$/);
   assert.match(narrationArtifacts.assetManifestDigest, /^[a-f0-9]{64}$/);
+  assert.equal(
+    narrationArtifacts.sourcePreparedBundleManifestDigest,
+    preparedArtifacts.assetManifestDigest,
+  );
   const replay = await handlers.generate_tts({
     job: status,
     idempotencyKey: ttsAttempts.at(-1).idempotencyKey,

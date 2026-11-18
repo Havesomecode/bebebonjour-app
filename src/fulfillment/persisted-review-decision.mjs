@@ -72,7 +72,11 @@ function assertExactPersistedArtifacts(aggregate, approval) {
     ? "private_review"
     : "narration_review";
   const artifactSet = [...(aggregate?.artifactSets || [])].reverse().find((entry) => (
-    entry.kind === expectedKind && entry.revisionId === approval.binding.revisionId
+    entry.kind === expectedKind
+    && entry.revisionId === approval.binding.revisionId
+    && entry.pageDigest === approval.decision.artifactDigests.pageDigest
+    && entry.transcriptDigest === approval.decision.artifactDigests.transcriptDigest
+    && entry.assetManifestDigest === approval.decision.artifactDigests.assetManifestDigest
   ));
   const digests = approval.decision.artifactDigests;
   if (
@@ -81,6 +85,9 @@ function assertExactPersistedArtifacts(aggregate, approval) {
     || artifactSet.transcriptDigest !== digests.transcriptDigest
     || artifactSet.assetManifestDigest !== digests.assetManifestDigest
     || artifactSet.assetManifestDigest !== approval.binding.artifactManifestDigest
+    || artifactSet.sourceRunId !== approval.binding.sourceRunId
+    || (artifactSet.operationsCommandId || null) !== approval.binding.sourceCommandId
+    || approval.binding.runId !== approval.binding.sourceRunId
   ) {
     throw new Error("Review approval does not match the exact persisted artifact manifest.");
   }
@@ -95,16 +102,16 @@ function approvalBinding(job, decision) {
   }
   const stage = REVIEW_STAGE_BY_TYPE[decision.decisionType];
   if (!stage) throw new Error("Persisted review approval decision type is invalid.");
-  const attempt = [...(job.stageAttempts || [])].reverse().find((entry) => (
-    entry.stage === stage
-    && entry.status === "completed"
-    && (decision.decisionType === "content" || entry.revisionId === job.currentRevisionId)
-  ));
-  if (!attempt?.attemptId) {
-    throw new Error("Persisted review approval requires the completed exact generation run.");
-  }
   const artifactManifestDigest = decision.artifactDigests?.assetManifestDigest;
   assertDigest(artifactManifestDigest, "review artifact manifest digest");
+  const artifactKind = decision.decisionType === "content" ? "private_review" : "narration_review";
+  const artifactSet = [...(job.artifactSets || [])].reverse().find((entry) => (
+    entry?.kind === artifactKind
+    && entry?.revisionId === job.currentRevisionId
+    && entry?.assetManifestDigest === artifactManifestDigest
+    && entry?.pageDigest === decision.artifactDigests?.pageDigest
+    && entry?.transcriptDigest === decision.artifactDigests?.transcriptDigest
+  ));
   assertDigest(job.intakeDigest, "review intake digest");
   return {
     jobId: requireIdentifier(job.jobId, "review job id"),
@@ -112,7 +119,9 @@ function approvalBinding(job, decision) {
     environment: "test",
     product: "announcement-page",
     revisionId: job.currentRevisionId,
-    runId: attempt.attemptId,
+    runId: artifactSet?.sourceRunId || job.currentRevisionId,
+    sourceRunId: artifactSet?.sourceRunId || null,
+    sourceCommandId: artifactSet?.operationsCommandId || null,
     artifactManifestDigest,
   };
 }
@@ -160,7 +169,7 @@ function verifyApprovalSignature(approval, key) {
   );
   assertOnlyKeys(
     approval.binding,
-    ["jobId", "intakeDigest", "environment", "product", "revisionId", "runId", "artifactManifestDigest"],
+    ["jobId", "intakeDigest", "environment", "product", "revisionId", "runId", "sourceRunId", "sourceCommandId", "artifactManifestDigest"],
     "persisted review approval binding",
   );
   assertOnlyKeys(approval.decision, [

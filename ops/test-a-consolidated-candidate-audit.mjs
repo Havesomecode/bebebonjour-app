@@ -18,12 +18,14 @@ const EXCLUDED_DIGEST_PATHS = new Set([
 const rootPath = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const evidencePath = path.join(rootPath, EVIDENCE_RELATIVE_PATH);
 const focusedTestFiles = [
+  "test/api/webhook-entrypoints.test.mjs",
   "test/config/generation-worker-isolation.test.mjs",
   "test/config/test-a-hosted-provider-manifest-policy.test.mjs",
   "test/config/test-a-operator-isolation.test.mjs",
   "test/convex/generation.test.mjs",
   "test/convex/generation-worker-authority.test.mjs",
   "test/convex/completion-store-seam.test.mjs",
+  "test/convex/narration-worker-authority.test.mjs",
   "test/convex/operations.test.mjs",
   "test/fulfillment/exact-revision-publication-adapter.test.mjs",
   "test/fulfillment/failed-prepare-review-recovery.test.mjs",
@@ -47,6 +49,7 @@ const focusedTestFiles = [
   "test/operations/operations-worker-startup.test.mjs",
   "test/operations/hosted-generation-storage.test.mjs",
   "test/operations/completion-worker-boundary.test.mjs",
+  "test/narration-input.schema.test.mjs",
 ];
 const controls = Object.freeze([
   {
@@ -123,6 +126,20 @@ const controls = Object.freeze([
       "test/operations/completion-worker-boundary.test.mjs: hosted resolver rejects non-synthetic and non-private artifact reads before publication",
       "test/fulfillment/resend-delivery-adapter.test.mjs: Resend delivery adapter rejects every non-canonical test sink before sending",
       "test/fulfillment/vercel-test-a-publication-provider.test.mjs: Vercel publication reconciles exact idempotent private deployment effects",
+    ],
+  },
+  {
+    id: "exact-synthetic-server-side-narration-worker",
+    requirement: "A separately packaged narration endpoint accepts only the fixed synthetic TEST-A job and exact generate_narration claim tuple. It reads a canonical approved narration input from the immutable prepared bundle, records an exact per-segment provider-effect identity before external speech issuance, uses a stable provider idempotency key, stores only bounded non-empty server-generated audio, and atomically advances only generate_tts to narration_review_required. The narration Vercel runtime holds neither provider credentials nor customer, payment, publication, delivery, or private-generation authority; OpenAI speech credentials remain Convex-only.",
+    proofs: [
+      "test/convex/narration-worker-authority.test.mjs: exact approval, claim, schema, bundle, provenance, byte, replay, and aggregate-completion fences reject drift before durable completion",
+      "test/convex/narration-worker-authority.test.mjs: a persisted issued provider effect fences an ambiguous retry before any duplicate speech request",
+      "test/convex/narration-worker-authority.test.mjs: stale claims create no provider-effect record or provider request",
+      "test/narration-input.schema.test.mjs: canonical narration input fixes provider, model, language/section plan, voices, paths, and text bounds",
+      "test/operations/operations-worker-startup.test.mjs: narration startup rejects broad, incomplete, or non-exact runtime authority before queue access",
+      "test/config/generation-worker-isolation.test.mjs: narration worker is isolated from the customer Vercel project and other worker routes",
+      "test/config/test-a-hosted-provider-manifest-policy.test.mjs: reviewed narration policy pins its deployment and distinct secret-store boundary",
+      "test/api/webhook-entrypoints.test.mjs: narration endpoint exports only a lazy bounded Node handler",
     ],
   },
 
@@ -217,7 +234,7 @@ if (JSON.stringify(evidence) !== JSON.stringify(generatedEvidence)) {
   throw new Error("TEST-A consolidated candidate evidence does not match the exact current review boundary.");
 }
 
-const testRun = spawnSync(process.execPath, ["--test", ...focusedTestFiles], {
+const testRun = spawnSync(process.execPath, ["--test", "--test-concurrency=1", ...focusedTestFiles], {
   cwd: rootPath,
   encoding: "utf8",
   env: { ...process.env, RUN_DB_TESTS: "0" },

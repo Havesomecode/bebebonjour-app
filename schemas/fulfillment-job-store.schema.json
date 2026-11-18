@@ -6,7 +6,7 @@
   "additionalProperties": false,
   "required": ["schema_version", "authority", "jobs"],
   "properties": {
-    "schema_version": { "const": "1.0" },
+    "schema_version": { "const": "1.1" },
     "authority": { "const": "local-test-only" },
     "jobs": {
       "type": "object",
@@ -123,6 +123,9 @@
       "properties": {
         "artifact_set_id": { "type": "string", "pattern": "^artifacts_[a-f0-9]{24}$" },
         "operations_command_id": { "type": "string", "pattern": "^command_[A-Za-z0-9][A-Za-z0-9_-]{7,127}$" },
+        "source_run_id": { "type": "string", "pattern": "^attempt_[a-f0-9]{24}$" },
+        "source_private_review_manifest_digest": { "$ref": "#/$defs/digest" },
+        "source_prepared_bundle_manifest_digest": { "$ref": "#/$defs/digest" },
         "kind": { "enum": ["private_review", "prepared_bundle", "narration_review"] },
         "revision_id": { "$ref": "#/$defs/revision_id" },
         "page_digest": { "$ref": "#/$defs/digest" },
@@ -133,7 +136,37 @@
           "type": "array",
           "items": { "$ref": "#/$defs/artifact_file" }
         }
-      }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "kind": { "const": "private_review" } }, "required": ["kind"] },
+          "then": {
+            "properties": {
+              "source_run_id": { "type": "string", "pattern": "^attempt_[a-f0-9]{24}$" },
+              "operations_command_id": { "type": "string", "pattern": "^command_[A-Za-z0-9][A-Za-z0-9_-]{7,127}$" }
+            },
+            "required": ["source_run_id"]
+          }
+        },
+        {
+          "if": { "properties": { "kind": { "const": "prepared_bundle" } }, "required": ["kind"] },
+          "then": {
+            "properties": {
+              "source_private_review_manifest_digest": { "$ref": "#/$defs/digest" }
+            },
+            "required": ["source_private_review_manifest_digest"]
+          }
+        },
+        {
+          "if": { "properties": { "kind": { "const": "narration_review" } }, "required": ["kind"] },
+          "then": {
+            "properties": {
+              "source_prepared_bundle_manifest_digest": { "$ref": "#/$defs/digest" }
+            },
+            "required": ["source_prepared_bundle_manifest_digest"]
+          }
+        }
+      ]
     },
     "reviewer": {
       "type": "object",
@@ -388,7 +421,7 @@
         "events"
       ],
       "properties": {
-        "schema_version": { "const": "1.0" },
+        "schema_version": { "const": "1.1" },
         "authority": { "const": "convex-target/local-test-projection" },
         "job_id": { "type": "string", "minLength": 1 },
         "environment": { "const": "test" },

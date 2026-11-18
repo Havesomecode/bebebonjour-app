@@ -4,10 +4,14 @@ import test from "node:test";
 
 const root = new URL("../../", import.meta.url);
 
-test("generation worker is deployed only by its isolated Vercel project", async () => {
+test("generation and narration workers are deployed only by isolated Vercel projects", async () => {
   const mainConfig = JSON.parse(await readFile(new URL("vercel.json", root), "utf8"));
   const workerConfig = JSON.parse(await readFile(
     new URL("vercel.generation-worker.json", root),
+    "utf8",
+  ));
+  const narrationConfig = JSON.parse(await readFile(
+    new URL("vercel.narration-worker.json", root),
     "utf8",
   ));
   const manifest = JSON.parse(await readFile(
@@ -35,13 +39,35 @@ test("generation worker is deployed only by its isolated Vercel project", async 
     path: "/api/operations/worker",
     schedule: "*/5 * * * *",
   }]);
+  assert.deepEqual(narrationConfig.builds, [{
+    src: "narration-worker/api/worker.mjs",
+    use: "@vercel/node",
+  }]);
+  assert.equal(narrationConfig.installCommand, "npm ci");
+  assert.deepEqual(narrationConfig.routes, [{
+    src: "/api/operations/narration-worker",
+    dest: "narration-worker/api/worker.mjs",
+  }]);
+  assert.deepEqual(narrationConfig.crons, [{
+    path: "/api/operations/narration-worker",
+    schedule: "*/5 * * * *",
+  }]);
   await access(new URL("generation-worker/api/worker.mjs", root));
+  await access(new URL("narration-worker/api/worker.mjs", root));
   await assert.rejects(access(new URL("api/operations/worker.mjs", root)));
   assert.deepEqual(
     manifest.vercelApi.environmentVariables,
     manifest.secretStores.vercelProduction.allowed,
   );
   for (const workerVariable of manifest.secretStores.generationOperator.allowed
+    .filter((name) => name !== "CONVEX_URL")) {
+    assert.equal(
+      manifest.vercelApi.environmentVariables.includes(workerVariable),
+      false,
+      `${workerVariable} must not be mounted in the customer-flow Vercel project`,
+    );
+  }
+  for (const workerVariable of manifest.secretStores.narrationOperator.allowed
     .filter((name) => name !== "CONVEX_URL")) {
     assert.equal(
       manifest.vercelApi.environmentVariables.includes(workerVariable),

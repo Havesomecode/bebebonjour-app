@@ -335,6 +335,7 @@ test("Vercel-safe production worker generates into Convex storage and a cold inv
   assert.equal(JSON.stringify(fixture.artifactRecord).includes("synthetic-hosted@example.test"), false);
   const {
     artifactSetId: _artifactSetId,
+    sourceRunId: _sourceRunId,
     operationsCommandId: _operationsCommandId,
     ...persistedArtifactBinding
   } = fixture.aggregate.artifactSets[0];

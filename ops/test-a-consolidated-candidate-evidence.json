@@ -5,9 +5,13 @@
   "candidateBoundary": {
     "changedPaths": [
       "completion-worker/api/worker.mjs",
+      "convex/customerFlow.js",
       "convex/fulfillment.js",
       "convex/http.js",
+      "convex/narration.js",
       "convex/operations.js",
+      "convex/schema.js",
+      "narration-worker/api/worker.mjs",
       "ops/test-a-completion-candidate-preflight.md",
       "ops/test-a-completion-worker-audit.mjs",
       "ops/test-a-consolidated-candidate-audit.mjs",
@@ -15,40 +19,67 @@
       "ops/test-a-hosted-provider-manifest.json",
       "package-lock.json",
       "package.json",
+      "schemas/fulfillment-job-store.schema.json",
+      "schemas/narration-input.schema.json",
+      "scripts/lib/commands.mjs",
       "scripts/verify-vercel-routing.mjs",
       "src/config/test-a-hosted-provider-manifest.mjs",
       "src/fulfillment/exact-revision-publication-adapter.mjs",
       "src/fulfillment/external-effect-stage-handlers.mjs",
+      "src/fulfillment/hosted-generation-workspace.mjs",
       "src/fulfillment/job-machine.mjs",
       "src/fulfillment/job-orchestrator.mjs",
+      "src/fulfillment/local-command-stage-handlers.mjs",
+      "src/fulfillment/local-generation-workspace.mjs",
+      "src/fulfillment/narration-input.mjs",
+      "src/fulfillment/operator-runner-test-a.mjs",
+      "src/fulfillment/persisted-review-decision.mjs",
       "src/fulfillment/secure-filesystem-snapshot.mjs",
       "src/fulfillment/test-a-completion-capabilities.mjs",
       "src/fulfillment/vercel-test-a-publication-provider.mjs",
       "src/http/operations-worker-handler.mjs",
       "src/operations/operations-action-handlers.mjs",
       "src/operations/operations-command-worker.mjs",
+      "src/operations/operations-worker-startup.mjs",
       "src/operations/production-completion-worker.mjs",
       "src/operations/production-generation-worker.mjs",
+      "src/operations/production-narration-worker.mjs",
       "src/persistence/convex-fulfillment-store.mjs",
+      "src/persistence/local-test-fulfillment-store.mjs",
       "test/api/webhook-entrypoints.test.mjs",
+      "test/config/generation-worker-isolation.test.mjs",
       "test/config/hosted-provider-artifacts.test.mjs",
       "test/config/test-a-hosted-provider-manifest-policy.test.mjs",
       "test/config/test-a-operator-isolation-audit.test.mjs",
       "test/convex/completion-store-seam.test.mjs",
+      "test/convex/customer-flow.test.mjs",
+      "test/convex/narration-worker-authority.test.mjs",
       "test/convex/operations.test.mjs",
+      "test/fulfillment/codex-subscription-composer.test.mjs",
+      "test/fulfillment/generation-stage-workspace.test.mjs",
       "test/fulfillment/job-orchestration.test.mjs",
+      "test/fulfillment/local-command-stage-handlers.test.mjs",
+      "test/fulfillment/persisted-review-decision.test.mjs",
       "test/fulfillment/secure-filesystem-snapshot.test.mjs",
+      "test/fulfillment/test-a-generation-runner.test.mjs",
+      "test/fulfillment/test-a-operator-runner.test.mjs",
       "test/fulfillment/vercel-test-a-publication-provider.test.mjs",
+      "test/narration-input.schema.test.mjs",
       "test/operations/completion-worker-boundary.test.mjs",
       "test/operations/hosted-generation-storage.test.mjs",
       "test/operations/operations-worker-startup.test.mjs",
-      "vercel.completion-worker.json"
+      "vercel.completion-worker.json",
+      "vercel.narration-worker.json"
     ],
     "pathAllowlist": [
       "completion-worker/api/worker.mjs",
+      "convex/customerFlow.js",
       "convex/fulfillment.js",
       "convex/http.js",
+      "convex/narration.js",
       "convex/operations.js",
+      "convex/schema.js",
+      "narration-worker/api/worker.mjs",
       "ops/test-a-completion-candidate-preflight.md",
       "ops/test-a-completion-worker-audit.mjs",
       "ops/test-a-consolidated-candidate-audit.mjs",
@@ -56,34 +87,57 @@
       "ops/test-a-hosted-provider-manifest.json",
       "package-lock.json",
       "package.json",
+      "schemas/fulfillment-job-store.schema.json",
+      "schemas/narration-input.schema.json",
+      "scripts/lib/commands.mjs",
       "scripts/verify-vercel-routing.mjs",
       "src/config/test-a-hosted-provider-manifest.mjs",
       "src/fulfillment/exact-revision-publication-adapter.mjs",
       "src/fulfillment/external-effect-stage-handlers.mjs",
+      "src/fulfillment/hosted-generation-workspace.mjs",
       "src/fulfillment/job-machine.mjs",
       "src/fulfillment/job-orchestrator.mjs",
+      "src/fulfillment/local-command-stage-handlers.mjs",
+      "src/fulfillment/local-generation-workspace.mjs",
+      "src/fulfillment/narration-input.mjs",
+      "src/fulfillment/operator-runner-test-a.mjs",
+      "src/fulfillment/persisted-review-decision.mjs",
       "src/fulfillment/secure-filesystem-snapshot.mjs",
       "src/fulfillment/test-a-completion-capabilities.mjs",
       "src/fulfillment/vercel-test-a-publication-provider.mjs",
       "src/http/operations-worker-handler.mjs",
       "src/operations/operations-action-handlers.mjs",
       "src/operations/operations-command-worker.mjs",
+      "src/operations/operations-worker-startup.mjs",
       "src/operations/production-completion-worker.mjs",
       "src/operations/production-generation-worker.mjs",
+      "src/operations/production-narration-worker.mjs",
       "src/persistence/convex-fulfillment-store.mjs",
+      "src/persistence/local-test-fulfillment-store.mjs",
       "test/api/webhook-entrypoints.test.mjs",
+      "test/config/generation-worker-isolation.test.mjs",
       "test/config/hosted-provider-artifacts.test.mjs",
       "test/config/test-a-hosted-provider-manifest-policy.test.mjs",
       "test/config/test-a-operator-isolation-audit.test.mjs",
       "test/convex/completion-store-seam.test.mjs",
+      "test/convex/customer-flow.test.mjs",
+      "test/convex/narration-worker-authority.test.mjs",
       "test/convex/operations.test.mjs",
+      "test/fulfillment/codex-subscription-composer.test.mjs",
+      "test/fulfillment/generation-stage-workspace.test.mjs",
       "test/fulfillment/job-orchestration.test.mjs",
+      "test/fulfillment/local-command-stage-handlers.test.mjs",
+      "test/fulfillment/persisted-review-decision.test.mjs",
       "test/fulfillment/secure-filesystem-snapshot.test.mjs",
+      "test/fulfillment/test-a-generation-runner.test.mjs",
+      "test/fulfillment/test-a-operator-runner.test.mjs",
       "test/fulfillment/vercel-test-a-publication-provider.test.mjs",
+      "test/narration-input.schema.test.mjs",
       "test/operations/completion-worker-boundary.test.mjs",
       "test/operations/hosted-generation-storage.test.mjs",
       "test/operations/operations-worker-startup.test.mjs",
-      "vercel.completion-worker.json"
+      "vercel.completion-worker.json",
+      "vercel.narration-worker.json"
     ],
     "reviewedFileDigests": [
       {
@@ -103,16 +157,32 @@
         "sha256": "50952e33035e1a1a94a95e81f17613fa60609723bf2fa488509b204f66c408e7"
       },
       {
+        "path": "convex/customerFlow.js",
+        "sha256": "0079713be02a878c8ebec4ad9974200fe2a110d8dc74aa9bf25e05df1e837a5c"
+      },
+      {
         "path": "convex/fulfillment.js",
-        "sha256": "bdf51fbb1ea4e511685e7f1d83aa5a17cac1c5a84a90f412626d7a73392d09fa"
+        "sha256": "4445b5adee058b879e0de23b73ea8ab5c5ac72a8546b0b4db34d6d2826af37e2"
       },
       {
         "path": "convex/http.js",
         "sha256": "f73a131a077162d458d12ec958f571d5a8998df7fa81bfb21dc6845e90707a65"
       },
       {
+        "path": "convex/narration.js",
+        "sha256": "30a8da1d964f0ab374cbf88a5b0a12de1fb53845a8258636eab3764e96cbcb37"
+      },
+      {
         "path": "convex/operations.js",
-        "sha256": "683e563f2c7bacd13e4a474addcf2d206886eb3dabb08f4356e9c6ca62abb792"
+        "sha256": "228799d4f826ec8169af7735601ea49923de5b2356421c98c1c09a45d3e0bc15"
+      },
+      {
+        "path": "convex/schema.js",
+        "sha256": "3912bbc2d823624c48dfb5e88c7a47f09c86df0dd2784e0de16382452fc678e7"
+      },
+      {
+        "path": "narration-worker/api/worker.mjs",
+        "sha256": "c07cdaaba442eec5f15d19e0f94b6d63d377337167ea07db4d1b51cab563c2e4"
       },
       {
         "path": "ops/persist-test-a-generation-approval.mjs",
@@ -136,11 +206,11 @@
       },
       {
         "path": "ops/test-a-consolidated-candidate-audit.mjs",
-        "sha256": "6dcfeee58845b61b8df92adf0d58b011c4ace49c4a659541c8c972cb8a955026"
+        "sha256": "4d8c6d362aaa2c9478ada32fa83b2f64e57a4ba28c6a48c45990365369daff2d"
       },
       {
         "path": "ops/test-a-hosted-provider-manifest.json",
-        "sha256": "3605fb59dc51fd7cb9713ee4e8154026cf00bbded6f0b0d7b2800f2da23d224a"
+        "sha256": "7094acb8dc3c5566cc16ac0f5ff8b30e8d7d3079d7980a509e00dee074098783"
       },
       {
         "path": "package-lock.json",
@@ -148,7 +218,15 @@
       },
       {
         "path": "package.json",
-        "sha256": "0a56213cc118783eb80185b743fe202fe08503ba8b9a3dfb49b5e2c64fb0b889"
+        "sha256": "bf4f9a02fb628886eefd4acdf732c98d7fd84ec99ea3ab6c790866fbabe286db"
+      },
+      {
+        "path": "schemas/fulfillment-job-store.schema.json",
+        "sha256": "9438817c5e2ee2b52438dc1644703e63026438e2e12d2bd9210b73c1362a5004"
+      },
+      {
+        "path": "schemas/narration-input.schema.json",
+        "sha256": "b3c95bf3e9b0f1a736fff9c05aa3c8a78f1075628ebc0830bc9eca4bb28f1a31"
       },
       {
         "path": "scripts/lib/codex-subscription-composition.mjs",
@@ -156,7 +234,7 @@
       },
       {
         "path": "scripts/lib/commands.mjs",
-        "sha256": "760f4f48d41854944382802abd6f65c6959e53d5dc43de51ea8c083aa8ad929e"
+        "sha256": "15b6f9fa617eef2b82d3282c3cca0ddfeeb18f4a9b264d6983b36dfea5f57d0b"
       },
       {
         "path": "scripts/lib/common.mjs",
@@ -180,7 +258,7 @@
       },
       {
         "path": "scripts/verify-vercel-routing.mjs",
-        "sha256": "9273ea07ff32816e00e651a80845e60eaa4b61dd9d91cb25013b6a03cf06ae57"
+        "sha256": "b50b15edf88635d35afadf7eeef3606d0189018546def4654f35a3d542b83d1e"
       },
       {
         "path": "src/config/hosted-customer-flow-config.mjs",
@@ -188,7 +266,7 @@
       },
       {
         "path": "src/config/test-a-hosted-provider-manifest.mjs",
-        "sha256": "3e87c750c8f49ccd7b23acd54848882d4ed3a51566631bbecaf7b727f328ef16"
+        "sha256": "83f53a49eafd734d06ec2515ae14c1d50b2970f535942c3f1fcbdc6960bd9bf5"
       },
       {
         "path": "src/customer-flow/hosted-http-api.mjs",
@@ -235,12 +313,16 @@
         "sha256": "7af448bee2fe57dd450605a3daa89f2460197f984aefea17b1f24e760adccacf"
       },
       {
+        "path": "src/fulfillment/hosted-generation-workspace.mjs",
+        "sha256": "7ef663f15b5eb0e5b03a4394ca8071eb541dbd815fe238efa516cee9e98edf5f"
+      },
+      {
         "path": "src/fulfillment/job-machine.mjs",
-        "sha256": "0600896728e6696c560a18e8f9f60e103bd119dc1a77c23f937ffb08f1d09200"
+        "sha256": "2f3b94b6111414543267c724e0d5ca0e217800c1db01dfb7b38b145077d99e41"
       },
       {
         "path": "src/fulfillment/job-orchestrator.mjs",
-        "sha256": "7c34442eb7c746744fe2643597731dd6611287a080bc6e2fc74693900bd2ab3e"
+        "sha256": "c1d1c088dbdf4726ac5f84d2ba0297a427581a7ad065da42bcabf35b845afd3f"
       },
       {
         "path": "src/fulfillment/job-scoped-editorial-approval-canonicalization.mjs",
@@ -251,20 +333,28 @@
         "sha256": "fbd23fae795ccb159efe45e06cf34e18ef76f8f1f0a47fcacd442412f7a58d5d"
       },
       {
+        "path": "src/fulfillment/local-command-stage-handlers.mjs",
+        "sha256": "b16c0c0de92ae0206a95d3fd56cf1b8bbafd93477df8123d945a1e050667b7d1"
+      },
+      {
         "path": "src/fulfillment/local-generation-workspace.mjs",
-        "sha256": "68dccf05a0ccca37d772ccc2784fff119c4ab67c7d51365ac1c27e1f6407d3a1"
+        "sha256": "59c87e2d83796e2c01e5fd05f03079e235d7fc7bb03594c8d9816f7e0a5497e4"
       },
       {
         "path": "src/fulfillment/local-prepare-review-stage-handler.mjs",
         "sha256": "addd080cf32cd4dd1e06402e55dfe00cb656da64a6164e885f91f5e921c6977a"
       },
       {
+        "path": "src/fulfillment/narration-input.mjs",
+        "sha256": "80fa22f5a151010bb7a3c1b8772497e2dfb064e9d133092b7a970062528bca18"
+      },
+      {
         "path": "src/fulfillment/operator-runner-test-a.mjs",
-        "sha256": "8be72b1530c4d6172a2ae3d8c81e835003db5c3b5c2a9db451081c0f8d8abbb2"
+        "sha256": "8ea68200f061a190a3069b1b7f50c4b555498a51d9e44fc97defcb414dcbd21a"
       },
       {
         "path": "src/fulfillment/persisted-review-decision.mjs",
-        "sha256": "8205892867650843273eff9de97307ea55302ceee023e35b299e542419ef9798"
+        "sha256": "3dfb3853286b54fa3c60ad0adea72337b03cbd963790ea1f6cbaae8355886203"
       },
       {
         "path": "src/fulfillment/secure-filesystem-snapshot.mjs",
@@ -272,7 +362,7 @@
       },
       {
         "path": "src/fulfillment/test-a-completion-capabilities.mjs",
-        "sha256": "eadcd69e7b81f4735f70d4c763354f0b0bfc956b2c23a1ddd29b64fdbecf5e0b"
+        "sha256": "de4b2e62dd8ab710b72b5c9ab65ecf3acef43d4faf77f01dc407229145011cb7"
       },
       {
         "path": "src/fulfillment/test-a-generation-approval-startup.mjs",
@@ -319,12 +409,20 @@
         "sha256": "78e890ab2cb3d7086cc9bcf6ddab43ebbca538f6937c97e27f690fbf71254c07"
       },
       {
+        "path": "src/operations/operations-worker-startup.mjs",
+        "sha256": "0d8625cdb06f3c867dcd747b7ab331903af3a2e092c13a444487bc928fa30768"
+      },
+      {
         "path": "src/operations/production-completion-worker.mjs",
         "sha256": "474e9c1be17d5b6a39564653bc75bafe12e06d1ab2708472bfbad8ef1d023093"
       },
       {
         "path": "src/operations/production-generation-worker.mjs",
         "sha256": "070584b7129e0b8cad84d6a156e1fb4f791a0ffeb6040429305e8e393577ad65"
+      },
+      {
+        "path": "src/operations/production-narration-worker.mjs",
+        "sha256": "25ba0a45eea7a486a5726f06219b60492d6ebce18078e301929da82a0a871ae9"
       },
       {
         "path": "src/persistence/convex-customer-flow-store.mjs",
@@ -335,8 +433,16 @@
         "sha256": "e09c49c91b6d6186555dd024c2926370e0c4932209079d544503fad99df06b9e"
       },
       {
+        "path": "src/persistence/local-test-fulfillment-store.mjs",
+        "sha256": "892b8d73e367e70b79656fa263dd9fe5d14d4c6f0fe21a1822ddc4d1e656f620"
+      },
+      {
         "path": "test/api/webhook-entrypoints.test.mjs",
-        "sha256": "3297b72943d5ca67f5fe267ae3647c8ea1077ae422bdd2ffef18e6d56856a970"
+        "sha256": "5787f3c96d32279b80975be53fd04a29a8f31b06518b3bb42f6e9ee287b0e83b"
+      },
+      {
+        "path": "test/config/generation-worker-isolation.test.mjs",
+        "sha256": "66eb1bd0d8b7ec5c6685368ca97811ef097772aa36e32913aefadaf0f1ebe0ce"
       },
       {
         "path": "test/config/hosted-provider-artifacts.test.mjs",
@@ -344,7 +450,7 @@
       },
       {
         "path": "test/config/test-a-hosted-provider-manifest-policy.test.mjs",
-        "sha256": "67703debeb797415a7cf1862c4e2afb4024aeca2071990abe58c88326cac045a"
+        "sha256": "95e05d34c6523427358ef655db4a40d6ee45b6e13591264d105470f78a369e89"
       },
       {
         "path": "test/config/test-a-operator-isolation-audit.test.mjs",
@@ -352,35 +458,71 @@
       },
       {
         "path": "test/convex/completion-store-seam.test.mjs",
-        "sha256": "73c0f8f6e0a1e7f43184ccbe6acf1801e2a853558d123370fb4cb0274d8e2ff5"
+        "sha256": "fba4e4baf9d1121fa771d63dca82dbdfe3c296436a0c71f05453c970ce529497"
+      },
+      {
+        "path": "test/convex/customer-flow.test.mjs",
+        "sha256": "4be71e3b20a884aebeab41c3e189a2b341c5dc57422c643811e5cbd16e9beed3"
+      },
+      {
+        "path": "test/convex/narration-worker-authority.test.mjs",
+        "sha256": "d60c589d3dee00f06da8d1c6ab90c86c9693690b80005e783ec6be1fd63b3013"
       },
       {
         "path": "test/convex/operations.test.mjs",
-        "sha256": "e9d131d5ec4b52d11b919d776c0bf4000a8f7891ad70d7d3ac277dee66b7686e"
+        "sha256": "c2f4670e76aa71b0effce5bb4632a02e0c535e1b4bf16959121cae51ff849f84"
+      },
+      {
+        "path": "test/fulfillment/codex-subscription-composer.test.mjs",
+        "sha256": "07c07d29e60b09e34127ff6605c42982e4ccff695a535ea7fbf99e95a2044f08"
+      },
+      {
+        "path": "test/fulfillment/generation-stage-workspace.test.mjs",
+        "sha256": "2ea4aae97479995b2a3ddc39f06e2cf366034b0e82ea0bbd7420658ffb7c0247"
       },
       {
         "path": "test/fulfillment/job-orchestration.test.mjs",
-        "sha256": "ff1ec8f3b8e4456e0fc50a445308ccf54b09e65c57249b2001212332f6475f4b"
+        "sha256": "683cd42dc17cdf2fdf5b1bfde0933ddb12c9656b946d0395c55ef8d009a6760f"
+      },
+      {
+        "path": "test/fulfillment/local-command-stage-handlers.test.mjs",
+        "sha256": "f8cb1bc53a67a5ac72423668625e97e35a30023d0752799288fdd2d31e3d6ee4"
+      },
+      {
+        "path": "test/fulfillment/persisted-review-decision.test.mjs",
+        "sha256": "32c0a27b04f1957ad64af9440c168d7aab6acc0ca7e8450a2fe4087fe6552166"
       },
       {
         "path": "test/fulfillment/secure-filesystem-snapshot.test.mjs",
         "sha256": "237ac226734943738c9aa2b861a0e7f89ac8d981f0de606b001f7f5842a8d185"
       },
       {
+        "path": "test/fulfillment/test-a-generation-runner.test.mjs",
+        "sha256": "57aedb08479a7aab67fc19499bb02ab0946cd3989ee96933829cb2cd4af3602b"
+      },
+      {
+        "path": "test/fulfillment/test-a-operator-runner.test.mjs",
+        "sha256": "fb9dab2b7aab2ae1af54fa1ec04eda62f7668a568b14559c8bc7089fb3a26dbc"
+      },
+      {
         "path": "test/fulfillment/vercel-test-a-publication-provider.test.mjs",
         "sha256": "da6de4e341202c56e8b415060820319b859bb7f144394ddbb37f28e3927210c8"
       },
       {
+        "path": "test/narration-input.schema.test.mjs",
+        "sha256": "5d4ca1464f49434222c7e3f4d50d8db8ea3765a10c016b8f0a13079640f1f719"
+      },
+      {
         "path": "test/operations/completion-worker-boundary.test.mjs",
-        "sha256": "df0b8619c9b3620e569d799cb9948ddb23863fc2aec68c4929a337f8aeb739a1"
+        "sha256": "67531fcceb80df32259af6a95bcc59940e91f982a446294b92b438dc5cdc6356"
       },
       {
         "path": "test/operations/hosted-generation-storage.test.mjs",
-        "sha256": "c7666f6b45e22c4bc78e7f18b618f1a9255fed33464f591b7b2a1d455aec50e0"
+        "sha256": "c01940973bf77014018f2ace1f5b36c97c09bf7151566079b91be5d850b74ad9"
       },
       {
         "path": "test/operations/operations-worker-startup.test.mjs",
-        "sha256": "569f7944df9ff4df0547f461234b0a7c4b1e4d53675dc7c0f5438be11dbb530f"
+        "sha256": "470f592eee0f997a52f18c9cf7aca5ecb39bf27f34fc4b09d43105e09743d74a"
       },
       {
         "path": "vercel.completion-worker.json",
@@ -393,12 +535,16 @@
       {
         "path": "vercel.json",
         "sha256": "f96a1746744ed6a26d1916d960b1615c4e1ea5df6fb93ed02ba1af1a6b5585a3"
+      },
+      {
+        "path": "vercel.narration-worker.json",
+        "sha256": "b635f62c4d51a50e565169eccb69a1db79f5c5c0382a0df36dc2c85e418055a6"
       }
     ]
   },
   "reviewedManifest": {
     "path": "ops/test-a-hosted-provider-manifest.json",
-    "sha256": "3605fb59dc51fd7cb9713ee4e8154026cf00bbded6f0b0d7b2800f2da23d224a"
+    "sha256": "7094acb8dc3c5566cc16ac0f5ff8b30e8d7d3079d7980a509e00dee074098783"
   },
   "controls": [
     {
@@ -478,6 +624,20 @@
       ]
     },
     {
+      "id": "exact-synthetic-server-side-narration-worker",
+      "requirement": "A separately packaged narration endpoint accepts only the fixed synthetic TEST-A job and exact generate_narration claim tuple. It reads a canonical approved narration input from the immutable prepared bundle, records an exact per-segment provider-effect identity before external speech issuance, uses a stable provider idempotency key, stores only bounded non-empty server-generated audio, and atomically advances only generate_tts to narration_review_required. The narration Vercel runtime holds neither provider credentials nor customer, payment, publication, delivery, or private-generation authority; OpenAI speech credentials remain Convex-only.",
+      "proofs": [
+        "test/convex/narration-worker-authority.test.mjs: exact approval, claim, schema, bundle, provenance, byte, replay, and aggregate-completion fences reject drift before durable completion",
+        "test/convex/narration-worker-authority.test.mjs: a persisted issued provider effect fences an ambiguous retry before any duplicate speech request",
+        "test/convex/narration-worker-authority.test.mjs: stale claims create no provider-effect record or provider request",
+        "test/narration-input.schema.test.mjs: canonical narration input fixes provider, model, language/section plan, voices, paths, and text bounds",
+        "test/operations/operations-worker-startup.test.mjs: narration startup rejects broad, incomplete, or non-exact runtime authority before queue access",
+        "test/config/generation-worker-isolation.test.mjs: narration worker is isolated from the customer Vercel project and other worker routes",
+        "test/config/test-a-hosted-provider-manifest-policy.test.mjs: reviewed narration policy pins its deployment and distinct secret-store boundary",
+        "test/api/webhook-entrypoints.test.mjs: narration endpoint exports only a lazy bounded Node handler"
+      ]
+    },
+    {
       "id": "persisted-provider-mutation-fencing",
       "requirement": "Every Vercel upload, deployment, and alias mutation plus every Resend send rechecks persisted attempt ownership immediately before provider invocation.",
       "proofs": [
@@ -551,6 +711,7 @@
       "src/fulfillment/job-scoped-generation-approval.mjs",
       "src/fulfillment/local-generation-workspace.mjs",
       "src/fulfillment/local-prepare-review-stage-handler.mjs",
+      "src/fulfillment/narration-input.mjs",
       "src/fulfillment/secure-filesystem-snapshot.mjs",
       "src/fulfillment/test-a-generation-policy.mjs",
       "src/fulfillment/test-a-generation-runner.mjs",
@@ -587,6 +748,7 @@
       "src/fulfillment/job-scoped-editorial-approval-canonicalization.mjs",
       "src/fulfillment/local-generation-workspace.mjs",
       "src/fulfillment/local-prepare-review-stage-handler.mjs",
+      "src/fulfillment/narration-input.mjs",
       "src/fulfillment/secure-filesystem-snapshot.mjs",
       "src/fulfillment/test-a-generation-policy.mjs",
       "src/fulfillment/test-a-generation-runner.mjs",
@@ -598,6 +760,7 @@
       "src/operations/operations-worker-runtime.mjs",
       "src/operations/operations-worker-startup.mjs",
       "src/operations/production-generation-worker.mjs",
+      "src/operations/production-narration-worker.mjs",
       "src/persistence/convex-codex-auth-state-store.mjs",
       "src/persistence/convex-fulfillment-store.mjs",
       "src/persistence/convex-generation-artifact-store.mjs",
@@ -653,12 +816,14 @@
   },
   "verification": {
     "focusedTestFiles": [
+      "test/api/webhook-entrypoints.test.mjs",
       "test/config/generation-worker-isolation.test.mjs",
       "test/config/test-a-hosted-provider-manifest-policy.test.mjs",
       "test/config/test-a-operator-isolation.test.mjs",
       "test/convex/generation.test.mjs",
       "test/convex/generation-worker-authority.test.mjs",
       "test/convex/completion-store-seam.test.mjs",
+      "test/convex/narration-worker-authority.test.mjs",
       "test/convex/operations.test.mjs",
       "test/fulfillment/exact-revision-publication-adapter.test.mjs",
       "test/fulfillment/failed-prepare-review-recovery.test.mjs",
@@ -681,7 +846,8 @@
       "test/operations/operations-worker-runtime.test.mjs",
       "test/operations/operations-worker-startup.test.mjs",
       "test/operations/hosted-generation-storage.test.mjs",
-      "test/operations/completion-worker-boundary.test.mjs"
+      "test/operations/completion-worker-boundary.test.mjs",
+      "test/narration-input.schema.test.mjs"
     ],
     "providerMutation": "none-during-audit"
   },

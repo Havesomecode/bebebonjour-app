@@ -183,6 +183,12 @@ test("generation runner binds an Operations command through its real stage orche
   assert.equal(result.state, "content_review_required");
   assert.equal(boundaries, 1);
   const aggregate = await context.backingStore.getJob(JOB_ID);
+  const completedAttempt = aggregate.stageAttempts.find((attempt) => (
+    attempt.stage === "prepare_review" && attempt.status === "completed"
+  ));
+  assert.ok(completedAttempt);
+  assert.equal(aggregate.artifactSets[0].sourceRunId, completedAttempt.attemptId);
+  assert.equal(completedAttempt.operationsCommandId, operationsCommandId);
   assert.equal(aggregate.artifactSets[0].operationsCommandId, operationsCommandId);
 });
 

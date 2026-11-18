@@ -333,6 +333,14 @@ test("validated composition feeds only the deterministic private-review pipeline
   }, { composition: receipt, silent: true });
 
   const dossier = JSON.parse(await readFile(path.join(outputRoot, "review.json"), "utf8"));
+  assert.equal(
+    dossier.artifacts.privatePreviewRoot,
+    `private-preview/announcement-${sha256(intake.requestId).slice(0, 16)}`,
+  );
+  assert.deepEqual(
+    await readdir(path.join(outputRoot, "private-preview")),
+    [dossier.artifacts.privatePreviewRoot.split("/").at(-1)],
+  );
   const page = JSON.parse(await readFile(
     path.join(outputRoot, "artifacts", "current", "page.json"),
     "utf8",

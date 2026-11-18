@@ -6,6 +6,7 @@ import { makeFunctionReference } from "convex/server";
 
 import schema from "../../convex/schema.js";
 import { createJobAggregate } from "../../src/fulfillment/job-machine.mjs";
+import { signPersistedReviewApproval } from "../../src/fulfillment/persisted-review-decision.mjs";
 
 const createJob = makeFunctionReference("customerFlow:createJob");
 const readJob = makeFunctionReference("customerFlow:readJob");
@@ -23,6 +24,7 @@ const replaceFulfillmentJob = makeFunctionReference("fulfillment:replaceJob");
 const saveReviewApproval = makeFunctionReference("fulfillment:saveReviewApproval");
 const getReviewApproval = makeFunctionReference("fulfillment:getReviewApproval");
 const backendToken = "backend-token-at-least-32-characters";
+const approvalHmacKey = "approval-key-at-least-thirty-two-bytes-long";
 const job = {
   jobId: "job_test_001",
   version: 1,
@@ -375,7 +377,7 @@ test("Convex claims one provider event fingerprint before completing its immutab
 
 test("Convex persists fulfillment aggregates with create-once compare-and-set semantics", async () => {
   const convex = fixture();
-  const aggregate = { jobId: job.jobId, version: 1, state: "awaiting_payment" };
+  const aggregate = { jobId: job.jobId, schemaVersion: "1.1", version: 1, state: "awaiting_payment" };
   const created = await convex.mutation(createFulfillmentJob, {
     backendToken,
     jobId: job.jobId,
@@ -401,15 +403,49 @@ test("Convex persists fulfillment aggregates with create-once compare-and-set se
   assert.deepEqual(await convex.query(getFulfillmentJob, { backendToken, jobId: job.jobId }), next);
 });
 
-test("Convex persists one immutable human review approval per approval id", async () => {
-  const convex = fixture();
-  const approval = {
-    schemaVersion: "1.0",
-    approvalId: `approval_${"a".repeat(24)}`,
-    binding: { jobId: job.jobId },
-    decision: { outcome: "approved" },
-    signature: "b".repeat(64),
+function signedContentApproval() {
+  const sourceRunId = `attempt_${"1".repeat(24)}`;
+  const sourceCommandId = "command_approval_000001";
+  const artifactDigests = {
+    pageDigest: "c".repeat(64),
+    transcriptDigest: "d".repeat(64),
+    assetManifestDigest: "b".repeat(64),
   };
+  return signPersistedReviewApproval({
+    hmacKey: approvalHmacKey,
+    job: {
+      jobId: job.jobId,
+      environment: "test",
+      product: "announcement-page",
+      intakeDigest: "a".repeat(64),
+      currentRevisionId: "r1",
+      artifactSets: [{
+        kind: "private_review",
+        revisionId: "r1",
+        ...artifactDigests,
+        sourceRunId,
+        operationsCommandId: sourceCommandId,
+      }],
+    },
+    decision: {
+      commandId: "ignored-by-signing",
+      decisionType: "content",
+      revisionId: "r1",
+      outcome: "approved",
+      policyVersion: "bebebonjour-editorial-v1",
+      rubricVersion: "rubric-v1",
+      reviewer: { id: "owner", role: "owner", competencies: ["editorial"] },
+      decidedAt: "2026-09-22T00:00:00.000Z",
+      artifactDigests,
+      reasons: [],
+    },
+  });
+}
+
+test("Convex persists one immutable authenticated human review approval per approval id", async () => {
+  const convex = fixture();
+  process.env.BEBEBONJOUR_APPROVAL_HMAC_KEY = approvalHmacKey;
+  const approval = signedContentApproval();
 
   assert.deepEqual(await convex.mutation(saveReviewApproval, {
     backendToken,
@@ -417,12 +453,29 @@ test("Convex persists one immutable human review approval per approval id", asyn
   }), { created: true, approval });
   assert.deepEqual(await convex.mutation(saveReviewApproval, {
     backendToken,
-    approval: { ...approval, binding: { jobId: "job_test_other" } },
+    approval,
   }), { created: false, approval });
   assert.deepEqual(await convex.query(getReviewApproval, {
     backendToken,
     approvalId: approval.approvalId,
   }), approval);
+});
+
+test("Convex rejects unsigned or incomplete review approval bindings before durable storage", async () => {
+  const convex = fixture();
+  process.env.BEBEBONJOUR_APPROVAL_HMAC_KEY = approvalHmacKey;
+  const approval = signedContentApproval();
+
+  await assert.rejects(convex.mutation(saveReviewApproval, {
+    backendToken,
+    approval: { ...approval, signature: "0".repeat(64) },
+  }), /signature verification failed/i);
+  const incomplete = structuredClone(approval);
+  delete incomplete.binding.sourceRunId;
+  await assert.rejects(convex.mutation(saveReviewApproval, {
+    backendToken,
+    approval: incomplete,
+  }), /review approval is invalid/i);
 });
 
 test("Convex rejects extra review approval fields before durable storage", async () => {
@@ -456,4 +509,15 @@ test("Convex rejects extra nested review data before durable storage", async () 
     backendToken,
     approval,
   }), /unexpected fields/i);
+});
+
+test("Convex persists signed review provenance bindings needed by narration", async () => {
+  const convex = fixture();
+  process.env.BEBEBONJOUR_APPROVAL_HMAC_KEY = approvalHmacKey;
+  const approval = signedContentApproval();
+
+  assert.deepEqual(await convex.mutation(saveReviewApproval, {
+    backendToken,
+    approval,
+  }), { created: true, approval });
 });

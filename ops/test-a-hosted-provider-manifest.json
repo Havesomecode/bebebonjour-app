@@ -465,6 +465,40 @@
       "deliver"
     ]
   },
+  "narrationOperatorRuntime": {
+    "authorityInputs": [
+      "fixedSyntheticJobId",
+      "exactOperationsClaimTuple",
+      "canonicalApprovedNarrationInput",
+      "boundedServerSideOpenAiSpeech"
+    ],
+    "capabilities": [
+      "generate-narration-review"
+    ],
+    "deployment": {
+      "provider": "Vercel",
+      "projectName": "bebebonjour-narration-worker",
+      "configPath": "vercel.narration-worker.json",
+      "entrypoint": "narration-worker/api/worker.mjs",
+      "route": "GET /api/operations/narration-worker",
+      "schedule": "*/5 * * * *"
+    },
+    "environmentVariables": [
+      "CONVEX_URL",
+      "BEBEBONJOUR_OPERATIONS_WORKER_TOKEN",
+      "BEBEBONJOUR_NARRATION_WORKER_TOKEN",
+      "BEBEBONJOUR_OPERATIONS_WORKER_ID",
+      "BEBEBONJOUR_OPERATIONS_WORKER_ACTIONS",
+      "BEBEBONJOUR_OPERATIONS_WORKER_LIMIT",
+      "BEBEBONJOUR_OPERATIONS_WORKER_LEASE_MS",
+      "CRON_SECRET"
+    ],
+    "providerOperationsEnabled": "Convex server-side OpenAI speech and bounded Convex file storage",
+    "publicApiAccess": false,
+    "stages": [
+      "generate_tts"
+    ]
+  },
   "generationArtifactStorage": {
     "provider": "Convex file storage and indexed metadata",
     "durabilityAuthority": "convex.identity",
@@ -657,12 +691,51 @@
         "VITE_FULFILLMENT_API_APPROVED_HOSTED_ORIGIN"
       ]
     },
+    "narrationOperator": {
+      "owner": "isolated Vercel synthetic narration-only project",
+      "allowed": [
+        "CONVEX_URL",
+        "BEBEBONJOUR_OPERATIONS_WORKER_TOKEN",
+        "BEBEBONJOUR_NARRATION_WORKER_TOKEN",
+        "BEBEBONJOUR_OPERATIONS_WORKER_ID",
+        "BEBEBONJOUR_OPERATIONS_WORKER_ACTIONS",
+        "BEBEBONJOUR_OPERATIONS_WORKER_LIMIT",
+        "BEBEBONJOUR_OPERATIONS_WORKER_LEASE_MS",
+        "CRON_SECRET"
+      ],
+      "forbidden": [
+        "BEBEBONJOUR_OPERATIONS_TOKEN",
+        "BEBEBONJOUR_OPS_RATE_LIMIT_TOKEN",
+        "BEBEBONJOUR_COMPLETION_WORKER_TOKEN",
+        "CONVEX_DEPLOY_KEY",
+        "CUSTOMER_FLOW_BACKEND_TOKEN",
+        "CUSTOMER_FLOW_TOKEN_ENCRYPTION_KEY",
+        "CUSTOMER_FLOW_TEST_ACCESS_TOKEN",
+        "ELEVENLABS_API_KEY",
+        "OPENAI_API_KEY",
+        "STRIPE_SECRET_KEY",
+        "STRIPE_LIVE_SECRET_KEY",
+        "STRIPE_WEBHOOK_SECRET",
+        "STRIPE_CUSTOMER_FLOW_WEBHOOK_SECRET",
+        "RESEND_API_KEY",
+        "RESEND_FROM",
+        "TALLY_SIGNING_SECRET",
+        "TALLY_WEBHOOK_SECRET",
+        "TALLY_INTAKE_SIGNING_SECRET",
+        "TALLY_INTAKE_FIELD_MAP",
+        "VERCEL_TOKEN",
+        "VITE_FULFILLMENT_API_BASE_URL",
+        "VITE_FULFILLMENT_API_APPROVED_HOSTED_ORIGIN"
+      ]
+    },
     "convexProduction": {
       "owner": "Canonical Convex production deployment convex.identity only",
       "allowed": [
         "CUSTOMER_FLOW_BACKEND_TOKEN",
         "BEBEBONJOUR_OPERATIONS_WORKER_TOKEN",
         "BEBEBONJOUR_COMPLETION_WORKER_TOKEN",
+        "BEBEBONJOUR_NARRATION_WORKER_TOKEN",
+        "OPENAI_API_KEY",
         "TEST_A_PUBLICATION_ORIGIN"
       ],
       "forbidden": [

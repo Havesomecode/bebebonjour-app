@@ -129,7 +129,13 @@ async function createReviewFixture(t) {
       async prepare_review() {
         return {
           revision: { revisionId: "r1", ordinal: 1, inputDigest: "a".repeat(64) },
-          artifactSet: { kind: "private_review", revisionId: "r1", ...digests },
+          artifactSet: {
+            kind: "private_review",
+            revisionId: "r1",
+            sourceRunId: "ignored-by-transition",
+            operationsCommandId: "command_test_prepare_review_000001",
+            ...digests,
+          },
         };
       },
     },
@@ -145,7 +151,9 @@ async function createReviewFixture(t) {
     correlation: jobInput().paymentCorrelation,
     recordedAt: "2026-08-25T08:00:00.000Z",
   });
-  await seed.runNext(jobInput().jobId);
+  await seed.runExpectedStage(jobInput().jobId, "prepare_review", {
+    operationsCommandId: "command_test_prepare_review_000001",
+  });
   const runner = createTestAOperatorReviewRunner({
     store,
     environment: {

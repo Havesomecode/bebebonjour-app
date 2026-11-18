@@ -26,6 +26,14 @@ function currentJob() {
       stage: "prepare_review",
       revisionId: "r1",
       status: "completed",
+      operationsCommandId: "command_prepare_review_001",
+    }],
+    artifactSets: [{
+      kind: "private_review",
+      revisionId: "r1",
+      ...digests,
+      sourceRunId: "attempt_prepare_001",
+      operationsCommandId: "command_prepare_review_001",
     }],
   };
 }
@@ -64,6 +72,8 @@ test("persisted review verification returns only the signed decision bound to th
             kind: "private_review",
             revisionId: "r1",
             ...digests,
+            sourceRunId: "attempt_prepare_001",
+            operationsCommandId: "command_prepare_review_001",
           }],
         };
       },
@@ -84,6 +94,8 @@ test("persisted review verification returns only the signed decision bound to th
   assert.deepEqual(verified, { ...approval.decision, approvalId: approval.approvalId });
   assert.equal(verified.commandId, `review:${approval.approvalId}`);
   assert.equal(approval.binding.runId, "attempt_prepare_001");
+  assert.equal(approval.binding.sourceRunId, "attempt_prepare_001");
+  assert.equal(approval.binding.sourceCommandId, "command_prepare_review_001");
   assert.equal(approval.binding.intakeDigest, "0".repeat(64));
   assert.equal(approval.binding.artifactManifestDigest, digests.assetManifestDigest);
 });
@@ -115,7 +127,13 @@ test("review verification rejects unsigned extra fields on a persisted approval"
     fulfillmentStore: {
       async getJob() {
         return {
-          artifactSets: [{ kind: "private_review", revisionId: "r1", ...digests }],
+          artifactSets: [{
+            kind: "private_review",
+            revisionId: "r1",
+            ...digests,
+            sourceRunId: "attempt_prepare_001",
+            operationsCommandId: "command_prepare_review_001",
+          }],
         };
       },
     },

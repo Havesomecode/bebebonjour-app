@@ -96,14 +96,14 @@ export function createLocalTestFulfillmentStore({ filePath }) {
       const persisted = normalizePersistentDatabase(JSON.parse(await readFile(resolvedPath, "utf8")));
       assertValidPersistence(persisted);
       const value = fromPersistentDatabase(persisted);
-      if (value.schemaVersion !== "1.0" || value.authority !== "local-test-only") {
+      if (value.schemaVersion !== "1.1" || value.authority !== "local-test-only") {
         throw new Error("Local fulfillment store format or authority marker is invalid.");
       }
       return value;
     } catch (error) {
       if (error?.code !== "ENOENT") throw error;
       return {
-        schemaVersion: "1.0",
+        schemaVersion: "1.1",
         authority: "local-test-only",
         jobs: {},
       };
@@ -256,9 +256,13 @@ function fromPersistentDatabase(database) {
 }
 
 function normalizePersistentDatabase(database) {
-  if (database?.schema_version === "1.0") return database;
-  // Read the pre-contract TEST-A projection once so the next accepted command migrates it.
-  if (database?.schemaVersion === "1.0") return toPersistentDatabase(database);
+  if (database?.schema_version === "1.1") return database;
+  if (database?.schemaVersion === "1.1") return toPersistentDatabase(database);
+  if (database?.schema_version === "1.0" || database?.schemaVersion === "1.0") {
+    throw new Error(
+      "Legacy TEST-A fulfillment persistence v1.0 cannot be migrated automatically; recreate the private-review workflow under v1.1.",
+    );
+  }
   return database;
 }
 

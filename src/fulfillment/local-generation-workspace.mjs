@@ -411,8 +411,12 @@ function assertPersistedArtifactSet(value, jobId) {
     "manifestRef",
     "pageDigest",
     "revisionId",
+    "sourceRunId",
     "transcriptDigest",
   ];
+  if (value?.kind === "narration_review") {
+    expectedKeys.push("sourcePreparedBundleManifestDigest");
+  }
   const expectedId = value && `artifacts_${sha256([
     jobId,
     value.revisionId,
@@ -426,7 +430,10 @@ function assertPersistedArtifactSet(value, jobId) {
     || typeof value !== "object"
     || Array.isArray(value)
     || Object.keys(value).sort().join("\0") !== expectedKeys.join("\0")
+    || !/^attempt_[a-f0-9]{24}$/u.test(value.sourceRunId)
     || value.artifactSetId !== expectedId
+    || (value.kind === "narration_review"
+      && !/^[a-f0-9]{64}$/u.test(value.sourcePreparedBundleManifestDigest || ""))
   ) {
     throw new Error("Persisted terminal artifact-set identity is invalid.");
   }

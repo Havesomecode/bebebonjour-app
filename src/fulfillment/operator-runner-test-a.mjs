@@ -68,7 +68,8 @@ export function createTestAOperatorReviewRunner(options = {}) {
       }
       authenticatePersistedReviewApproval(approval, hmacKey);
       requireCanonicalApprovalInput(approvalInput, approval);
-      const job = await orchestrator.status(jobId);
+      const job = await store.getJob(jobId);
+      if (!job) throw new Error(`Unknown fulfillment job: ${jobId}`);
       const verifyCandidate = createPersistedReviewDecisionVerifier({
         hmacKey,
         fulfillmentStore: store,

@@ -99,6 +99,7 @@ function aggregate(state, overrides = {}) {
     kind: "prepared_bundle",
     revisionId,
     ...preparedDigests,
+    sourcePrivateReviewManifestDigest: sourceDigests.assetManifestDigest,
     manifestRef: `jobs/${jobId}/revisions/${revisionId}/manifests/prepared_bundle.json`,
     files: [preparedFile],
     operationsCommandId: "command_completion_store_render",
@@ -106,7 +107,7 @@ function aggregate(state, overrides = {}) {
   const includePrepared = !["render_queued", "rendering"].includes(state);
   const includePublication = ["published", "delivery_queued", "sending", "sent"].includes(state);
   return {
-    schemaVersion: "1.0",
+    schemaVersion: "1.1",
     authority: "convex-target/local-test-projection",
     jobId,
     environment: "test",
@@ -223,11 +224,17 @@ async function assertForgedReplacementRejected(scenario, forge, label, pattern) 
 
 function rebindStageCompletionDigest(current, next, stage, result) {
   const event = next.events.at(-1);
+  const canonicalResult = structuredClone(result);
+  if (stage === "render_approved") {
+    // The completion transition derives this provenance from the approved
+    // source; it is not part of the renderer's command payload.
+    delete canonicalResult.artifactSet.sourcePrivateReviewManifestDigest;
+  }
   event.commandDigest = commandReplayDigest("stage_completed", {
     commandId: event.commandId,
     stage,
     leaseToken: current.stageAttempts.at(-1).leaseToken,
-    result,
+    result: canonicalResult,
   });
 }
 
@@ -858,6 +865,7 @@ test("real Convex completion store binds the promoted artifact to the active ren
   const forgeries = {
     extra: (artifact) => { artifact.extra = "forged"; },
     artifactSetId: (artifact) => { artifact.artifactSetId = "artifacts_forged"; },
+    sourceRunId: (artifact) => { artifact.sourceRunId = "attempt_000000000000000000000000"; },
     operationsCommandId: (artifact) => { artifact.operationsCommandId = "command_attacker_render"; },
     assetManifestDigest: (artifact) => { artifact.assetManifestDigest = "b".repeat(64); },
   };
@@ -877,9 +885,8 @@ test("real Convex completion store binds the promoted artifact to the active ren
             artifact.assetManifestDigest,
           ].join("\0")).digest("hex").slice(0, 24)}`;
         }
-        const { operationsCommandId: ignored, ...resultArtifact } = artifact;
         rebindStageCompletionDigest(scenario.current, next, "render_approved", {
-          artifactSet: resultArtifact,
+          artifactSet: structuredClone(artifact),
         });
       },
       field,

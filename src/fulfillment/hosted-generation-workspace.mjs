@@ -182,6 +182,7 @@ function assertSameArtifactBinding(left, right) {
     "manifestRef",
     "pageDigest",
     "revisionId",
+    "sourceRunId",
     "transcriptDigest",
   ];
   if (!left || !right || !isDeepStrictEqual(
@@ -194,7 +195,12 @@ function assertSameArtifactBinding(left, right) {
 
 function withoutArtifactSetId(value) {
   if (!value || typeof value !== "object") return value;
-  const { artifactSetId: _artifactSetId, operationsCommandId: _operationsCommandId, ...rest } = value;
+  const {
+    artifactSetId: _artifactSetId,
+    sourceRunId: _sourceRunId,
+    operationsCommandId: _operationsCommandId,
+    ...rest
+  } = value;
   return rest;
 }
 

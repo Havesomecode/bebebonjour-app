@@ -170,6 +170,56 @@ test("reviewed completion policy exposes only the fixed synthetic completion bou
   );
 });
 
+test("reviewed narration policy exposes only the fixed synthetic server-side speech boundary", async () => {
+  const manifestBytes = await readFile(manifestUrl);
+  const {
+    REVIEWED_TEST_A_NARRATION_POLICY,
+    loadReviewedTestANarrationPolicy,
+    requireReviewedTestANarrationEnvironment,
+  } = await import("../../src/config/test-a-hosted-provider-manifest.mjs");
+  const policy = loadReviewedTestANarrationPolicy(manifestBytes);
+
+  assert.deepEqual(policy, REVIEWED_TEST_A_NARRATION_POLICY);
+  assert.deepEqual(policy.capabilities, ["generate-narration-review"]);
+  assert.deepEqual(policy.stages, ["generate_tts"]);
+  assert.deepEqual(policy.deployment, {
+    provider: "Vercel",
+    projectName: "bebebonjour-narration-worker",
+    configPath: "vercel.narration-worker.json",
+    entrypoint: "narration-worker/api/worker.mjs",
+    route: "GET /api/operations/narration-worker",
+    schedule: "*/5 * * * *",
+  });
+  const exactEnvironment = Object.fromEntries(
+    policy.allowedEnvironmentVariables.map((name) => [name, `${name}-value`]),
+  );
+  Object.assign(exactEnvironment, {
+    BEBEBONJOUR_OPERATIONS_WORKER_TOKEN: "operations-worker-token-with-at-least-thirty-two-bytes",
+    BEBEBONJOUR_NARRATION_WORKER_TOKEN: "narration-worker-token-with-at-least-thirty-two-bytes",
+    BEBEBONJOUR_OPERATIONS_WORKER_ID: "test-a-narration-worker",
+    BEBEBONJOUR_OPERATIONS_WORKER_ACTIONS: "generate_narration",
+    BEBEBONJOUR_OPERATIONS_WORKER_LIMIT: "1",
+    BEBEBONJOUR_OPERATIONS_WORKER_LEASE_MS: "300000",
+    CRON_SECRET: "narration-cron-secret-with-at-least-thirty-two-bytes",
+  });
+  const restricted = requireReviewedTestANarrationEnvironment(exactEnvironment);
+  assert.deepEqual(Object.keys(restricted), policy.allowedEnvironmentVariables);
+  assert.throws(
+    () => requireReviewedTestANarrationEnvironment({
+      ...exactEnvironment,
+      OPENAI_API_KEY: "provider-key-must-stay-in-convex-only",
+    }),
+    /OPENAI_API_KEY is forbidden/u,
+  );
+  assert.throws(
+    () => requireReviewedTestANarrationEnvironment({
+      ...exactEnvironment,
+      BEBEBONJOUR_OPERATIONS_WORKER_ACTIONS: "generate",
+    }),
+    /must remain exact/u,
+  );
+});
+
 test("reviewed TEST-A operator policy rejects tampered bytes and contradictory secret-store policy", async () => {
   const manifestBytes = await readFile(manifestUrl);
   const manifest = JSON.parse(manifestBytes);

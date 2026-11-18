@@ -36,7 +36,7 @@ export const saveReviewApproval = mutationGeneric({
   },
   handler: async (context, args) => {
     assertBackendToken(args.backendToken);
-    assertReviewApproval(args.approval);
+    await assertReviewApproval(args.approval);
     const existing = await findReviewApproval(context, args.approval.approvalId);
     if (existing) return { created: false, approval: existing.approval };
     await context.db.insert("fulfillmentReviewApprovals", {
@@ -188,17 +188,27 @@ function findReviewApproval(context, approvalId) {
 }
 
 function assertAggregateIdentity(jobId, aggregate) {
-  if (!aggregate || aggregate.jobId !== jobId) {
-    throw new Error("Fulfillment aggregate must preserve the canonical job id.");
+  if (!aggregate || aggregate.jobId !== jobId || aggregate.schemaVersion !== "1.1") {
+    throw new Error("Fulfillment aggregate must preserve the canonical job id and schema version.");
   }
 }
 
-function assertReviewApproval(approval) {
+async function assertReviewApproval(approval) {
   const allowedFields = ["schemaVersion", "approvalId", "binding", "decision", "signature"];
   assertOnlyFields(approval, allowedFields);
   assertOnlyFields(
     approval.binding,
-    ["jobId", "intakeDigest", "environment", "product", "revisionId", "runId", "artifactManifestDigest"],
+    [
+      "jobId",
+      "intakeDigest",
+      "environment",
+      "product",
+      "revisionId",
+      "runId",
+      "sourceRunId",
+      "sourceCommandId",
+      "artifactManifestDigest",
+    ],
   );
   assertOnlyFields(approval.decision, [
     "commandId",
@@ -230,6 +240,65 @@ function assertReviewApproval(approval) {
     || !/^[a-f0-9]{64}$/.test(approval.signature)
   ) {
     throw new Error("Fulfillment review approval is invalid.");
+  }
+  const binding = approval.binding;
+  if (
+    typeof binding.jobId !== "string"
+    || !/^[a-f0-9]{64}$/.test(binding.intakeDigest || "")
+    || binding.environment !== "test"
+    || binding.product !== "announcement-page"
+    || !/^r[1-9][0-9]*$/.test(binding.revisionId || "")
+    || !/^attempt_[a-f0-9]{24}$/.test(binding.runId || "")
+    || binding.sourceRunId !== binding.runId
+    || !/^command_[A-Za-z0-9][A-Za-z0-9_-]{7,127}$/.test(binding.sourceCommandId || "")
+    || !/^[a-f0-9]{64}$/.test(binding.artifactManifestDigest || "")
+  ) {
+    throw new Error("Fulfillment review approval is invalid.");
+  }
+  const decision = approval.decision;
+  if (
+    decision.commandId !== `review:${approval.approvalId}`
+    || decision.decisionType !== "content"
+    || decision.outcome !== "approved"
+    || decision.revisionId !== binding.revisionId
+    || typeof decision.policyVersion !== "string" || decision.policyVersion.length < 1
+    || typeof decision.rubricVersion !== "string" || decision.rubricVersion.length < 1
+    || !isIsoTimestamp(decision.decidedAt)
+    || !decision.reviewer
+    || typeof decision.reviewer.id !== "string" || decision.reviewer.id.length < 1
+    || typeof decision.reviewer.role !== "string" || decision.reviewer.role.length < 1
+    || !Array.isArray(decision.reviewer.competencies)
+    || !decision.artifactDigests
+    || decision.artifactDigests.assetManifestDigest !== binding.artifactManifestDigest
+    || !/^[a-f0-9]{64}$/.test(decision.artifactDigests.pageDigest || "")
+    || !/^[a-f0-9]{64}$/.test(decision.artifactDigests.transcriptDigest || "")
+    || !Array.isArray(decision.reasons)
+  ) {
+    throw new Error("Fulfillment review approval is invalid.");
+  }
+  const key = process.env.BEBEBONJOUR_APPROVAL_HMAC_KEY;
+  if (typeof key !== "string" || new TextEncoder().encode(key).byteLength < 32) {
+    throw new Error("Fulfillment review approval verification key is unavailable.");
+  }
+  const cryptoKey = await globalThis.crypto.subtle.importKey(
+    "raw",
+    new TextEncoder().encode(key),
+    { name: "HMAC", hash: "SHA-256" },
+    false,
+    ["sign"],
+  );
+  const signature = await globalThis.crypto.subtle.sign(
+    "HMAC",
+    cryptoKey,
+    new TextEncoder().encode(canonicalJson({
+      schemaVersion: approval.schemaVersion,
+      approvalId: approval.approvalId,
+      binding: approval.binding,
+      decision: approval.decision,
+    })),
+  );
+  if (hex(signature) !== approval.signature) {
+    throw new Error("Fulfillment review approval signature verification failed.");
   }
 }
 
@@ -702,7 +771,10 @@ async function completionCommandDigest(current, next, event, args, command) {
 function canonicalCompletionResult(next, stage) {
   if (stage === "render_approved") {
     const artifactSet = structuredClone(next.artifactSets.at(-1));
-    delete artifactSet.operationsCommandId;
+    // This is transition-derived provenance, not caller-supplied stage output.
+    // The matching job-machine transition reconstructs it from the exact
+    // approved private-review artifact after hashing the command payload.
+    delete artifactSet.sourcePrivateReviewManifestDigest;
     return { artifactSet };
   }
   if (stage === "publish") {
@@ -768,6 +840,12 @@ function isIsoTimestamp(value) {
 async function sha256Hex(value) {
   const digest = await globalThis.crypto.subtle.digest("SHA-256", new TextEncoder().encode(value));
   return [...new Uint8Array(digest)]
+    .map((byte) => byte.toString(16).padStart(2, "0"))
+    .join("");
+}
+
+function hex(value) {
+  return [...new Uint8Array(value)]
     .map((byte) => byte.toString(16).padStart(2, "0"))
     .join("");
 }
@@ -915,10 +993,13 @@ async function assertCompletionTransitionPayload(context, current, next, transit
 async function isExactCompletionPromotion(current, source, prepared, operationsCommandId) {
   if (!source || !hasExactKeys(prepared, [
     "artifactSetId", "kind", "revisionId", "pageDigest", "transcriptDigest",
-    "assetManifestDigest", "manifestRef", "files", "operationsCommandId",
+    "assetManifestDigest", "manifestRef", "files", "sourceRunId", "operationsCommandId",
+    "sourcePrivateReviewManifestDigest",
   ])
       || prepared.kind !== "prepared_bundle" || prepared.revisionId !== current.currentRevisionId
       || prepared.pageDigest !== source.pageDigest || prepared.transcriptDigest !== source.transcriptDigest
+      || prepared.sourcePrivateReviewManifestDigest !== source.assetManifestDigest
+      || prepared.sourceRunId !== current.stageAttempts.at(-1)?.attemptId
       || prepared.operationsCommandId !== operationsCommandId
       || prepared.manifestRef
         !== `jobs/${current.jobId}/revisions/${current.currentRevisionId}/manifests/prepared_bundle.json`

@@ -141,6 +141,45 @@ export default defineSchema({
     kind: v.string(),
     artifactSet: v.any(),
   }).index("by_job_revision_kind", ["jobId", "revisionId", "kind"]),
+  fulfillmentNarrationReviewArtifactSets: defineTable({
+    jobId: v.string(),
+    revisionId: v.string(),
+    artifactSet: v.any(),
+  }).index("by_job_revision", ["jobId", "revisionId"]),
+  fulfillmentNarrationProviderEffects: defineTable({
+    scopeKey: v.string(),
+    jobId: v.string(),
+    revisionId: v.string(),
+    commandId: v.string(),
+    leaseToken: v.string(),
+    segmentKey: v.string(),
+    requestDigest: v.string(),
+    providerRequestKey: v.string(),
+    state: v.union(v.literal("issued"), v.literal("stored")),
+    issuedAtMs: v.number(),
+    storageId: v.union(v.string(), v.null()),
+    bytes: v.union(v.number(), v.null()),
+    sha256: v.union(v.string(), v.null()),
+  }).index("by_scope_key", ["scopeKey"]),
+  fulfillmentNarrationUploadGrants: defineTable({
+    grantId: v.string(),
+    scopeKey: v.string(),
+    jobId: v.string(),
+    revisionId: v.string(),
+    commandId: v.string(),
+    leaseToken: v.string(),
+    expectedFile: v.object({
+      path: v.string(),
+      bytes: v.number(),
+      sha256: v.string(),
+    }),
+    expiresAtMs: v.number(),
+    consumedAtMs: v.union(v.number(), v.null()),
+    storageId: v.union(v.string(), v.null()),
+  })
+    .index("by_grant_id", ["grantId"])
+    .index("by_scope_key", ["scopeKey"])
+    .index("by_job_revision", ["jobId", "revisionId"]),
   fulfillmentCodexAuthState: defineTable({
     slot: v.literal("primary"),
     version: v.number(),
