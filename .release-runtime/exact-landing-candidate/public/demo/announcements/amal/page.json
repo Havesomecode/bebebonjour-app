@@ -1,0 +1,145 @@
+{
+  "schemaVersion": "1.0",
+  "pageId": "page_amal_756492dffa323b9d",
+  "slug": "amal",
+  "languages": [
+    "fr",
+    "ar"
+  ],
+  "defaultLanguage": "ar",
+  "templateFamily": "blessed-arrival",
+  "templateVersion": "1.0.0",
+  "rendererVersion": "1.0.0",
+  "pageRevision": "r1",
+  "buildId": "blessed-arrival-1-0-0-r1",
+  "sectionOrder": [
+    "intro",
+    "dua",
+    "meaning",
+    "reveal",
+    "verses",
+    "closing"
+  ],
+  "identity": {
+    "nameLatin": "Amal",
+    "nameArabic": "أمل",
+    "gender": "girl",
+    "childLabel": {
+      "ar": "بابنتنا",
+      "fr": "notre fille"
+    }
+  },
+  "seo": {
+    "title": "Une Naissance Bénie | Amal",
+    "description": "A birth announcement page for Amal.",
+    "ogImageMode": "static"
+  },
+  "sections": {
+    "intro": {
+      "ar": {
+        "displayLines": [
+          "بِسْمِ اللهِ الرَّحْمٰنِ الرَّحِيمِ.",
+          "بفضل الله استقبلنا بابنتنا أمل."
+        ],
+        "narrationText": "بِسْمِ اللهِ الرَّحْمٰنِ الرَّحِيمِ. بفضل الله استقبلنا بابنتنا أمل."
+      },
+      "fr": {
+        "displayLines": [
+          "Par la grâce de Dieu, nous avons accueilli notre fille.",
+          "Amal est entrée dans nos vies avec douceur."
+        ],
+        "narrationText": "Par la grâce de Dieu, nous avons accueilli notre fille. Amal est entrée dans nos vies avec douceur."
+      }
+    },
+    "dua": {
+      "ar": {
+        "displayLines": [
+          "نتمنى لـ أمل حياة مليئة بالنور والسكينة،",
+          "وأيامًا لطيفة وبركة لمن حولها."
+        ],
+        "narrationText": "نتمنى لـ أمل حياة مليئة بالنور والسكينة، وأيامًا لطيفة وبركة لمن حولها."
+      },
+      "fr": {
+        "displayLines": [
+          "Nous souhaitons à Amal une vie douce et lumineuse,",
+          "faite de paix, de tendresse et de joie."
+        ],
+        "narrationText": "Nous souhaitons à Amal une vie douce et lumineuse, faite de paix, de tendresse et de joie."
+      }
+    },
+    "meaning": {
+      "ar": {
+        "displayLines": [
+          "اخترنا اسم أمل بمحبة.",
+          "اسم فريد يحمل القصة التي تمنحها له عائلته."
+        ],
+        "narrationText": "اخترنا اسم أمل بمحبة. اسم فريد يحمل القصة التي تمنحها له عائلته."
+      },
+      "fr": {
+        "displayLines": [
+          "Nous avons choisi Amal avec amour.",
+          "Un prénom unique, porté par l'histoire que sa famille lui donnera."
+        ],
+        "narrationText": "Nous avons choisi Amal avec amour. Un prénom unique, porté par l'histoire que sa famille lui donnera."
+      }
+    },
+    "reveal": {
+      "ar": {
+        "introLines": [
+          "بفضل الله ومنته",
+          "رزقنا بابنتنا..."
+        ],
+        "name": "أمل",
+        "narrationText": "بفضل الله ومنته رزقنا بابنتنا أمل."
+      },
+      "fr": {
+        "introLines": [
+          "Par la grâce de Dieu,",
+          "nous avons accueilli notre fille..."
+        ],
+        "name": "Amal",
+        "narrationText": "Par la grâce de Dieu, nous avons accueilli notre fille Amal."
+      }
+    },
+    "verses": {
+      "ar": {
+        "introLine": "أمنيات جميلة:",
+        "items": [
+          {
+            "quote": "نور وأمل ورحمة",
+            "reference": "أمنية عامة",
+            "sourceKey": "generic-wish-ar"
+          }
+        ],
+        "narrationText": "نور وأمل ورحمة."
+      },
+      "fr": {
+        "introLine": "Vœux de bonheur :",
+        "items": [
+          {
+            "quote": "Lumière, paix et espérance.",
+            "reference": "Vœu général",
+            "sourceKey": "generic-wish-fr"
+          }
+        ],
+        "narrationText": "Lumière, paix et espérance."
+      }
+    },
+    "closing": {
+      "ar": {
+        "displayLines": [
+          "اللهم بارك في أمل.",
+          "واجعل أيامها لطفًا ورحمة وسكينة."
+        ],
+        "narrationText": "اللهم بارك في أمل. واجعل أيامها لطفًا ورحمة وسكينة."
+      },
+      "fr": {
+        "displayLines": [
+          "Que Amal grandisse dans la paix et la lumière,",
+          "et qu'elle soit une joie pour ceux qui l'entourent."
+        ],
+        "narrationText": "Que Amal grandisse dans la paix et la lumière, et qu'elle soit une joie pour ceux qui l'entourent."
+      }
+    }
+  }
+}

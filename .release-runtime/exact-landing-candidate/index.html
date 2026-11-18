@@ -1,0 +1,293 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="icon" href="/favicon.ico" sizes="any" />
+    <title>Bonjour Bébé — Faire-part de naissance digital en 30 minutes</title>
+    <meta
+      name="description"
+      content="Créez un faire-part de naissance en ligne, élégant et prêt à partager sur WhatsApp, SMS et email. Sans technique."
+    />
+    <script type="module" src="/src/main.js"></script>
+  </head>
+  <body>
+    <nav>
+      <div class="logo">Bonjour <span>Bébé</span></div>
+      <a href="#commencer" class="nav-cta">Créer mon faire-part</a>
+    </nav>
+
+    <section class="hero">
+      <div class="hero-bg"></div>
+      <div class="hero-content">
+        <h1>
+          Créez un faire-part de naissance digital magnifique en 30 minutes
+        </h1>
+        <p class="hero-sub">
+          Annoncez l’arrivée de votre bébé avec une page élégante, personnalisée
+          et facile à partager à toute la famille.
+        </p>
+        <div class="hero-actions">
+          <a href="#commencer" class="btn-primary">Créer mon faire-part</a>
+          <a href="#apercu" class="btn-secondary">Voir un exemple</a>
+          <a href="/demo" class="btn-secondary">Voir la démo du parcours</a>
+        </div>
+        <div class="trust-line">
+          <span>✅ Mobile-friendly</span>
+          <span>✅ Sans code</span>
+          <span>✅ Partage instantané</span>
+        </div>
+      </div>
+      <div class="preview-wrap" id="apercu">
+        <div class="phone-mock">
+          <div class="mock-emoji">👶</div>
+          <div class="mock-name">Yasmine</div>
+          <div class="mock-date">12 février 2025 · 3,4 kg</div>
+          <div class="mock-dots">
+            <div class="mock-dot active"></div>
+            <div class="mock-dot"></div>
+            <div class="mock-dot"></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="benefits">
+      <div class="benefits-inner">
+        <h2 class="section-title reveal">
+          Pourquoi les parents adorent Bonjour Bébé
+        </h2>
+        <div class="benefits-grid">
+          <article class="benefit-card reveal">
+            <h3>Rapide : prêt en moins d’1h</h3>
+          </article>
+          <article class="benefit-card reveal">
+            <h3>Simple : aucune compétence technique requise</h3>
+          </article>
+          <article class="benefit-card reveal">
+            <h3>Élégant : rendu moderne et émotionnel</h3>
+          </article>
+          <article class="benefit-card reveal">
+            <h3>Pratique : un seul lien à partager partout</h3>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section class="how">
+      <div class="how-inner">
+        <p class="section-label reveal">Comment ça marche</p>
+        <div class="steps">
+          <article class="step reveal">
+            <div class="step-num">1</div>
+            <h3>Partagez les détails</h3>
+            <p>Un formulaire privé crée votre demande avant tout paiement.</p>
+          </article>
+          <article class="step reveal">
+            <div class="step-num">2</div>
+            <h3>Suivez la création</h3>
+            <p>Le paiement test, la création et la relecture restent liés à la même demande.</p>
+          </article>
+          <article class="step reveal">
+            <div class="step-num">3</div>
+            <h3>Recevez le lien relu</h3>
+            <p>Le lien stable n’est envoyé qu’après paiement et validation éditoriale.</p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section class="pricing" id="offres">
+      <div class="pricing-inner">
+        <div class="pricing-grid">
+          <article class="plan reveal">
+            <div class="plan-name">Essentiel — 39€</div>
+            <ul class="plan-features">
+              <li>1 modèle prêt à l’emploi</li>
+              <li>Guide pas à pas</li>
+              <li>Mise en ligne rapide</li>
+            </ul>
+            <a href="#commencer" class="plan-btn plan-btn-outline"
+              >Remplir le questionnaire</a
+            >
+          </article>
+
+          <article class="plan featured reveal">
+            <div class="plan-name">Accompagné — 119€</div>
+            <p class="plan-status">Bientôt dispo</p>
+            <ul class="plan-features">
+              <li>Personnalisation avec vous</li>
+              <li>Livraison en 24–48h</li>
+              <li>2 retouches incluses</li>
+            </ul>
+            <span class="plan-btn plan-btn-disabled" aria-disabled="true"
+              >Bientôt dispo</span
+            >
+          </article>
+
+          <article class="plan reveal">
+            <div class="plan-name">Sur-mesure — 249€</div>
+            <p class="plan-status">Bientôt dispo</p>
+            <ul class="plan-features">
+              <li>Création 100% personnalisée</li>
+              <li>Storytelling et design premium</li>
+              <li>Accompagnement prioritaire</li>
+            </ul>
+            <span class="plan-btn plan-btn-disabled" aria-disabled="true"
+              >Bientôt dispo</span
+            >
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section class="intake" id="commencer">
+      <div class="intake-inner reveal">
+        <p class="section-label">Créer votre demande</p>
+        <h2>Quelques détails, gardés privés</h2>
+        <p class="test-boundary" role="note">
+          Parcours contrôlé TEST-A : utilisez uniquement des informations synthétiques
+          et une adresse en <strong>.test</strong>. Aucun paiement réel ni email client n’est envoyé.
+        </p>
+
+        <form id="intake-form" class="intake-form">
+          <fieldset>
+            <legend>Votre contact</legend>
+            <label>
+              Email synthétique
+              <input
+                name="email"
+                type="email"
+                autocomplete="off"
+                placeholder="parent@example.test"
+                pattern=".+@.+\.test"
+                required
+              />
+            </label>
+            <label class="check-row">
+              <input name="consent" type="checkbox" required />
+              J’autorise le traitement contrôlé de ces données synthétiques pour ce test.
+            </label>
+          </fieldset>
+
+          <fieldset>
+            <legend>Le bébé</legend>
+            <div class="field-grid">
+              <label>
+                Prénom synthétique
+                <input name="firstName" maxlength="100" placeholder="Amal Test" required />
+              </label>
+              <label>
+                Prénom en arabe (facultatif)
+                <input name="nameArabic" maxlength="100" dir="rtl" />
+              </label>
+              <label>
+                Genre grammatical
+                <select name="gender" required>
+                  <option value="girl">Fille</option>
+                  <option value="boy">Garçon</option>
+                  <option value="neutral">Neutre</option>
+                </select>
+              </label>
+              <label>
+                Date synthétique (facultatif)
+                <input name="birthDate" type="date" />
+              </label>
+            </div>
+          </fieldset>
+
+          <fieldset>
+            <legend>Langues et narration</legend>
+            <div class="choice-row" aria-label="Langues">
+              <label class="check-row"><input name="languages" type="checkbox" value="fr" checked /> Français</label>
+              <label class="check-row"><input name="languages" type="checkbox" value="ar" /> Arabe</label>
+            </div>
+            <div class="field-grid">
+              <label class="check-row">
+                <input name="voiceEnabled" type="checkbox" checked />
+                Ajouter une narration
+              </label>
+              <label>
+                Voix souhaitée
+                <select name="voiceGender">
+                  <option value="male">Masculine</option>
+                  <option value="female">Féminine</option>
+                  <option value="neutral">Neutre</option>
+                </select>
+              </label>
+              <label>
+                Contexte (facultatif)
+                <select name="religion">
+                  <option value="">Sans précision</option>
+                  <option value="islam">Islam</option>
+                  <option value="christianity">Christianisme</option>
+                  <option value="judaism">Judaïsme</option>
+                  <option value="other">Autre</option>
+                </select>
+              </label>
+            </div>
+            <label>
+              Demande particulière (facultatif)
+              <textarea name="request" maxlength="2000" rows="4"></textarea>
+            </label>
+          </fieldset>
+
+          <button type="submit" class="btn-primary">Créer ma demande test</button>
+          <p id="form-message" class="form-message" role="status" aria-live="polite"></p>
+        </form>
+
+        <section id="job-status" class="job-status" aria-live="polite" hidden>
+          <p class="section-label">Suivi de la demande</p>
+          <h3 id="status-title">Demande créée</h3>
+          <p id="status-copy"></p>
+          <p class="job-reference">Référence : <code id="job-reference"></code></p>
+          <div class="status-actions">
+            <button id="refresh-status" type="button" class="btn-secondary">Actualiser</button>
+            <button id="create-checkout" type="button" class="btn-primary">Ouvrir le paiement test</button>
+            <a id="announcement-link" class="btn-primary" rel="noreferrer" hidden>Voir le faire-part relu</a>
+          </div>
+        </section>
+      </div>
+    </section>
+
+    <section class="faq">
+      <div class="faq-inner">
+        <p class="section-label reveal">FAQ</p>
+        <div class="faq-list reveal">
+          <details>
+            <summary>
+              Combien de temps faut-il pour créer mon faire-part ?
+            </summary>
+            <p>En général, entre 20 et 40 minutes pour l’offre Essentiel.</p>
+          </details>
+          <details>
+            <summary>Dois-je savoir coder ?</summary>
+            <p>Non, tout est conçu pour être simple et guidé.</p>
+          </details>
+          <details>
+            <summary>Puis-je modifier ma page après publication ?</summary>
+            <p>Oui, vous pouvez faire des ajustements.</p>
+          </details>
+          <details>
+            <summary>Le faire-part fonctionne-t-il sur téléphone ?</summary>
+            <p>Oui, il est optimisé pour mobile.</p>
+          </details>
+          <details>
+            <summary>Quand est livrée l’offre Accompagné ?</summary>
+            <p>Sous 24 à 48h.</p>
+          </details>
+        </div>
+      </div>
+    </section>
+
+    <section class="final-cta">
+      <h2>Cette naissance mérite une annonce à la hauteur.</h2>
+      <p>Simple. Élégante. Inoubliable.</p>
+      <a href="#commencer" class="btn-primary">Je lance mon faire-part maintenant</a>
+    </section>
+
+    <footer>
+      <p>© 2026 <strong>Bonjour Bébé</strong> — bebebonjour.com</p>
+    </footer>
+  </body>
+</html>

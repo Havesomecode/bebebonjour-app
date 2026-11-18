@@ -1,0 +1,21 @@
+{
+  "schemaVersion": "1.0",
+  "state": "approved",
+  "reviewer": "operator@example.com",
+  "reviewedAt": "2026-03-08T11:00:00Z",
+  "pageId": "page_bayane_001",
+  "revision": "r1",
+  "buildId": "blessed-arrival-1-0-0-r1",
+  "materialDigest": "43e1e36def4d0a08c337092cabca89ea361efddd2c26e74c973f96e5c40d08b4",
+  "dossierDigest": "78a75567dc1f5f6b2ebffc1b16870d94665e8a1747123e084118d27894a48f8f",
+  "approvedPageDigest": "bfc365e8afe5d4eb7f504e9253fb999890dcd1371828dcada5c88bb1a39dc44e",
+  "preparedBundleDigest": "cef007e201b1cc6a2c46e620848f6a168902f43c585d0336b2ff91e15d5cef77",
+  "signatureAlgorithm": "hmac-sha256",
+  "acknowledgedReasons": [],
+  "demandsDisposition": null,
+  "artifacts": {
+    "approvedPage": "page.json",
+    "approval": "approval.json"
+  },
+  "signature": "54dbce359ff96c53f6ed364d7a552b23de06da3277cb7281c501c17ba2fa1b2e"
+}

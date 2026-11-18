@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="fr" dir="ltr" data-language="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Une Naissance Bénie | Amal</title>
+    <meta name="description" content="A birth announcement page for Amal." />
+    <meta property="og:title" content="Une Naissance Bénie | Amal" />
+    <meta property="og:description" content="A birth announcement page for Amal." />
+    <meta property="og:type" content="website" />
+    <meta property="og:image" content="../_assets/blessed-arrival-1-0-0-r1/og-image.svg" />
+    <meta name="theme-color" content="#f8efe8" />
+
+    <link rel="stylesheet" href="../_assets/blessed-arrival-1-0-0-r1/styles.css" />
+  </head>
+  <body>
+    <div class="scene" aria-hidden="true">
+      <div class="parallax layer glow-one" data-depth="0.04"></div>
+      <div class="parallax layer glow-two" data-depth="0.08"></div>
+      <div class="parallax layer floral-texture" data-depth="0.12"></div>
+      <div id="particle-field"></div>
+    </div>
+
+    <header class="controls">
+      <button id="lang-toggle" type="button" class="control-btn">FR</button>
+      <button id="narration-toggle" type="button" class="control-btn">
+        Narration Off
+      </button>
+    </header>
+    <button
+      id="start-narration-cta"
+      type="button"
+      class="start-narration-cta"
+      aria-hidden="true"
+    >
+      Tap to start narration
+    </button>
+
+    <audio id="ambient-audio" loop preload="none"></audio>
+
+    <main id="story">
+      <section id="intro" class="story-section" data-section="intro">
+        <div class="section-inner reveal">
+          <p data-lang="ar">
+            بِسْمِ اللهِ الرَّحْمٰنِ الرَّحِيمِ.<br />
+            بفضل الله استقبلنا بابنتنا أمل.
+          </p>
+          <p data-lang="fr">
+            Par la grâce de Dieu, nous avons accueilli notre fille.<br />
+            Amal est entrée dans nos vies avec douceur.
+          </p>
+        </div>
+      </section>
+
+      <section id="dua" class="story-section" data-section="dua">
+        <div class="section-inner reveal">
+          <p data-lang="ar">
+            نتمنى لـ أمل حياة مليئة بالنور والسكينة،<br />
+            وأيامًا لطيفة وبركة لمن حولها.
+          </p>
+          <p data-lang="fr">
+            Nous souhaitons à Amal une vie douce et lumineuse,<br />
+            faite de paix, de tendresse et de joie.
+          </p>
+        </div>
+      </section>
+
+      <section id="meaning" class="story-section" data-section="meaning">
+        <div class="section-inner reveal">
+          <p data-lang="ar">
+            اخترنا اسم أمل بمحبة.<br />
+            اسم فريد يحمل القصة التي تمنحها له عائلته.
+          </p>
+          <p data-lang="fr">
+            Nous avons choisi Amal avec amour.<br />
+            Un prénom unique, porté par l'histoire que sa famille lui donnera.
+          </p>
+        </div>
+      </section>
+
+      <section id="reveal" class="story-section reveal-stage" data-section="reveal">
+        <div class="section-inner reveal">
+          <p data-lang="ar" class="name-intro">
+            بفضل الله ومنته<br />
+            رزقنا بابنتنا...
+          </p>
+          <h1 data-lang="ar" class="name glow">أمل</h1>
+          <p data-lang="fr" class="name-intro">
+            Par la grâce de Dieu,<br />
+            nous avons accueilli notre fille...
+          </p>
+          <h1 data-lang="fr" class="name glow">Amal</h1>
+        </div>
+      </section>
+
+      <section id="verses" class="story-section verses" data-section="verses">
+        <div class="section-inner reveal">
+          <div data-lang="ar">
+            <p class="line-tight">أمنيات جميلة:</p>
+            <p class="verse">نور وأمل ورحمة</p>
+            <p class="verse-ref">أمنية عامة</p>
+          </div>
+          <div data-lang="fr">
+            <p class="line-tight">Vœux de bonheur :</p>
+            <p class="verse">Lumière, paix et espérance.</p>
+            <p class="verse-ref">Vœu général</p>
+          </div>
+        </div>
+      </section>
+
+      <section id="closing" class="story-section" data-section="closing">
+        <div class="section-inner reveal">
+          <p data-lang="ar">
+            اللهم بارك في أمل.<br />
+            واجعل أيامها لطفًا ورحمة وسكينة.
+          </p>
+          <p data-lang="fr">
+            Que Amal grandisse dans la paix et la lumière,<br />
+            et qu'elle soit une joie pour ceux qui l'entourent.
+          </p>
+        </div>
+      </section>
+    </main>
+
+    <script>
+      window.__ANNOUNCEMENT_CONFIG__ = {
+        supportedLanguages: ["fr","ar"],
+        transcriptUrl: "../transcript.json",
+        assetBasePath: "../_assets/blessed-arrival-1-0-0-r1",
+        reviewMode: null,
+        ambientAudioUrl: "../_assets/blessed-arrival-1-0-0-r1/audio/ambient.mp3"
+      };
+    </script>
+    <script type="module" src="../_assets/blessed-arrival-1-0-0-r1/app.js"></script>
+  </body>
+</html>

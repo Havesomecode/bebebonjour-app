@@ -1,0 +1,71 @@
+{
+  "schemaVersion": "1.0",
+  "startedAt": "2026-08-23T00:30:26.360Z",
+  "candidates": {
+    "app": {
+      "commit": "ceb41cdc98a28db8fff0b674f909457a33b63282",
+      "tree": "b2855bf9578d306724f99e49030fcf714a8eb6f1"
+    },
+    "landing": {
+      "commit": "1fcf3af4925151f0598db05cf28022db8de0b69f",
+      "tree": "66e68e5c638f34856388a7995adc68960703c235"
+    }
+  },
+  "convex": {
+    "deploymentName": "brilliant-hawk-751",
+    "url": "https://brilliant-hawk-751.convex.cloud",
+    "environmentVariableNames": [
+      "CUSTOMER_FLOW_BACKEND_TOKEN"
+    ],
+    "httpStatus": 200
+  },
+  "vercelApi": {
+    "projectId": "prj_XJrkufo77hXAdvMuYjPn6F6AVZjn",
+    "environmentVariableNames": [
+      "CONVEX_URL",
+      "CUSTOMER_FLOW_ALLOWED_ORIGINS",
+      "CUSTOMER_FLOW_BACKEND_TOKEN",
+      "CUSTOMER_FLOW_TEST_ACCESS_TOKEN",
+      "CUSTOMER_FLOW_TOKEN_ENCRYPTION_KEY",
+      "STRIPE_CHECKOUT_CANCEL_URL",
+      "STRIPE_CHECKOUT_SUCCESS_URL",
+      "STRIPE_CUSTOMER_FLOW_WEBHOOK_SECRET",
+      "STRIPE_SECRET_KEY"
+    ],
+    "bootstrapDeployment": null,
+    "finalDeployment": {
+      "id": "dpl_7UmcrmxC2VccHsSP5QEUha9TuN6j",
+      "url": "https://bebebonjour-fulfillment-2ehm4ogwn-zacaria-chtatars-projects.vercel.app",
+      "status": "READY"
+    },
+    "canonicalUrl": "https://bebebonjour-fulfillment.vercel.app",
+    "health": {
+      "ok": true,
+      "boundary": "TEST-A",
+      "persistence": "convex-hosted",
+      "payment": "stripe-test-mode",
+      "delivery": "operator-gated-resend-test"
+    }
+  },
+  "stripe": {
+    "endpoint": {
+      "id": "we_1U7PFgGrir6mz3o7BJGzWJ66",
+      "accountId": "acct_1MKd4KGrir6mz3o7",
+      "livemode": false,
+      "enabled": true,
+      "url": "https://bebebonjour-fulfillment.vercel.app/api/customer-flow/webhooks/stripe",
+      "events": [
+        "checkout.session.completed"
+      ]
+    }
+  },
+  "landing": {},
+  "proof": {},
+  "review": {},
+  "warnings": [],
+  "failedAt": "2026-08-23T00:31:54.358Z",
+  "failure": "Canonical landing routes or error behavior do not match the release contract.",
+  "rollback": {
+    "stripeEndpointDisabled": true
+  }
+}

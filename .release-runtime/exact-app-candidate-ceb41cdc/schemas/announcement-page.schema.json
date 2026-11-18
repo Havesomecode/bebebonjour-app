@@ -1,0 +1,86 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://bebebonjour.local/schemas/announcement-page.schema.json",
+  "type": "object",
+  "required": [
+    "schemaVersion",
+    "pageId",
+    "slug",
+    "languages",
+    "defaultLanguage",
+    "templateFamily",
+    "templateVersion",
+    "rendererVersion",
+    "pageRevision",
+    "sectionOrder",
+    "identity",
+    "seo",
+    "sections",
+    "audioPlan",
+    "review",
+    "provenance"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "const": "1.0"
+    },
+    "pageId": {
+      "type": "string",
+      "minLength": 1
+    },
+    "slug": {
+      "type": "string",
+      "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+    },
+    "languages": {
+      "type": "array",
+      "items": {
+        "enum": [
+          "ar",
+          "fr"
+        ]
+      },
+      "uniqueItems": true,
+      "minItems": 1,
+      "maxItems": 2
+    },
+    "defaultLanguage": {
+      "enum": [
+        "ar",
+        "fr"
+      ]
+    },
+    "templateFamily": {
+      "type": "string",
+      "minLength": 1
+    },
+    "templateVersion": {
+      "type": "string",
+      "minLength": 1
+    },
+    "rendererVersion": {
+      "type": "string",
+      "minLength": 1
+    },
+    "pageRevision": {
+      "type": "string",
+      "pattern": "^r[0-9]+$"
+    },
+    "sectionOrder": {
+      "type": "array",
+      "items": {
+        "enum": [
+          "intro",
+          "dua",
+          "meaning",
+          "reveal",
+          "verses",
+          "closing"
+        ]
+      },
+      "uniqueItems": true,
+      "minItems": 6,
+      "maxItems": 6
+    }
+  }
+}

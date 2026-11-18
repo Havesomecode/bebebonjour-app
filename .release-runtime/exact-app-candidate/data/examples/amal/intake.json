@@ -1,0 +1,23 @@
+{
+  "schemaVersion": "1.0",
+  "requestId": "req_amal_001",
+  "submittedAt": "2026-03-08T12:00:00Z",
+  "customer": {
+    "email": "family.amal@example.com"
+  },
+  "baby": {
+    "firstName": "Amal",
+    "nameArabic": "أمل",
+    "gender": "girl"
+  },
+  "languages": [
+    "ar"
+  ],
+  "voicePreference": {
+    "gender": "female"
+  },
+  "notes": {
+    "specificDemands": "Arabic-only and gentle.",
+    "religiousReferencesHint": []
+  }
+}

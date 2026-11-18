@@ -1,0 +1,1228 @@
+
+> bebebonjour-app@0.1.0 test
+> node --test
+
+TAP version 13
+# Subtest: Vercel catch-all completes Node responses and preserves Stripe raw bytes
+ok 1 - Vercel catch-all completes Node responses and preserves Stripe raw bytes
+  ---
+  duration_ms: 278.727542
+  type: 'test'
+  ...
+# Subtest: Vercel webhook entrypoints export lazy Node handlers
+ok 2 - Vercel webhook entrypoints export lazy Node handlers
+  ---
+  duration_ms: 0.569375
+  type: 'test'
+  ...
+# Subtest: CLI documents narration staging and explicit narration approval
+ok 3 - CLI documents narration staging and explicit narration approval
+  ---
+  duration_ms: 414.104917
+  type: 'test'
+  ...
+# Subtest: production fulfillment configuration is parsed without implicit secrets
+ok 4 - production fulfillment configuration is parsed without implicit secrets
+  ---
+  duration_ms: 9.56275
+  type: 'test'
+  ...
+# Subtest: missing production secrets fail closed
+ok 5 - missing production secrets fail closed
+  ---
+  duration_ms: 0.477166
+  type: 'test'
+  ...
+# Subtest: production price and currency cannot drift from the database contract
+ok 6 - production price and currency cannot drift from the database contract
+  ---
+  duration_ms: 0.101167
+  type: 'test'
+  ...
+# Subtest: hosted customer-flow config accepts only explicit test-mode provider boundaries
+ok 7 - hosted customer-flow config accepts only explicit test-mode provider boundaries
+  ---
+  duration_ms: 5.005583
+  type: 'test'
+  ...
+# Subtest: Resend delivery credentials load only for the operator delivery runtime
+ok 8 - Resend delivery credentials load only for the operator delivery runtime
+  ---
+  duration_ms: 0.355041
+  type: 'test'
+  ...
+# Subtest: hosted TEST-A artifacts pin CORS and checkout callbacks to the active landing origin
+ok 9 - hosted TEST-A artifacts pin CORS and checkout callbacks to the active landing origin
+  ---
+  duration_ms: 5.5105
+  type: 'test'
+  ...
+# Subtest: provider manifest binds one executable least-privilege hosted candidate
+ok 10 - provider manifest binds one executable least-privilege hosted candidate
+  ---
+  duration_ms: 0.408125
+  type: 'test'
+  ...
+# Subtest: Convex creates a job and its idempotency response atomically
+ok 11 - Convex creates a job and its idempotency response atomically
+  ---
+  duration_ms: 9.445792
+  type: 'test'
+  ...
+# Subtest: Convex rejects an idempotency response bound to another customer job
+ok 12 - Convex rejects an idempotency response bound to another customer job
+  ---
+  duration_ms: 1.321334
+  type: 'test'
+  ...
+# Subtest: Convex rejects plaintext intake tokens at the persistence boundary
+ok 13 - Convex rejects plaintext intake tokens at the persistence boundary
+  ---
+  duration_ms: 0.965084
+  type: 'test'
+  ...
+# Subtest: Convex replaces a customer job only at the expected version
+ok 14 - Convex replaces a customer job only at the expected version
+  ---
+  duration_ms: 5.19375
+  type: 'test'
+  ...
+# Subtest: Convex records one immutable result per provider event id
+ok 15 - Convex records one immutable result per provider event id
+  ---
+  duration_ms: 1.215084
+  type: 'test'
+  ...
+# Subtest: Convex rejects provider event records without a bounded fingerprint
+ok 16 - Convex rejects provider event records without a bounded fingerprint
+  ---
+  duration_ms: 0.283834
+  type: 'test'
+  ...
+# Subtest: Convex claims one provider event fingerprint before completing its immutable result
+ok 17 - Convex claims one provider event fingerprint before completing its immutable result
+  ---
+  duration_ms: 0.734125
+  type: 'test'
+  ...
+# Subtest: Convex persists fulfillment aggregates with create-once compare-and-set semantics
+ok 18 - Convex persists fulfillment aggregates with create-once compare-and-set semantics
+  ---
+  duration_ms: 3.501041
+  type: 'test'
+  ...
+# Subtest: synthetic intake creates a canonical private job and reusable test checkout
+ok 19 - synthetic intake creates a canonical private job and reusable test checkout
+  ---
+  duration_ms: 10.458834
+  type: 'test'
+  ...
+# Subtest: explicit intake idempotency replays only the same request and rejects conflicts
+ok 20 - explicit intake idempotency replays only the same request and rejects conflicts
+  ---
+  duration_ms: 0.6625
+  type: 'test'
+  ...
+# Subtest: synthetic-only intake accepts the documented Resend delivery test sink
+ok 21 - synthetic-only intake accepts the documented Resend delivery test sink
+  ---
+  duration_ms: 0.163167
+  type: 'test'
+  ...
+# Subtest: customer-flow service exposes no parallel editorial or delivery lifecycle
+ok 22 - customer-flow service exposes no parallel editorial or delivery lifecycle
+  ---
+  duration_ms: 0.862833
+  type: 'test'
+  ...
+# Subtest: payment authority is idempotent and cannot satisfy another job
+ok 23 - payment authority is idempotent and cannot satisfy another job
+  ---
+  duration_ms: 1.077209
+  type: 'test'
+  ...
+# Subtest: intake, payment, and customer status bind to the canonical fulfillment orchestrator
+ok 24 - intake, payment, and customer status bind to the canonical fulfillment orchestrator
+  ---
+  duration_ms: 0.818208
+  type: 'test'
+  ...
+# Subtest: concurrent same-id Stripe payload conflicts are fenced before a second effect
+ok 25 - concurrent same-id Stripe payload conflicts are fenced before a second effect
+  ---
+  duration_ms: 0.491583
+  type: 'test'
+  ...
+# Subtest: invalid customer credentials and fields fail with stable redacted errors
+ok 26 - invalid customer credentials and fields fail with stable redacted errors
+  ---
+  duration_ms: 0.3115
+  type: 'test'
+  ...
+# Subtest: hosted customer-flow API preserves Stripe webhook raw bytes and exposes fail-closed health
+ok 27 - hosted customer-flow API preserves Stripe webhook raw bytes and exposes fail-closed health
+  ---
+  duration_ms: 21.433375
+  type: 'test'
+  ...
+# Subtest: hosted customer-flow API rejects invalid Stripe signatures without provider retries
+ok 28 - hosted customer-flow API rejects invalid Stripe signatures without provider retries
+  ---
+  duration_ms: 1.201625
+  type: 'test'
+  ...
+# Subtest: hosted customer-flow commands require the private TEST-A access token
+ok 29 - hosted customer-flow commands require the private TEST-A access token
+  ---
+  duration_ms: 2.315875
+  type: 'test'
+  ...
+# Subtest: hosted customer-flow allows an approved-origin CORS preflight before access-token validation
+ok 30 - hosted customer-flow allows an approved-origin CORS preflight before access-token validation
+  ---
+  duration_ms: 0.561125
+  type: 'test'
+  ...
+# Subtest: hosted runtime persists intake and creates a correlated Stripe test checkout
+ok 31 - hosted runtime persists intake and creates a correlated Stripe test checkout
+  ---
+  duration_ms: 57.614208
+  type: 'test'
+  ...
+# Subtest: hosted runtime advances one durable job from a signed Stripe test event
+ok 32 - hosted runtime advances one durable job from a signed Stripe test event
+  ---
+  duration_ms: 142.274916
+  type: 'test'
+  ...
+# Subtest: hosted runtime concurrently acknowledges distinct events for one Stripe payment
+ok 33 - hosted runtime concurrently acknowledges distinct events for one Stripe payment
+  ---
+  duration_ms: 88.135208
+  type: 'test'
+  ...
+# Subtest: customer HTTP API exposes only intake, status, and checkout commands
+ok 34 - customer HTTP API exposes only intake, status, and checkout commands
+  ---
+  duration_ms: 21.413875
+  type: 'test'
+  ...
+# Subtest: customer HTTP API rejects unapproved origins and oversized or malformed bodies
+ok 35 - customer HTTP API rejects unapproved origins and oversized or malformed bodies
+  ---
+  duration_ms: 4.287708
+  type: 'test'
+  ...
+# Subtest: customer HTTP API bounds streamed bodies and exposes only canonical errors
+ok 36 - customer HTTP API bounds streamed bodies and exposes only canonical errors
+  ---
+  duration_ms: 40.937375
+  type: 'test'
+  ...
+# Subtest: customer HTTP API can mount behind the Vercel customer-flow prefix
+ok 37 - customer HTTP API can mount behind the Vercel customer-flow prefix
+  ---
+  duration_ms: 1.398791
+  type: 'test'
+  ...
+# Subtest: local TEST-A server serves checkout pages only for correlated jobs
+ok 38 - local TEST-A server serves checkout pages only for correlated jobs
+  ---
+  duration_ms: 599.75325
+  type: 'test'
+  ...
+# Subtest: Stripe Checkout webhook verifies exact raw bytes and records a paid test session
+ok 39 - Stripe Checkout webhook verifies exact raw bytes and records a paid test session
+  ---
+  duration_ms: 1.662167
+  type: 'test'
+  ...
+# Subtest: signed Stripe contract mismatches are durably rejected and acknowledged
+ok 40 - signed Stripe contract mismatches are durably rejected and acknowledged
+  ---
+  duration_ms: 12.635375
+  type: 'test'
+  ...
+# Subtest: signed Stripe job-correlation failures are durably rejected and acknowledged
+ok 41 - signed Stripe job-correlation failures are durably rejected and acknowledged
+  ---
+  duration_ms: 0.712292
+  type: 'test'
+  ...
+# Subtest: Stripe test gateway creates one project-correlated EUR checkout session
+ok 42 - Stripe test gateway creates one project-correlated EUR checkout session
+  ---
+  duration_ms: 0.924625
+  type: 'test'
+  ...
+# (node:36359) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+# (Use `node --trace-warnings ...` to show where the warning was created)
+# Subtest: synthetic demo exports two deterministic canonical workflows and reachable announcement slugs
+ok 43 - synthetic demo exports two deterministic canonical workflows and reachable announcement slugs
+  ---
+  duration_ms: 1232.825834
+  type: 'test'
+  ...
+# Subtest: a failed staged export restores every generated slug without partial writes
+ok 44 - a failed staged export restores every generated slug without partial writes
+  ---
+  duration_ms: 286.229583
+  type: 'test'
+  ...
+# Subtest: exports reject a symlinked announcements root without touching its target
+ok 45 - exports reject a symlinked announcements root without touching its target
+  ---
+  duration_ms: 257.149583
+  type: 'test'
+  ...
+# Subtest: exports reject a nonexistent output beneath a symlinked ancestor before writing
+ok 46 - exports reject a nonexistent output beneath a symlinked ancestor before writing
+  ---
+  duration_ms: 1.894541
+  type: 'test'
+  ...
+# Subtest: concurrent exports are serialized before either can clobber rollback state
+ok 47 - concurrent exports are serialized before either can clobber rollback state
+  ---
+  duration_ms: 508.704791
+  type: 'test'
+  ...
+# (node:36360) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+# (Use `node --trace-warnings ...` to show where the warning was created)
+# Subtest: local generation workspace derives revision paths from persisted inputs and emits stable manifests
+ok 48 - local generation workspace derives revision paths from persisted inputs and emits stable manifests
+  ---
+  duration_ms: 147.245958
+  type: 'test'
+  ...
+# Subtest: artifact collection rejects an escaped manifest root before writing
+ok 49 - artifact collection rejects an escaped manifest root before writing
+  ---
+  duration_ms: 40.078167
+  type: 'test'
+  ...
+# Subtest: generation handlers reuse complete artifacts and clean retryable partial output
+ok 50 - generation handlers reuse complete artifacts and clean retryable partial output
+  ---
+  duration_ms: 54.06825
+  type: 'test'
+  ...
+# Subtest: persisted orchestration drives compose, render, and retryable test-mode TTS
+ok 51 - persisted orchestration drives compose, render, and retryable test-mode TTS
+  ---
+  duration_ms: 371.818375
+  type: 'test'
+  ...
+# (node:36361) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+# (Use `node --trace-warnings ...` to show where the warning was created)
+# Subtest: review decisions require a trusted verifier before the state transition
+ok 52 - review decisions require a trusted verifier before the state transition
+  ---
+  duration_ms: 41.663542
+  type: 'test'
+  ...
+# Subtest: a synthetic job persists the guarded canonical lifecycle through completion
+ok 53 - a synthetic job persists the guarded canonical lifecycle through completion
+  ---
+  duration_ms: 236.486208
+  type: 'test'
+  ...
+# Subtest: payment, review, publication, and delivery bindings fail closed
+ok 54 - payment, review, publication, and delivery bindings fail closed
+  ---
+  duration_ms: 48.164042
+  type: 'test'
+  ...
+# Subtest: narration jobs require exact content and audio approvals before publication or delivery
+ok 55 - narration jobs require exact content and audio approvals before publication or delivery
+  ---
+  duration_ms: 134.846583
+  type: 'test'
+  ...
+# Subtest: narration publication binds the exact approved narrated artifact manifest
+ok 56 - narration publication binds the exact approved narrated artifact manifest
+  ---
+  duration_ms: 131.761833
+  type: 'test'
+  ...
+# Subtest: non-narrated release cannot substitute an unreviewed prepared artifact set
+ok 57 - non-narrated release cannot substitute an unreviewed prepared artifact set
+  ---
+  duration_ms: 29.138208
+  type: 'test'
+  ...
+# Subtest: publish claims revalidate persisted non-narrated prepared digests
+ok 58 - publish claims revalidate persisted non-narrated prepared digests
+  ---
+  duration_ms: 17.672292
+  type: 'test'
+  ...
+# Subtest: a stale narration approval cannot claim publication or advance state
+ok 59 - a stale narration approval cannot claim publication or advance state
+  ---
+  duration_ms: 21.077375
+  type: 'test'
+  ...
+# Subtest: concurrent runNext calls execute one claimed handler only
+ok 60 - concurrent runNext calls execute one claimed handler only
+  ---
+  duration_ms: 36.692
+  type: 'test'
+  ...
+# Subtest: human-requested narration rework starts a new logical idempotent operation
+ok 61 - human-requested narration rework starts a new logical idempotent operation
+  ---
+  duration_ms: 25.106625
+  type: 'test'
+  ...
+# Subtest: human-requested content rework cannot overwrite the reviewed revision
+ok 62 - human-requested content rework cannot overwrite the reviewed revision
+  ---
+  duration_ms: 13.580542
+  type: 'test'
+  ...
+# Subtest: human-requested content rework advances to the next canonical revision
+ok 63 - human-requested content rework advances to the next canonical revision
+  ---
+  duration_ms: 12.958625
+  type: 'test'
+  ...
+# Subtest: retryable external work reuses one stable idempotency key
+ok 64 - retryable external work reuses one stable idempotency key
+  ---
+  duration_ms: 23.686792
+  type: 'test'
+  ...
+# Subtest: an expired stage lease is fenced, persisted, and retried with the same side-effect key
+ok 65 - an expired stage lease is fenced, persisted, and retried with the same side-effect key
+  ---
+  duration_ms: 26.616792
+  type: 'test'
+  ...
+# Subtest: a completion at or after lease expiry cannot commit stage output
+ok 66 - a completion at or after lease expiry cannot commit stage output
+  ---
+  duration_ms: 5.561958
+  type: 'test'
+  ...
+# Subtest: an expired lease owner cannot record a stale terminal failure
+ok 67 - an expired lease owner cannot record a stale terminal failure
+  ---
+  duration_ms: 6.427792
+  type: 'test'
+  ...
+# Subtest: a handler that finishes after lease expiry enters retry with the stable side-effect key
+ok 68 - a handler that finishes after lease expiry enters retry with the stable side-effect key
+  ---
+  duration_ms: 12.571083
+  type: 'test'
+  ...
+# Subtest: command ids cannot be replayed across operations or rebound to different payloads
+ok 69 - command ids cannot be replayed across operations or rebound to different payloads
+  ---
+  duration_ms: 7.189959
+  type: 'test'
+  ...
+# Subtest: audit timestamps are canonical ISO values and cannot move backward
+ok 70 - audit timestamps are canonical ISO values and cannot move backward
+  ---
+  duration_ms: 5.830417
+  type: 'test'
+  ...
+# Subtest: separate local store instances serialize one file without temporary-file races
+ok 71 - separate local store instances serialize one file without temporary-file races
+  ---
+  duration_ms: 17.853083
+  type: 'test'
+  ...
+# Subtest: an abruptly terminated lock owner cannot wedge the local fulfillment store
+ok 72 - an abruptly terminated lock owner cannot wedge the local fulfillment store
+  ---
+  duration_ms: 40.338833
+  type: 'test'
+  ...
+# Subtest: terminal stage failures persist bounded diagnostics and cannot continue
+ok 73 - terminal stage failures persist bounded diagnostics and cannot continue
+  ---
+  duration_ms: 44.246541
+  type: 'test'
+  ...
+# Subtest: the local TEST-A job artifact is byte-deterministic for fixed inputs and dependencies
+ok 74 - the local TEST-A job artifact is byte-deterministic for fixed inputs and dependencies
+  ---
+  duration_ms: 36.53775
+  type: 'test'
+  ...
+# Subtest: the durable TEST-A projection uses the versioned persistent field schema
+ok 75 - the durable TEST-A projection uses the versioned persistent field schema
+  ---
+  duration_ms: 92.018709
+  type: 'test'
+  ...
+# Subtest: a malformed durable aggregate is rejected before backend transitions inspect it
+ok 76 - a malformed durable aggregate is rejected before backend transitions inspect it
+  ---
+  duration_ms: 13.50525
+  type: 'test'
+  ...
+# Subtest: malformed persisted audit timestamps fail schema validation
+ok 77 - malformed persisted audit timestamps fail schema validation
+  ---
+  duration_ms: 4.888083
+  type: 'test'
+  ...
+# Subtest: review-gated external adapters recover ambiguous publication without a duplicate effect
+ok 78 - review-gated external adapters recover ambiguous publication without a duplicate effect
+  ---
+  duration_ms: 22.799333
+  type: 'test'
+  ...
+# Subtest: terminal provider failure records a bounded outcome without a publication receipt
+ok 79 - terminal provider failure records a bounded outcome without a publication receipt
+  ---
+  duration_ms: 21.677083
+  type: 'test'
+  ...
+# Subtest: ambiguous delivery acceptance is reconciled before retrying the send effect
+ok 80 - ambiguous delivery acceptance is reconciled before retrying the send effect
+  ---
+  duration_ms: 32.39125
+  type: 'test'
+  ...
+# Subtest: delivery retries keep the persisted exact target binding and never retarget
+ok 81 - delivery retries keep the persisted exact target binding and never retarget
+  ---
+  duration_ms: 33.579542
+  type: 'test'
+  ...
+# Subtest: caller-asserted delivery completion is rejected without a trusted verifier
+ok 82 - caller-asserted delivery completion is rejected without a trusted verifier
+  ---
+  duration_ms: 25.743208
+  type: 'test'
+  ...
+# Subtest: delivery status reconciliation completes only an exact delivered provider message
+ok 83 - delivery status reconciliation completes only an exact delivered provider message
+  ---
+  duration_ms: 40.247542
+  type: 'test'
+  ...
+# Subtest: local command handlers map every lifecycle stage to the existing generator commands
+ok 84 - local command handlers map every lifecycle stage to the existing generator commands
+  ---
+  duration_ms: 16.824292
+  type: 'test'
+  ...
+# Subtest: local publication binds the narrated artifact set after narration approval
+ok 85 - local publication binds the narrated artifact set after narration approval
+  ---
+  duration_ms: 0.155458
+  type: 'test'
+  ...
+# Subtest: local publication accepts an IPv6 loopback verification URL
+ok 86 - local publication accepts an IPv6 loopback verification URL
+  ---
+  duration_ms: 0.105041
+  type: 'test'
+  ...
+# Subtest: local command handlers reject non-local publication and delivery configuration
+ok 87 - local command handlers reject non-local publication and delivery configuration
+  ---
+  duration_ms: 0.261125
+  type: 'test'
+  ...
+# Subtest: local command handlers require an explicitly injected no-network TTS adapter
+ok 88 - local command handlers require an explicitly injected no-network TTS adapter
+  ---
+  duration_ms: 0.098333
+  type: 'test'
+  ...
+# Subtest: Resend delivery adapter sends the approved publication with the persisted idempotency key
+ok 89 - Resend delivery adapter sends the approved publication with the persisted idempotency key
+  ---
+  duration_ms: 1.626291
+  type: 'test'
+  ...
+# Subtest: Resend delivery adapter maps the provider message status without resending
+ok 90 - Resend delivery adapter maps the provider message status without resending
+  ---
+  duration_ms: 0.198708
+  type: 'test'
+  ...
+# Subtest: Resend delivery adapter rejects non-sink recipients and expired idempotency windows
+ok 91 - Resend delivery adapter rejects non-sink recipients and expired idempotency windows
+  ---
+  duration_ms: 0.400708
+  type: 'test'
+  ...
+# Subtest: page validation rejects a path-bearing slug
+ok 92 - page validation rejects a path-bearing slug
+  ---
+  duration_ms: 1.192666
+  type: 'test'
+  ...
+# Subtest: page validation rejects a path-bearing revision
+ok 93 - page validation rejects a path-bearing revision
+  ---
+  duration_ms: 0.273583
+  type: 'test'
+  ...
+# Subtest: page validation rejects unexpected section language keys
+ok 94 - page validation rejects unexpected section language keys
+  ---
+  duration_ms: 0.149625
+  type: 'test'
+  ...
+# Subtest: compose preserves the customer email in private provenance
+ok 95 - compose preserves the customer email in private provenance
+  ---
+  duration_ms: 52.735542
+  type: 'test'
+  ...
+# Subtest: compose preserves the established Alloy narration plan for female voices
+ok 96 - compose preserves the established Alloy narration plan for female voices
+  ---
+  duration_ms: 6.079458
+  type: 'test'
+  ...
+# Subtest: tts sends exact provider-compatible speech request bodies
+ok 97 - tts sends exact provider-compatible speech request bodies
+  ---
+  duration_ms: 655.195792
+  type: 'test'
+  ...
+# Subtest: render separates private canonical artifacts from the public page
+ok 98 - render separates private canonical artifacts from the public page
+  ---
+  duration_ms: 31.946791
+  type: 'test'
+  ...
+# Subtest: tts stages private narration review material without mutating the prepared bundle
+ok 99 - tts stages private narration review material without mutating the prepared bundle
+  ---
+  duration_ms: 329.996792
+  type: 'test'
+  ...
+# Subtest: tts rejects duplicate languages before any provider call
+ok 100 - tts rejects duplicate languages before any provider call
+  ---
+  duration_ms: 54.301
+  type: 'test'
+  ...
+# Subtest: tts requires ffprobe before any provider call
+ok 101 - tts requires ffprobe before any provider call
+  ---
+  duration_ms: 57.136708
+  type: 'test'
+  ...
+# Subtest: partial narration generation records failed evidence that cannot be approved
+ok 102 - partial narration generation records failed evidence that cannot be approved
+  ---
+  duration_ms: 294.367875
+  type: 'test'
+  ...
+# Subtest: narration approval assembles a fresh signed bundle without mutating reviewed inputs
+ok 103 - narration approval assembles a fresh signed bundle without mutating reviewed inputs
+  ---
+  duration_ms: 535.250125
+  type: 'test'
+  ...
+# Subtest: deploy verifies the signed narrated bundle and rejects changed audio
+ok 104 - deploy verifies the signed narrated bundle and rejects changed audio
+  ---
+  duration_ms: 1364.541042
+  type: 'test'
+  ...
+# Subtest: deploy rejects a schema-invalid manifest despite coordinated valid-HMAC rebinding
+ok 105 - deploy rejects a schema-invalid manifest despite coordinated valid-HMAC rebinding
+  ---
+  duration_ms: 535.960667
+  type: 'test'
+  ...
+# Subtest: deploy and send reject narration approval signature tampering without mutation
+ok 106 - deploy and send reject narration approval signature tampering without mutation
+  ---
+  duration_ms: 498.471916
+  type: 'test'
+  ...
+# Subtest: narration approval rejects unmanaged media even when the unsigned review digest is rebound
+ok 107 - narration approval rejects unmanaged media even when the unsigned review digest is rebound
+  ---
+  duration_ms: 271.659834
+  type: 'test'
+  ...
+# Subtest: narration approval rejects unmanaged files beside the private review evidence
+ok 108 - narration approval rejects unmanaged files beside the private review evidence
+  ---
+  duration_ms: 237.330458
+  type: 'test'
+  ...
+# Subtest: narration approval rejects schema-invalid manifest metadata after digest rebound
+ok 109 - narration approval rejects schema-invalid manifest metadata after digest rebound
+  ---
+  duration_ms: 284.242583
+  type: 'test'
+  ...
+# Subtest: narration approval rejects undeclared transcript metadata after digest rebound
+ok 110 - narration approval rejects undeclared transcript metadata after digest rebound
+  ---
+  duration_ms: 300.002917
+  type: 'test'
+  ...
+# Subtest: narration approval rejects schema-valid text rebound in an unselected transcript track
+ok 111 - narration approval rejects schema-valid text rebound in an unselected transcript track
+  ---
+  duration_ms: 278.336875
+  type: 'test'
+  ...
+# Subtest: narration approval rejects corrupt media after digest rebound
+ok 112 - narration approval rejects corrupt media after digest rebound
+  ---
+  duration_ms: 298.5845
+  type: 'test'
+  ...
+# Subtest: narration approval rejects output nested inside immutable review material before writing
+ok 113 - narration approval rejects output nested inside immutable review material before writing
+  ---
+  duration_ms: 233.547041
+  type: 'test'
+  ...
+# Subtest: narration approval rejects transcript timing rebound away from its media manifest
+ok 114 - narration approval rejects transcript timing rebound away from its media manifest
+  ---
+  duration_ms: 463.794167
+  type: 'test'
+  ...
+# Subtest: narration approval rejects coordinated manifest and transcript timing rebound
+ok 115 - narration approval rejects coordinated manifest and transcript timing rebound
+  ---
+  duration_ms: 286.906625
+  type: 'test'
+  ...
+# Subtest: deploy refuses a rendered draft even in dry-run mode
+ok 116 - deploy refuses a rendered draft even in dry-run mode
+  ---
+  duration_ms: 14.720625
+  type: 'test'
+  ...
+# Subtest: deploy refuses a root that is not the job's prepared deploy bundle
+ok 117 - deploy refuses a root that is not the job's prepared deploy bundle
+  ---
+  duration_ms: 2.150375
+  type: 'test'
+  ...
+# Subtest: deploy and send reject a symlink-aliased non-narrated root after mutable job path rewrite
+ok 118 - deploy and send reject a symlink-aliased non-narrated root after mutable job path rewrite
+  ---
+  duration_ms: 25.2
+  type: 'test'
+  ...
+# Subtest: deploy refuses a missing canonical prepared page
+ok 119 - deploy refuses a missing canonical prepared page
+  ---
+  duration_ms: 2.733958
+  type: 'test'
+  ...
+# Subtest: deploy refuses a public bundle that differs from the prepared page
+ok 120 - deploy refuses a public bundle that differs from the prepared page
+  ---
+  duration_ms: 4.325125
+  type: 'test'
+  ...
+# Subtest: deploy and send dry-runs reject a prepared runtime asset changed after render
+ok 121 - deploy and send dry-runs reject a prepared runtime asset changed after render
+  ---
+  duration_ms: 96.421625
+  type: 'test'
+  ...
+# Subtest: deploy rejects post-render approval artifact and job binding mutations
+ok 122 - deploy rejects post-render approval artifact and job binding mutations
+  ---
+  duration_ms: 35.459917
+  type: 'test'
+  ...
+# Subtest: deploy and send reject a coordinated forged reviewer rewrite
+ok 123 - deploy and send reject a coordinated forged reviewer rewrite
+  ---
+  duration_ms: 28.357
+  type: 'test'
+  ...
+# Subtest: render fails closed when operator approval key configuration is missing
+ok 124 - render fails closed when operator approval key configuration is missing
+  ---
+  duration_ms: 9.602417
+  type: 'test'
+  ...
+# Subtest: deploy dry-run does not mutate an approved job
+ok 125 - deploy dry-run does not mutate an approved job
+  ---
+  duration_ms: 41.267375
+  type: 'test'
+  ...
+# Subtest: console delivery is a redacted non-mutating preview
+ok 126 - console delivery is a redacted non-mutating preview
+  ---
+  duration_ms: 50.141667
+  type: 'test'
+  ...
+# Subtest: console delivery dry-run verifies an approved prepared bundle without a public URL
+ok 127 - console delivery dry-run verifies an approved prepared bundle without a public URL
+  ---
+  duration_ms: 34.766625
+  type: 'test'
+  ...
+# Subtest: unsupported send providers do not mutate the persisted job
+ok 128 - unsupported send providers do not mutate the persisted job
+  ---
+  duration_ms: 1.37175
+  type: 'test'
+  ...
+# Subtest: build IDs preserve semantic-version boundaries
+ok 129 - build IDs preserve semantic-version boundaries
+  ---
+  duration_ms: 0.109542
+  type: 'test'
+  ...
+# Subtest: undeployed example jobs have a prepared revision but no live revision
+ok 130 - undeployed example jobs have a prepared revision but no live revision
+  ---
+  duration_ms: 0.058167
+  type: 'test'
+  ...
+# Subtest: the Vercel Tally handler reads raw bytes and returns an acknowledgement
+ok 131 - the Vercel Tally handler reads raw bytes and returns an acknowledgement
+  ---
+  duration_ms: 2.654042
+  type: 'test'
+  ...
+# Subtest: the Vercel Tally handler reads a body restored by the Vercel Node adapter
+ok 132 - the Vercel Tally handler reads a body restored by the Vercel Node adapter
+  ---
+  duration_ms: 16.954375
+  type: 'test'
+  ...
+# Subtest: the Vercel Stripe handler reads raw bytes and returns an acknowledgement
+ok 133 - the Vercel Stripe handler reads raw bytes and returns an acknowledgement
+  ---
+  duration_ms: 1.327375
+  type: 'test'
+  ...
+# Subtest: same-transaction eligibility cycles use a monotonic per-order ordinal
+ok 134 - same-transaction eligibility cycles use a monotonic per-order ordinal # SKIP
+  ---
+  duration_ms: 0.458333
+  type: 'test'
+  ...
+# Subtest: provider ordering and retries create one review job and generation run per valid order
+ok 135 - provider ordering and retries create one review job and generation run per valid order # SKIP
+  ---
+  duration_ms: 0.112292
+  type: 'test'
+  ...
+# Subtest: a synthetic paid order reaches review_required through both webhook handlers
+ok 136 - a synthetic paid order reaches review_required through both webhook handlers # SKIP
+  ---
+  duration_ms: 0.584333
+  type: 'test'
+  ...
+# (node:36368) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+# (Use `node --trace-warnings ...` to show where the warning was created)
+# Subtest: the TEST-A tracer persists one guarded synthetic order through confirmed delivery
+ok 137 - the TEST-A tracer persists one guarded synthetic order through confirmed delivery
+  ---
+  duration_ms: 1410.269708
+  type: 'test'
+  ...
+# Subtest: name resolution preserves display spelling for an exact canonical match
+ok 138 - name resolution preserves display spelling for an exact canonical match
+  ---
+  duration_ms: 28.114166
+  type: 'test'
+  ...
+# Subtest: catalog meanings without dedicated source keys remain claim-disabled
+ok 139 - catalog meanings without dedicated source keys remain claim-disabled
+  ---
+  duration_ms: 31.15025
+  type: 'test'
+  ...
+# Subtest: diacritic-bearing orthographies resolve only through explicit aliases
+ok 140 - diacritic-bearing orthographies resolve only through explicit aliases
+  ---
+  duration_ms: 1.133291
+  type: 'test'
+  ...
+# Subtest: name resolution uses only explicit aliases for alternate orthographies
+ok 141 - name resolution uses only explicit aliases for alternate orthographies
+  ---
+  duration_ms: 0.24275
+  type: 'test'
+  ...
+# Subtest: name resolution requires review when Latin and Arabic forms point to different names
+ok 142 - name resolution requires review when Latin and Arabic forms point to different names
+  ---
+  duration_ms: 0.170666
+  type: 'test'
+  ...
+# Subtest: name resolution never silently chooses an ambiguous alias
+ok 143 - name resolution never silently chooses an ambiguous alias
+  ---
+  duration_ms: 0.126708
+  type: 'test'
+  ...
+# Subtest: an unambiguous second script cannot narrow an ambiguous supplied script
+ok 144 - an unambiguous second script cannot narrow an ambiguous supplied script
+  ---
+  duration_ms: 0.186959
+  type: 'test'
+  ...
+# Subtest: supplied Arabic forms that normalize to empty cannot enable name claims
+ok 145 - supplied Arabic forms that normalize to empty cannot enable name claims
+  ---
+  duration_ms: 0.953333
+  type: 'test'
+  ...
+# Subtest: the evidence schema permits the invalid orthography resolver outcome
+ok 146 - the evidence schema permits the invalid orthography resolver outcome
+  ---
+  duration_ms: 0.428833
+  type: 'test'
+  ...
+# Subtest: unknown religious names compose a neutral review draft without invented claims
+ok 147 - unknown religious names compose a neutral review draft without invented claims
+  ---
+  duration_ms: 5.561458
+  type: 'test'
+  ...
+# Subtest: compose cannot render scripture items after their source evidence is removed
+ok 148 - compose cannot render scripture items after their source evidence is removed
+  ---
+  duration_ms: 22.672375
+  type: 'test'
+  ...
+# Subtest: composed section headings speak to the reader instead of exposing editorial proposals
+ok 149 - composed section headings speak to the reader instead of exposing editorial proposals
+  ---
+  duration_ms: 10.928416
+  type: 'test'
+  ...
+# Subtest: narration manifest schema accepts browser-only fields and rejects provider metadata
+ok 150 - narration manifest schema accepts browser-only fields and rejects provider metadata
+  ---
+  duration_ms: 76.44875
+  type: 'test'
+  ...
+# Subtest: private narration review and approval schemas reject undeclared evidence
+ok 151 - private narration review and approval schemas reject undeclared evidence
+  ---
+  duration_ms: 38.649917
+  type: 'test'
+  ...
+# Subtest: Convex customer-flow store creates intake and idempotency record in one mutation
+ok 152 - Convex customer-flow store creates intake and idempotency record in one mutation
+  ---
+  duration_ms: 1.552708
+  type: 'test'
+  ...
+# Subtest: Convex customer-flow store binds encrypted replay tokens to the canonical job
+ok 153 - Convex customer-flow store binds encrypted replay tokens to the canonical job
+  ---
+  duration_ms: 0.507666
+  type: 'test'
+  ...
+# Subtest: Convex customer-flow store retries compare-and-set updates against the latest job
+ok 154 - Convex customer-flow store retries compare-and-set updates against the latest job
+  ---
+  duration_ms: 0.321917
+  type: 'test'
+  ...
+# Subtest: Convex customer-flow store records provider events with create-once semantics
+ok 155 - Convex customer-flow store records provider events with create-once semantics
+  ---
+  duration_ms: 0.250084
+  type: 'test'
+  ...
+# Subtest: Convex customer-flow store claims event identity before completing its result
+ok 156 - Convex customer-flow store claims event identity before completing its result
+  ---
+  duration_ms: 0.200791
+  type: 'test'
+  ...
+# Subtest: Convex fulfillment store applies payment transitions with compare-and-set persistence
+ok 157 - Convex fulfillment store applies payment transitions with compare-and-set persistence
+  ---
+  duration_ms: 2.918584
+  type: 'test'
+  ...
+# Subtest: the Supabase store sends normalized Tally data to its transactional RPC
+ok 158 - the Supabase store sends normalized Tally data to its transactional RPC
+  ---
+  duration_ms: 0.887291
+  type: 'test'
+  ...
+# Subtest: the Supabase store sends normalized Stripe data to its transactional RPC
+ok 159 - the Supabase store sends normalized Stripe data to its transactional RPC
+  ---
+  duration_ms: 0.234583
+  type: 'test'
+  ...
+# Subtest: the Supabase store records rejected signed events without raw provider payloads
+ok 160 - the Supabase store records rejected signed events without raw provider payloads
+  ---
+  duration_ms: 0.177125
+  type: 'test'
+  ...
+# Subtest: the generation store requires an injected client
+ok 161 - the generation store requires an injected client
+  ---
+  duration_ms: 0.619208
+  type: 'test'
+  ...
+# Subtest: the generation store rejects an injected client without an RPC method
+ok 162 - the generation store rejects an injected client without an RPC method
+  ---
+  duration_ms: 0.161416
+  type: 'test'
+  ...
+# Subtest: the generation store claims one preview run with immutable material digests
+ok 163 - the generation store claims one preview run with immutable material digests
+  ---
+  duration_ms: 0.522375
+  type: 'test'
+  ...
+# Subtest: the generation store propagates RPC errors with operation context
+ok 164 - the generation store propagates RPC errors with operation context
+  ---
+  duration_ms: 0.931541
+  type: 'test'
+  ...
+# Subtest: the generation store completes only the leased digest-bound preview
+ok 165 - the generation store completes only the leased digest-bound preview
+  ---
+  duration_ms: 0.318083
+  type: 'test'
+  ...
+# Subtest: the generation store records a bounded lease failure without diagnostics
+ok 166 - the generation store records a bounded lease failure without diagnostics
+  ---
+  duration_ms: 0.2075
+  type: 'test'
+  ...
+# Subtest: prepare-review autonomously creates a private review bundle without a deploy bundle
+ok 167 - prepare-review autonomously creates a private review bundle without a deploy bundle
+  ---
+  duration_ms: 104.173708
+  type: 'test'
+  ...
+# Subtest: prepare-review is deterministic and idempotent for the same intake
+ok 168 - prepare-review is deterministic and idempotent for the same intake
+  ---
+  duration_ms: 74.053834
+  type: 'test'
+  ...
+# Subtest: prepare-review refuses replay when a material selection input changes
+ok 169 - prepare-review refuses replay when a material selection input changes
+  ---
+  duration_ms: 32.920584
+  type: 'test'
+  ...
+# Subtest: approve-review writes a dossier-bound approved page outside the immutable review root
+ok 170 - approve-review writes a dossier-bound approved page outside the immutable review root
+  ---
+  duration_ms: 68.3365
+  type: 'test'
+  ...
+# Subtest: approve-review rejects a canonical draft that differs from the reviewed preview
+ok 171 - approve-review rejects a canonical draft that differs from the reviewed preview
+  ---
+  duration_ms: 28.548708
+  type: 'test'
+  ...
+# Subtest: approve-review rejects a tampered private preview bundle
+ok 172 - approve-review rejects a tampered private preview bundle
+  ---
+  duration_ms: 131.653333
+  type: 'test'
+  ...
+# Subtest: approve-review rejects output physically inside a symlink-aliased review root
+ok 173 - approve-review rejects output physically inside a symlink-aliased review root
+  ---
+  duration_ms: 26.163791
+  type: 'test'
+  ...
+# Subtest: approve-review requires exact acknowledgement of review reasons
+ok 174 - approve-review requires exact acknowledgement of review reasons
+  ---
+  duration_ms: 50.841
+  type: 'test'
+  ...
+# Subtest: checked-in Amal approval fixture reproduces its approved projection
+ok 175 - checked-in Amal approval fixture reproduces its approved projection
+  ---
+  duration_ms: 14.482
+  type: 'test'
+  ...
+# Subtest: render rejects an approved page changed after the approval gate
+ok 176 - render rejects an approved page changed after the approval gate
+  ---
+  duration_ms: 50.786542
+  type: 'test'
+  ...
+# Subtest: prepare-review refuses to reuse one private root for a different intake
+ok 177 - prepare-review refuses to reuse one private root for a different intake
+  ---
+  duration_ms: 30.4475
+  type: 'test'
+  ...
+# Subtest: prepare-review rejects operational or stale-family entries in a matching private root
+ok 178 - prepare-review rejects operational or stale-family entries in a matching private root
+  ---
+  duration_ms: 29.952125
+  type: 'test'
+  ...
+# Subtest: prepare-review rejects an extra route inside the expected preview family on replay
+ok 179 - prepare-review rejects an extra route inside the expected preview family on replay
+  ---
+  duration_ms: 36.373625
+  type: 'test'
+  ...
+# Subtest: prepare-review rejects symlinked managed output paths before writing
+ok 180 - prepare-review rejects symlinked managed output paths before writing
+  ---
+  duration_ms: 10.876167
+  type: 'test'
+  ...
+# Subtest: prepare-review rejects a nonexistent output beneath a symlinked ancestor
+ok 181 - prepare-review rejects a nonexistent output beneath a symlinked ancestor
+  ---
+  duration_ms: 5.629
+  type: 'test'
+  ...
+# Subtest: render cannot enter private mode outside prepare-review
+ok 182 - render cannot enter private mode outside prepare-review
+  ---
+  duration_ms: 1.949542
+  type: 'test'
+  ...
+# Subtest: prepare-review stops before writing artifacts when gendered copy is not yet safe
+ok 183 - prepare-review stops before writing artifacts when gendered copy is not yet safe
+  ---
+  duration_ms: 3.287792
+  type: 'test'
+  ...
+# Subtest: manual narration-off mode reveals the first phrase at zero scroll
+ok 184 - manual narration-off mode reveals the first phrase at zero scroll
+  ---
+  duration_ms: 2.507625
+  type: 'test'
+  ...
+# Subtest: manual mode keeps later off-screen phrases hidden and completes passed sections
+ok 185 - manual mode keeps later off-screen phrases hidden and completes passed sections
+  ---
+  duration_ms: 0.2025
+  type: 'test'
+  ...
+# Subtest: narration-off startup does not probe narration media
+ok 186 - narration-off startup does not probe narration media
+  ---
+  duration_ms: 0.086334
+  type: 'test'
+  ...
+# Subtest: canonical language routes keep a trailing slash for relative narration assets
+ok 187 - canonical language routes keep a trailing slash for relative narration assets
+  ---
+  duration_ms: 0.103375
+  type: 'test'
+  ...
+# Subtest: a signed successful Stripe webhook is persisted once
+ok 188 - a signed successful Stripe webhook is persisted once
+  ---
+  duration_ms: 1.968209
+  type: 'test'
+  ...
+# Subtest: an invalid Stripe webhook signature performs no persistence
+ok 189 - an invalid Stripe webhook signature performs no persistence
+  ---
+  duration_ms: 0.457333
+  type: 'test'
+  ...
+# Subtest: a signed Stripe payment mismatch is persisted for blocked reconciliation
+ok 190 - a signed Stripe payment mismatch is persisted for blocked reconciliation
+  ---
+  duration_ms: 0.273791
+  type: 'test'
+  ...
+# Subtest: a signed business-invalid Stripe webhook is durably rejected without raw payload persistence
+ok 191 - a signed business-invalid Stripe webhook is durably rejected without raw payload persistence
+  ---
+  duration_ms: 0.273375
+  type: 'test'
+  ...
+# Subtest: a signed paid Tally webhook is persisted once
+ok 192 - a signed paid Tally webhook is persisted once
+  ---
+  duration_ms: 1.4305
+  type: 'test'
+  ...
+# Subtest: an invalid Tally webhook signature performs no persistence
+ok 193 - an invalid Tally webhook signature performs no persistence
+  ---
+  duration_ms: 0.356208
+  type: 'test'
+  ...
+# Subtest: a signed business-invalid Tally webhook is durably rejected without raw payload persistence
+ok 194 - a signed business-invalid Tally webhook is durably rejected without raw payload persistence
+  ---
+  duration_ms: 0.281667
+  type: 'test'
+  ...
+# Subtest: a successful Stripe payment normalizes to an authoritative payment record
+ok 195 - a successful Stripe payment normalizes to an authoritative payment record
+  ---
+  duration_ms: 0.886667
+  type: 'test'
+  ...
+# Subtest: a successful Stripe payment may omit customer email
+ok 196 - a successful Stripe payment may omit customer email
+  ---
+  duration_ms: 0.195583
+  type: 'test'
+  ...
+# Subtest: a correctly signed Stripe payload is accepted
+ok 197 - a correctly signed Stripe payload is accepted
+  ---
+  duration_ms: 1.992166
+  type: 'test'
+  ...
+# Subtest: a tampered Stripe payload is rejected
+ok 198 - a tampered Stripe payload is rejected
+  ---
+  duration_ms: 0.488291
+  type: 'test'
+  ...
+# Subtest: a paid Tally submission normalizes to the canonical intake contract
+ok 199 - a paid Tally submission normalizes to the canonical intake contract
+  ---
+  duration_ms: 1.233875
+  type: 'test'
+  ...
+# Subtest: an invalid Tally signature is rejected
+ok 200 - an invalid Tally signature is rejected
+  ---
+  duration_ms: 0.860917
+  type: 'test'
+  ...
+# Subtest: a correctly signed Tally payload is accepted
+ok 201 - a correctly signed Tally payload is accepted
+  ---
+  duration_ms: 0.311959
+  type: 'test'
+  ...
+1..201
+# tests 201
+# suites 0
+# pass 198
+# fail 0
+# cancelled 0
+# skipped 3
+# todo 0
+# duration_ms 8260.814792

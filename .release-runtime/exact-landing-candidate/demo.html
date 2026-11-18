@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="icon" href="/favicon.ico" sizes="any" />
+    <meta name="description" content="Démonstration synthétique du parcours Bébé Bonjour, sans données ni services réels." />
+    <title>Démonstration synthétique | Bébé Bonjour</title>
+    <link rel="stylesheet" href="/src/demo.css" />
+  </head>
+  <body>
+    <main class="demo-shell">
+      <header class="demo-header">
+        <a class="wordmark" href="/" aria-label="Retour à Bébé Bonjour">Bébé Bonjour</a>
+        <span class="demo-badge">Démonstration synthétique</span>
+        <h1>Un faire-part, du formulaire à la livraison.</h1>
+        <p class="lede">
+          Parcourez une exécution reproductible du workflow TEST-A avec deux familles entièrement fictives.
+        </p>
+        <p class="safety-note">
+          Aucun paiement réel, aucune donnée personnelle, aucun e-mail, appel TTS ou service externe.
+          Chaque étape marquée ci-dessous est simulée localement.
+        </p>
+      </header>
+
+      <section class="demo-controls" aria-labelledby="profile-heading">
+        <div>
+          <p class="eyebrow" id="profile-heading">Profil intégré</p>
+          <label for="profile-select">Choisir une histoire fictive</label>
+          <select id="profile-select">
+            <option value="amal">Amal — profil fictif</option>
+            <option value="bayane">Bayane — profil fictif</option>
+          </select>
+        </div>
+        <button class="button button-quiet" id="reset-demo" type="button">Recommencer la démo</button>
+      </section>
+
+      <section class="workflow" aria-live="polite" aria-atomic="true">
+        <div class="workflow-summary">
+          <p class="eyebrow" id="step-count">Étape 1 sur 7</p>
+          <span class="simulated-label">Simulé</span>
+          <h2 id="step-label">Intake reçu</h2>
+          <p id="step-description">Chargement de l’exécution synthétique…</p>
+          <dl class="facts">
+            <div><dt>Prénom</dt><dd id="baby-name">—</dd></div>
+            <div><dt>Adresse fictive</dt><dd id="customer-email">—</dd></div>
+            <div><dt>Prix affiché</dt><dd>39 € — test</dd></div>
+            <div><dt>État public</dt><dd id="public-status">—</dd></div>
+            <div><dt>État canonique</dt><dd id="canonical-status">—</dd></div>
+            <div><dt>Révision</dt><dd id="revision-id">En attente</dd></div>
+          </dl>
+        </div>
+
+        <ol class="timeline" id="timeline" aria-label="Étapes du workflow"></ol>
+
+        <div class="workflow-actions">
+          <button class="button button-primary" id="advance-demo" type="button">Étape suivante</button>
+          <a class="button button-primary" id="announcement-link" href="/" hidden>
+            Ouvrir le faire-part généré
+          </a>
+          <p id="completion-note" hidden>
+            La livraison locale est confirmée. Les deux slugs restent présents dans ce même artefact.
+          </p>
+        </div>
+      </section>
+
+      <aside class="boundary" aria-label="Périmètre de la démonstration">
+        <h2>Ce que cette démo prouve</h2>
+        <p>
+          Les projections viennent du contrat d’intake, de l’orchestrateur et de la politique de révision
+          exacts de TEST-A. Le navigateur ne déclenche aucune opération fournisseur.
+        </p>
+      </aside>
+    </main>
+    <script type="module" src="/src/demo.js"></script>
+  </body>
+</html>

@@ -1,0 +1,21 @@
+{
+  "schemaVersion": "1.0",
+  "state": "approved",
+  "reviewer": "synthetic-fixture-operator",
+  "reviewedAt": "2026-08-11T13:18:23.180Z",
+  "pageId": "page_amal_f8c9e9a542747c15",
+  "revision": "r1",
+  "buildId": "blessed-arrival-1-0-0-r1",
+  "materialDigest": "5e86b34f1a30e3d327c8f3e956d8a498699644eaf740856569d579a9f2af09b7",
+  "dossierDigest": "c7a3eb917c636416f47002027aaa2a85fd7161d803325bc0f62961541697aa32",
+  "approvedPageDigest": "76ec5ed5ab81227365f79da8383eff23d9c9fa4e07d7f44607122fd288b0fa95",
+  "preparedBundleDigest": "55fcbdcb9b65e18b80b58449d0352bc9f7b71224e7effcc42b9c305025e3d3ba",
+  "signatureAlgorithm": "hmac-sha256",
+  "acknowledgedReasons": [],
+  "demandsDisposition": "applied",
+  "artifacts": {
+    "approvedPage": "page.json",
+    "approval": "approval.json"
+  },
+  "signature": "6950ca520a0454ab6a2307ff68a43db8a4161e3199ad2213b906da0c51e0d9dc"
+}

@@ -1,0 +1,43 @@
+{
+  "schemaVersion": "1.0",
+  "jobId": "job_bayane",
+  "pageId": "page_bayane_001",
+  "slug": "bayane",
+  "status": "created",
+  "templateFamily": "blessed-arrival",
+  "templateVersion": "1.0.0",
+  "rendererVersion": "1.0.0",
+  "currentPreparedRevision": "r1",
+  "currentLiveRevision": null,
+  "paths": {
+    "sourcePage": "data/examples/bayane/page.json",
+    "currentPage": "out/bayane/artifacts/current/page.json",
+    "currentTranscript": "out/bayane/artifacts/current/transcript.json",
+    "deployRoot": "out/bayane/deploy"
+  },
+  "customer": {
+    "email": "family.bayane@example.com",
+    "nameLatin": "Bayane",
+    "nameArabic": "بَيَان",
+    "languages": [
+      "ar",
+      "fr"
+    ]
+  },
+  "review": {
+    "status": "approved",
+    "reviewedBy": "operator@example.com",
+    "reviewedAt": "2026-03-08T11:00:00Z"
+  },
+  "deploy": null,
+  "email": {
+    "status": "pending"
+  },
+  "revisionHistory": [
+    {
+      "revision": "r1",
+      "renderedAt": "2026-03-08T11:05:00Z",
+      "buildId": "blessed-arrival-1-0-0-r1"
+    }
+  ]
+}

@@ -1,0 +1,23 @@
+{
+  "schemaVersion": "1.0",
+  "requestId": "req_noor_001",
+  "submittedAt": "2026-03-08T13:00:00Z",
+  "customer": {
+    "email": "family.noor@example.com"
+  },
+  "baby": {
+    "firstName": "Noor",
+    "nameArabic": "نور",
+    "gender": "girl"
+  },
+  "languages": [
+    "fr"
+  ],
+  "voicePreference": {
+    "gender": "female"
+  },
+  "notes": {
+    "specificDemands": "French-only and minimal.",
+    "religiousReferencesHint": []
+  }
+}

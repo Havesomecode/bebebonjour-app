@@ -1,0 +1,55 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://bebebonjour.local/schemas/narration-approval.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "state",
+    "reviewer",
+    "reviewedAt",
+    "pageId",
+    "revision",
+    "buildId",
+    "contentApprovalDigest",
+    "basePreparedBundleDigest",
+    "narrationReviewDigest",
+    "mediaDigest",
+    "preparedBundleDigest",
+    "acknowledgedLanguages",
+    "signatureAlgorithm",
+    "artifacts",
+    "signature"
+  ],
+  "properties": {
+    "schemaVersion": { "const": "1.0" },
+    "state": { "const": "approved" },
+    "reviewer": { "type": "string", "minLength": 1 },
+    "reviewedAt": { "type": "string", "format": "date-time" },
+    "pageId": { "type": "string", "minLength": 1 },
+    "revision": { "type": "string", "pattern": "^r[0-9]+$" },
+    "buildId": { "type": "string", "pattern": "^[a-z0-9-]+$" },
+    "contentApprovalDigest": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "basePreparedBundleDigest": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "narrationReviewDigest": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "mediaDigest": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "preparedBundleDigest": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "acknowledgedLanguages": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": { "enum": ["ar", "fr"] }
+    },
+    "signatureAlgorithm": { "const": "hmac-sha256" },
+    "artifacts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["narrationReview", "narrationApproval"],
+      "properties": {
+        "narrationReview": { "const": "narration-review/review.json" },
+        "narrationApproval": { "const": "narration-approval.json" }
+      }
+    },
+    "signature": { "type": "string", "pattern": "^[a-f0-9]{64}$" }
+  }
+}

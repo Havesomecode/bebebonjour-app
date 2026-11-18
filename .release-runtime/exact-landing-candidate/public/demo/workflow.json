@@ -1,0 +1,294 @@
+{
+  "schemaVersion": "1.0",
+  "mode": "synthetic-demo",
+  "simulated": true,
+  "generatedAt": "2026-08-18T08:07:00.000Z",
+  "price": {
+    "amountMinor": 3900,
+    "currency": "EUR",
+    "display": "39 €"
+  },
+  "safety": {
+    "inventedProfilesOnly": true,
+    "providersCalled": [],
+    "networkRequired": false,
+    "analytics": false,
+    "reset": "Reloads the first immutable canonical projection."
+  },
+  "announcements": [
+    {
+      "key": "amal",
+      "slug": "amal",
+      "simulated": true,
+      "path": "announcements/amal/fr",
+      "intake": {
+        "schemaVersion": "1.0",
+        "customer": {
+          "email": "famille.amal@demo.test",
+          "consent": true
+        },
+        "baby": {
+          "firstName": "Amal",
+          "nameArabic": "أمل",
+          "gender": "girl"
+        },
+        "languages": [
+          "fr",
+          "ar"
+        ],
+        "voicePreference": {
+          "enabled": true,
+          "gender": "neutral"
+        },
+        "preferences": {
+          "selfContainedFonts": true
+        }
+      },
+      "checkout": {
+        "amountMinor": 3900,
+        "currency": "EUR",
+        "mode": "test",
+        "sessionId": "cs_test_local_9454c1431a18c22026024fe7"
+      },
+      "timeline": [
+        {
+          "key": "intake",
+          "label": "Intake reçu",
+          "description": "Profil fictif validé par le contrat first-party TEST-A.",
+          "jobId": "job_demo_amal",
+          "status": "payment_pending",
+          "payment": "pending",
+          "review": "not_ready",
+          "delivery": "not_ready",
+          "canonicalState": "awaiting_payment",
+          "revisionId": null,
+          "publishedRevisionId": null,
+          "simulated": true
+        },
+        {
+          "key": "checkout",
+          "label": "Checkout simulé",
+          "description": "Session locale de 39 € créée, sans Stripe ni transaction.",
+          "jobId": "job_demo_amal",
+          "status": "payment_pending",
+          "payment": "pending",
+          "review": "not_ready",
+          "delivery": "not_ready",
+          "canonicalState": "awaiting_payment",
+          "revisionId": null,
+          "publishedRevisionId": null,
+          "simulated": true
+        },
+        {
+          "key": "payment",
+          "label": "Paiement confirmé",
+          "description": "Événement test corrélé au job canonique; aucun débit réel.",
+          "jobId": "job_demo_amal",
+          "status": "generation_pending",
+          "payment": "paid",
+          "review": "not_ready",
+          "delivery": "not_ready",
+          "canonicalState": "generation_queued",
+          "revisionId": null,
+          "publishedRevisionId": null,
+          "simulated": true
+        },
+        {
+          "key": "generation",
+          "label": "Brouillon généré",
+          "description": "Artefacts reproductibles produits par le générateur canonique.",
+          "jobId": "job_demo_amal",
+          "status": "review_required",
+          "payment": "paid",
+          "review": "pending",
+          "delivery": "not_ready",
+          "canonicalState": "content_review_required",
+          "revisionId": "r1",
+          "publishedRevisionId": null,
+          "simulated": true
+        },
+        {
+          "key": "review",
+          "label": "Révision éditoriale",
+          "description": "Contenu et artefacts locaux approuvés pour la révision exacte r1.",
+          "jobId": "job_demo_amal",
+          "status": "publication_ready",
+          "payment": "paid",
+          "review": "approved",
+          "delivery": "not_ready",
+          "canonicalState": "publish_ready",
+          "revisionId": "r1",
+          "publishedRevisionId": null,
+          "simulated": true
+        },
+        {
+          "key": "publication",
+          "label": "Publication simulée",
+          "description": "Slug statique conservé dans cet artefact; aucun déploiement externe.",
+          "jobId": "job_demo_amal",
+          "status": "delivery_ready",
+          "payment": "paid",
+          "review": "approved",
+          "delivery": "ready",
+          "canonicalState": "delivery_queued",
+          "revisionId": "r1",
+          "publishedRevisionId": "r1",
+          "simulated": true
+        },
+        {
+          "key": "delivery",
+          "label": "Livraison confirmée",
+          "description": "Accusé local déterministe; aucun e-mail ni appel Resend.",
+          "jobId": "job_demo_amal",
+          "status": "complete",
+          "payment": "paid",
+          "review": "approved",
+          "delivery": "accepted",
+          "stableUrl": "announcements/amal/fr",
+          "canonicalState": "complete",
+          "revisionId": "r1",
+          "publishedRevisionId": "r1",
+          "simulated": true,
+          "canonicalStableUrl": "https://example.invalid/announcements/job_demo_amal"
+        }
+      ]
+    },
+    {
+      "key": "bayane",
+      "slug": "bayane",
+      "simulated": true,
+      "path": "announcements/bayane/fr",
+      "intake": {
+        "schemaVersion": "1.0",
+        "customer": {
+          "email": "famille.bayane@demo.test",
+          "consent": true
+        },
+        "baby": {
+          "firstName": "Bayane",
+          "nameArabic": "بَيَان",
+          "gender": "girl"
+        },
+        "languages": [
+          "fr",
+          "ar"
+        ],
+        "voicePreference": {
+          "enabled": true,
+          "gender": "neutral"
+        },
+        "preferences": {
+          "selfContainedFonts": true
+        }
+      },
+      "checkout": {
+        "amountMinor": 3900,
+        "currency": "EUR",
+        "mode": "test",
+        "sessionId": "cs_test_local_77e465d603c4b65afacb5429"
+      },
+      "timeline": [
+        {
+          "key": "intake",
+          "label": "Intake reçu",
+          "description": "Profil fictif validé par le contrat first-party TEST-A.",
+          "jobId": "job_demo_bayane",
+          "status": "payment_pending",
+          "payment": "pending",
+          "review": "not_ready",
+          "delivery": "not_ready",
+          "canonicalState": "awaiting_payment",
+          "revisionId": null,
+          "publishedRevisionId": null,
+          "simulated": true
+        },
+        {
+          "key": "checkout",
+          "label": "Checkout simulé",
+          "description": "Session locale de 39 € créée, sans Stripe ni transaction.",
+          "jobId": "job_demo_bayane",
+          "status": "payment_pending",
+          "payment": "pending",
+          "review": "not_ready",
+          "delivery": "not_ready",
+          "canonicalState": "awaiting_payment",
+          "revisionId": null,
+          "publishedRevisionId": null,
+          "simulated": true
+        },
+        {
+          "key": "payment",
+          "label": "Paiement confirmé",
+          "description": "Événement test corrélé au job canonique; aucun débit réel.",
+          "jobId": "job_demo_bayane",
+          "status": "generation_pending",
+          "payment": "paid",
+          "review": "not_ready",
+          "delivery": "not_ready",
+          "canonicalState": "generation_queued",
+          "revisionId": null,
+          "publishedRevisionId": null,
+          "simulated": true
+        },
+        {
+          "key": "generation",
+          "label": "Brouillon généré",
+          "description": "Artefacts reproductibles produits par le générateur canonique.",
+          "jobId": "job_demo_bayane",
+          "status": "review_required",
+          "payment": "paid",
+          "review": "pending",
+          "delivery": "not_ready",
+          "canonicalState": "content_review_required",
+          "revisionId": "r1",
+          "publishedRevisionId": null,
+          "simulated": true
+        },
+        {
+          "key": "review",
+          "label": "Révision éditoriale",
+          "description": "Contenu et artefacts locaux approuvés pour la révision exacte r1.",
+          "jobId": "job_demo_bayane",
+          "status": "publication_ready",
+          "payment": "paid",
+          "review": "approved",
+          "delivery": "not_ready",
+          "canonicalState": "publish_ready",
+          "revisionId": "r1",
+          "publishedRevisionId": null,
+          "simulated": true
+        },
+        {
+          "key": "publication",
+          "label": "Publication simulée",
+          "description": "Slug statique conservé dans cet artefact; aucun déploiement externe.",
+          "jobId": "job_demo_bayane",
+          "status": "delivery_ready",
+          "payment": "paid",
+          "review": "approved",
+          "delivery": "ready",
+          "canonicalState": "delivery_queued",
+          "revisionId": "r1",
+          "publishedRevisionId": "r1",
+          "simulated": true
+        },
+        {
+          "key": "delivery",
+          "label": "Livraison confirmée",
+          "description": "Accusé local déterministe; aucun e-mail ni appel Resend.",
+          "jobId": "job_demo_bayane",
+          "status": "complete",
+          "payment": "paid",
+          "review": "approved",
+          "delivery": "accepted",
+          "stableUrl": "announcements/bayane/fr",
+          "canonicalState": "complete",
+          "revisionId": "r1",
+          "publishedRevisionId": "r1",
+          "simulated": true,
+          "canonicalStableUrl": "https://example.invalid/announcements/job_demo_bayane"
+        }
+      ]
+    }
+  ]
+}

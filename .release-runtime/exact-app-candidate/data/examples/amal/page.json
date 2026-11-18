@@ -1,0 +1,148 @@
+{
+  "schemaVersion": "1.0",
+  "pageId": "page_amal_f8c9e9a542747c15",
+  "slug": "amal",
+  "languages": [
+    "ar"
+  ],
+  "defaultLanguage": "ar",
+  "templateFamily": "blessed-arrival",
+  "templateVersion": "1.0.0",
+  "rendererVersion": "1.0.0",
+  "pageRevision": "r1",
+  "featureFlags": [],
+  "sectionOrder": [
+    "intro",
+    "dua",
+    "meaning",
+    "reveal",
+    "verses",
+    "closing"
+  ],
+  "identity": {
+    "nameLatin": "Amal",
+    "nameArabic": "أمل",
+    "gender": "girl",
+    "childLabel": {
+      "ar": "بابنتنا",
+      "fr": "notre fille"
+    }
+  },
+  "seo": {
+    "title": "Une Naissance Bénie | Amal",
+    "description": "A birth announcement page for Amal.",
+    "ogImageMode": "static"
+  },
+  "sections": {
+    "intro": {
+      "ar": {
+        "displayLines": [
+          "بِسْمِ اللهِ الرَّحْمٰنِ الرَّحِيمِ.",
+          "بفضل الله استقبلنا بابنتنا أمل."
+        ],
+        "narrationText": "بِسْمِ اللهِ الرَّحْمٰنِ الرَّحِيمِ. بفضل الله استقبلنا بابنتنا أمل."
+      }
+    },
+    "dua": {
+      "ar": {
+        "displayLines": [
+          "نتمنى لـ أمل حياة مليئة بالنور والسكينة،",
+          "وأيامًا لطيفة وبركة لمن حولها."
+        ],
+        "narrationText": "نتمنى لـ أمل حياة مليئة بالنور والسكينة، وأيامًا لطيفة وبركة لمن حولها."
+      }
+    },
+    "meaning": {
+      "ar": {
+        "displayLines": [
+          "اخترنا اسم أمل بمحبة.",
+          "اسم فريد يحمل القصة التي تمنحها له عائلته."
+        ],
+        "narrationText": "اخترنا اسم أمل بمحبة. اسم فريد يحمل القصة التي تمنحها له عائلته."
+      }
+    },
+    "reveal": {
+      "ar": {
+        "introLines": [
+          "بفضل الله ومنته",
+          "رزقنا بابنتنا..."
+        ],
+        "name": "أمل",
+        "narrationText": "بفضل الله ومنته رزقنا بابنتنا أمل."
+      }
+    },
+    "verses": {
+      "ar": {
+        "introLine": "أمنيات جميلة:",
+        "items": [
+          {
+            "quote": "نور وأمل ورحمة",
+            "reference": "أمنية عامة",
+            "sourceKey": "generic-wish-ar"
+          }
+        ],
+        "narrationText": "نور وأمل ورحمة."
+      }
+    },
+    "closing": {
+      "ar": {
+        "displayLines": [
+          "اللهم بارك في أمل.",
+          "واجعل أيامها لطفًا ورحمة وسكينة."
+        ],
+        "narrationText": "اللهم بارك في أمل. واجعل أيامها لطفًا ورحمة وسكينة."
+      }
+    }
+  },
+  "audioPlan": {
+    "provider": "openai",
+    "model": "gpt-4o-mini-tts",
+    "voiceByLanguage": {
+      "ar": "alloy",
+      "fr": "alloy"
+    },
+    "instructionsByLanguage": {
+      "ar": "Soft, spiritual, contemplative, and warm.",
+      "fr": "Soft, spiritual, contemplative, and warm."
+    }
+  },
+  "review": {
+    "status": "approved",
+    "reviewedBy": "synthetic-fixture-operator",
+    "reviewedAt": "2026-08-11T13:18:23.180Z",
+    "requiredReasons": []
+  },
+  "provenance": {
+    "sourceRequestId": "req_amal_001",
+    "composeSuggestionId": "general-amal",
+    "composeBasis": "general",
+    "customerEmail": "family.amal@example.com",
+    "specificDemands": {
+      "value": "Arabic-only and gentle.",
+      "applicationStatus": "applied"
+    },
+    "nameResolution": {
+      "status": "resolved",
+      "normalized": {
+        "latin": "amal",
+        "arabic": "امل"
+      },
+      "match": {
+        "kind": "exact",
+        "canonicalKey": "amal",
+        "candidates": [
+          "amal"
+        ]
+      },
+      "confidence": "high",
+      "claimPolicy": {
+        "meaningAllowed": false,
+        "scripturalNameAssociationAllowed": false,
+        "genericBlessingsAllowed": true
+      },
+      "reviewReasons": [],
+      "sourceKeys": []
+    }
+  },
+  "buildId": "blessed-arrival-1-0-0-r1"
+}

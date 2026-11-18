@@ -1,0 +1,87 @@
+{
+  "schemaVersion": "1.0",
+  "startedAt": "2026-08-23T00:33:15.081Z",
+  "candidates": {
+    "app": {
+      "commit": "ceb41cdc98a28db8fff0b674f909457a33b63282",
+      "tree": "b2855bf9578d306724f99e49030fcf714a8eb6f1"
+    },
+    "landing": {
+      "commit": "1fcf3af4925151f0598db05cf28022db8de0b69f",
+      "tree": "66e68e5c638f34856388a7995adc68960703c235"
+    }
+  },
+  "convex": {
+    "deploymentName": "brilliant-hawk-751",
+    "url": "https://brilliant-hawk-751.convex.cloud",
+    "environmentVariableNames": [
+      "CUSTOMER_FLOW_BACKEND_TOKEN"
+    ],
+    "httpStatus": 200
+  },
+  "vercelApi": {
+    "projectId": "prj_XJrkufo77hXAdvMuYjPn6F6AVZjn",
+    "environmentVariableNames": [
+      "CONVEX_URL",
+      "CUSTOMER_FLOW_ALLOWED_ORIGINS",
+      "CUSTOMER_FLOW_BACKEND_TOKEN",
+      "CUSTOMER_FLOW_TEST_ACCESS_TOKEN",
+      "CUSTOMER_FLOW_TOKEN_ENCRYPTION_KEY",
+      "STRIPE_CHECKOUT_CANCEL_URL",
+      "STRIPE_CHECKOUT_SUCCESS_URL",
+      "STRIPE_CUSTOMER_FLOW_WEBHOOK_SECRET",
+      "STRIPE_SECRET_KEY"
+    ],
+    "bootstrapDeployment": null,
+    "finalDeployment": {
+      "id": "dpl_DQBLWA6v1SDHifPd5QBiQa2nVtWE",
+      "url": "https://bebebonjour-fulfillment-15d1pj2tp-zacaria-chtatars-projects.vercel.app",
+      "status": "READY"
+    },
+    "canonicalUrl": "https://bebebonjour-fulfillment.vercel.app",
+    "health": {
+      "ok": true,
+      "boundary": "TEST-A",
+      "persistence": "convex-hosted",
+      "payment": "stripe-test-mode",
+      "delivery": "operator-gated-resend-test"
+    }
+  },
+  "stripe": {
+    "endpoint": {
+      "id": "we_1U7PFgGrir6mz3o7BJGzWJ66",
+      "accountId": "acct_1MKd4KGrir6mz3o7",
+      "livemode": false,
+      "enabled": true,
+      "url": "https://bebebonjour-fulfillment.vercel.app/api/customer-flow/webhooks/stripe",
+      "events": [
+        "checkout.session.completed"
+      ]
+    }
+  },
+  "landing": {
+    "projectId": "prj_MJTHJrEVehZIRHuQBiZ1CgAG7MuB",
+    "environmentVariableNames": [
+      "VITE_FULFILLMENT_API_BASE_URL"
+    ],
+    "deployment": {
+      "id": "dpl_HHMEwZcoasXArKais9fikcAVc9Mr",
+      "url": "https://bebebonjour-landing-3nbirsdco-zacaria-chtatars-projects.vercel.app",
+      "status": "READY"
+    },
+    "canonicalOrigin": "https://www.bebebonjour.com",
+    "rootStatus": 200,
+    "trackingStatus": 200,
+    "notFoundStatus": 200
+  },
+  "proof": {},
+  "review": {},
+  "warnings": [
+    "Landing uses the approved SPA fallback: an unknown path returns index.html with HTTP 200; API unknown routes are verified separately as HTTP 404."
+  ],
+  "failedAt": "2026-08-23T00:34:41.100Z",
+  "failure": "HTTP 404 from https://bebebonjour-fulfillment.vercel.app/api/customer-flow/v1/intakes.",
+  "rollback": {
+    "stripeEndpointDisabled": true
+  }
+}

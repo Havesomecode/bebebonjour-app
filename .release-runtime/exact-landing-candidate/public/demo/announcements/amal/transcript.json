@@ -1,0 +1,81 @@
+{
+  "version": 1,
+  "tracks": {
+    "fr": [
+      {
+        "section": "intro",
+        "text": "Par la grâce de Dieu, nous avons accueilli notre fille. Amal est entrée dans nos vies avec douceur.",
+        "time": "00:00",
+        "seconds": 0
+      },
+      {
+        "section": "dua",
+        "text": "Nous souhaitons à Amal une vie douce et lumineuse, faite de paix, de tendresse et de joie.",
+        "time": "00:08",
+        "seconds": 8
+      },
+      {
+        "section": "meaning",
+        "text": "Nous avons choisi Amal avec amour. Un prénom unique, porté par l'histoire que sa famille lui donnera.",
+        "time": "00:16",
+        "seconds": 16
+      },
+      {
+        "section": "reveal",
+        "text": "Par la grâce de Dieu, nous avons accueilli notre fille Amal.",
+        "time": "00:24",
+        "seconds": 24
+      },
+      {
+        "section": "verses",
+        "text": "Lumière, paix et espérance.",
+        "time": "00:29",
+        "seconds": 29
+      },
+      {
+        "section": "closing",
+        "text": "Que Amal grandisse dans la paix et la lumière, et qu'elle soit une joie pour ceux qui l'entourent.",
+        "time": "00:33",
+        "seconds": 33
+      }
+    ],
+    "ar": [
+      {
+        "section": "intro",
+        "text": "بِسْمِ اللهِ الرَّحْمٰنِ الرَّحِيمِ. بفضل الله استقبلنا بابنتنا أمل.",
+        "time": "00:00",
+        "seconds": 0
+      },
+      {
+        "section": "dua",
+        "text": "نتمنى لـ أمل حياة مليئة بالنور والسكينة، وأيامًا لطيفة وبركة لمن حولها.",
+        "time": "00:04",
+        "seconds": 4
+      },
+      {
+        "section": "meaning",
+        "text": "اخترنا اسم أمل بمحبة. اسم فريد يحمل القصة التي تمنحها له عائلته.",
+        "time": "00:10",
+        "seconds": 10
+      },
+      {
+        "section": "reveal",
+        "text": "بفضل الله ومنته رزقنا بابنتنا أمل.",
+        "time": "00:16",
+        "seconds": 16
+      },
+      {
+        "section": "verses",
+        "text": "نور وأمل ورحمة.",
+        "time": "00:20",
+        "seconds": 20
+      },
+      {
+        "section": "closing",
+        "text": "اللهم بارك في أمل. واجعل أيامها لطفًا ورحمة وسكينة.",
+        "time": "00:24",
+        "seconds": 24
+      }
+    ]
+  }
+}

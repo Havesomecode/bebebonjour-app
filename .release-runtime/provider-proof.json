@@ -1,0 +1,30 @@
+{
+  "schemaVersion": "1.0",
+  "startedAt": "2026-08-21T19:02:27.017Z",
+  "candidates": {
+    "app": {
+      "commit": "960f830c3400c7e5623c7109012404bde678b27f",
+      "tree": "02138465cdd65a5736dd786185c7496149db7e66"
+    },
+    "landing": {
+      "commit": "1fcf3af4925151f0598db05cf28022db8de0b69f",
+      "tree": "66e68e5c638f34856388a7995adc68960703c235"
+    }
+  },
+  "convex": {
+    "deploymentName": "brilliant-hawk-751",
+    "url": "https://brilliant-hawk-751.convex.cloud",
+    "environmentVariableNames": [
+      "CUSTOMER_FLOW_BACKEND_TOKEN"
+    ],
+    "httpStatus": 200
+  },
+  "vercelApi": {},
+  "stripe": {},
+  "landing": {},
+  "proof": {},
+  "review": {},
+  "warnings": [],
+  "failedAt": "2026-08-21T19:08:41.674Z",
+  "failure": "Command did not return parseable JSON."
+}

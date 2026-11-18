@@ -1,0 +1,145 @@
+{
+  "schemaVersion": "1.0",
+  "pageId": "page_bayane_abb818b54a488457",
+  "slug": "bayane",
+  "languages": [
+    "fr",
+    "ar"
+  ],
+  "defaultLanguage": "ar",
+  "templateFamily": "blessed-arrival",
+  "templateVersion": "1.0.0",
+  "rendererVersion": "1.0.0",
+  "pageRevision": "r1",
+  "buildId": "blessed-arrival-1-0-0-r1",
+  "sectionOrder": [
+    "intro",
+    "dua",
+    "meaning",
+    "reveal",
+    "verses",
+    "closing"
+  ],
+  "identity": {
+    "nameLatin": "Bayane",
+    "nameArabic": "بَيَان",
+    "gender": "girl",
+    "childLabel": {
+      "ar": "بابنتنا",
+      "fr": "notre fille"
+    }
+  },
+  "seo": {
+    "title": "Une Naissance Bénie | Bayane",
+    "description": "A birth announcement page for Bayane.",
+    "ogImageMode": "static"
+  },
+  "sections": {
+    "intro": {
+      "ar": {
+        "displayLines": [
+          "بِسْمِ اللهِ الرَّحْمٰنِ الرَّحِيمِ.",
+          "بفضل الله استقبلنا بابنتنا بَيَان."
+        ],
+        "narrationText": "بِسْمِ اللهِ الرَّحْمٰنِ الرَّحِيمِ. بفضل الله استقبلنا بابنتنا بَيَان."
+      },
+      "fr": {
+        "displayLines": [
+          "Par la grâce de Dieu, nous avons accueilli notre fille.",
+          "Bayane est entrée dans nos vies avec douceur."
+        ],
+        "narrationText": "Par la grâce de Dieu, nous avons accueilli notre fille. Bayane est entrée dans nos vies avec douceur."
+      }
+    },
+    "dua": {
+      "ar": {
+        "displayLines": [
+          "نتمنى لـ بَيَان حياة مليئة بالنور والسكينة،",
+          "وأيامًا لطيفة وبركة لمن حولها."
+        ],
+        "narrationText": "نتمنى لـ بَيَان حياة مليئة بالنور والسكينة، وأيامًا لطيفة وبركة لمن حولها."
+      },
+      "fr": {
+        "displayLines": [
+          "Nous souhaitons à Bayane une vie douce et lumineuse,",
+          "faite de paix, de tendresse et de joie."
+        ],
+        "narrationText": "Nous souhaitons à Bayane une vie douce et lumineuse, faite de paix, de tendresse et de joie."
+      }
+    },
+    "meaning": {
+      "ar": {
+        "displayLines": [
+          "اخترنا اسم بَيَان بمحبة.",
+          "اسم فريد يحمل القصة التي تمنحها له عائلته."
+        ],
+        "narrationText": "اخترنا اسم بَيَان بمحبة. اسم فريد يحمل القصة التي تمنحها له عائلته."
+      },
+      "fr": {
+        "displayLines": [
+          "Nous avons choisi Bayane avec amour.",
+          "Un prénom unique, porté par l'histoire que sa famille lui donnera."
+        ],
+        "narrationText": "Nous avons choisi Bayane avec amour. Un prénom unique, porté par l'histoire que sa famille lui donnera."
+      }
+    },
+    "reveal": {
+      "ar": {
+        "introLines": [
+          "بفضل الله ومنته",
+          "رزقنا بابنتنا..."
+        ],
+        "name": "بَيَان",
+        "narrationText": "بفضل الله ومنته رزقنا بابنتنا بَيَان."
+      },
+      "fr": {
+        "introLines": [
+          "Par la grâce de Dieu,",
+          "nous avons accueilli notre fille..."
+        ],
+        "name": "Bayane",
+        "narrationText": "Par la grâce de Dieu, nous avons accueilli notre fille Bayane."
+      }
+    },
+    "verses": {
+      "ar": {
+        "introLine": "أمنيات جميلة:",
+        "items": [
+          {
+            "quote": "نور وأمل ورحمة",
+            "reference": "أمنية عامة",
+            "sourceKey": "generic-wish-ar"
+          }
+        ],
+        "narrationText": "نور وأمل ورحمة."
+      },
+      "fr": {
+        "introLine": "Vœux de bonheur :",
+        "items": [
+          {
+            "quote": "Lumière, paix et espérance.",
+            "reference": "Vœu général",
+            "sourceKey": "generic-wish-fr"
+          }
+        ],
+        "narrationText": "Lumière, paix et espérance."
+      }
+    },
+    "closing": {
+      "ar": {
+        "displayLines": [
+          "اللهم بارك في بَيَان.",
+          "واجعل أيامها لطفًا ورحمة وسكينة."
+        ],
+        "narrationText": "اللهم بارك في بَيَان. واجعل أيامها لطفًا ورحمة وسكينة."
+      },
+      "fr": {
+        "displayLines": [
+          "Que Bayane grandisse dans la paix et la lumière,",
+          "et qu'elle soit une joie pour ceux qui l'entourent."
+        ],
+        "narrationText": "Que Bayane grandisse dans la paix et la lumière, et qu'elle soit une joie pour ceux qui l'entourent."
+      }
+    }
+  }
+}
