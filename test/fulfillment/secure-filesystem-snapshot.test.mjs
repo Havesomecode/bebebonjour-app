@@ -259,6 +259,57 @@ test("portable collection rejects mutation after an earlier file was locally val
   assert.equal(mutated, true);
 });
 
+test("portable collection rejects mutation after an earlier file was revalidated", {
+  skip: process.platform !== "linux",
+}, async (t) => {
+  const root = await mkdtemp(path.join(os.tmpdir(), "bebebonjour-node-revalidation-mutation-"));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const inventory = path.join(root, "artifacts");
+  await mkdir(inventory, { recursive: true, mode: ROOT_MODE });
+  const pagePath = path.join(inventory, "a.txt");
+  const transcriptPath = path.join(inventory, "b.txt");
+  await writeFile(pagePath, "trusted-a\n", { mode: 0o600 });
+  await writeFile(transcriptPath, "trusted-b\n", { mode: 0o600 });
+
+  const probe = await open(pagePath, "r");
+  const fileHandlePrototype = Object.getPrototypeOf(probe);
+  await probe.close();
+  const originalRead = fileHandlePrototype.read;
+  let transcriptReads = 0;
+  let mutated = false;
+  fileHandlePrototype.read = async function patchedRead(...args) {
+    const openedPath = await readlink(`/proc/self/fd/${this.fd}`);
+    if (openedPath === transcriptPath) {
+      transcriptReads += 1;
+      // Each bounded capture reads data and then EOF; call three starts b.txt's revalidation.
+      if (transcriptReads === 3) {
+        await writeFile(pagePath, "mutated-a\n", { mode: 0o600 });
+        mutated = true;
+      }
+    }
+    return originalRead.apply(this, args);
+  };
+  t.after(() => {
+    fileHandlePrototype.read = originalRead;
+  });
+
+  const portableSnapshot = createSecureFilesystemSnapshot({ spawnImpl: unavailableHelperSpawn });
+  await assert.rejects(
+    portableSnapshot.collectArtifactSnapshotFromRoot({
+      rootPath: root,
+      inventoryRoot: inventory,
+      pagePath,
+      transcriptPath,
+      maximumFileBytes: 1_024,
+      maximumJsonBytes: 1_024,
+      maximumTotalBytes: 4_096,
+      maximumFiles: 4,
+    }),
+    /Secure filesystem boundary rejected/u,
+  );
+  assert.equal(mutated, true);
+});
+
 test("descriptor-relative reads stay bound to the opened root across ancestor substitution", async (t) => {
   const parent = await mkdtemp(path.join(os.tmpdir(), "bebebonjour-bound-root-"));
   t.after(() => rm(parent, { recursive: true, force: true }));
