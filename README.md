@@ -34,6 +34,41 @@ or deployable job state.
 
 Stripe `payment_intent.succeeded` is the authoritative payment signal. The economic contract is fixed at **€39 EUR**. Provider events are signature-verified from their exact raw request bytes and processed idempotently.
 
+### One-order operator Checkout handoff (Stripe test mode)
+
+The signed Tally webhook acknowledges **only the job ID**; it never sends a
+customer capability, email, or Checkout URL to the Tally webhook receiver.
+For one known, fictional, unpaid Tally job, an operator can use the existing
+scoped Convex Operations token to authorize `create_checkout` and run a
+checkout-only, job-scoped worker. The resulting URL is returned privately to
+the operator (who can share it with that fictional customer); there is no
+public job-ID lookup, automatic email, or payment claim.
+
+Set `CONVEX_URL`, `BEBEBONJOUR_OPERATIONS_TOKEN`,
+`BEBEBONJOUR_OPERATIONS_WORKER_TOKEN`, `BEBEBONJOUR_OPERATIONS_WORKER_ID`,
+`BEBEBONJOUR_OPERATIONS_WORKER_ACTIONS=create_checkout`,
+`CUSTOMER_FLOW_BACKEND_TOKEN`, `CUSTOMER_FLOW_TOKEN_ENCRYPTION_KEY`,
+`STRIPE_SECRET_KEY=sk_test_...`, and HTTPS `STRIPE_CHECKOUT_SUCCESS_URL` and
+`STRIPE_CHECKOUT_CANCEL_URL` in the operator's private environment. The
+operator and worker tokens must match the corresponding Convex deployment
+secrets. Use a job ID obtained from the signed intake acknowledgement or an
+already authorized operator view, not by searching customer records:
+
+```bash
+node ops/create-tally-checkout.mjs job_<known-id>
+```
+
+The command verifies the operator capability and canonical unpaid state,
+requests an Operations command, fences the Stripe effect, persists the test
+Checkout Session, and reads back its exact command provenance before printing
+`{"jobId":"...","checkoutUrl":"https://checkout.stripe.com/..."}`.
+A repeated call reads the same persisted link without creating another
+session. Failure prints only a generic code; inspect the private Operations
+command state before deciding whether reconciliation is needed. **Creating a
+link does not mark a job paid.** Only the separately signed Stripe webhook can
+authorize the paid transition, and generation remains paid-only. This path is
+not enabled in the Tally webhook runtime.
+
 ## Requirements
 
 - Node.js 22
