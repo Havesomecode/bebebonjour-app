@@ -29,7 +29,7 @@ A parent creates a French or Arabic digital birth announcement (optional Cedar n
 - Exact-source reviews, "witness", parity and evidence-bundle cards; owner publication runbooks scoped to old jobs.
 - The older **owner-trial line** (operator-assisted publication, narration worker, `vercel.owner-trial-*`): not merged. Kept at tag `archive/2026-11-18/main-pre-live-integration` (it conflicts with the live line in 6 files). Reopen only if operator-assisted publication is wanted again.
 - The Tally→Stripe checkout handoff WIP (tag `archive/2026-11-18/resume-bebe-private-trial-current`): superseded by the first-party `/delivery` flow.
-- The earlier mail migration branch is archived; the current source must be reviewed and deployed separately.
+- Mail (18/11): all sending goes through Cloudflare Email from `bonjour@mail.havesomecode.io`; the Resend code, dependency and inbound webhook are removed and deployed to Convex `tacit-antelope-577`. The `bebebonjour.com` zone is on Cloudflare (Gandi stays registrar); `contact@bebebonjour.com` is forwarded to the owner by Cloudflare Email Routing (`docs/support-email-routing.md`).
 
 ## 5. Real blockers (need Zacaria)
 
