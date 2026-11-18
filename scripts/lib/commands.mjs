@@ -28,8 +28,13 @@ import {
   writeText,
 } from "./common.mjs";
 import { renderHtml } from "./render-html.mjs";
-import { resolveName } from "./name-resolution.mjs";
 import {
+  assertUnknownNameGeneralWishesPolicy,
+  resolveName,
+  resolveNameWithJobScopedEditorialPolicy,
+} from "./name-resolution.mjs";
+import {
+  assertValidJobScopedEditorialApproval,
   assertValidNameResolutionEvidence,
   assertValidNarrationApproval,
   assertValidNarrationManifest,
@@ -57,6 +62,7 @@ const RENDERER_MATERIAL_PATHS = [
   path.join(PROJECT_ROOT, "scripts", "lib", "render-html.mjs"),
   path.join(PROJECT_ROOT, "scripts", "lib", "schema-validation.mjs"),
   path.join(PROJECT_ROOT, "scripts", "lib", "validators.mjs"),
+  path.join(PROJECT_ROOT, "schemas", "job-scoped-editorial-approval.schema.json"),
   path.join(PROJECT_ROOT, "schemas", "name-resolution-evidence.schema.json"),
   path.join(PROJECT_ROOT, "schemas", "narration-approval.schema.json"),
   path.join(PROJECT_ROOT, "schemas", "narration-manifest.schema.json"),
@@ -83,7 +89,7 @@ export async function commandCompose(args, options = {}) {
       state: "needs_editorial_input",
       reasons: ["unsupported_gender_copy"],
     };
-    console.log(JSON.stringify(result, null, 2));
+    if (options.silent !== true) console.log(JSON.stringify(result, null, 2));
     process.exitCode = 3;
     return result;
   }
@@ -91,7 +97,9 @@ export async function commandCompose(args, options = {}) {
   const catalog = options.catalogSnapshot
     ? cloneJson(options.catalogSnapshot)
     : await readJson(REFERENCE_CATALOG_PATH);
-  const nameResolution = resolveName(intake, catalog);
+  const nameResolution = options.editorialPolicy
+    ? resolveNameWithJobScopedEditorialPolicy(intake, catalog, options.editorialPolicy)
+    : resolveName(intake, catalog);
   const suggestions = nameResolution.suggestions;
   const selectionId = typeof args.select === "string" ? args.select : null;
 
@@ -101,7 +109,7 @@ export async function commandCompose(args, options = {}) {
       match: nameResolution.match,
       reasons: nameResolution.reviewReasons,
     };
-    console.log(JSON.stringify(result, null, 2));
+    if (options.silent !== true) console.log(JSON.stringify(result, null, 2));
     process.exitCode = 3;
     return result;
   }
@@ -112,7 +120,7 @@ export async function commandCompose(args, options = {}) {
       reason: "No suitable references or meanings were found for this intake.",
       nextAction: "Decide whether to continue with general wishes or provide operator-authored content.",
     };
-    console.log(JSON.stringify(blocked, null, 2));
+    if (options.silent !== true) console.log(JSON.stringify(blocked, null, 2));
     process.exitCode = 3;
     return blocked;
   }
@@ -127,7 +135,7 @@ export async function commandCompose(args, options = {}) {
         confidence,
       })),
     };
-    console.log(JSON.stringify(result, null, 2));
+    if (options.silent !== true) console.log(JSON.stringify(result, null, 2));
     process.exitCode = 3;
     return result;
   }
@@ -153,11 +161,11 @@ export async function commandCompose(args, options = {}) {
     },
     reviewStatus: page.review.status,
   };
-  console.log(JSON.stringify(result, null, 2));
+  if (options.silent !== true) console.log(JSON.stringify(result, null, 2));
   return result;
 }
 
-export async function commandPrepareReview(args) {
+export async function commandPrepareReview(args, options = {}) {
   const input = path.resolve(process.cwd(), requireArg(args, "input"));
   const outputRoot = path.resolve(process.cwd(), requireArg(args, "output"));
   const inputRaw = await readFile(input, "utf8");
@@ -170,12 +178,16 @@ export async function commandPrepareReview(args) {
     ...(typeof args.select === "string" ? { select: args.select } : {}),
   };
   if (intakeSnapshot.baby.gender !== "girl") {
-    return commandCompose(composeArgs, { intakeSnapshot });
+    return commandCompose(composeArgs, { intakeSnapshot, silent: options.silent === true });
   }
 
   const inputDigest = createHash("sha256").update(inputRaw).digest("hex");
+  const editorialApprovalMaterial = options.editorialApproval
+    ? projectEditorialApprovalMaterial(options.editorialApproval)
+    : null;
   const materialBinding = await buildPrivateReviewMaterialBinding(
     typeof args.select === "string" ? args.select : null,
+    editorialApprovalMaterial,
   );
   const expectedPreviewRoot = path.posix.join(
     "private-preview",
@@ -191,6 +203,10 @@ export async function commandPrepareReview(args) {
   const composeResult = await commandCompose(composeArgs, {
     intakeSnapshot,
     catalogSnapshot: materialBinding.catalogSnapshot,
+    ...(editorialApprovalMaterial
+      ? { editorialPolicy: editorialApprovalMaterial.policy }
+      : {}),
+    silent: options.silent === true,
   });
 
   if (composeResult.state !== "draft_created") return composeResult;
@@ -203,6 +219,7 @@ export async function commandPrepareReview(args) {
     inputDigest,
     materialDigest: materialBinding.materialDigest,
     generationMaterials: materialBinding.generationMaterials,
+    silent: options.silent === true,
   });
 }
 
@@ -234,6 +251,7 @@ export async function commandApproveReview(args) {
 
   const currentBinding = await buildPrivateReviewMaterialBinding(
     dossier.generationMaterials.selectionId,
+    dossier.generationMaterials.editorialApproval || null,
   );
   if (
     dossier.materialDigest !== sha256(JSON.stringify(dossier.generationMaterials)) ||
@@ -412,19 +430,74 @@ function requireIsoTimestamp(value, label) {
   return value;
 }
 
-async function buildPrivateReviewMaterialBinding(selectionId) {
+async function buildPrivateReviewMaterialBinding(selectionId, editorialApproval = null) {
   const catalogRaw = await readFile(REFERENCE_CATALOG_PATH);
   const generationMaterials = {
     selectionId,
     catalogDigest: sha256(catalogRaw),
     templateDigest: await digestMaterialFiles(TEMPLATE_MATERIAL_PATHS),
     rendererDigest: await digestMaterialFiles(RENDERER_MATERIAL_PATHS),
+    ...(editorialApproval
+      ? { editorialApproval: normalizeEditorialApprovalMaterial(editorialApproval) }
+      : {}),
   };
 
   return {
     catalogSnapshot: JSON.parse(catalogRaw.toString("utf8")),
     generationMaterials,
     materialDigest: sha256(JSON.stringify(generationMaterials)),
+  };
+}
+
+function projectEditorialApprovalMaterial(editorialApproval) {
+  const record = editorialApproval?.record;
+  assertValidJobScopedEditorialApproval(record);
+  if (
+    typeof editorialApproval.recordDigest !== "string"
+    || !/^[a-f0-9]{64}$/u.test(editorialApproval.recordDigest)
+    || editorialApproval.recordDigest !== sha256(`${JSON.stringify(record, null, 2)}\n`)
+    || record.sourceDigest !== sha256(JSON.stringify({
+      kind: record.sourceEvidence.kind,
+      reference: record.sourceEvidence.reference,
+    }))
+  ) {
+    throw new Error("Invalid job-scoped editorial approval material.");
+  }
+  return normalizeEditorialApprovalMaterial({
+    approvalType: record.approvalType,
+    jobId: record.jobId,
+    policy: record.policy,
+    recordDigest: editorialApproval.recordDigest,
+    sourceDigest: record.sourceDigest,
+  });
+}
+
+function normalizeEditorialApprovalMaterial(material) {
+  const expectedKeys = [
+    "approvalType",
+    "jobId",
+    "policy",
+    "recordDigest",
+    "sourceDigest",
+  ];
+  const actualKeys = Object.keys(material || {}).sort();
+  if (
+    actualKeys.length !== expectedKeys.length
+    || expectedKeys.some((key, index) => actualKeys[index] !== key)
+    || material.approvalType !== "job_scoped_editorial_policy"
+    || !/^job_[A-Za-z0-9][A-Za-z0-9_-]{2,127}$/u.test(material.jobId || "")
+    || !/^[a-f0-9]{64}$/u.test(material.recordDigest || "")
+    || !/^[a-f0-9]{64}$/u.test(material.sourceDigest || "")
+  ) {
+    throw new Error("Invalid job-scoped editorial approval material.");
+  }
+  assertUnknownNameGeneralWishesPolicy(material.policy);
+  return {
+    approvalType: material.approvalType,
+    jobId: material.jobId,
+    policy: cloneJson(material.policy),
+    recordDigest: material.recordDigest,
+    sourceDigest: material.sourceDigest,
   };
 }
 
@@ -698,19 +771,21 @@ async function renderPage(args, options = {}) {
     assertValidNameResolutionEvidence(dossier.evidence.nameResolution);
     assertValidReviewDossier(dossier);
     await writeJson(path.join(outputRoot, "review.json"), dossier);
-    console.log(
-      JSON.stringify(
-        {
-          state: "private_review_ready",
-          outputRoot,
-          privatePreviewRoot: renderPaths.deployRoot,
-          revision: page.pageRevision,
-          buildId: renderPaths.buildId,
-        },
-        null,
-        2,
-      ),
-    );
+    if (options.silent !== true) {
+      console.log(
+        JSON.stringify(
+          {
+            state: "private_review_ready",
+            outputRoot,
+            privatePreviewRoot: renderPaths.deployRoot,
+            revision: page.pageRevision,
+            buildId: renderPaths.buildId,
+          },
+          null,
+          2,
+        ),
+      );
+    }
     return dossier;
   }
 

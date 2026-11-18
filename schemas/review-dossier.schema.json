@@ -66,6 +66,37 @@
         "rendererDigest": {
           "type": "string",
           "pattern": "^[a-f0-9]{64}$"
+        },
+        "editorialApproval": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "approvalType",
+            "jobId",
+            "policy",
+            "recordDigest",
+            "sourceDigest"
+          ],
+          "properties": {
+            "approvalType": {
+              "const": "job_scoped_editorial_policy"
+            },
+            "jobId": {
+              "type": "string",
+              "pattern": "^job_[A-Za-z0-9][A-Za-z0-9_-]{2,127}$"
+            },
+            "policy": {
+              "$ref": "job-scoped-editorial-approval.schema.json#/properties/policy"
+            },
+            "recordDigest": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            },
+            "sourceDigest": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            }
+          }
         }
       }
     },

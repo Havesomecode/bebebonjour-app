@@ -9,6 +9,7 @@ import { createTestAOperatorIsolationInventory } from "../src/config/test-a-oper
 
 const BASELINE_COMMIT = "c7abbb7338282b7bfba2616693f2a8d75285d8d3";
 const EVIDENCE_RELATIVE_PATH = "ops/test-a-consolidated-candidate-evidence.json";
+const EXCLUDED_WORKTREE_PATHS = new Set(["ops/.tmp-hermes-simulate-test-payment.mjs"]);
 const EXCLUDED_DIGEST_PATHS = new Set([
   EVIDENCE_RELATIVE_PATH,
   "ops/test-a-operator-isolation-review-evidence.json",
@@ -20,13 +21,43 @@ const focusedTestFiles = [
   "test/config/test-a-hosted-provider-manifest-policy.test.mjs",
   "test/config/test-a-operator-isolation.test.mjs",
   "test/fulfillment/exact-revision-publication-adapter.test.mjs",
+  "test/fulfillment/failed-prepare-review-recovery.test.mjs",
   "test/fulfillment/job-orchestration.test.mjs",
   "test/fulfillment/resend-delivery-adapter.test.mjs",
+  "test/fulfillment/test-a-generation-runner.test.mjs",
+  "test/fulfillment/test-a-generation-startup.test.mjs",
   "test/fulfillment/test-a-operator-runner.test.mjs",
   "test/fulfillment/test-a-operator-startup.test.mjs",
   "test/fulfillment/vercel-test-a-publication-provider.test.mjs",
 ];
 const controls = Object.freeze([
+  {
+    id: "isolated-generation-only-authority",
+    requirement: "The private generation entrypoint accepts only its three explicit authority inputs (job ID, private root, and immutable job-scoped editorial approval record), two reviewed business-authority variables, and named inert OS plumbing; it validates the closed approval policy before backend construction, reads canonical paid records, writes only beneath one private root, and permits one atomic legacy-input enrichment only when every original input and canonical intake byte is unchanged and the exact job-scoped approval is valid. That enrichment uses process-owned contender locks which recover dead writers without stealing a live writer lock, so a process-level interruption cannot permanently block an identical deterministic retry. It rejects concurrent competing approvals, malformed or rebound authority, record drift, noncanonical intake, symlinked paths, and partial writes; revalidates exact canonical intake bytes before any retry mutation or stage effect; advances only prepare_review; and on terminal replay revalidates the exact persisted input, approval, dossier materials, artifact inventory, and manifest without mutation. Its one failed-state recovery is hard-bound to the exact authorized job, canonical payment/intake identity, immutable approval bytes, one terminal prepare_review attempt, and absence of revision or external-effect evidence; it exposes no generic failed-job reset, provider, persisted content-approval, TTS, publication, delivery, or generic run-next authority.",
+    proofs: [
+      "test/fulfillment/test-a-generation-runner.test.mjs: generation-only runner persists canonical intake, advances only prepare_review, and returns PII-free output",
+      "test/fulfillment/test-a-generation-runner.test.mjs: generation-only end to end produces the approved neutral unknown-name dossier and stops for review",
+      "test/fulfillment/test-a-generation-runner.test.mjs: legacy generation input is enriched once with the exact job-scoped approval",
+      "test/fulfillment/test-a-generation-runner.test.mjs: concurrent legacy enrichment permits exactly one approval identity",
+      "test/fulfillment/test-a-generation-runner.test.mjs: generation-input stale recovery never steals a live writer lock",
+      "test/fulfillment/test-a-generation-runner.test.mjs: a killed legacy-enrichment writer leaves a safely recoverable generation-input lock",
+      "test/fulfillment/test-a-generation-runner.test.mjs: failed atomic input persistence leaves no partial workspace files",
+      "test/fulfillment/test-a-generation-runner.test.mjs: legacy approval enrichment rejects every input or authority drift without mutation",
+      "test/fulfillment/test-a-generation-runner.test.mjs: generation workspace rejects a generation-input symlink before enrichment",
+      "test/fulfillment/test-a-generation-runner.test.mjs: generation-only runner rejects a missing approval before constructing resources",
+      "test/fulfillment/test-a-generation-runner.test.mjs: persisted artifact collection rejects an unmanaged special filesystem entry",
+      "test/fulfillment/test-a-generation-runner.test.mjs: tampered persisted canonical intake blocks generation retry before mutation or stage effects",
+      "test/fulfillment/test-a-generation-runner.test.mjs: missing persisted canonical intake blocks generation retry before mutation or stage effects",
+      "test/fulfillment/test-a-generation-runner.test.mjs: terminal replay rejects a second schema-valid approval with a different source identity",
+      "test/fulfillment/test-a-generation-runner.test.mjs: terminal replay fails closed for missing or malformed inputs and incomplete or tampered artifacts",
+      "test/fulfillment/failed-prepare-review-recovery.test.mjs: the exact failed prepare_review transition is audited, terminal-evidence preserving, and idempotent",
+      "test/fulfillment/failed-prepare-review-recovery.test.mjs: recovery rejects every non-exact or ambiguous failed-state predicate without mutation",
+      "test/fulfillment/failed-prepare-review-recovery.test.mjs: the isolated runner recovers only the exact job and advances only prepare_review",
+      "test/fulfillment/test-a-generation-startup.test.mjs: generation startup rejects missing, mismatched, broadened, writable, and unsafe approval records before runner construction",
+      "test/fulfillment/test-a-generation-startup.test.mjs: generation startup rejects every unrecognized environment variable before runner construction",
+      "test/config/test-a-operator-isolation.test.mjs: generation-only invocation remains outside every public route graph and provider-capable module",
+    ],
+  },
   {
     id: "fail-closed-private-operator-startup",
     requirement: "The fixed private entrypoint exposes only status and exact signed-approval persistence; publication and delivery commands fail before runner construction or provider I/O.",
@@ -91,7 +122,7 @@ const reviewedFileDigests = await Promise.all(reviewInputs.map(async (filePath) 
 })));
 const generatedEvidence = {
   schemaVersion: "1.0",
-  auditId: "test-a-consolidated-candidate-successor-2026-08-26",
+  auditId: "test-a-consolidated-candidate-lock-recovery-2026-09-22",
   baselineCommit: BASELINE_COMMIT,
   candidateBoundary: {
     changedPaths,
@@ -104,6 +135,8 @@ const generatedEvidence = {
   },
   controls,
   isolation: {
+    generationInvocation: isolation.generationInvocation,
+    generationModuleGraph: isolation.generationModuleGraph,
     privateInvocation: isolation.privateInvocation,
     publicEntrypoints: isolation.publicEntrypoints,
     publicModuleGraph: isolation.publicModuleGraph,
@@ -158,7 +191,7 @@ function changedPathsFromBaseline() {
     ...lines(diffPaths),
     ...lines(untrackedPaths),
     EVIDENCE_RELATIVE_PATH,
-  ])].sort();
+  ])].filter((filePath) => !EXCLUDED_WORKTREE_PATHS.has(filePath)).sort();
 }
 
 function git(args) {

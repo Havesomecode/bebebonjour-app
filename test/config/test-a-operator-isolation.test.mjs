@@ -21,6 +21,14 @@ test("operator isolation inventory traces one status/review-only invocation outs
     "api/webhooks/tally.mjs",
   ]);
   assert.equal(inventory.privateInvocation, "ops/run-test-a-operator.mjs");
+  assert.equal(inventory.generationInvocation, "ops/run-test-a-generation.mjs");
+  assert.ok(inventory.generationModuleGraph.includes("src/fulfillment/test-a-generation-runner.mjs"));
+  assert.ok(inventory.generationModuleGraph.includes("src/fulfillment/test-a-generation-startup.mjs"));
+  assert.ok(inventory.generationModuleGraph.includes("src/fulfillment/local-prepare-review-stage-handler.mjs"));
+  assert.ok(inventory.generationModuleGraph.includes("src/fulfillment/job-scoped-generation-approval.mjs"));
+  assert.equal(inventory.generationModuleGraph.includes("src/fulfillment/operator-runner-test-a.mjs"), false);
+  assert.equal(inventory.generationModuleGraph.includes("src/fulfillment/resend-delivery-adapter.mjs"), false);
+  assert.equal(inventory.generationModuleGraph.includes("src/fulfillment/vercel-test-a-publication-provider.mjs"), false);
   assert.ok(inventory.privateModuleGraph.includes("src/fulfillment/operator-runner-test-a.mjs"));
   assert.ok(inventory.privateModuleGraph.includes("src/fulfillment/test-a-operator-startup.mjs"));
   assert.equal(inventory.privateModuleGraph.includes("src/fulfillment/test-a-operator-runtime-identity.mjs"), false);
@@ -30,7 +38,12 @@ test("operator isolation inventory traces one status/review-only invocation outs
   assert.ok(inventory.reviewInputs.includes("scripts/verify-vercel-routing.mjs"));
   assert.deepEqual(inventory.privateCapabilityModules, [
     "ops/run-test-a-operator.mjs",
+    "ops/run-test-a-generation.mjs",
+    "src/fulfillment/job-scoped-generation-approval.mjs",
+    "src/fulfillment/local-prepare-review-stage-handler.mjs",
     "src/fulfillment/operator-runner-test-a.mjs",
+    "src/fulfillment/test-a-generation-runner.mjs",
+    "src/fulfillment/test-a-generation-startup.mjs",
     "src/fulfillment/test-a-operator-runtime-identity.mjs",
     "src/fulfillment/test-a-operator-startup.mjs",
   ]);

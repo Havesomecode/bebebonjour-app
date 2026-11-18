@@ -5,6 +5,12 @@ import Ajv2020 from "ajv/dist/2020.js";
 const nameResolutionSchema = JSON.parse(
   await readFile(new URL("../../schemas/name-resolution-evidence.schema.json", import.meta.url), "utf8"),
 );
+const jobScopedEditorialApprovalSchema = JSON.parse(
+  await readFile(
+    new URL("../../schemas/job-scoped-editorial-approval.schema.json", import.meta.url),
+    "utf8",
+  ),
+);
 const reviewDossierSchema = JSON.parse(
   await readFile(new URL("../../schemas/review-dossier.schema.json", import.meta.url), "utf8"),
 );
@@ -59,7 +65,9 @@ const ajv = new Ajv2020({
   },
 });
 ajv.addSchema(nameResolutionSchema);
+ajv.addSchema(jobScopedEditorialApprovalSchema);
 const validateNameResolutionEvidence = ajv.getSchema(nameResolutionSchema.$id);
+const validateJobScopedEditorialApproval = ajv.getSchema(jobScopedEditorialApprovalSchema.$id);
 const validateReviewDossier = ajv.compile(reviewDossierSchema);
 const validateNarrationManifest = ajv.compile(narrationManifestSchema);
 const validateNarrationReview = ajv.compile(narrationReviewSchema);
@@ -68,6 +76,10 @@ const validateTranscript = ajv.compile(transcriptSchema);
 
 export function assertValidNameResolutionEvidence(evidence) {
   assertSchemaValid("name-resolution evidence", validateNameResolutionEvidence, evidence);
+}
+
+export function assertValidJobScopedEditorialApproval(approval) {
+  assertSchemaValid("job-scoped editorial approval", validateJobScopedEditorialApproval, approval);
 }
 
 export function assertValidReviewDossier(dossier) {

@@ -129,6 +129,57 @@ silent when no work or failure exists. The status wrapper is the only documented
 way for a Kanban worker to inspect the private canonical job; its output must not
 be copied into Kanban comments or logs.
 
+### Isolated private generation
+
+Generation uses a separate entrypoint and authority boundary from status and
+persisted approval. Pre-create a private directory outside the repository, keep
+it mode `0700`, and place the human-issued job-scoped editorial approval beneath
+that root. The approval must validate against
+`schemas/job-scoped-editorial-approval.schema.json`, bind the exact `job_...`
+identifier, carry the SHA-256 digest of its canonical `sourceEvidence` JSON, and
+contain exactly the `unknown_name_general_wishes` policy: preserve submitted
+Latin/Arabic spelling, allow generic blessings, forbid meaning and scriptural
+name-association claims, and stop at `content_review_required`. Make the record
+owner-readable and immutable to the invocation (`0400`); symlinks, aliases,
+hardlinks, writable files, and group/world-readable files are rejected.
+
+```bash
+mkdir -m 700 /absolute/private/path/bebebonjour-generation
+mkdir -m 700 /absolute/private/path/bebebonjour-generation/approvals
+# A human decision authority writes and validates this JSON before generation.
+chmod 400 /absolute/private/path/bebebonjour-generation/approvals/job_...json
+BEBEBONJOUR_PRIVATE_ARTIFACT_ROOT=/absolute/private/path/bebebonjour-generation \
+  ./scripts/private-generate-intake-from-hermes-secrets.sh \
+    <job_id> /absolute/private/path/bebebonjour-generation/approvals/job_...json
+```
+
+The wrapper accepts exactly one canonical `job_...` identifier and one absolute
+approval-record path beneath the configured private root. It forwards only
+`CONVEX_URL` and `CUSTOMER_FLOW_BACKEND_TOKEN` as business environment values.
+Startup validates the private path, file permissions, closed JSON schema, exact
+job binding, exact non-broadening policy, and source-evidence digest before it
+constructs the backend runner. The worker then reads both canonical records,
+rejects unpaid, mismatched, or ineligible jobs before a Convex mutation,
+persists the canonical intake bytes and exact approval binding only beneath the
+configured private root, advances only `prepare_review`, and stops at
+`content_review_required`.
+Replay after successful generation returns `already_generated`; a bounded
+prepare-review retry resumes only that same stage. Output is a PII-free status
+projection and must never be augmented with intake, email, names, notes, page
+content, or raw artifact bytes.
+
+The generated private dossier binds the editorial approval record digest, source
+digest, exact job, and exact policy into `generationMaterials` and therefore the
+dossier `materialDigest`. The policy applies only when the ordinary resolver
+returns `unknown`; exact, alias, ambiguous, cross-script-conflict, and invalid
+orthography outcomes remain rejected. The submitted name is never rewritten to
+obtain a fallback, and the approved path always uses the general-wishes fallback.
+
+This entrypoint has no persisted content-approval, TTS, render-after-approval,
+publication, delivery, Vercel, Resend, Stripe mutation, or generic run-next
+capability. Do not replace it with `ops/run-test-a-operator.mjs run-next` and do
+not add provider credentials to its environment.
+
 ## Verification gates
 
 Run from the exact candidate:

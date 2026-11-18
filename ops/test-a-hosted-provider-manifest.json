@@ -360,6 +360,28 @@
     "providerOperationsEnabled": false,
     "futurePublicationIdentityAuthority": "parsed exact Vercel inspection bytes for deploymentId, revisionId, buildId, teamId, projectId, and projectName; environment values may only assert expected values"
   },
+  "generationOperatorRuntime": {
+    "authorityInputs": [
+      "jobId",
+      "privateArtifactRoot",
+      "jobScopedEditorialApprovalRecord"
+    ],
+    "capabilities": [
+      "prepare-review"
+    ],
+    "environmentVariables": [
+      "CONVEX_URL",
+      "CUSTOMER_FLOW_BACKEND_TOKEN"
+    ],
+    "localConfiguration": [
+      "privateArtifactRoot"
+    ],
+    "providerOperationsEnabled": false,
+    "publicApiAccess": false,
+    "stages": [
+      "prepare_review"
+    ]
+  },
   "secretStores": {
     "vercelProduction": {
       "owner": "Vercel project vercelApi.identity in production scope only",
@@ -431,6 +453,38 @@
         "TEST_A_PUBLICATION_CANARY_REVISION_ID",
         "TEST_A_ARTIFACT_ROOT",
         "VITE_FULFILLMENT_API_BASE_URL",
+        "TALLY_INTAKE_SIGNING_SECRET",
+        "TALLY_INTAKE_FIELD_MAP"
+      ]
+    },
+    "generationOperator": {
+      "owner": "non-public generation-only prepare_review runtime",
+      "allowed": [
+        "CONVEX_URL",
+        "CUSTOMER_FLOW_BACKEND_TOKEN"
+      ],
+      "forbidden": [
+        "BEBEBONJOUR_APPROVAL_HMAC_KEY",
+        "CONVEX_DEPLOY_KEY",
+        "CUSTOMER_FLOW_TOKEN_ENCRYPTION_KEY",
+        "CUSTOMER_FLOW_TEST_ACCESS_TOKEN",
+        "ELEVENLABS_API_KEY",
+        "OPENAI_API_KEY",
+        "STRIPE_SECRET_KEY",
+        "STRIPE_LIVE_SECRET_KEY",
+        "STRIPE_CUSTOMER_FLOW_WEBHOOK_SECRET",
+        "VERCEL_TOKEN",
+        "RESEND_API_KEY",
+        "RESEND_FROM",
+        "TEST_A_PUBLICATION_ORIGIN",
+        "TEST_A_PUBLICATION_VERCEL_TEAM_ID",
+        "TEST_A_PUBLICATION_VERCEL_PROJECT_ID",
+        "TEST_A_PUBLICATION_VERCEL_PROJECT_NAME",
+        "TEST_A_PUBLICATION_CANARY_JOB_ID",
+        "TEST_A_PUBLICATION_CANARY_REVISION_ID",
+        "TEST_A_ARTIFACT_ROOT",
+        "VITE_FULFILLMENT_API_BASE_URL",
+        "VITE_FULFILLMENT_API_APPROVED_HOSTED_ORIGIN",
         "TALLY_INTAKE_SIGNING_SECRET",
         "TALLY_INTAKE_FIELD_MAP"
       ]

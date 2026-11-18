@@ -1,6 +1,6 @@
 {
   "schemaVersion": "1.0",
-  "auditId": "test-a-consolidated-candidate-successor-2026-08-26",
+  "auditId": "test-a-consolidated-candidate-lock-recovery-2026-09-22",
   "baselineCommit": "c7abbb7338282b7bfba2616693f2a8d75285d8d3",
   "candidateBoundary": {
     "changedPaths": [
@@ -11,6 +11,7 @@
       "api/webhooks/tally.mjs",
       "convex/customerFlow.js",
       "convex/schema.js",
+      "ops/run-test-a-generation.mjs",
       "ops/run-test-a-operator.mjs",
       "ops/test-a-consolidated-candidate-audit.mjs",
       "ops/test-a-consolidated-candidate-evidence.json",
@@ -21,13 +22,20 @@
       "package.json",
       "public/404.html",
       "schemas/fulfillment-job-store.schema.json",
+      "schemas/job-scoped-editorial-approval.schema.json",
+      "schemas/review-dossier.schema.json",
       "scripts/dispatch-intakes-from-hermes-secrets.sh",
       "scripts/dispatch-intakes-to-kanban.mjs",
+      "scripts/lib/commands.mjs",
+      "scripts/lib/name-resolution.mjs",
+      "scripts/lib/schema-validation.mjs",
+      "scripts/private-generate-intake-from-hermes-secrets.sh",
       "scripts/private-intake-status-from-hermes-secrets.sh",
       "scripts/verify-vercel-routing.mjs",
       "src/config/fulfillment-config.mjs",
       "src/config/hosted-customer-flow-config.mjs",
       "src/config/test-a-hosted-provider-manifest.mjs",
+      "src/config/test-a-operator-isolation.mjs",
       "src/customer-flow/hosted-tally-intake.mjs",
       "src/customer-flow/memory-store.mjs",
       "src/customer-flow/service.mjs",
@@ -37,9 +45,14 @@
       "src/fulfillment/external-effect-stage-handlers.mjs",
       "src/fulfillment/job-machine.mjs",
       "src/fulfillment/job-orchestrator.mjs",
+      "src/fulfillment/job-scoped-generation-approval.mjs",
+      "src/fulfillment/local-generation-workspace.mjs",
+      "src/fulfillment/local-prepare-review-stage-handler.mjs",
       "src/fulfillment/operator-runner-test-a.mjs",
       "src/fulfillment/persisted-review-decision.mjs",
       "src/fulfillment/resend-delivery-adapter.mjs",
+      "src/fulfillment/test-a-generation-runner.mjs",
+      "src/fulfillment/test-a-generation-startup.mjs",
       "src/fulfillment/test-a-operator-runtime-identity.mjs",
       "src/fulfillment/test-a-operator-startup.mjs",
       "src/fulfillment/vercel-test-a-publication-provider.mjs",
@@ -81,8 +94,11 @@
       "test/fixtures/tally-intake-submission.json",
       "test/fixtures/tally-paid-submission.json",
       "test/fulfillment/exact-revision-publication-adapter.test.mjs",
+      "test/fulfillment/failed-prepare-review-recovery.test.mjs",
       "test/fulfillment/job-orchestration.test.mjs",
       "test/fulfillment/resend-delivery-adapter.test.mjs",
+      "test/fulfillment/test-a-generation-runner.test.mjs",
+      "test/fulfillment/test-a-generation-startup.test.mjs",
       "test/fulfillment/test-a-operator-runner.test.mjs",
       "test/fulfillment/test-a-operator-startup.test.mjs",
       "test/fulfillment/vercel-test-a-publication-provider.test.mjs",
@@ -90,11 +106,13 @@
       "test/http/webhook-handlers.test.mjs",
       "test/integration/fulfillment-database.test.mjs",
       "test/integration/fulfillment-end-to-end.test.mjs",
+      "test/name-resolution.test.mjs",
       "test/operations/hermes-kanban-client.test.mjs",
       "test/operations/kanban-intake-dispatcher.test.mjs",
       "test/persistence/convex-customer-flow-store.test.mjs",
       "test/persistence/supabase-fulfillment-store.test.mjs",
       "test/persistence/supabase-generation-store.test.mjs",
+      "test/private-review.test.mjs",
       "test/webhooks/process-stripe-webhook.test.mjs",
       "test/webhooks/process-tally-webhook.test.mjs",
       "test/webhooks/stripe-normalization.test.mjs",
@@ -111,6 +129,7 @@
       "api/webhooks/tally.mjs",
       "convex/customerFlow.js",
       "convex/schema.js",
+      "ops/run-test-a-generation.mjs",
       "ops/run-test-a-operator.mjs",
       "ops/test-a-consolidated-candidate-audit.mjs",
       "ops/test-a-consolidated-candidate-evidence.json",
@@ -121,13 +140,20 @@
       "package.json",
       "public/404.html",
       "schemas/fulfillment-job-store.schema.json",
+      "schemas/job-scoped-editorial-approval.schema.json",
+      "schemas/review-dossier.schema.json",
       "scripts/dispatch-intakes-from-hermes-secrets.sh",
       "scripts/dispatch-intakes-to-kanban.mjs",
+      "scripts/lib/commands.mjs",
+      "scripts/lib/name-resolution.mjs",
+      "scripts/lib/schema-validation.mjs",
+      "scripts/private-generate-intake-from-hermes-secrets.sh",
       "scripts/private-intake-status-from-hermes-secrets.sh",
       "scripts/verify-vercel-routing.mjs",
       "src/config/fulfillment-config.mjs",
       "src/config/hosted-customer-flow-config.mjs",
       "src/config/test-a-hosted-provider-manifest.mjs",
+      "src/config/test-a-operator-isolation.mjs",
       "src/customer-flow/hosted-tally-intake.mjs",
       "src/customer-flow/memory-store.mjs",
       "src/customer-flow/service.mjs",
@@ -137,9 +163,14 @@
       "src/fulfillment/external-effect-stage-handlers.mjs",
       "src/fulfillment/job-machine.mjs",
       "src/fulfillment/job-orchestrator.mjs",
+      "src/fulfillment/job-scoped-generation-approval.mjs",
+      "src/fulfillment/local-generation-workspace.mjs",
+      "src/fulfillment/local-prepare-review-stage-handler.mjs",
       "src/fulfillment/operator-runner-test-a.mjs",
       "src/fulfillment/persisted-review-decision.mjs",
       "src/fulfillment/resend-delivery-adapter.mjs",
+      "src/fulfillment/test-a-generation-runner.mjs",
+      "src/fulfillment/test-a-generation-startup.mjs",
       "src/fulfillment/test-a-operator-runtime-identity.mjs",
       "src/fulfillment/test-a-operator-startup.mjs",
       "src/fulfillment/vercel-test-a-publication-provider.mjs",
@@ -181,8 +212,11 @@
       "test/fixtures/tally-intake-submission.json",
       "test/fixtures/tally-paid-submission.json",
       "test/fulfillment/exact-revision-publication-adapter.test.mjs",
+      "test/fulfillment/failed-prepare-review-recovery.test.mjs",
       "test/fulfillment/job-orchestration.test.mjs",
       "test/fulfillment/resend-delivery-adapter.test.mjs",
+      "test/fulfillment/test-a-generation-runner.test.mjs",
+      "test/fulfillment/test-a-generation-startup.test.mjs",
       "test/fulfillment/test-a-operator-runner.test.mjs",
       "test/fulfillment/test-a-operator-startup.test.mjs",
       "test/fulfillment/vercel-test-a-publication-provider.test.mjs",
@@ -190,11 +224,13 @@
       "test/http/webhook-handlers.test.mjs",
       "test/integration/fulfillment-database.test.mjs",
       "test/integration/fulfillment-end-to-end.test.mjs",
+      "test/name-resolution.test.mjs",
       "test/operations/hermes-kanban-client.test.mjs",
       "test/operations/kanban-intake-dispatcher.test.mjs",
       "test/persistence/convex-customer-flow-store.test.mjs",
       "test/persistence/supabase-fulfillment-store.test.mjs",
       "test/persistence/supabase-generation-store.test.mjs",
+      "test/private-review.test.mjs",
       "test/webhooks/process-stripe-webhook.test.mjs",
       "test/webhooks/process-tally-webhook.test.mjs",
       "test/webhooks/stripe-normalization.test.mjs",
@@ -210,7 +246,7 @@
       },
       {
         "path": "LIVE_SETUP.md",
-        "sha256": "40eb44db50e09ffdde984c04e9e9ac85f00dae94e2709e1175992230261de36d"
+        "sha256": "ede31e930212653b4341286f1e274418c96bc0a6083488033ee76da1c0e57cfa"
       },
       {
         "path": "README.md",
@@ -233,20 +269,24 @@
         "sha256": "695544986fa848d8a8a557be43912fa270ea8ee707890e3ec44affef2eb40a51"
       },
       {
+        "path": "ops/run-test-a-generation.mjs",
+        "sha256": "df359a0b94a9b2220c47b7c863820ccad7364abb9978f712ddeda423461f31a0"
+      },
+      {
         "path": "ops/run-test-a-operator.mjs",
         "sha256": "f5fee619982b10e38df9fbd6a0257d4a51eb13c939b3b09042510e7ce196e107"
       },
       {
         "path": "ops/test-a-consolidated-candidate-audit.mjs",
-        "sha256": "3ec54e9600ea3b58bcb3cd4f521b7f010cad84d71c9f77fcbf3fb743d366fa7b"
+        "sha256": "0cdd2c83860ba66cfdd3a9f7adebb2b559fbc98dbcf0f605d322afdf5be96e10"
       },
       {
         "path": "ops/test-a-hosted-provider-manifest.json",
-        "sha256": "70ccc739189d76e7f68b10261d3d21b1ef84e7a026f7a42aadb57c8ab9f8cdb6"
+        "sha256": "6f96a597e2741f79a2050e4ad62cfb27a5f3d497a4974b1aad62c5f46786f31d"
       },
       {
         "path": "ops/test-a-operator-isolation-audit.mjs",
-        "sha256": "ba70552a307ab1590a19b9fcb1c6cecdca828775968e41ef74a733f0c70a09a1"
+        "sha256": "4622f457483d65a0bc4e704131ce2d5c7f035f818eed48e7601ed8ed2c8e8b8e"
       },
       {
         "path": "package-lock.json",
@@ -254,7 +294,7 @@
       },
       {
         "path": "package.json",
-        "sha256": "d59af5135adf4ebd0c7ca7d924f6a64dc7625e06896cc88a304355f32fc3b51b"
+        "sha256": "9551683bb87a0d85e62ca6ed065638d67bc193ae5329a77f27c2079d5542f637"
       },
       {
         "path": "public/404.html",
@@ -265,12 +305,48 @@
         "sha256": "826342b8055e22d4caf1b2ee07251ae7961e358dd5c06cffbd5ffad04219d50c"
       },
       {
+        "path": "schemas/job-scoped-editorial-approval.schema.json",
+        "sha256": "434f258df0f44e5cc628eaeb21659c565f5151e42101e180fe819027c5a5d448"
+      },
+      {
+        "path": "schemas/review-dossier.schema.json",
+        "sha256": "57dfa63a345350bda66b456ae66143f4ec46945e1c749e9d434d04d39cdfe9f7"
+      },
+      {
         "path": "scripts/dispatch-intakes-from-hermes-secrets.sh",
         "sha256": "533bfadbaf718166b34412d44cb81b05a5fcaebfff1e53a3f5dad71913979596"
       },
       {
         "path": "scripts/dispatch-intakes-to-kanban.mjs",
         "sha256": "22916abde9f03510edd0e3780ccfa3e2b775973296fa4110751b0afacb281e47"
+      },
+      {
+        "path": "scripts/lib/commands.mjs",
+        "sha256": "327908b86a88a92c7dcafe4b057dbabe3cb892d802e219967a4f6205dd21ec33"
+      },
+      {
+        "path": "scripts/lib/common.mjs",
+        "sha256": "a80c25d7c33d578f4d9a0e6cc1b4c7f81e90b484da99d2c1fe0bc66b57f69949"
+      },
+      {
+        "path": "scripts/lib/name-resolution.mjs",
+        "sha256": "b4406c74a7606ab4d9d0194b6468c7f65de41423df5f9c7a1308800533f9fd76"
+      },
+      {
+        "path": "scripts/lib/render-html.mjs",
+        "sha256": "268c791daff55eb8b4f7244307531d14c69ea4c379aff85f9ae2c289d01e26aa"
+      },
+      {
+        "path": "scripts/lib/schema-validation.mjs",
+        "sha256": "4d3a6fa7e95050be49e319db00ab4f6ee88747cfdfbab4e00d4ebe8cbf2f7167"
+      },
+      {
+        "path": "scripts/lib/validators.mjs",
+        "sha256": "26e05efd57bc079e76e57a89ae070e6bc27b38ff8cc84bdb6878a8c08ffec164"
+      },
+      {
+        "path": "scripts/private-generate-intake-from-hermes-secrets.sh",
+        "sha256": "7fa201e6dc77e02abbcd5bae0ecd56104cf8ab72514d9ae3069794dc5c1b5319"
       },
       {
         "path": "scripts/private-intake-status-from-hermes-secrets.sh",
@@ -286,7 +362,11 @@
       },
       {
         "path": "src/config/test-a-hosted-provider-manifest.mjs",
-        "sha256": "b5750c9e632cc7c1a743bab6aecedaefbfe3c9e537cc7243d73485c92e89e9c8"
+        "sha256": "863f3c61e69cf3b6a2bb9172ed7a21993d0aec1b9414e36a8af6344e36ec0e2b"
+      },
+      {
+        "path": "src/config/test-a-operator-isolation.mjs",
+        "sha256": "8d186986f77a2343163784ea64afa6fc75bb8036c6068e3116dc5a1ce3a97007"
       },
       {
         "path": "src/customer-flow/hosted-http-api.mjs",
@@ -338,11 +418,23 @@
       },
       {
         "path": "src/fulfillment/job-machine.mjs",
-        "sha256": "6c1110fdd99ed1e39a47c6c09cf7d1df2f9489b6faf65ae6726d13f21ab6d9f0"
+        "sha256": "6171f99f31380dfc6e8d3313c753f5c94b15364d2d67bc74d924adaaeb7a0226"
       },
       {
         "path": "src/fulfillment/job-orchestrator.mjs",
-        "sha256": "baa3e6ccfbe4df53ca5f4fa8ca281ef74adb6e27cc0a020d9a2755ef49a2bf55"
+        "sha256": "66f375c763e293f396e8bbee11e916c625751231d348cb25ed7277cec7690702"
+      },
+      {
+        "path": "src/fulfillment/job-scoped-generation-approval.mjs",
+        "sha256": "5d6d9f2eb1f25d2287dca8a04e62ee6c18ba7ecf09447c79206a8f380b3e2281"
+      },
+      {
+        "path": "src/fulfillment/local-generation-workspace.mjs",
+        "sha256": "c3e2ce5cd481d9d3e68aff2f8cec733e8442ca92fa8e9741a326796e5af76a9d"
+      },
+      {
+        "path": "src/fulfillment/local-prepare-review-stage-handler.mjs",
+        "sha256": "e16e97fd447122023b54759f3edc8e0fbc3d3a7d3c3b3182f35f373770491f49"
       },
       {
         "path": "src/fulfillment/operator-runner-test-a.mjs",
@@ -355,6 +447,14 @@
       {
         "path": "src/fulfillment/resend-delivery-adapter.mjs",
         "sha256": "035823af368bab8fa4bf4c377e8fcb1c6f207ea82f3bff47554058ea473f9659"
+      },
+      {
+        "path": "src/fulfillment/test-a-generation-runner.mjs",
+        "sha256": "b427c7b4a8313b7e28798347ab33597d7198f5542ae4114030c12627e9c4475f"
+      },
+      {
+        "path": "src/fulfillment/test-a-generation-startup.mjs",
+        "sha256": "79096affdcada013f7c7111a40a86cb22d6b4aa7bf661e58e76c6f5e6defa380"
       },
       {
         "path": "src/fulfillment/test-a-operator-runtime-identity.mjs",
@@ -386,11 +486,11 @@
       },
       {
         "path": "src/persistence/convex-fulfillment-store.mjs",
-        "sha256": "89076cf188966992d8e9394681645938a167603ecf22c9b262dcc6b059507999"
+        "sha256": "20eead643e4f9a822bd4bef636e64892203c82d4ef4b63b40e1389936e8cd90c"
       },
       {
         "path": "src/persistence/local-test-fulfillment-store.mjs",
-        "sha256": "1e00fb400d0f00e283255c3175aada8f429a9b8d4d55b275e0b8867fb649409e"
+        "sha256": "f0b8c857ae15e8eb74887a3b3518846ad725388d83f88039a87a678370d6659e"
       },
       {
         "path": "test/api/webhook-entrypoints.test.mjs",
@@ -410,15 +510,15 @@
       },
       {
         "path": "test/config/test-a-hosted-provider-manifest-policy.test.mjs",
-        "sha256": "4ebbc8304cf85af04ce4f60fe6d74df1d565213ac718be52d1a3b9260e636d08"
+        "sha256": "3c6364ffaa2dbf4c6d87a6f8f9647e5804ab9ab81ef3a6c7e9e83e1defdec980"
       },
       {
         "path": "test/config/test-a-operator-isolation-audit.test.mjs",
-        "sha256": "71d2001c3bd30068101244b5e2caba655b7d4bcc43a28d9b7e3fd5647e5a33a7"
+        "sha256": "331d8dd318096fd3123ad93b3c5d17be053245ec014a88f75cb62a47a259494c"
       },
       {
         "path": "test/config/test-a-operator-isolation.test.mjs",
-        "sha256": "76b8e636d26194d2a6bc7edd613f9c97d2bd79599e2a705b84e940fc712dc328"
+        "sha256": "986b0c019f815bbb50734e922c7c63eecc5be5ce881befc5d2fcf5cc7b258a10"
       },
       {
         "path": "test/convex/customer-flow.test.mjs",
@@ -449,12 +549,24 @@
         "sha256": "aa16a21f4f5a20ee14c849fae20af35bc9157bd54799862579d0fc4e33d1aad7"
       },
       {
+        "path": "test/fulfillment/failed-prepare-review-recovery.test.mjs",
+        "sha256": "9f343915d553b4ac6e417dab42e77fc9d2f8a8ccde0442effc0a1ff1e9b6387a"
+      },
+      {
         "path": "test/fulfillment/job-orchestration.test.mjs",
         "sha256": "42f3d45a2b8250033d7dd4fd7191b6cf0f774a84d38030b023e7031983db25f3"
       },
       {
         "path": "test/fulfillment/resend-delivery-adapter.test.mjs",
         "sha256": "44313ba390e1b177eaea6beef2821d6519658d439aa5c42f3f7a5f3a8e2268a0"
+      },
+      {
+        "path": "test/fulfillment/test-a-generation-runner.test.mjs",
+        "sha256": "957ef9a22bf495f8a1e0fc506d748f0d62ca23deecab53e881fc8643023aa352"
+      },
+      {
+        "path": "test/fulfillment/test-a-generation-startup.test.mjs",
+        "sha256": "86662083f80fa7160388a703f73f62143963013d1f48bd48d73171ce8043149d"
       },
       {
         "path": "test/fulfillment/test-a-operator-runner.test.mjs",
@@ -473,6 +585,10 @@
         "sha256": "8c45ab69ceb5e3634f8a08d54a50a77165653ed2ad612f45675be152081b0e28"
       },
       {
+        "path": "test/name-resolution.test.mjs",
+        "sha256": "b86f804876c5f24cf3ce045b4d44ab6f32376f36d4cde9bca0bc328879afbe1d"
+      },
+      {
         "path": "test/operations/hermes-kanban-client.test.mjs",
         "sha256": "6365a7c2f324f8b4fd5bc65622495363eb36d7cc8ed0e8006b6a0814ed0c7365"
       },
@@ -485,6 +601,10 @@
         "sha256": "b152b4557968284cea7f19080924453b4cf2bc6be410396993585469253d8401"
       },
       {
+        "path": "test/private-review.test.mjs",
+        "sha256": "591b37836d38d7e6a6e9df2c13c70ddbfa0eea506f7d7766edfa03813f8f6752"
+      },
+      {
         "path": "vercel.json",
         "sha256": "f96a1746744ed6a26d1916d960b1615c4e1ea5df6fb93ed02ba1af1a6b5585a3"
       }
@@ -492,9 +612,36 @@
   },
   "reviewedManifest": {
     "path": "ops/test-a-hosted-provider-manifest.json",
-    "sha256": "70ccc739189d76e7f68b10261d3d21b1ef84e7a026f7a42aadb57c8ab9f8cdb6"
+    "sha256": "6f96a597e2741f79a2050e4ad62cfb27a5f3d497a4974b1aad62c5f46786f31d"
   },
   "controls": [
+    {
+      "id": "isolated-generation-only-authority",
+      "requirement": "The private generation entrypoint accepts only its three explicit authority inputs (job ID, private root, and immutable job-scoped editorial approval record), two reviewed business-authority variables, and named inert OS plumbing; it validates the closed approval policy before backend construction, reads canonical paid records, writes only beneath one private root, and permits one atomic legacy-input enrichment only when every original input and canonical intake byte is unchanged and the exact job-scoped approval is valid. That enrichment uses process-owned contender locks which recover dead writers without stealing a live writer lock, so a process-level interruption cannot permanently block an identical deterministic retry. It rejects concurrent competing approvals, malformed or rebound authority, record drift, noncanonical intake, symlinked paths, and partial writes; revalidates exact canonical intake bytes before any retry mutation or stage effect; advances only prepare_review; and on terminal replay revalidates the exact persisted input, approval, dossier materials, artifact inventory, and manifest without mutation. Its one failed-state recovery is hard-bound to the exact authorized job, canonical payment/intake identity, immutable approval bytes, one terminal prepare_review attempt, and absence of revision or external-effect evidence; it exposes no generic failed-job reset, provider, persisted content-approval, TTS, publication, delivery, or generic run-next authority.",
+      "proofs": [
+        "test/fulfillment/test-a-generation-runner.test.mjs: generation-only runner persists canonical intake, advances only prepare_review, and returns PII-free output",
+        "test/fulfillment/test-a-generation-runner.test.mjs: generation-only end to end produces the approved neutral unknown-name dossier and stops for review",
+        "test/fulfillment/test-a-generation-runner.test.mjs: legacy generation input is enriched once with the exact job-scoped approval",
+        "test/fulfillment/test-a-generation-runner.test.mjs: concurrent legacy enrichment permits exactly one approval identity",
+        "test/fulfillment/test-a-generation-runner.test.mjs: generation-input stale recovery never steals a live writer lock",
+        "test/fulfillment/test-a-generation-runner.test.mjs: a killed legacy-enrichment writer leaves a safely recoverable generation-input lock",
+        "test/fulfillment/test-a-generation-runner.test.mjs: failed atomic input persistence leaves no partial workspace files",
+        "test/fulfillment/test-a-generation-runner.test.mjs: legacy approval enrichment rejects every input or authority drift without mutation",
+        "test/fulfillment/test-a-generation-runner.test.mjs: generation workspace rejects a generation-input symlink before enrichment",
+        "test/fulfillment/test-a-generation-runner.test.mjs: generation-only runner rejects a missing approval before constructing resources",
+        "test/fulfillment/test-a-generation-runner.test.mjs: persisted artifact collection rejects an unmanaged special filesystem entry",
+        "test/fulfillment/test-a-generation-runner.test.mjs: tampered persisted canonical intake blocks generation retry before mutation or stage effects",
+        "test/fulfillment/test-a-generation-runner.test.mjs: missing persisted canonical intake blocks generation retry before mutation or stage effects",
+        "test/fulfillment/test-a-generation-runner.test.mjs: terminal replay rejects a second schema-valid approval with a different source identity",
+        "test/fulfillment/test-a-generation-runner.test.mjs: terminal replay fails closed for missing or malformed inputs and incomplete or tampered artifacts",
+        "test/fulfillment/failed-prepare-review-recovery.test.mjs: the exact failed prepare_review transition is audited, terminal-evidence preserving, and idempotent",
+        "test/fulfillment/failed-prepare-review-recovery.test.mjs: recovery rejects every non-exact or ambiguous failed-state predicate without mutation",
+        "test/fulfillment/failed-prepare-review-recovery.test.mjs: the isolated runner recovers only the exact job and advances only prepare_review",
+        "test/fulfillment/test-a-generation-startup.test.mjs: generation startup rejects missing, mismatched, broadened, writable, and unsafe approval records before runner construction",
+        "test/fulfillment/test-a-generation-startup.test.mjs: generation startup rejects every unrecognized environment variable before runner construction",
+        "test/config/test-a-operator-isolation.test.mjs: generation-only invocation remains outside every public route graph and provider-capable module"
+      ]
+    },
     {
       "id": "fail-closed-private-operator-startup",
       "requirement": "The fixed private entrypoint exposes only status and exact signed-approval persistence; publication and delivery commands fail before runner construction or provider I/O.",
@@ -541,6 +688,25 @@
     }
   ],
   "isolation": {
+    "generationInvocation": "ops/run-test-a-generation.mjs",
+    "generationModuleGraph": [
+      "ops/run-test-a-generation.mjs",
+      "scripts/lib/commands.mjs",
+      "scripts/lib/common.mjs",
+      "scripts/lib/name-resolution.mjs",
+      "scripts/lib/render-html.mjs",
+      "scripts/lib/schema-validation.mjs",
+      "scripts/lib/validators.mjs",
+      "src/config/test-a-hosted-provider-manifest.mjs",
+      "src/fulfillment/job-machine.mjs",
+      "src/fulfillment/job-orchestrator.mjs",
+      "src/fulfillment/job-scoped-generation-approval.mjs",
+      "src/fulfillment/local-generation-workspace.mjs",
+      "src/fulfillment/local-prepare-review-stage-handler.mjs",
+      "src/fulfillment/test-a-generation-runner.mjs",
+      "src/fulfillment/test-a-generation-startup.mjs",
+      "src/persistence/convex-fulfillment-store.mjs"
+    ],
     "privateInvocation": "ops/run-test-a-operator.mjs",
     "publicEntrypoints": [
       "api/customer-flow/[...route].mjs",
@@ -567,7 +733,12 @@
     ],
     "privateCapabilityModules": [
       "ops/run-test-a-operator.mjs",
+      "ops/run-test-a-generation.mjs",
+      "src/fulfillment/job-scoped-generation-approval.mjs",
+      "src/fulfillment/local-prepare-review-stage-handler.mjs",
       "src/fulfillment/operator-runner-test-a.mjs",
+      "src/fulfillment/test-a-generation-runner.mjs",
+      "src/fulfillment/test-a-generation-startup.mjs",
       "src/fulfillment/test-a-operator-runtime-identity.mjs",
       "src/fulfillment/test-a-operator-startup.mjs"
     ],
@@ -579,8 +750,11 @@
       "test/config/test-a-hosted-provider-manifest-policy.test.mjs",
       "test/config/test-a-operator-isolation.test.mjs",
       "test/fulfillment/exact-revision-publication-adapter.test.mjs",
+      "test/fulfillment/failed-prepare-review-recovery.test.mjs",
       "test/fulfillment/job-orchestration.test.mjs",
       "test/fulfillment/resend-delivery-adapter.test.mjs",
+      "test/fulfillment/test-a-generation-runner.test.mjs",
+      "test/fulfillment/test-a-generation-startup.test.mjs",
       "test/fulfillment/test-a-operator-runner.test.mjs",
       "test/fulfillment/test-a-operator-startup.test.mjs",
       "test/fulfillment/vercel-test-a-publication-provider.test.mjs"

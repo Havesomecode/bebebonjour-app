@@ -2,6 +2,17 @@ import { createHash } from "node:crypto";
 import { isDeepStrictEqual } from "node:util";
 
 export const EDITORIAL_POLICY_VERSION = "bebebonjour-editorial-v1";
+export const RECOVERABLE_FAILED_PREPARE_REVIEW_JOB_ID =
+  "job_c633aa4c-0039-4257-8913-eaa6f6197d0c";
+
+const FAILED_PREPARE_REVIEW_EDITORIAL_POLICY = Object.freeze({
+  id: "unknown_name_general_wishes",
+  preserveSubmittedName: true,
+  meaningAllowed: false,
+  scripturalNameAssociationAllowed: false,
+  genericBlessingsAllowed: true,
+  maxStage: "content_review_required",
+});
 
 const STAGES_BY_STATE = Object.freeze({
   generation_queued: "prepare_review",
@@ -280,6 +291,97 @@ export function failStageTransition(aggregate, failure, policy, at) {
 
     next.state = unresolvedExternalEffect ? "reconciliation_required" : "failed";
     next.retry = null;
+  });
+}
+
+export function recoverFailedPrepareReviewTransition(aggregate, recovery, at) {
+  return withCommand(aggregate, recovery, "failed_prepare_review_recovered", at, (next) => {
+    const attempt = next.stageAttempts?.at(-1);
+    const expectedCorrelation = {
+      project: "bebebonjour",
+      product: "announcement-page",
+      environment: "test",
+      jobId: RECOVERABLE_FAILED_PREPARE_REVIEW_JOB_ID,
+      intakeDigest: next.intakeDigest,
+    };
+    const expectedApproval = {
+      approvalType: "job_scoped_editorial_policy",
+      jobId: RECOVERABLE_FAILED_PREPARE_REVIEW_JOB_ID,
+      policy: FAILED_PREPARE_REVIEW_EDITORIAL_POLICY,
+      record: recovery?.editorialApproval?.record,
+      recordDigest: recovery?.editorialApproval?.recordDigest,
+      sourceDigest: recovery?.editorialApproval?.sourceDigest,
+      intakeDigest: next.intakeDigest,
+    };
+    const eligible =
+      hasExactKeys(recovery, [
+        "commandId",
+        "editorialApproval",
+        "failedAttemptId",
+        "intakeDigest",
+        "jobId",
+        "paymentCorrelation",
+      ])
+      && hasExactKeys(recovery?.editorialApproval, [
+        "approvalType",
+        "intakeDigest",
+        "jobId",
+        "policy",
+        "record",
+        "recordDigest",
+        "sourceDigest",
+      ])
+      && next.jobId === RECOVERABLE_FAILED_PREPARE_REVIEW_JOB_ID
+      && recovery.jobId === RECOVERABLE_FAILED_PREPARE_REVIEW_JOB_ID
+      && next.environment === "test"
+      && next.product === "announcement-page"
+      && next.state === "failed"
+      && next.currentRevisionId === null
+      && next.publishedRevisionId === null
+      && next.retry === null
+      && next.intakeDigest === recovery.intakeDigest
+      && isDeepStrictEqual(next.paymentCorrelation, expectedCorrelation)
+      && isDeepStrictEqual(recovery.paymentCorrelation, expectedCorrelation)
+      && isDeepStrictEqual(next.payment?.correlation, expectedCorrelation)
+      && typeof next.payment?.providerEventId === "string"
+      && next.payment.providerEventId.length > 0
+      && typeof next.payment?.providerPaymentId === "string"
+      && next.payment.providerPaymentId.length > 0
+      && Array.isArray(next.stageAttempts)
+      && next.stageAttempts.length === 1
+      && attempt?.attemptId === recovery.failedAttemptId
+      && attempt?.stage === "prepare_review"
+      && attempt?.revisionId === null
+      && attempt?.attemptNumber === 1
+      && attempt?.operationNumber === 1
+      && attempt?.operationBinding === null
+      && attempt?.status === "failed"
+      && attempt?.effectStartedAt === null
+      && attempt?.leaseToken === null
+      && attempt?.leaseExpiresAt === null
+      && typeof attempt?.completedAt === "string"
+      && isDeepStrictEqual(attempt?.failure, { retryable: false, reasonCode: "stage_error" })
+      && Array.isArray(next.revisions)
+      && next.revisions.length === 0
+      && Array.isArray(next.artifactSets)
+      && next.artifactSets.length === 0
+      && Array.isArray(next.reviewDecisions)
+      && next.reviewDecisions.length === 0
+      && next.publication === null
+      && Array.isArray(next.deliveryAttempts)
+      && next.deliveryAttempts.length === 0
+      && DIGEST_PATTERN.test(recovery.editorialApproval.recordDigest || "")
+      && DIGEST_PATTERN.test(recovery.editorialApproval.sourceDigest || "")
+      && isValidFailedPrepareReviewApproval(recovery.editorialApproval.record)
+      && recovery.editorialApproval.recordDigest === createHash("sha256")
+        .update(`${JSON.stringify(recovery.editorialApproval.record, null, 2)}\n`)
+        .digest("hex")
+      && recovery.editorialApproval.sourceDigest === recovery.editorialApproval.record.sourceDigest
+      && isDeepStrictEqual(recovery.editorialApproval, expectedApproval);
+    if (!eligible) {
+      throw new Error("Failed prepare-review recovery rejected.");
+    }
+    next.state = "generation_queued";
   });
 }
 
@@ -823,6 +925,41 @@ function assertRevision(revision, aggregate) {
   if (revision.inputDigest !== aggregate.intakeDigest) {
     throw new Error("Revision input digest must remain bound to the job intake.");
   }
+}
+
+const DIGEST_PATTERN = /^[a-f0-9]{64}$/;
+
+function hasExactKeys(value, expectedKeys) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+  const actualKeys = Object.keys(value).sort();
+  const sortedExpectedKeys = [...expectedKeys].sort();
+  return actualKeys.length === sortedExpectedKeys.length
+    && sortedExpectedKeys.every((key, index) => actualKeys[index] === key);
+}
+
+function isValidFailedPrepareReviewApproval(record) {
+  if (
+    !hasExactKeys(record, [
+      "approvalType",
+      "jobId",
+      "policy",
+      "schemaVersion",
+      "sourceDigest",
+      "sourceEvidence",
+    ])
+    || !hasExactKeys(record?.sourceEvidence, ["kind", "reference"])
+    || record.schemaVersion !== "1.0"
+    || record.approvalType !== "job_scoped_editorial_policy"
+    || record.jobId !== RECOVERABLE_FAILED_PREPARE_REVIEW_JOB_ID
+    || !isDeepStrictEqual(record.policy, FAILED_PREPARE_REVIEW_EDITORIAL_POLICY)
+    || record.sourceEvidence.kind !== "kanban_human_decision"
+    || !/^kanban:t_[A-Za-z0-9_-]{3,128}$/.test(record.sourceEvidence.reference || "")
+  ) {
+    return false;
+  }
+  return record.sourceDigest === createHash("sha256")
+    .update(JSON.stringify(record.sourceEvidence))
+    .digest("hex");
 }
 
 function assertPaymentCorrelation(correlation, input) {

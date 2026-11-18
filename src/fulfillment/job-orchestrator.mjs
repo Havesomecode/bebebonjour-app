@@ -97,8 +97,16 @@ export function createFulfillmentOrchestrator(options) {
       }, clock()));
     },
 
-    async runNext(jobId) {
+    async runExpectedStage(jobId, expectedStage) {
+      if (typeof expectedStage !== "string" || expectedStage.trim() === "") {
+        throw new Error("An exact expected fulfillment stage is required.");
+      }
+      return this.runNext(jobId, expectedStage);
+    },
+
+    async runNext(jobId, expectedStage = null) {
       let aggregate = await requireJob(store, jobId);
+      assertExpectedStageAuthority(aggregate, expectedStage);
       const now = clock();
       const expiredAttempt = findExpiredRunningAttempt(aggregate, now);
       if (expiredAttempt) {
@@ -119,7 +127,15 @@ export function createFulfillmentOrchestrator(options) {
       }
 
       const stage = nextStageForState(aggregate);
-      if (!stage) return null;
+      if (!stage) {
+        if (expectedStage !== null) {
+          throw new Error(`Expected stage ${expectedStage} is not eligible while job is ${aggregate.state}.`);
+        }
+        return null;
+      }
+      if (expectedStage !== null && stage !== expectedStage) {
+        throw new Error(`Expected stage ${expectedStage} does not match eligible stage ${stage}.`);
+      }
       const handler = handlers[stage];
       if (typeof handler !== "function") {
         throw new Error(`No fulfillment handler is configured for stage ${stage}.`);
@@ -229,6 +245,20 @@ export function createFulfillmentOrchestrator(options) {
           idempotencyKey: attempt.idempotencyKey,
           reconciliationOnly,
           fenceExternalEffect,
+          async assertStageOwnership() {
+            const checkedAt = clock();
+            const current = await requireJob(store, jobId);
+            const running = [...current.stageAttempts].reverse().find(
+              (entry) => entry.attemptId === attempt.attemptId,
+            );
+            if (
+              running?.status !== "running"
+              || running.leaseToken !== leaseToken
+              || Date.parse(checkedAt) >= Date.parse(running.leaseExpiresAt)
+            ) {
+              throw new Error("Stage output requires current unexpired stage ownership.");
+            }
+          },
           leaseToken,
           operation: externalEffectStage
             ? externalEffectInputFromAggregate(aggregate, stage)
@@ -270,6 +300,19 @@ function classifyFailure(error) {
     retryable: error?.retryable === true,
     reasonCode,
   };
+}
+
+function assertExpectedStageAuthority(aggregate, expectedStage) {
+  if (expectedStage === null) return;
+  const running = [...aggregate.stageAttempts].reverse().find(
+    (attempt) => attempt.status === "running",
+  );
+  const authoritativeStage = aggregate.state === "retry_wait"
+    ? aggregate.retry?.stage
+    : nextStageForState(aggregate) || running?.stage;
+  if (authoritativeStage !== expectedStage) {
+    throw new Error(`Expected stage ${expectedStage} is outside the current job authority.`);
+  }
 }
 
 function findExpiredRunningAttempt(aggregate, at) {

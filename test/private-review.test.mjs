@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 import { mkdir, mkdtemp, readFile, rm, symlink, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
@@ -23,6 +24,14 @@ const baseIntake = JSON.parse(
   await readFile(new URL("../data/examples/bayane/intake.json", import.meta.url), "utf8"),
 );
 const amalFixtureRoot = fileURLToPath(new URL("../data/examples/amal/", import.meta.url));
+const editorialPolicy = Object.freeze({
+  id: "unknown_name_general_wishes",
+  preserveSubmittedName: true,
+  meaningAllowed: false,
+  scripturalNameAssociationAllowed: false,
+  genericBlessingsAllowed: true,
+  maxStage: "content_review_required",
+});
 
 async function captureConsole(action) {
   const original = console.log;
@@ -147,6 +156,103 @@ test("prepare-review autonomously creates a private review bundle without a depl
     () => assertValidNameResolutionEvidence(invalidEvidence),
     /Invalid name-resolution evidence:.*additional properties/i,
   );
+});
+
+test("job-scoped editorial approval is bound into an exact neutral private-review dossier", async (t) => {
+  const directory = await mkdtemp(path.join(os.tmpdir(), "bebebonjour-approved-unknown-name-"));
+  t.after(() => rm(directory, { recursive: true, force: true }));
+  const intakePath = path.join(directory, "intake.json");
+  const outputRoot = path.join(directory, "review");
+  const intake = structuredClone(baseIntake);
+  intake.requestId = "req_approved_unknown_name_001";
+  intake.baby.firstName = "Aélio-Z";
+  intake.baby.nameArabic = "أيليو";
+  intake.context.religion = "islam";
+  const sourceEvidence = {
+    kind: "kanban_human_decision",
+    reference: "kanban:t_synthetic_authority",
+  };
+  const sourceDigest = createHash("sha256")
+    .update(JSON.stringify(sourceEvidence))
+    .digest("hex");
+  const editorialApprovalRecord = {
+    schemaVersion: "1.0",
+    approvalType: "job_scoped_editorial_policy",
+    jobId: "job_approved_unknown_name_001",
+    policy: editorialPolicy,
+    sourceEvidence,
+    sourceDigest,
+  };
+  const editorialApproval = {
+    record: editorialApprovalRecord,
+    recordDigest: createHash("sha256")
+      .update(`${JSON.stringify(editorialApprovalRecord, null, 2)}\n`)
+      .digest("hex"),
+  };
+  await writeFile(intakePath, `${JSON.stringify(intake, null, 2)}\n`, "utf8");
+
+  await captureConsole(() => commandPrepareReview(
+    { input: intakePath, output: outputRoot },
+    { editorialApproval, silent: true },
+  ));
+
+  const dossierPath = path.join(outputRoot, "review.json");
+  const dossierRaw = await readFile(dossierPath, "utf8");
+  const dossier = JSON.parse(dossierRaw);
+  const page = JSON.parse(
+    await readFile(path.join(outputRoot, "artifacts", "current", "page.json"), "utf8"),
+  );
+  assert.deepEqual(dossier.generationMaterials.editorialApproval, {
+    approvalType: "job_scoped_editorial_policy",
+    jobId: "job_approved_unknown_name_001",
+    policy: editorialPolicy,
+    recordDigest: editorialApproval.recordDigest,
+    sourceDigest,
+  });
+  assert.equal(
+    dossier.materialDigest,
+    createHash("sha256")
+      .update(JSON.stringify(dossier.generationMaterials))
+      .digest("hex"),
+  );
+  assert.equal(page.identity.nameLatin, "Aélio-Z");
+  assert.equal(page.identity.nameArabic, "أيليو");
+  assert.equal(page.provenance.nameResolution.match.kind, "unknown");
+  assert.deepEqual(page.provenance.nameResolution.claimPolicy, {
+    meaningAllowed: false,
+    scripturalNameAssociationAllowed: false,
+    genericBlessingsAllowed: true,
+  });
+  assert.deepEqual(page.review.requiredReasons, ["name_not_in_catalog"]);
+  assert.equal(JSON.stringify(page).includes("religious-generic-islam"), false);
+
+  const alternateSourceEvidence = {
+    kind: "kanban_human_decision",
+    reference: "kanban:t_alternate_authority",
+  };
+  const alternateRecord = {
+    ...editorialApprovalRecord,
+    sourceEvidence: alternateSourceEvidence,
+    sourceDigest: createHash("sha256")
+      .update(JSON.stringify(alternateSourceEvidence))
+      .digest("hex"),
+  };
+  await assert.rejects(
+    captureConsole(() => commandPrepareReview(
+      { input: intakePath, output: outputRoot },
+      {
+        editorialApproval: {
+          record: alternateRecord,
+          recordDigest: createHash("sha256")
+            .update(`${JSON.stringify(alternateRecord, null, 2)}\n`)
+            .digest("hex"),
+        },
+        silent: true,
+      },
+    )),
+    /material inputs.*fresh output root/i,
+  );
+  assert.equal(await readFile(dossierPath, "utf8"), dossierRaw);
 });
 
 test("prepare-review is deterministic and idempotent for the same intake", async (t) => {
