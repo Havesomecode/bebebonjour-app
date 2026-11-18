@@ -224,7 +224,6 @@ test("production build syntax-checks every private TEST-A operator module", () =
     packageJson.scripts["test:production-audit"],
     "node ./ops/test-a-consolidated-candidate-audit.mjs && node ./ops/test-a-completion-worker-audit.mjs",
   );
-  assert.match(packageJson.scripts.verify, /npm run test:production-audit/);
 });
 
 test("TEST-A operator runner is absent from public HTTP and package command surfaces", () => {

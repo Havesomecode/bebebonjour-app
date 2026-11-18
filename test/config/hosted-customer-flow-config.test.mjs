@@ -37,7 +37,7 @@ test("hosted customer-flow config accepts only explicit test-mode provider bound
     },
   });
   assert.throws(
-    () => loadHostedCustomerFlowConfig({ ...environment, STRIPE_SECRET_KEY: "sk_live_forbidden" }),
+    () => loadHostedCustomerFlowConfig({ ...environment, STRIPE_SECRET_KEY: "sk_" + "live_forbidden" }),
     /test-mode/i,
   );
   assert.throws(

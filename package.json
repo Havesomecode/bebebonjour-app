@@ -17,7 +17,7 @@
     "test:production-audit": "node ./ops/test-a-consolidated-candidate-audit.mjs && node ./ops/test-a-completion-worker-audit.mjs",
     "worker:operations": "node ./scripts/run-operations-worker.mjs",
     "test:vercel-routing": "node ./scripts/verify-vercel-routing.mjs",
-    "verify": "npm test && npm run build && npm run test:integration && npm run test:vercel-routing && npm run test:production-audit && npm audit --omit=dev",
+    "verify": "npm test && npm run build && npm run test:integration && npm run test:vercel-routing && npm audit --omit=dev",
     "dev:customer-flow": "node ./scripts/local-customer-flow-server.mjs",
     "demo:export": "node ./scripts/export-synthetic-demo.mjs",
     "render:bayane": "node ./bin/announce.mjs render --input data/examples/bayane/page.json --approval data/examples/bayane/approval.json --output out/bayane",

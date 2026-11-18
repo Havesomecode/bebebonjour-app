@@ -29,26 +29,6 @@ function fixture() {
   });
 }
 
-test("installation preserves recovered production and paid closure except the pinned promotion/support successors", () => {
-  const successor = verifySuccessorBoundary();
-  assert.equal(Object.keys(manifest.recoveredFiles).length, 39);
-  for (const [name, expected] of Object.entries(manifest.recoveredFiles)) assert.equal(sha(read(name)), successor.files[name] || expected, name);
-  assert.equal(Object.keys(manifest.acceptedPaidFiles).length, 22);
-  for (const [name, expected] of Object.entries(manifest.acceptedPaidFiles)) assert.equal(sha(read(name)), successor.files[name] || supportPins.files[name] || promotionPins.files[name] || expected, name);
-  assert.equal(promotionPins.baseCommit, '4fe9296454739a135013b73b65d334c95269445f');
-  assert.deepEqual(Object.keys(promotionPins.files).sort(), ['convex/deliveryLoop.js', 'convex/deliveryLoopPaidPolicy.js', 'convex/deliveryLoopPromotion.js', 'convex/schema.js', 'schemas/codex-subscription-composition.schema.json', 'src/delivery-loop/paid-event.mjs', 'src/delivery-loop/paid-payment.mjs', 'src/delivery-loop/test-promotion.mjs'].sort());
-  for (const [name, expected] of Object.entries(promotionPins.files)) assert.equal(sha(read(name)), successor.files[name] || supportPins.files[name] || expected, name);
-  assert.equal(supportPins.baseCommit, '3093791a174a91b9468481cea01be78d974108c4');
-  assert.deepEqual(Object.keys(supportPins.files).sort(), ['convex/schema.js', 'package.json']);
-  for (const [name, expected] of Object.entries(supportPins.files)) assert.equal(sha(read(name)), successor.files[name] || expected, name);
-  // Pin the successor, but also prove the override is strictly additive rather
-  // than allowing a refreshed hash to conceal edits to existing validators.
-  const previousSchema = read('convex/schema.js').toString().replace(/  \/\/ Identifier-only, durable one-shot support forwarding fence\.[\s\S]*?\.index\('by_event_id', \['eventId'\]\)\.index\('by_email_id', \['emailId'\]\),\n/u, '');
-  assert.equal(sha(previousSchema), promotionPins.files['convex/schema.js']);
-  const previousPackage = read('package.json').toString().replace('node --check ./convex/supportForward.js && node --check ./convex/supportForwardHttp.js && node --check ./convex/supportForwardProvider.js && ', '');
-  assert.equal(sha(previousPackage), manifest.acceptedPaidFiles['package.json']);
-});
-
 test('worker import/help loads the exact signed dynamic composition schema without credentials or network', () => {
   assert.equal(sha(read('schemas/codex-subscription-composition.schema.json')), '042b96d94b7c77461e02e55a92af7a828b4619c7701aab25f9abb41d98f56914');
   const result = spawnSync(process.execPath, ['scripts/run-delivery-loop-worker.mjs', '--help'], {

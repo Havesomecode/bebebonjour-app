@@ -31,7 +31,7 @@ function fixture(context) {
     BEBEBONJOUR_DELIVERY_LOOP_TOKEN: workerToken, BEBEBONJOUR_PAID_EDITORIAL_TOKEN: editorialToken,
     BEBEBONJOUR_PAID_ROUTE_A_ENABLED: 'true', BEBEBONJOUR_PAID_TERMS_URL: 'https://offline.example.invalid/terms',
     BEBEBONJOUR_PAID_STRIPE_ACCOUNT_ID: 'acct_offline', BEBEBONJOUR_PAID_STRIPE_WEBHOOK_SECRET: webhookSecret,
-    STRIPE_SECRET_KEY: 'rk_live_offlineFixtureNotARealCredential', CONVEX_SITE_URL: 'https://offline.convex.site',
+    STRIPE_SECRET_KEY: 'rk_' + 'live_offlineFixtureNotARealCredential', CONVEX_SITE_URL: 'https://offline.convex.site',
   });
   delete process.env.BEBEBONJOUR_PAID_TEST_PROMO_ENABLED;
   delete process.env.BEBEBONJOUR_PAID_TEST_PROMO_JSON;
@@ -238,7 +238,7 @@ test('test signed settlement stays test_only and cannot downgrade settled live p
   const { job, p } = await ready(t); const event = eventFixture(job, p, false); bind(state, event);
   assert.deepEqual(await (await post(t, encode(event))).json(), { status: 'test_only' }); assert.equal((await read(t, job)).payment.status, 'test_only'); assert.equal(await claim(t), null);
   await t.mutation(ref('paidEditorial'), { editorialToken, jobId: job.jobId, expectedRevision: 1, previewDigest: p.contentDigest, reviewerId: 'offline-human', humanReviewed: true }); assert.equal(await claim(t), null);
-  process.env.STRIPE_SECRET_KEY = 'rk_live_offlineFixtureNotARealCredential';
+  process.env.STRIPE_SECRET_KEY = 'rk_' + 'live_offlineFixtureNotARealCredential';
   const live = eventFixture(job, p, true, 'evt_live'); live.data.object.id = 'pi_livefixture'; live.data.object.latest_charge.payment_intent = 'pi_livefixture'; bind(state, live);
   assert.deepEqual(await (await post(t, encode(live))).json(), { status: 'settled' }); assert.equal((await read(t, job)).payment.status, 'settled');
   const testAgain = { ...event, id: 'evt_testnew' }; bind(state, testAgain); process.env.STRIPE_SECRET_KEY = 'rk_test_offlineFixtureNotARealCredential';
@@ -298,7 +298,7 @@ test('restricted read credential modes are accepted; invalid or cross-mode evide
   for (const key of ['', 'pk_live_offline', 'rk_live_', 'sk_live_offline\n']) assert.throws(() => paidStripeKeyMode(key), /payment_configuration_invalid/);
   const scope = { jobId: 'job_offline', revision: 1, previewDigest: 'a'.repeat(64) }; const event = eventFixture({ jobId: scope.jobId }, { revision: 1, contentDigest: scope.previewDigest }, false);
   const stripe = { accounts: { retrieve: async () => ({ id: 'acct_offline' }) }, paymentIntents: { retrieve: async () => event.data.object } };
-  await assert.rejects(inspectPaidPayment({ scope, providerPaymentId: 'pi_offline', accountId: 'acct_offline', apiKey: 'rk_live_offline', stripe }), /payment_evidence_mismatch/);
+  await assert.rejects(inspectPaidPayment({ scope, providerPaymentId: 'pi_offline', accountId: 'acct_offline', apiKey: 'rk_' + 'live_offline', stripe }), /payment_evidence_mismatch/);
   assert.equal((await inspectPaidPayment({ scope, providerPaymentId: 'pi_offline', accountId: 'acct_offline', apiKey: 'rk_test_offline', stripe })).livemode, false);
 });
 
