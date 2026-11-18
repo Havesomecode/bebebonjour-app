@@ -7,6 +7,8 @@ import path from 'node:path';
 
 const BASE = '3dd9fa2683948ea32e7fd7b341a3e5559ae6f06c';
 const PROOF = 'ops/cloudflare-successor-boundary.json';
+const MAIL_BASE = 'af0d277072eac9c3aa6c80e0b29929ab63d94f40';
+const MAIL_PROOF = 'ops/cloudflare-only-mail-boundary.json';
 const historicalEvidence = ['ops/installation-compatibility.json', 'ops/promotion-candidate-pins.json', 'ops/support-forward-candidate-pins.json', 'ops/test-a-consolidated-candidate-evidence.json'];
 const sha = bytes => createHash('sha256').update(bytes).digest('hex');
 
@@ -27,9 +29,16 @@ export function verifySuccessorBoundary(rootUrl = new URL('../', import.meta.url
   const lines = data => data.toString().split(/\r?\n/u).filter(Boolean);
   const proof = JSON.parse(read(PROOF));
   assert.equal(proof.base, BASE);
-  const changed = new Set([...lines(git('diff', '--name-only', BASE, '--')), ...lines(git('ls-files', '--others', '--exclude-standard'))]);
-  changed.delete(PROOF);
-  verifyPinnedPaths(proof.files, [...changed], read);
+  // Keep the installed candidate's attestation immutable and verify its exact
+  // committed bytes. A separate delta pins this uncommitted, unapproved candidate.
+  assert.equal(sha(read(PROOF)), sha(git('show', `${MAIL_BASE}:${PROOF}`)), 'installed proof changed');
+  const installedPaths = lines(git('diff', '--name-only', BASE, MAIL_BASE, '--')).filter(name => name !== PROOF);
+  verifyPinnedPaths(proof.files, installedPaths, name => git('show', `${MAIL_BASE}:${name}`));
+  const mailProof = JSON.parse(read(MAIL_PROOF));
+  assert.equal(mailProof.base, MAIL_BASE);
+  const changed = new Set([...lines(git('diff', '--name-only', MAIL_BASE, '--')), ...lines(git('ls-files', '--others', '--exclude-standard'))]);
+  changed.delete(MAIL_PROOF);
+  verifyPinnedPaths(mailProof.files, [...changed], read);
   for (const name of historicalEvidence) assert.equal(sha(read(name)), sha(historical(name)), `${name} historical evidence changed`);
   const manifest = JSON.parse(historical('ops/installation-compatibility.json'));
   const promotion = JSON.parse(historical('ops/promotion-candidate-pins.json'));
@@ -40,5 +49,5 @@ export function verifySuccessorBoundary(rootUrl = new URL('../', import.meta.url
   for (const [name, hash] of Object.entries(manifest.acceptedPaidFiles)) assert.equal(sha(historical(name)), support.files[name] || promotion.files[name] || hash, name);
   for (const [name, hash] of Object.entries(promotion.files)) assert.equal(sha(historical(name)), support.files[name] || hash, name);
   for (const [name, hash] of Object.entries(support.files)) assert.equal(sha(historical(name)), hash, name);
-  return proof;
+  return { base: BASE, files: { ...proof.files, ...mailProof.files } };
 }

@@ -280,8 +280,8 @@ export const fence = mutationGeneric({
     auth(args.workerToken); const row = await get(ctx, args.jobId); const lease = authorizeLease(row, args.leaseToken, args.revision, args.stage);
     if (["generate", "finalize"].includes(args.stage)) throw new Error("email_stage_required");
     if (lease.effectStartedAtMs === undefined) {
-      const provider = process.env.BEBEBONJOUR_DELIVERY_LOOP_EMAIL_PROVIDER || "resend";
-      if (!["resend", "cloudflare"].includes(provider)) throw new Error("email_provider_invalid");
+      const provider = process.env.BEBEBONJOUR_DELIVERY_LOOP_EMAIL_PROVIDER || "cloudflare";
+      if (provider !== "cloudflare") throw new Error("email_provider_invalid");
       lease.effectStartedAtMs = Date.now();
       lease.emailProvider = provider;
       lease.emailIdempotencyKey = `bebe-loop:${row.jobId}:${row.data.desiredRevision}:${args.stage}`;

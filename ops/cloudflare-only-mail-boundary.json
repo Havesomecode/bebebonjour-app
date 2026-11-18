@@ -1,0 +1,28 @@
+{
+  "base": "af0d277072eac9c3aa6c80e0b29929ab63d94f40",
+  "files": {
+    "README.md": "ec8bab9b8afa7ae3c2216d4c10333a2414cb3a12ae9aa318a64e1a2dce7bb199",
+    "convex/deliveryLoop.js": "d329e003f7c5e8583471d88965dfca581b01a01cd914cb82e7042ef2bc2ec645",
+    "convex/deliveryLoopData.js": "0429c1a3a45b608eaeb07926ad21606337b6b1418be207aa5a3a313f3484528f",
+    "convex/deliveryLoopDataProviders.js": "23c6684e932f2d33c78c96d1c58ea1fa14a4d7fc58037428b7d2530db69f5e96",
+    "convex/deliveryLoopProviders.js": "bb8a32a4b90f9830e85253119e63da9d462d8173d7fa793733814e82a1cf22bb",
+    "convex/supportForwardHttp.js": "70587858fd7c6d79b2906e97194621af3d502b40a80e15b6e4537fefae71f912",
+    "convex/supportForwardProvider.js": "c0e29a9661b7863a9e066598df62e89aec81ca3ef62d02b884815a0facc20d81",
+    "delivery-loop-provider/api/provider.mjs": "9453699b455bf059926faf7e5fd386f7f1e2d5acdb708d2c5b8e9e4d815d2732",
+    "docs/cloudflare-delivery-loop.md": "d651306dbada298eb11dd930da275333f894bde085ab06dc9340dfcb8ac9595b",
+    "docs/paid-route-a-data-controls.md": "34210847d061deb0c612998ede1426ef0fb6615a5f6ecdf5af9da0dee3004e24",
+    "docs/resend-support-forwarding.md": "5f00cd5ae973d6580c70daba4746867d8fca3358715fcf9c82f96947d050ec1c",
+    "ops/cloudflare-successor-verify.mjs": "42b4607eb2b5a358e846baf77f36400f4fd17b8742deb73adc589aee1858ecbc",
+    "src/delivery-loop/provider-transport.mjs": "412184e451e04db0e1d997e677372415d83b4f2ff2e3eae89a6154cf827d6257",
+    "test/convex/cloudflare-only-mail.test.mjs": "055dd6fc05d4b1705a7813149abd1401340b942d49b197c3251f76d2ff0c07cf",
+    "test/convex/cloudflare-successor-boundary.test.mjs": "f925eb108319d6e2e051435bef6165ace22edd14787741a990351a8e3c64cee7",
+    "test/convex/delivery-loop-data.test.mjs": "ae45994065bc02371695754921bbda3b419bc02e42181baf4f3dcb199a832d02",
+    "test/convex/delivery-loop-paid.test.mjs": "2209955666cc873a5dde0982868d7b4232141fa642ae7d426f8dc9690782d21c",
+    "test/convex/delivery-loop-payment-events.test.mjs": "57c13ccb0bfd75273d210d1bbc4126840e25a09de05777b7b3c3734081d52514",
+    "test/convex/delivery-loop-reviewed-narration.test.mjs": "d4a84523ccd0da12c489ef7abbb83c5266d53f136338f4b8d9b82f6ddb44b093",
+    "test/convex/delivery-loop.test.mjs": "dea3a6958600437860831b949ab8cf254a5b3904eb5d2f5043c920bad3b40613",
+    "test/convex/production-bundle.test.mjs": "6e40616be7bf0090e55abf6132219d6b9e452da22fb45d2cbca7c090d5fe8886",
+    "test/convex/support-forward.test.mjs": "9461558e32596062ab551e5a87093ed4f6860918b8db37f9cd04fd14427d269a",
+    "test/operations/delivery-loop-provider.test.mjs": "1764e6d7afd69476dac69631aa3873923ad623faedefd218c4fc216d47f69fff"
+  }
+}

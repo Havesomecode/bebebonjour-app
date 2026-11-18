@@ -4,12 +4,11 @@ import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
+import { verifySuccessorBoundary } from '../../ops/cloudflare-successor-verify.mjs';
 import { createTestAOperatorIsolationInventory } from '../../src/config/test-a-operator-isolation.mjs';
 
 const root = new URL('../../', import.meta.url);
 const base = '3dd9fa2683948ea32e7fd7b341a3e5559ae6f06c';
-const proofPath = 'ops/cloudflare-successor-boundary.json';
-const git = (...args) => execFileSync('git', args, { cwd: root, encoding: 'utf8' });
 const sha = data => createHash('sha256').update(data).digest('hex');
 const read = path => readFileSync(new URL(`../../${path}`, import.meta.url));
 const historical = path => execFileSync('git', ['show', `${base}:${path}`], { cwd: root });
@@ -36,11 +35,5 @@ test('successor preserves the historical TEST-A isolation inventory', async () =
 });
 
 test('successor source is restricted to the explicitly pinned changes', () => {
-  const proof = JSON.parse(read(proofPath));
-  assert.equal(proof.base, base);
-  const changed = git('diff', '--name-only', base, '--').trim().split('\n').filter(Boolean);
-  const untracked = git('ls-files', '--others', '--exclude-standard').trim().split('\n').filter(Boolean);
-  const paths = [...new Set([...changed, ...untracked])].sort();
-  assert.deepEqual(paths, [...Object.keys(proof.files), proofPath].sort());
-  for (const [path, hash] of Object.entries(proof.files)) assert.equal(sha(read(path)), hash, path);
+  verifySuccessorBoundary(root);
 });

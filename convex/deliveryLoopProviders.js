@@ -5,7 +5,7 @@ import { paymentEventFields } from "./deliveryLoopPaymentEvents.js";
 import { paymentEventRejection } from "../src/delivery-loop/paid-event.mjs";
 import { v } from "convex/values";
 import { createHash } from "node:crypto";
-import { performNarration, performEmail } from "../src/delivery-loop/provider-transport.mjs";
+import { performNarration } from "../src/delivery-loop/provider-transport.mjs";
 import { cloudflareTransport, alreadyAdmitted } from "../src/delivery-loop/cloudflare-runtime.mjs";
 import { inspectPaidPayment, PaidPaymentInspectionError } from "../src/delivery-loop/paid-payment.mjs";
 
@@ -25,7 +25,7 @@ export const narrate = actionGeneric({
       provider: existing.provider, model: existing.model, voice: existing.voice };
     if (createHash('sha256').update(args.text).digest('hex') !== args.textDigest) throw new Error('narration_text_mismatch');
     await context.runMutation(ref('beginNarration'), { ...pickIdentity(args), language: args.language, textDigest: args.textDigest });
-    const receipt = await provider('narrate', { language: args.language, text: args.text, textDigest: args.textDigest });
+    const receipt = await performNarration({ language: args.language, text: args.text, textDigest: args.textDigest });
     const bytes = Buffer.from(receipt.audioBase64, 'base64');
     if (bytes.length !== receipt.bytes || bytes.length < 128 || bytes.length > 12 * 1024 * 1024
       || createHash('sha256').update(bytes).digest('hex') !== receipt.audioDigest
@@ -54,17 +54,16 @@ export const sendEmail = actionGeneric({
     const admission = await context.runMutation(ref('fence'), args);
     let receipt;
     try {
-      receipt = admission.emailProvider === 'cloudflare'
-        ? await cloudflareTransport().send(payload, { fenceExternalEffect: alreadyAdmitted })
-        : await provider('sendEmail', payload);
+      if (admission.emailProvider !== 'cloudflare') throw new Error('email_provider_invalid');
+      receipt = await cloudflareTransport().send(payload, { fenceExternalEffect: alreadyAdmitted });
     } catch (error) {
-      // Never blindly re-send an uncertain email. Resend's canonical idempotency
-      // key stays recorded so the exact effect can be reconciled rather than duplicated.
+      // Keep the durable operation/provider identity after any uncertain result;
+      // neither another provider nor a retired relay may retry this effect.
       await context.runMutation(ref('fail'), { workerToken: args.workerToken, jobId: args.jobId,
         leaseToken: args.leaseToken, reason: safeReason(error), retryable: false });
       throw new Error(safeReason(error));
     }
-    await context.runMutation(ref('completeEmail'), { ...args, provider: admission.emailProvider || 'resend', providerMessageId: receipt.providerMessageId });
+    await context.runMutation(ref('completeEmail'), { ...args, provider: admission.emailProvider, providerMessageId: receipt.providerMessageId });
     return { providerMessageId: receipt.providerMessageId, status: args.stage === 'final_email' ? 'approved_sent' : 'awaiting_review' };
   },
 });
@@ -80,7 +79,7 @@ export const inspectEmail = actionGeneric({
     const selected = [...providers][0];
     if (selected === 'cloudflare') return cloudflareTransport().status({ providerMessageId: args.providerMessageId });
     if (selected !== 'resend') throw new Error('email_provider_invalid');
-    return provider('inspectEmail', { providerMessageId: args.providerMessageId });
+    throw new Error('legacy_email_status_unavailable');
   },
 });
 
@@ -105,29 +104,6 @@ function emailPayload(job, stage, revision) {
   const html = `<div style="font-family:Georgia,serif;color:#20392d;max-width:580px"><h1>${escapeHtml(subject)}</h1><p>${escapeHtml(intro)}</p><p><a href="${escapeHtml(job.publicUrl)}">Ouvrir votre annonce</a></p>${final ? '' : `<p><a href="${escapeHtml(job.reviewUrl)}">Réviser, corriger ou approuver</a></p>`}<p>Bébé Bonjour</p></div>`;
   return { to: job.intake.customer.email, subject, text, html,
     idempotencyKey: `bebe-loop:${job.jobId}:${revision}:${stage}` };
-}
-
-async function provider(operation, payload) {
-  if (operation !== 'narrate' && process.env.BEBEBONJOUR_DELIVERY_LOOP_PROVIDER_URL) {
-    const url = new URL(process.env.BEBEBONJOUR_DELIVERY_LOOP_PROVIDER_URL);
-    if (url.protocol !== 'https:') throw new Error('provider_url_invalid');
-    const response = await fetch(url, { method: 'POST', headers: {
-      authorization: `Bearer ${process.env.BEBEBONJOUR_DELIVERY_LOOP_TOKEN}`, 'content-type': 'application/json',
-    }, body: JSON.stringify({ operation, payload }), signal: AbortSignal.timeout(150_000) });
-    const result = await response.json();
-    if (!response.ok || result.status !== 'ok') throw new Error(result.code || `provider_proxy_http_${response.status}`);
-    return result.result;
-  }
-  if (operation === 'narrate') return performNarration(payload);
-  if (operation === 'sendEmail') return performEmail(payload);
-  if (operation === 'inspectEmail') {
-    const response = await fetch(`https://api.resend.com/emails/${encodeURIComponent(payload.providerMessageId)}`, {
-      headers: { authorization: `Bearer ${process.env.RESEND_API_KEY}` }, signal: AbortSignal.timeout(30_000),
-    });
-    if (!response.ok) throw new Error(`email_inspection_http_${response.status}`);
-    return response.json();
-  }
-  throw new Error('provider_operation_invalid');
 }
 
 function escapeHtml(value) {

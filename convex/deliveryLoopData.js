@@ -123,8 +123,8 @@ export const beginNotice = internalMutationGeneric({
   handler: async (ctx, args) => {
     const row = await get(ctx, args.jobId); const d = row.data;
     if (!isPaid(row) || process.env.BEBEBONJOUR_PAID_DATA_AUTOMATION_ENABLED !== "true" || d.closureNotice?.status !== "queued" || d.revokedAtMs || d.cancelledAtMs || d.hostingEndsAtMs <= Date.now()) return null;
-    const provider = process.env.BEBEBONJOUR_DELIVERY_LOOP_EMAIL_PROVIDER || 'resend';
-    if (!['resend', 'cloudflare'].includes(provider)) throw new Error('email_provider_invalid');
+    const provider = process.env.BEBEBONJOUR_DELIVERY_LOOP_EMAIL_PROVIDER || 'cloudflare';
+    if (provider !== 'cloudflare') throw new Error('email_provider_invalid');
     d.closureNotice.status = "inflight"; d.closureNotice.startedAtMs = Date.now(); d.closureNotice.provider = provider;
     await save(ctx, row);
     return { to: d.intake.customer.email, reviewToken: d.reviewToken, hostingEndsAtMs: d.hostingEndsAtMs, idempotencyKey: d.closureNotice.idempotencyKey, provider };

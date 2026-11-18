@@ -80,7 +80,7 @@ async function ready(t) {
   const email = await claim(t);
   const identity = { workerToken, jobId: job.jobId, leaseToken: email.leaseToken, revision: 1, stage: 'draft_email' };
   await t.mutation(ref('fence'), identity);
-  await t.mutation(ref('completeEmail'), { ...identity, providerMessageId: 'offline_preview_notice' });
+  await t.mutation(ref('completeEmail'), { ...identity, provider: 'cloudflare', providerMessageId: 'offline_preview_notice' });
   await t.mutation(ref('requestReview'), { jobId: job.jobId, reviewToken: job.reviewToken, expectedRevision: 1, action: 'approve', idempotencyKey: crypto.randomUUID() });
   await t.mutation(ref('paidPermissions'), { jobId: job.jobId, reviewToken: job.reviewToken, expectedRevision: 1, termsVersion: 'route-a-39-v1', termsAccepted: true, publication: true });
   return { job, p };

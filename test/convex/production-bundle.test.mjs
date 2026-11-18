@@ -39,6 +39,11 @@ test("production Convex bundler separates isolate queries/mutations from Node ac
     assert.equal(config.modules.find((entry) => entry.path === path)?.environment, "isolate", path);
   }
   assert.equal(config.modules.find((entry) => entry.path === "supportForwardProvider.js")?.environment, "node");
+  for (const name of ['deliveryLoopProviders.js', 'deliveryLoopDataProviders.js', 'supportForwardHttp.js', 'supportForwardProvider.js']) {
+    const source = config.modules.find(entry => entry.path === name)?.source;
+    assert.equal(typeof source, 'string', name);
+    assert.doesNotMatch(source, /api\.resend\.com|RESEND_API_KEY|BEBEBONJOUR_DELIVERY_LOOP_PROVIDER_URL|from\s*["']resend["']/u, name);
+  }
   assert.equal(config.modules.find((entry) => entry.path === "narrationRuntime.js")?.environment, "node");
   assert.equal(config.modules.find((entry) => entry.path === "deliveryLoopProviders.js")?.environment, "node");
   assert.equal(config.modules.find((entry) => entry.path === "deliveryLoopDataProviders.js")?.environment, "node");

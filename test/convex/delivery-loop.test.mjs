@@ -37,7 +37,7 @@ async function email(t, jobId, leaseToken) {
   const fenced = await t.mutation(ref("fence"), { workerToken, jobId, leaseToken, stage: lease.stage });
   assert.equal(fenced.emailIdempotencyKey, `bebe-loop:${jobId}:${lease.revision}:${lease.stage}`);
   assert.equal(fenced.intake.customer.email, intake.email);
-  await t.mutation(ref("completeEmail"), { workerToken, jobId, leaseToken, revision: lease.revision, stage: lease.stage, providerMessageId: `offline-${leaseToken}` });
+  await t.mutation(ref("completeEmail"), { workerToken, jobId, leaseToken, revision: lease.revision, stage: lease.stage, provider: 'cloudflare', providerMessageId: `offline-${leaseToken}` });
   return lease;
 }
 

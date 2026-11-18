@@ -38,7 +38,7 @@ const patchData=(t,job,patch)=>t.run(async ctx=>{const row=await ctx.db.query('d
 const submit=t=>t.mutation(ref('submit'),{idempotencyKey:crypto.randomUUID(),orderMode:'paid_route_a',previewConsent:true,intake});
 async function email(t, job) {
   const lease=await claim(t); const args={workerToken,jobId:job.jobId,revision:lease.revision,leaseToken:lease.leaseToken,stage:lease.stage};
-  await t.mutation(ref('fence'),args);await t.mutation(ref('completeEmail'),{...args,providerMessageId:`offline_${lease.stage}`});
+  await t.mutation(ref('fence'),args);await t.mutation(ref('completeEmail'),{...args,provider:'cloudflare',providerMessageId:`offline_${lease.stage}`});
 }
 async function delivered(t) {
   const job=await submit(t), lease=await claim(t);
@@ -119,12 +119,12 @@ test('calendar hosting expiry closes text/audio and deletes storage; cancellatio
   assert.equal(await t.query(ref('publicPage'),{publicToken:row.publicToken}),null);assert.equal((await t.fetch(exportUrl(job,'page'))).status,404);await t.mutation(dataRef('sweep'),{});assert.equal(await t.run(ctx=>ctx.storage.get(storageId)),null);assert.equal((await raw(t,job)).data.reason,'hosting_ended');
   const t2=fixture();const key='abandoned-idempotency';const cancelled=await t2.mutation(ref('submit'),{idempotencyKey:key,orderMode:'paid_route_a',previewConsent:true,intake});await patchData(t2,cancelled,{cancelledAtMs:Date.now()-30*DAY+2000});await t2.mutation(dataRef('sweep'),{});assert.notEqual((await raw(t2,cancelled)).status,'data_deleted');await patchData(t2,cancelled,{cancelledAtMs:Date.now()-30*DAY});await t2.mutation(dataRef('sweep'),{});assert.equal((await raw(t2,cancelled)).data.reason,'cancelled_retention');await assert.rejects(t2.mutation(ref('submit'),{idempotencyKey:key,orderMode:'paid_route_a',previewConsent:true,intake}),/data_deleted/);
 });
-test('scheduled closure notice invokes actual Resend adapter once; successful/uncertain sends and disabled automation are fenced',async()=>{
+test('scheduled closure notice invokes actual Cloudflare adapter once; successful/uncertain sends and disabled automation are fenced',async()=>{
   const t=fixture();const {job}=await delivered(t);await patchData(t,job,{hostingEndsAtMs:Date.now()+30*DAY-1000});
-  const original=globalThis.fetch;let sends=0;globalThis.fetch=async(url,opts)=>{assert.equal(url,'https://api.resend.com/emails');sends++;const value=JSON.parse(opts.body);assert.match(value.text,/texte final.*audio.*archive/);assert.match(value.text,/contact@bebebonjour.com/);assert.match(opts.headers['idempotency-key'],/:closure_notice$/);return Response.json({id:'offline_notice_receipt'});};process.env.RESEND_API_KEY='offline-not-real';
+  const original=globalThis.fetch;let sends=0;Object.assign(process.env,{BEBEBONJOUR_CLOUDFLARE_ACCOUNT_ID:'a'.repeat(32),BEBEBONJOUR_CLOUDFLARE_ZONE_ID:'b'.repeat(32),BEBEBONJOUR_CLOUDFLARE_EMAIL_TOKEN:'offline-not-real'});globalThis.fetch=async(url,opts)=>{assert.match(url,/^https:\/\/api\.cloudflare\.com\//);sends++;const value=JSON.parse(opts.body);assert.match(value.text,/texte final.*audio.*archive/);assert.match(value.text,/contact@bebebonjour.com/);assert.match(value.headers['X-Bebe-Operation'],/:closure_notice$/);return Response.json({success:true,errors:[],result:{message_id:'<offline_notice_receipt@example.invalid>',queued:[value.to],delivered:[],permanent_bounces:[]}});};
   try {await t.mutation(dataRef('sweep'),{});await t.finishAllScheduledFunctions(()=>mock.timers.tick(0));assert.equal(sends,1);assert.equal((await raw(t,job)).data.closureNotice.status,'sent');await t.mutation(dataRef('sweep'),{});await t.action(makeFunctionReference('deliveryLoopDataProviders:sendClosureNotice'),{jobId:job.jobId});assert.equal(sends,1);
     const t2=fixture();const {job:other}=await delivered(t2);await patchData(t2,other,{hostingEndsAtMs:Date.now()+30*DAY-1000});globalThis.fetch=async()=>{sends++;throw new Error('offline_timeout');};await t2.mutation(dataRef('sweep'),{});await t2.finishAllScheduledFunctions(()=>mock.timers.tick(0));assert.equal((await raw(t2,other)).data.closureNotice.status,'reconciliation_required');await t2.action(makeFunctionReference('deliveryLoopDataProviders:sendClosureNotice'),{jobId:other.jobId});assert.equal(sends,2);
-  }finally{globalThis.fetch=original;delete process.env.RESEND_API_KEY;}
+  }finally{globalThis.fetch=original;for(const key of ['BEBEBONJOUR_CLOUDFLARE_ACCOUNT_ID','BEBEBONJOUR_CLOUDFLARE_ZONE_ID','BEBEBONJOUR_CLOUDFLARE_EMAIL_TOKEN'])delete process.env[key];}
   process.env.BEBEBONJOUR_PAID_DATA_AUTOMATION_ENABLED='false';assert.deepEqual(await t.mutation(dataRef('sweep'),{}),{disabled:true});
 });
 test('Cloudflare closure uses its own durable admission and records provider identity', async()=>{

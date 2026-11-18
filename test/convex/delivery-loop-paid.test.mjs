@@ -44,7 +44,7 @@ const payment = (t, job, preview, more={}) => t.mutation(ref('recordPaymentEvide
 async function email(t, job) {
   const lease = await claim(t);
   await t.mutation(ref('fence'), { workerToken, jobId:job.jobId, leaseToken:lease.leaseToken, revision:lease.revision, stage:lease.stage });
-  await t.mutation(ref('completeEmail'), { workerToken, jobId:job.jobId, leaseToken:lease.leaseToken, revision:lease.revision, stage:lease.stage, providerMessageId:`offline_${crypto.randomUUID()}` });
+  await t.mutation(ref('completeEmail'), { workerToken, jobId:job.jobId, leaseToken:lease.leaseToken, revision:lease.revision, stage:lease.stage, provider:'cloudflare', providerMessageId:`offline_${crypto.randomUUID()}` });
   return lease;
 }
 async function preview(t, job) {
@@ -228,12 +228,12 @@ for (const lostAck of [false, true]) test(`worker reconciles opaque Cloudflare r
 });
 
 test('actual durable worker and Convex provider actions complete corrected paid Route A offline without preapproval speech/publication/final mail',async context=>{
-  const t=fixture();process.env.OPENAI_API_KEY='offline-not-a-real-key';process.env.RESEND_API_KEY='offline-not-a-real-key';delete process.env.BEBEBONJOUR_DELIVERY_LOOP_PROVIDER_URL;
+  const t=fixture();process.env.OPENAI_API_KEY='offline-not-a-real-key';Object.assign(process.env,{BEBEBONJOUR_CLOUDFLARE_ACCOUNT_ID:'a'.repeat(32),BEBEBONJOUR_CLOUDFLARE_ZONE_ID:'b'.repeat(32),BEBEBONJOUR_CLOUDFLARE_EMAIL_TOKEN:'offline-send-token'});delete process.env.BEBEBONJOUR_DELIVERY_LOOP_PROVIDER_URL;
   const effects=[];
   context.mock.method(globalThis,'fetch',async(url,options)=>{
     const payload=JSON.parse(options.body);effects.push({url,payload});
     if(url==='https://api.openai.com/v1/audio/speech') return new Response(new Uint8Array(180).fill(23),{headers:{'content-type':'audio/mpeg'}});
-    if(url==='https://api.resend.com/emails') return Response.json({id:`offline_message_${effects.length}`});
+    if(url.startsWith('https://api.cloudflare.com/')) return Response.json({success:true,errors:[],result:{message_id:`<offline_message_${effects.length}@example.invalid>`,queued:[payload.to],delivered:[],permanent_bounces:[]}});
     throw new Error('unexpected_network_forbidden');
   });
   const scratch=process.env.TMPDIR;assert.ok(scratch);await mkdir(scratch,{recursive:true});const root=await mkdtemp(path.join(scratch,'paid-route-offline-'));context.after(()=>rm(root,{recursive:true,force:true}));
@@ -256,7 +256,7 @@ test('actual durable worker and Convex provider actions complete corrected paid 
   const row=await read(t,job);assert.equal(row.finalPublication.contentHtml,p.contentHtml);assert.equal(row.narrationReceipts.length,1);
   const page=await t.fetch('/announcements/'+row.publicToken);const html=await page.text();assert.match(html,/Notre amour grandit chaque jour/);assert.match(html,/<audio controls/);assert.doesNotMatch(html,/Première version/);
   assert.equal((await worker.runOnce()).status,'email_sent');assert.equal((await worker.runOnce()).status,'idle');
-  assert.equal(effects.filter(e=>e.url.includes('resend')).length,3);assert.match(effects.at(-1).payload.text,/\/announcements\//);
+  assert.equal(effects.filter(e=>e.url.includes('cloudflare')).length,3);assert.equal(effects.filter(e=>e.url.includes('resend')).length,0);assert.match(effects.at(-1).payload.text,/\/announcements\//);
   const arabic=await submit(t,{intake:{...intake,email:'arabic@example.invalid',language:'ar'}});
   assert.equal((await worker.runOnce()).status,'published');assert.equal((await worker.runOnce()).status,'email_sent');
   const ap=(await read(t,arabic)).revisions.at(-1);await decision(t,arabic,1);await permissions(t,arabic,1);await editorial(t,arabic,ap);await payment(t,arabic,ap,{providerPaymentId:'pi_arabicfixture'});

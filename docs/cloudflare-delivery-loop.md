@@ -1,11 +1,31 @@
-# Delivery-loop Cloudflare candidate
+# Delivery-loop mail: Cloudflare only
 
-The current signed support baseline already tracks the delivery-loop implementation, including paid controls and the separate closure-notice fence. The older untracked files in the canonical checkout must not overwrite it. Support forwarding, existing MX and historical Resend receipts remain unchanged.
+## Candidate scope
 
-Outgoing Cloudflare email must use atomic one-shot admission before transport, retain the selected provider with each effect and receipt, and never retry or fall back after an uncertain send. Closure notices use their own existing notice fence. Inspection must select the provider recorded on the receipt; legacy untagged receipts remain Resend. Cloudflare IDs are opaque and must not be normalized. The worker accepts the same 1–998 printable non-space ASCII characters as the durable receipt mutation, including punctuation. Retained evidence after deletion preserves each receipt's provider and any in-flight email admission's provider; historical untagged receipts or admissions mean Resend. A receipt does not prove inbox delivery. Cloudflare status inspection remains unavailable: adaptive analytics may be sampled and cannot establish the latest event. See `ops/cloudflare-email-status.md`; retain the receipt and do not resend based on missing status.
+This source-only successor starts at installed mail baseline `af0d277072eac9c3aa6c80e0b29929ab63d94f40`, not the canonical checkout's unrelated WIP. The starting report is preserved as attachment `rapport.md` on `personal-projects/t_d48dcdb6` (1611). Historical installation and transport evidence is not a current provider/configuration readback or proof of hosted announcement/closure delivery.
 
-Cloudflare uses `bonjour@mail.havesomecode.io` with the existing support reply-to. Runtime account and zone IDs and the sending credential are required; an analytics credential is not used or required while status inspection is unavailable. The provider selector defaults to Resend.
+## New sends and admission
 
-The historical TEST-A and installation compatibility attestations describe earlier exact bytes and must not be rewritten to claim approval of this successor. The canonical installation and TEST-A checks verify historical evidence against its support baseline, then bind current changes to a separate pinned successor boundary. This does not transfer prior approval: the new candidate still requires independent review.
+Announcement drafts, final announcements and closure notices use the existing Cloudflare transport exclusively. `BEBEBONJOUR_DELIVERY_LOOP_EMAIL_PROVIDER` defaults to `cloudflare`; an explicit value other than `cloudflare` refuses admission before recording a new effect. It is not a rollback switch to Resend. The retired `BEBEBONJOUR_DELIVERY_LOOP_PROVIDER_URL` cannot redirect mail or inspection to a Vercel relay.
 
-This document describes a candidate, not an activation. Deployment requires an independent review of the exact candidate, verification of the currently deployed source, configured credentials and sending-domain privacy settings, and reconciliation of uncertain effects before any new send. No support inbound, backend migration, DNS, or customer data change is implied.
+Atomic one-shot admission precedes transport. Each effect and receipt retains its provider and operation identity; closure notices retain their separate fence. Missing credentials, provider rejection, timeout, uncertain acceptance and lost result acknowledgements never trigger Resend fallback or automatic resend. Already-fenced historical admissions are not re-admitted or relabelled. A defensive provider check also refuses a non-Cloudflare admission in either send action.
+
+Cloudflare uses `bonjour@mail.havesomecode.io` and reply-to `contact@bebebonjour.com`. Account/zone IDs and sending credentials are required by the existing adapter. No analytics credential is required while status inspection is unavailable. This change does not alter the adapter, domain, DNS, credentials or preview-retention configuration.
+
+## Historical receipts and inspection
+
+Untagged historical receipts and admissions still mean Resend. Existing explicit Resend receipts, Cloudflare opaque message IDs (1–998 printable non-space ASCII characters), retained evidence, closure-notice state and support receipts remain unchanged. Old completion acknowledgements can still reconcile the exact old fenced effect; they cannot initiate transport.
+
+Inspection first authenticates and binds the exact ID to the job's durable receipt. Mixed provider identities refuse. Resend inspection now returns `legacy_email_status_unavailable` without network access; it neither claims delivery nor calls a retired relay/API. Cloudflare inspection remains `cloudflare_status_unavailable`: sampled adaptive analytics cannot establish the latest event. See `ops/cloudflare-email-status.md`. Preserve uncertainty and reconcile separately under appropriate authority; missing status never authorizes another send. Provider acceptance is not inbox delivery.
+
+## Support and remaining legacy code
+
+The accepted Cloudflare forward `contact@bebebonjour.com` → `z@havesomecode.io` is external to this application's webhook and is not changed. The old Resend webhook is a body-independent HTTP 410 tombstone; its internal provider action also refuses without reads, mutations or provider calls, regardless of old flags or credentials. The identifier-only support ledger/schema is retained for historical reconciliation. See `resend-support-forwarding.md`.
+
+Other historical customer-flow/TEST-A fulfillment adapters still reference the Resend SDK; they are not the delivery-loop runtime and are outside this bounded mail delta. Consequently the dependency remains installed. This candidate does not claim that every archived product path in this repository is Resend-free or authorize promoting the old backend tree wholesale.
+
+## Verification and release boundary
+
+Run the offline behavioral tests for admission defaults/refusal, exact receipt binding, historical acknowledgement, support retirement, duplicate/lost acknowledgements and scheduled closure. Run the real Convex production bundler and repository source checks without network access. Historical evidence stays immutable; the new delta has its own exact path/hash boundary and independent review.
+
+No commit, push, deployment, actual message, fabricated hosted case/payment, customer-data operation, flag activation, DNS/secret change or purchase is authorized. Hosted announcement/closure business validation remains separate. Any future release must integrate only the reviewed mail delta into the then-current source and reconcile uncertain effects; do not deploy this historical full backend merely because local tests pass.

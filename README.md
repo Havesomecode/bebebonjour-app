@@ -11,7 +11,7 @@ The repository currently contains three connected but deliberately separated par
 
 ## Support email routing
 
-The disabled-by-default Resend receiving route forwards only `contact@bebebonjour.com` to `z@havesomecode.io` through the existing Convex backend. See [routing, effect-fence semantics and release/rollback instructions](docs/resend-support-forwarding.md). Source verification does not establish live routing or inbox delivery.
+The accepted Cloudflare support forward routes `contact@bebebonjour.com` to `z@havesomecode.io`; this candidate does not change or re-inspect that external route. The previous Resend webhook is retired with HTTP 410 and cannot forward mail, even with its old flags enabled. Historical support receipts remain intact. See [support retirement](docs/resend-support-forwarding.md) and the [Cloudflare-only delivery-loop contract](docs/cloudflare-delivery-loop.md). Source verification does not establish current live routing or inbox delivery.
 
 ## Safety boundary
 
