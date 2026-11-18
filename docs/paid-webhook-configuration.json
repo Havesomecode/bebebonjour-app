@@ -1,0 +1,58 @@
+{
+  "schemaVersion": 1,
+  "status": "offline_candidate_checkout_closed",
+  "authority": "existing_deliveryLoopJobs_and_deliveryLoopPaymentEvidence",
+  "checkout": {
+    "implemented": false,
+    "enabled": false,
+    "collectionProcedure": "separately_authorized_supervised_external_session",
+    "automaticCharge": false
+  },
+  "endpoint": {
+    "method": "POST",
+    "path": "/delivery/payment/webhook",
+    "proposedUrl": "https://tacit-antelope-577.convex.site/delivery/payment/webhook",
+    "verifiedProviderEndpointId": null,
+    "enabledEvents": ["payment_intent.succeeded"],
+    "connect": false,
+    "signatureHeader": "Stripe-Signature",
+    "signatureAlgorithm": "HMAC-SHA256_timestamp_dot_exact_raw_bytes",
+    "signatureToleranceSeconds": 300,
+    "maxBodyBytes": 65536,
+    "contentType": "application/json",
+    "contentEncoding": "identity"
+  },
+  "requiredServerConfiguration": {
+    "BEBEBONJOUR_PAID_STRIPE_ACCOUNT_ID": {"kind": "account_id", "verifiedValue": null},
+    "BEBEBONJOUR_PAID_STRIPE_WEBHOOK_SECRET": {"kind": "secret", "distinctFrom": "STRIPE_CUSTOMER_FLOW_WEBHOOK_SECRET", "custody": "existing_Convex_server_environment"},
+    "STRIPE_SECRET_KEY": {"kind": "secret", "acceptedPrefixes": ["rk_test_", "rk_live_", "sk_test_", "sk_live_"], "preferred": "existing_restricted_read_key", "requiredCapabilities": ["retrieve_own_account", "retrieve_payment_intent_and_expanded_latest_charge"]}
+  },
+  "admissionConfiguration": {
+    "BEBEBONJOUR_PAID_ROUTE_A_ENABLED": "false",
+    "BEBEBONJOUR_PAID_DATA_AUTOMATION_ENABLED": "false",
+    "BEBEBONJOUR_PAID_TERMS_URL": null,
+    "BEBEBONJOUR_PAID_EDITORIAL_TOKEN": {"kind": "secret", "minimumCharacters": 32, "distinctFrom": "BEBEBONJOUR_DELIVERY_LOOP_TOKEN", "custody": "human_operator_only"}
+  },
+  "implementedContract": {
+    "amountMinor": 3900,
+    "currency": "eur",
+    "termsVersion": "route-a-39-v1",
+    "metadata": {"project": "bebebonjour", "order_mode": "paid_route_a", "job_id": "exact_existing_job", "revision": "exact_approved_decimal_revision", "preview_digest": "exact_approved_sha256"},
+    "modeRule": "credential_event_intent_charge_modes_must_match_test_never_authorizes_live_effects",
+    "requires": ["succeeded", "paid_captured_latest_charge", "exact_amount_received", "no_current_refund_or_dispute", "active_order", "current_approval_and_permissions", "separate_human_editorial_attestation_before_final_effects"]
+  },
+  "finalizedLiveConfiguration": {
+    "accountId": null,
+    "productId": null,
+    "priceId": null,
+    "amountMinor": null,
+    "currency": null,
+    "taxTreatment": null,
+    "refundPolicyReference": null,
+    "webhookEndpointId": null,
+    "apiVersion": null,
+    "configurationFingerprint": null
+  },
+  "configurationRule": "Live values require downstream commercial decision and provider readback. They must match the implemented contract; changing amount/currency/terms requires a reviewed source successor, not an environment override. No Price ID is consumed by this handler. No signing secret or API key may be recorded here.",
+  "rollbackRule": "Close_new_paid_admission_and_external_collection_first_then_cancel_each_affected_order_keep_webhook_and_replay_ledgers_active_do_not_replay_uncertain_effects_or_claim_refunds"
+}

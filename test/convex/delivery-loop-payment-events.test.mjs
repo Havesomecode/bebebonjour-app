@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { createHash, createHmac } from 'node:crypto';
+import { readFileSync } from 'node:fs';
 import Stripe from 'stripe';
 import http from 'node:http';
 import https from 'node:https';
@@ -296,3 +297,101 @@ test('restricted read credential modes are accepted; invalid or cross-mode evide
   await assert.rejects(inspectPaidPayment({ scope, providerPaymentId: 'pi_offline', accountId: 'acct_offline', apiKey: 'rk_live_offline', stripe }), /payment_evidence_mismatch/);
   assert.equal((await inspectPaidPayment({ scope, providerPaymentId: 'pi_offline', accountId: 'acct_offline', apiKey: 'rk_test_offline', stripe })).livemode, false);
 });
+
+const operator = (t, job, action) => t.fetch('/delivery/operator', { method: 'POST',
+  headers: { 'content-type': 'application/json', authorization: `Bearer ${editorialToken}` },
+  body: JSON.stringify({ action, jobId: job.jobId, expectedRevision: 1 }) });
+const snapshot = t => t.run(async ctx => ({ jobs: await ctx.db.query('deliveryLoopJobs').collect(),
+  events: await ctx.db.query('deliveryLoopPaymentEvents').collect(), payments: await ctx.db.query('deliveryLoopPaymentEvidence').collect() }));
+
+test('lost HTTP acknowledgement after durable commit replays without another entitlement, job, version or provider read', async context => {
+  const { t, state } = fixture(context); const { job, p } = await ready(t); const event = eventFixture(job, p); bind(state, event);
+  // Model a disconnected caller: let the real server commit, discard its reply,
+  // then issue exactly the same signed bytes as a new invocation.
+  const bytes = encode(event); await post(t, bytes);
+  const committed = await snapshot(t); const calls = state.calls.length;
+  const result = await post(t, bytes); assert.equal(result.status, 200);
+  assert.deepEqual(await result.json(), { status: 'settled' });
+  assert.deepEqual(await snapshot(t), committed); assert.equal(state.calls.length, calls);
+  assert.equal(committed.jobs.length, 1); assert.equal(committed.payments.length, 1); assert.equal(await claim(t), null);
+});
+
+test('operator rollback before settlement rejects late delivery; rollback after settlement never revives authority or uncertain effects', async context => {
+  const { t, state } = fixture(context);
+  const late = await ready(t); const pending = eventFixture(late.job, late.p, true, 'evt_late'); bind(state, pending);
+  process.env.BEBEBONJOUR_PAID_ROUTE_A_ENABLED = 'false';
+  assert.equal((await operator(t, late.job, 'cancel')).status, 200);
+  assert.deepEqual(await (await post(t, encode(pending))).json(), { status: 'rejected' });
+  assert.equal((await ledger(t))[0].reason, 'order_cancelled'); assert.equal((await evidence(t)).length, 0);
+  assert.equal(await claim(t), null);
+  process.env.BEBEBONJOUR_PAID_ROUTE_A_ENABLED = 'true';
+  const paid = await ready(t); const settled = eventFixture(paid.job, paid.p, true, 'evt_beforecancel');
+  settled.data.object.id = 'pi_beforecancel'; settled.data.object.latest_charge.payment_intent = 'pi_beforecancel'; bind(state, settled);
+  const bytes = encode(settled); await post(t, bytes);
+  await t.mutation(ref('paidEditorial'), { editorialToken, jobId: paid.job.jobId, expectedRevision: 1,
+    previewDigest: paid.p.contentDigest, reviewerId: 'offline-human', humanReviewed: true });
+  const lease = await claim(t); assert.equal(lease.stage, 'finalize');
+  const identity = { workerToken, jobId: paid.job.jobId, leaseToken: lease.leaseToken, revision: 1,
+    language: 'fr', textDigest: sha('Bienvenue.\n\nDes jours doux.\n\nNotre amour.') };
+  await t.mutation(ref('beginNarration'), identity);
+  process.env.BEBEBONJOUR_PAID_ROUTE_A_ENABLED = 'false';
+  assert.equal((await operator(t, paid.job, 'cancel')).status, 200);
+  const frozen = await snapshot(t); const calls = state.calls.length;
+  await post(t, bytes); assert.deepEqual(await snapshot(t), frozen); assert.equal(state.calls.length, calls);
+  const cancelled = frozen.jobs.find(row => row.jobId === paid.job.jobId);
+  assert.equal(cancelled.status, 'cancelled'); assert.equal(cancelled.data.payment.status, 'settled', 'cancellation is not a refund assertion');
+  assert.equal(cancelled.data.narrationEffects[0].status, 'inflight', 'uncertain fence remains intact');
+  assert.equal((await operator(t, paid.job, 'cancel')).status, 200); assert.deepEqual(await snapshot(t), frozen, 'freeze itself is idempotent');
+  const another = { ...settled, id: 'evt_aftercancel' };
+  assert.deepEqual(await (await post(t, encode(another))).json(), { status: 'rejected' });
+  assert.equal((await ledger(t)).at(-1).reason, 'order_cancelled'); assert.equal((await evidence(t)).length, 1);
+  assert.equal(await claim(t), null);
+  const snap = await read(t, paid.job);
+  assert.equal(await t.query(ref('publicPage'), { publicToken: snap.publicToken }), null);
+  await assert.rejects(t.query(ref('preview'), { jobId: paid.job.jobId, reviewToken: paid.job.reviewToken, expectedRevision: 1 }), /order_cancelled/);
+  await assert.rejects(t.mutation(ref('beginNarration'), identity));
+});
+
+test('admission rollback alone preserves an existing valid obligation but cannot create checkout or paid jobs', async context => {
+  const { t, state } = fixture(context); const { job, p } = await ready(t); const event = eventFixture(job, p); bind(state, event);
+  process.env.BEBEBONJOUR_PAID_ROUTE_A_ENABLED = 'false';
+  assert.deepEqual(await (await post(t, encode(event))).json(), { status: 'settled' }, 'existing valid provider obligations stay ingestible');
+  const before = await snapshot(t);
+  for (const path of ['/delivery/checkout', '/delivery/payment/checkout']) {
+    assert.equal((await t.fetch(path, { method: 'POST', body: '{}' })).status, 404);
+  }
+  assert.equal((await operator(t, job, 'checkout')).status, 400);
+  await assert.rejects(t.mutation(ref('submit'), { intake: { email: 'closed@example.invalid', babyName: 'Amal', language: 'fr', gender: 'girl', context: 'general', voiceEnabled: true, consent: true, customerPermissions: true, fictional: true },
+    orderMode: 'paid_route_a', previewConsent: true, idempotencyKey: crypto.randomUUID() }), /paid_route_unavailable/);
+  assert.deepEqual(await snapshot(t), before); assert.equal(await claim(t), null);
+});
+
+test('different payment cannot supersede a settled binding on the same order', async context => {
+  const { t, state } = fixture(context); const { job, p } = await ready(t); const first = eventFixture(job, p); bind(state, first);
+  await post(t, encode(first)); const before = await read(t, job); const paid = await evidence(t);
+  const conflicting = eventFixture(job, p, true, 'evt_secondpayment');
+  conflicting.data.object.id = 'pi_secondpayment'; conflicting.data.object.latest_charge.payment_intent = 'pi_secondpayment'; bind(state, conflicting);
+  assert.deepEqual(await (await post(t, encode(conflicting))).json(), { status: 'rejected' });
+  assert.equal((await ledger(t)).at(-1).reason, 'payment_already_settled');
+  assert.deepEqual(await evidence(t), paid); assert.deepEqual(await read(t, job), before);
+  await post(t, encode(conflicting)); assert.equal((await ledger(t)).length, 2); assert.equal((await snapshot(t)).jobs.length, 1);
+});
+
+test('configuration manifest matches the actual minimal endpoint and leaves unverified live choices unresolved', async () => {
+  const config = JSON.parse(readFileSync(new URL('../../docs/paid-webhook-configuration.json', import.meta.url), 'utf8'));
+  assert.equal(config.checkout.implemented, false); assert.equal(config.checkout.enabled, false);
+  assert.equal(config.endpoint.path, '/delivery/payment/webhook'); assert.equal(config.endpoint.method, 'POST');
+  assert.deepEqual(config.endpoint.enabledEvents, ['payment_intent.succeeded']);
+  assert.equal(config.endpoint.maxBodyBytes, MAX_PAID_EVENT_BYTES); assert.equal(config.endpoint.signatureToleranceSeconds, 300);
+  assert.equal(config.admissionConfiguration.BEBEBONJOUR_PAID_ROUTE_A_ENABLED, 'false');
+  assert.ok(Object.values(config.finalizedLiveConfiguration).every(value => value === null));
+  const routes = readFileSync(new URL('../../convex/http.js', import.meta.url), 'utf8');
+  assert.equal(routes.split('path: "/delivery/payment/webhook"').length, 2);
+  assert.match(routes, /path: "\/delivery\/payment\/webhook", method: "POST", handler: paidPaymentWebhook/);
+  assert.doesNotMatch(routes, /path: "\/delivery\/(?:payment\/)?checkout"/);
+  const known = eventFixture({ jobId: 'job_manifest' }, { revision: 1, contentDigest: 'a'.repeat(64) });
+  const verified = await verifyPaidEvent(encode(known), signature(encode(known)), webhookSecret);
+  assert.equal(verified.value.data.object.amount, config.implementedContract.amountMinor);
+  assert.equal(verified.value.data.object.currency, config.implementedContract.currency);
+});
+
