@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { createHash } from 'node:crypto';
 import { Script } from 'node:vm';
+import Stripe from 'stripe';
 import { mkdtemp, mkdir, rm } from 'node:fs/promises';
 import path from 'node:path';
 import { convexTest } from 'convex-test';
@@ -186,12 +187,12 @@ test('uncertain paid narration is durably fenced even when another worker has no
 function stripeFixture(scope, overrides={}) {
   return {id:'pi_offline',status:'succeeded',amount:3900,amount_received:3900,currency:'eur',livemode:true,metadata:{project:'bebebonjour',order_mode:PAID_MODE,job_id:scope.jobId,revision:String(scope.revision),preview_digest:scope.previewDigest},latest_charge:{paid:true,captured:true,refunded:false,amount_refunded:0,disputed:false,amount:3900,currency:'eur',payment_intent:'pi_offline',livemode:true},...overrides};
 }
-test('provider adapter retrieves account and settled charge with immutable order metadata, never creates a payment',async()=>{
+test('provider adapter retrieves the settled intent with immutable order metadata',async()=>{
   const scope={jobId:'offline-job',revision:1,previewDigest:'a'.repeat(64)};let intent=stripeFixture(scope);const calls=[];
   const stripe={accounts:{retrieve:async()=>({id:'acct_offline'})},paymentIntents:{retrieve:async(id,opts)=>{calls.push({id,opts});return intent;}}};
   const inspect=()=>inspectPaidPayment({scope,providerPaymentId:'pi_offline',accountId:'acct_offline',stripe});
-  assert.equal((await inspect()).livemode,true);assert.equal(calls[0].opts.expand[0],'latest_charge');
-  for(const override of [{metadata:{...intent.metadata,job_id:'other'}},{metadata:{...intent.metadata,revision:'2'}},{amount_received:3899},{currency:'usd'},{status:'processing'},{latest_charge:{...intent.latest_charge,refunded:true}},{latest_charge:{...intent.latest_charge,disputed:true}}]) {intent=stripeFixture(scope,override);await assert.rejects(inspect(),/payment_evidence_mismatch/);}
+  assert.equal((await inspect()).livemode,true);assert.equal(calls[0].opts,undefined);
+  for(const override of [{metadata:{...intent.metadata,job_id:'other'}},{metadata:{...intent.metadata,revision:'2'}},{amount_received:3899},{currency:'usd'},{status:'processing'}]) {intent=stripeFixture(scope,override);await assert.rejects(inspect(),/payment_evidence_mismatch/);}
   intent=stripeFixture(scope,{livemode:false,latest_charge:{...stripeFixture(scope).latest_charge,livemode:false}});assert.equal((await inspect()).livemode,false);
 });
 test('actual paid HTTP views and private/review/operator contracts are bounded and have runnable browser scripts',async()=>{
@@ -278,7 +279,7 @@ test('paid intake/review browser scripts submit actual separate backend permissi
   const url=new URL(elements['#review-link'].href);const job={jobId:url.searchParams.get('jobId'),reviewToken:url.searchParams.get('token')};await preview(t,job);
   const review=element();review.elements={feedback:{value:''}};review.buttons=[{value:'approve',disabled:true},{value:'request_changes',disabled:true}];
   const perm=element();perm.button=element();perm.elements={terms:{checked:false},publication:{checked:false}};
-  const dom={'#review':review,'#permissions':perm,'#result':element(),'#state':element(),'#details':element(),'#window':element(),'#preview-link':element(),'#public-link':element(),'#refresh':element()};
+  const dom={'#review':review,'#permissions':perm,'#result':element(),'#state':element(),'#details':element(),'#window':element(),'#preview-link':element(),'#public-link':element(),'#refresh':element(),'#pay':element(),'#payment-return':element()};
   const html=await (await t.fetch(url.pathname+url.search)).text();const reviewScript=[...html.matchAll(/<script[^>]*>([\s\S]*?)<\/script>/g)][0][1];
   for(const selector of ['#data-result','#hosting','#downloads','#revoke','#erase','#confirm-delete'])dom[selector]=element();
   const downloads=['text','audio','page'].map(kind=>({...element(),dataset:{kind}}));
@@ -305,4 +306,62 @@ test('cancellation between paid claim and effect denies narration/email; repeat 
   await t.mutation(ref('fence'),id);await assert.rejects(t.mutation(ref('fence'),id),/email_reconciliation_required/);
   await t.mutation(ref('fail'),{workerToken,jobId:other.jobId,leaseToken:mail.leaseToken,reason:'provider_timeout',retryable:true,providerDefinitiveFailure:true});
   assert.equal((await read(t,other)).status,'reconciliation_required');assert.equal(await claim(t),null);
+});
+
+
+test('checkout requires approval, permissions and active preview; reuses open session', async()=>{
+  const t=fixture(); const job=await submit(t); await preview(t,job);
+  const args={jobId:job.jobId,reviewToken:job.reviewToken,expectedRevision:1};
+  await assert.rejects(t.mutation(ref('beginCheckout'),args),/content_approval_required/);
+  await decision(t,job,1); await assert.rejects(t.mutation(ref('beginCheckout'),args),/paid_permissions_required/);
+  await permissions(t,job,1); await assert.rejects(t.mutation(ref('beginCheckout'),{...args,reviewToken:'wrong'}),/forbidden/);
+  const result=await t.mutation(ref('beginCheckout'),args); assert.equal(result.create.revision,1);
+  await assert.rejects(t.mutation(ref('beginCheckout'),args),/checkout_in_progress/);
+  await t.mutation(ref('recordCheckout'),{jobId:job.jobId,revision:1,attempt:result.create.attempt,sessionId:'cs_offline',url:'https://checkout.stripe.com/c/pay/offline',expiresAtMs:Date.now()+3600000});
+  assert.equal((await t.mutation(ref('beginCheckout'),args)).url,'https://checkout.stripe.com/c/pay/offline');
+  await patchData(t,job,{previewExpiresAtMs:Date.now()-1}); await assert.rejects(t.mutation(ref('beginCheckout'),args),/preview_expired/);
+});
+
+test('test mode settlement only unlocks a test deployment',async context=>{
+  const prior=process.env.BEBEBONJOUR_PAID_STRIPE_LIVEMODE; context.after(()=>{if(prior===undefined)delete process.env.BEBEBONJOUR_PAID_STRIPE_LIVEMODE;else process.env.BEBEBONJOUR_PAID_STRIPE_LIVEMODE=prior;});
+  process.env.BEBEBONJOUR_PAID_STRIPE_LIVEMODE='false'; const t=fixture(); const {job,p}=await ready(t); await editorial(t,job,p);
+  await payment(t,job,p,{providerPaymentId:'pi_wrongmode'}); assert.equal((await read(t,job)).payment.status,'test_only');assert.equal(await claim(t),null);
+  await payment(t,job,p,{livemode:false,providerPaymentId:'pi_testmode'});assert.equal((await read(t,job)).payment.status,'settled');assert.equal((await claim(t)).stage,'finalize');
+});
+
+
+test('entry chooses paid and offered forms only when paid enabled; checkout HTTP guards and reuse', async context => {
+  const t=fixture(); const enabled=await (await t.fetch('/delivery')).text();
+  assert.match(enabled,/id="paid-intake"/);assert.match(enabled,/J’ai un mot de passe offert/);assert.match(enabled,/id="offered-intake"/);
+  for(const [,script] of enabled.matchAll(/<script[^>]*>([\s\S]*?)<\/script>/g)) new Script(script);
+  delete process.env.BEBEBONJOUR_PAID_ROUTE_A_ENABLED;
+  const disabled=await (await t.fetch('/delivery')).text();assert.match(disabled,/id="intake"/);assert.doesNotMatch(disabled,/paid-intake|J’ai un mot de passe offert/);
+  process.env.BEBEBONJOUR_PAID_ROUTE_A_ENABLED='true';
+  const {job,p}=await ready(t);const args={jobId:job.jobId,reviewToken:job.reviewToken,expectedRevision:1};
+  const started=await t.mutation(ref('beginCheckout'),args);
+  await t.mutation(ref('recordCheckout'),{jobId:job.jobId,revision:1,attempt:started.create.attempt,sessionId:'cs_offline',url:'https://checkout.stripe.com/c/pay/offline',expiresAtMs:Date.now()+3600000});
+  const response=await t.fetch('/delivery/checkout',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(args)});assert.equal(response.status,200);assert.deepEqual(await response.json(),{url:'https://checkout.stripe.com/c/pay/offline'});
+  const forbidden=await t.fetch('/delivery/checkout',{method:'POST',headers:{'content-type':'application/json',origin:'https://evil.example'},body:JSON.stringify(args)});assert.equal(forbidden.status,403);
+  await payment(t,job,p);await assert.rejects(t.mutation(ref('beginCheckout'),args),/paid_preview_locked/);
+});
+
+
+test('HTTP checkout creates once through the real action and synthetic Stripe transport', async context => {
+  const prior=process.env.STRIPE_SECRET_KEY;context.after(()=>{if(prior===undefined)delete process.env.STRIPE_SECRET_KEY;else process.env.STRIPE_SECRET_KEY=prior;});
+  process.env.STRIPE_SECRET_KEY='rk_live_offline'; const t=fixture();const {job}=await ready(t);let calls=0;
+  context.mock.method(Stripe._platformFunctions,'createDefaultHttpClient',()=>({getClientName:()=> 'offline',makeRequest:async(_host,_port,path,method,headers,body)=>{
+    assert.equal(path,'/v1/checkout/sessions');assert.equal(method,'POST');calls++;const values=new URLSearchParams(body);
+    assert.equal(values.get('customer_email'),'fictional@example.invalid');assert.equal(values.get('metadata[job_id]'),job.jobId);assert.equal(values.get('line_items[0][price_data][unit_amount]'),'3900');
+    return {getStatusCode:()=>200,getHeaders:()=>({}),getRawResponse:()=>({}),toJSON:async()=>({id:'cs_offline',url:'https://checkout.stripe.com/c/pay/offline',expires_at:Number(values.get('expires_at'))})};
+  }}));
+  const args={jobId:job.jobId,reviewToken:job.reviewToken,expectedRevision:1};const send=()=>t.fetch('/delivery/checkout',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(args)});
+  assert.deepEqual(await (await send()).json(),{url:'https://checkout.stripe.com/c/pay/offline'});assert.deepEqual(await (await send()).json(),{url:'https://checkout.stripe.com/c/pay/offline'});assert.equal(calls,1);
+  const data=await read(t,job);assert.equal(data.payment.checkout.sessionId,'cs_offline');
+});
+
+
+test('uncertain checkout retries retain idempotency key and original expiry', async()=>{
+  const t=fixture();const {job}=await ready(t);const args={jobId:job.jobId,reviewToken:job.reviewToken,expectedRevision:1};
+  const first=await t.mutation(ref('beginCheckout'),args);await t.mutation(ref('clearCheckout'),{jobId:job.jobId,attempt:first.create.attempt});
+  const retry=await t.mutation(ref('beginCheckout'),args);assert.equal(retry.create.attempt,first.create.attempt);assert.equal(retry.create.expiresAtSec,first.create.expiresAtSec);
 });

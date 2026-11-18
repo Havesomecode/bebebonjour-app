@@ -11,7 +11,7 @@ A parent creates a French or Arabic digital birth announcement (optional Cedar n
 - **Landing** https://www.bebebonjour.com — offer "Essentiel 39 €", demo https://www.bebebonjour.com/demo/announcements/bayane/fr/ (live, HTTP 200).
 - **Order path today = free only**: "Créer mon faire-part" → `/delivery` (proxied by the landing's Vercel rewrites to `https://tacit-antelope-577.convex.site`, same domain since 18/11) → form with consent and an *offer password* → payment waived. No card is asked anywhere.
 - **Loop behind it** (Convex + `bebebonjour-delivery-loop.service`, running since 9 Nov): Codex composes, OpenAI Cedar narrates, the announcement is published at an unguessable link, the first version is emailed *before* human review; correction request → republished at the same link; approval → final email. Verified 5 Oct on a fictional family up to provider send acceptance (not inbox delivery). Source of this loop: `DELIVERY_LOOP.md`.
-- **Paid €39 route (Stripe, signed webhooks)**: coded and tested offline, disabled by default (`docs/paid-route-a-current-delivery.md`). Whether it is switched on in production was not checked here: payments untouched.
+- **Paid €39 route (Stripe Checkout, signed webhooks)**: Checkout is coded and tested offline; it is not yet enabled in production (`docs/paid-route-a-current-delivery.md`).
 - `bebebonjour-ops` main: private operations console with narration and owner-completion controls (builds, 37 tests pass). Not checked against the delivery loop.
 
 ## 3. To make the product viable (ordered, one session each)

@@ -11,7 +11,7 @@ const authorizeOwnerTrialCompletionArtifactRead = makeFunctionReference("ownerTr
 import { narrationArtifact } from "./narrationHttp.js";
 import { paidPaymentWebhook } from "./deliveryLoopPaymentHttp.js";
 import { termsPage } from "./deliveryLoopTerms.js";
-import { intakePage, intakeSubmit, reviewPage, reviewSubmit, announcement, privatePreview, operatorPage, operatorSubmit } from "./deliveryLoopHttp.js";
+import { intakePage, intakeSubmit, checkoutSubmit, reviewPage, reviewSubmit, announcement, privatePreview, operatorPage, operatorSubmit } from "./deliveryLoopHttp.js";
 
 const http = httpRouter();
 http.route({ path: "/delivery/terms/route-a-39-v1", method: "GET", handler: termsPage });
@@ -22,6 +22,7 @@ http.route({ path: "/delivery/export", method: "GET", handler: dataExport });
 http.route({ path: "/delivery/data/operator", method: "GET", handler: dataOperatorPage });
 http.route({ path: "/delivery/data/operator", method: "POST", handler: dataOperatorControl });
 http.route({ path: "/delivery", method: "GET", handler: intakePage });
+http.route({ path: "/delivery/checkout", method: "POST", handler: checkoutSubmit });
 http.route({ path: "/delivery/intake", method: "POST", handler: intakeSubmit });
 http.route({ path: "/delivery/review", method: "GET", handler: reviewPage });
 http.route({ path: "/delivery/review", method: "POST", handler: reviewSubmit });
