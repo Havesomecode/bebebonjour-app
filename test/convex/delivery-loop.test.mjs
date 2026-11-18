@@ -96,6 +96,42 @@ test("operator recovery retries only a rejected pre-narration correction and pre
   assert.equal((await read(t, admitted.jobId)).generationAttempts, 3);
 });
 
+const operatorToken = "offline-operations-token-over-32-characters";
+test("operator console lists jobs newest first with revision links and retries only a failed correction", async () => {
+  process.env.BEBEBONJOUR_OPERATIONS_TOKEN = operatorToken;
+  const t = fixture();
+  const first = await submit(t, "ops-list-001");
+  const second = await submit(t, "ops-list-002", { intake: { ...intake, babyName: "Noor" } });
+  const lease = await claim(t, "offline-ops-list-lease-001");
+  await publish(t, lease.jobId, lease, "First draft");
+  await assert.rejects(t.query(ref("operatorJobs"), { operatorToken: "incorrect" }), /forbidden/);
+  await assert.rejects(t.query(ref("operatorJobs"), { operatorToken: workerToken }), /forbidden/);
+  const listed = await t.query(ref("operatorJobs"), { operatorToken });
+  assert.deepEqual(listed.map((job) => job.jobId), [second.jobId, first.jobId]);
+  const published = listed.find((job) => job.jobId === lease.jobId);
+  assert.equal(published.babyName, lease.jobId === first.jobId ? "Amal" : "Noor");
+  assert.equal(published.customerEmail, intake.email);
+  assert.deepEqual(published.revisions.map((r) => r.revision), [1]);
+  assert.equal(published.publicUrl, `https://offline.convex.site/announcements/${(await read(t, lease.jobId)).publicToken}`);
+  assert.equal(published.canRetryCorrection, false);
+  assert.equal(JSON.stringify(listed).includes("reviewToken"), false);
+
+  await t.run(async (ctx) => {
+    const row = await ctx.db.query("deliveryLoopJobs").withIndex("by_job_id", (q) => q.eq("jobId", second.jobId)).unique();
+    await ctx.db.patch(row._id, { status: "failed", data: { ...row.data, desiredRevision: 2, latestRevision: 1, feedback: "A correction", generationAttempts: 1, lastError: { reason: "correction_not_applied", stage: "generate", atMs: 1 } } });
+  });
+  const failed = (await t.query(ref("operatorJobs"), { operatorToken })).find((job) => job.jobId === second.jobId);
+  assert.equal(failed.canRetryCorrection, true);
+  assert.equal(failed.desiredRevision, 2);
+  assert.equal(failed.lastError.reason, "correction_not_applied");
+  const retry = { operatorToken, jobId: second.jobId, expectedRevision: 2 };
+  await assert.rejects(t.mutation(ref("operatorRetryCorrection"), { ...retry, operatorToken: workerToken }), /forbidden/);
+  await assert.rejects(t.mutation(ref("operatorRetryCorrection"), { ...retry, expectedRevision: 1 }), /stale_revision/);
+  assert.equal((await t.mutation(ref("operatorRetryCorrection"), retry)).status, "generation_queued");
+  await assert.rejects(t.mutation(ref("operatorRetryCorrection"), retry), /correction_retry_unavailable/);
+  assert.equal((await t.query(ref("operatorJobs"), { operatorToken })).find((job) => job.jobId === second.jobId).status, "generation_queued");
+});
+
 test("correction recovery rejects paid narration, published content, email effects and unrelated failures", async () => {
   for (const drift of [
     { narrationReceipts: [{ revision: 2 }] },

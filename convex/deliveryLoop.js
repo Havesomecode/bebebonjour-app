@@ -339,17 +339,51 @@ export const fail = mutationGeneric({
 // Technical recovery is not another customer review or a reset of history.
 // Only the semantic rejection before narration may resume within the original
 // finite generation budget; any downstream/uncertain effect remains fenced.
+function correctionRetryAvailable(row) {
+  const revision = row.data.desiredRevision;
+  return row.status === "failed" && revision >= 2 && !!row.data.feedback && !row.data.lease && row.data.generationAttempts < 3 && row.data.lastError?.stage === "generate" && row.data.lastError?.reason === "correction_not_applied" && row.data.latestRevision < revision && ![row.data.revisions, row.data.narrationReceipts, row.data.emailReceipts].some((receipts) => receipts.some((receipt) => receipt.revision === revision));
+}
+async function queueCorrectionRetry(ctx, jobId, expectedRevision) {
+  const row = await get(ctx, jobId);
+  const revision = row.data.desiredRevision;
+  if (expectedRevision !== revision) throw new Error("stale_revision");
+  if (!correctionRetryAvailable(row)) throw new Error("correction_retry_unavailable");
+  audit(row, "correction_retry_authorized", { revision, priorAttempts: row.data.generationAttempts, actor: "operator" });
+  await save(ctx, row, "generation_queued");
+  return safeStatus(row);
+}
 export const retryCorrection = mutationGeneric({
   args: { ...workerArgs, expectedRevision: v.number() },
+  handler: async (ctx, args) => { auth(args.workerToken); return queueCorrectionRetry(ctx, args.jobId, args.expectedRevision); },
+});
+// The private ops console holds the operations token, never the worker token.
+function operatorAuth(token) {
+  const configured = process.env.BEBEBONJOUR_OPERATIONS_TOKEN;
+  if (!configured || configured.length < 32 || configured === process.env.BEBEBONJOUR_DELIVERY_LOOP_TOKEN || !equal(token, configured)) throw new Error("forbidden");
+}
+export const operatorJobs = queryGeneric({
+  args: { operatorToken: v.string() },
   handler: async (ctx, args) => {
-    auth(args.workerToken); const row = await get(ctx, args.jobId);
-    const revision = row.data.desiredRevision;
-    if (args.expectedRevision !== revision) throw new Error("stale_revision");
-    if (row.status !== "failed" || revision < 2 || !row.data.feedback || row.data.lease || row.data.generationAttempts >= 3 || row.data.lastError?.stage !== "generate" || row.data.lastError?.reason !== "correction_not_applied" || row.data.latestRevision >= revision || [row.data.revisions, row.data.narrationReceipts, row.data.emailReceipts].some((receipts) => receipts.some((receipt) => receipt.revision === revision))) throw new Error("correction_retry_unavailable");
-    audit(row, "correction_retry_authorized", { revision, priorAttempts: row.data.generationAttempts, actor: "operator" });
-    await save(ctx, row, "generation_queued");
-    return safeStatus(row);
+    operatorAuth(args.operatorToken);
+    const rows = await ctx.db.query("deliveryLoopJobs").order("desc").take(30);
+    return rows.filter((row) => !row.data.deletedAtMs).map((row) => {
+      const paid = isPaid(row);
+      const published = paid ? row.data.finalPublication : row.data.revisions.length;
+      return {
+        jobId: row.jobId, status: row.status, createdAtMs: row.data.createdAtMs ?? row._creationTime, fictional: row.data.intake.fictional === true,
+        babyName: row.data.intake.baby.firstName, customerEmail: row.data.intake.customer.email, languages: row.data.intake.languages,
+        paid, desiredRevision: row.data.desiredRevision, latestRevision: row.data.latestRevision,
+        revisions: (paid ? [row.data.finalPublication].filter(Boolean) : row.data.revisions).map((r) => ({ revision: r.revision, publishedAtMs: r.publishedAtMs })),
+        publicUrl: published ? links(row).publicUrl : null,
+        lastError: row.data.lastError ? { reason: row.data.lastError.reason, stage: row.data.lastError.stage, atMs: row.data.lastError.atMs } : null,
+        canRetryCorrection: correctionRetryAvailable(row),
+      };
+    });
   },
+});
+export const operatorRetryCorrection = mutationGeneric({
+  args: { operatorToken: v.string(), jobId: v.string(), expectedRevision: v.number() },
+  handler: async (ctx, args) => { operatorAuth(args.operatorToken); return queueCorrectionRetry(ctx, args.jobId, args.expectedRevision); },
 });
 export const requestReview = mutationGeneric({
   args: { jobId: v.string(), workerToken: v.optional(v.string()), reviewToken: v.optional(v.string()), expectedRevision: v.number(), action: v.union(v.literal("request_changes"), v.literal("approve")), feedback: v.optional(v.string()), idempotencyKey: v.string(), actor: v.optional(v.union(v.literal("customer"), v.literal("operator"), v.literal("simulated_human"))) },
