@@ -3,7 +3,8 @@ import { createHash, randomUUID } from "node:crypto";
 import { createExactRevisionPublicationAdapter } from "./exact-revision-publication-adapter.mjs";
 import { createExternalEffectStageHandlers } from "./external-effect-stage-handlers.mjs";
 import { createFulfillmentOrchestrator } from "./job-orchestrator.mjs";
-import { createResendOwnerDeliveryAdapter } from "./resend-owner-delivery-adapter.mjs";
+import { createCloudflareDeliveryAdapter } from "./cloudflare-delivery-adapter.mjs";
+import { cloudflareConfig } from "../delivery-loop/cloudflare-runtime.mjs";
 import {
   createVercelTestAPublicationProvider,
   parseAuthoritativeVercelBuildInspection,
@@ -21,7 +22,7 @@ import {
   OWNER_PUBLICATION_PROJECT_NAME,
 } from "../operations/owner-completion-policy.mjs";
 
-const OWNER_TARGET_REF = "resend:owner:z-at-havesomecode";
+const OWNER_TARGET_REF = "cloudflare:owner:z-at-havesomecode";
 const ALLOWED_STATES = new Set([
   "publish_ready", "publishing", "published", "delivery_queued", "sending", "sent", "complete",
   "failed", "reconciliation_required",
@@ -86,13 +87,11 @@ export async function createOwnerCompletionCapabilities(options = {}) {
       provider: options.publicationProvider || publicationProvider,
       stableOrigin: identity.stableOrigin,
     }),
-    deliveryAdapter: createResendOwnerDeliveryAdapter({
-      apiKey: requiredString(environment, "RESEND_API_KEY"),
-      from: requiredString(environment, "OWNER_RESEND_FROM"),
-      stableUrl: `${identity.stableOrigin}/announcements/${OWNER_COMPLETION_JOB_ID}`,
-      resend: options.resend,
-      clock: options.clock,
-    }),
+    deliveryAdapter: createCloudflareDeliveryAdapter({ environment, config: cloudflareConfig(environment),
+      fetch: options.fetch, clock: options.clock, policy: { jobId: OWNER_COMPLETION_JOB_ID,
+        revisionId: OWNER_COMPLETION_REVISION_ID, artifactManifestDigest: OWNER_COMPLETION_MANIFEST_DIGEST,
+        targetRef: OWNER_TARGET_REF, recipient: OWNER_DELIVERY_EMAIL,
+        stableUrl: `${identity.stableOrigin}/announcements/${OWNER_COMPLETION_JOB_ID}` } }),
     resolveDeliveryTarget: async (job) => {
       assertOwnerCompletionJob(job);
       return Object.freeze({ targetRef: OWNER_TARGET_REF, email: OWNER_DELIVERY_EMAIL });

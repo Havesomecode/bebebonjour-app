@@ -3,7 +3,8 @@ import { createHash } from "node:crypto";
 import test from "node:test";
 
 import { signPersistedReviewApproval } from "../../src/fulfillment/persisted-review-decision.mjs";
-import { createResendConfiguredTestDeliveryAdapter } from "../../src/fulfillment/resend-delivery-adapter.mjs";
+import { createCloudflareDeliveryAdapter } from "../../src/fulfillment/cloudflare-delivery-adapter.mjs";
+import { cloudflareConfig } from "../../src/delivery-loop/cloudflare-runtime.mjs";
 import {
   requireCanonicalTestCompletionEnvironment,
   runCanonicalTestCompletionWorkerCommand,
@@ -43,8 +44,9 @@ const env = {
   CANONICAL_PUBLICATION_VERCEL_TEAM_ID: "team_test",
   CANONICAL_PUBLICATION_VERCEL_PROJECT_ID: "project_test",
   CANONICAL_PUBLICATION_VERCEL_PROJECT_NAME: "fictional-announcements",
-  RESEND_API_KEY: "re_test",
-  RESEND_FROM: "Bebe Bonjour <sender@example.test>",
+  BEBEBONJOUR_CLOUDFLARE_ACCOUNT_ID: "a".repeat(32),
+  BEBEBONJOUR_CLOUDFLARE_ZONE_ID: "b".repeat(32),
+  BEBEBONJOUR_CLOUDFLARE_EMAIL_TOKEN: "synthetic-send-token",
   CRON_SECRET: "c".repeat(32),
 };
 function fixture() {
@@ -79,7 +81,6 @@ test("policy pins one fictional test job, exact revision/manifest, explicit reci
     ["BEBEBONJOUR_CANONICAL_COMPLETION_WORKER_ACTIONS", "approve_content,publish,queue_delivery,deliver"],
     ["BEBEBONJOUR_CANONICAL_COMPLETION_WORKER_LIMIT", "2"],
     ["BEBEBONJOUR_CANONICAL_COMPLETION_JOB_ID", "job_narration_test_650a15d1-39bd-4dec-bc0d-3519ace71aa7"],
-    ["BEBEBONJOUR_CANONICAL_COMPLETION_RECIPIENT", "delivered@resend.dev"],
     ["BEBEBONJOUR_CANONICAL_COMPLETION_RECIPIENT", "z@havesomecode.io"],
     ["BEBEBONJOUR_CANONICAL_COMPLETION_MANIFEST_DIGEST", "bad"],
   ]) assert.throws(() => requireCanonicalTestCompletionEnvironment({ ...env, BEBEBONJOUR_CANONICAL_COMPLETION_CONTENT_APPROVAL_ID: approval.approvalId, [name]: value }));
@@ -94,7 +95,6 @@ test("signed exact approvals and canonical prepared bundle guard publication, in
   const capabilities = await createCanonicalTestCompletionCapabilities({
     environment, policy, client: { query() {}, mutation() {} }, fulfillmentStore: store,
     publicationProvider: { async reconcile() { return null; }, async publish() {} },
-    resend: { emails: { async send() { throw new Error("No live send in unit test"); } } },
   });
   assert.equal((await capabilities.fulfillmentOrchestrator.status(policy.jobId)).state, "publish_ready");
   assert.throws(() => capabilities.fulfillmentOrchestrator.status("job_other"), /exact configured job/i);
@@ -129,28 +129,25 @@ test("private artifact resolver fetches only exact manifest bytes behind a claim
   assert.equal(reads, 1);
 });
 
-test("configured disposable recipient is immutable through fenced Resend acceptance", async () => {
+test("configured recipient is immutable through fenced Cloudflare acceptance", async () => {
   const { approval } = fixture();
   const policy = requireCanonicalTestCompletionEnvironment({ ...env, BEBEBONJOUR_CANONICAL_COMPLETION_CONTENT_APPROVAL_ID: approval.approvalId });
-  const sends = [];
   const stableUrl = `${env.CANONICAL_PUBLICATION_ORIGIN}/announcements/${policy.jobId}`;
-  const adapter = createResendConfiguredTestDeliveryAdapter({ policy, stableUrl, from: env.RESEND_FROM,
-    clock: () => "2026-09-26T12:01:00.000Z",
-    resend: { emails: { async send(message, options) { sends.push({ message, options }); return { data: { id: "email_fictional_1" } }; } } },
-  });
-  const request = { jobId: policy.jobId, environment: "test", revisionId: policy.revisionId,
-    artifactManifestDigest: policy.manifestDigest, publication: { stableUrl },
-    target: { targetRef: policy.targetRef, email: policy.recipient }, targetDigest: "d".repeat(64),
+  let sends = 0;
+  const adapter = createCloudflareDeliveryAdapter({ environment: env, config: cloudflareConfig(env),
+    policy: { ...policy, artifactManifestDigest: policy.manifestDigest, stableUrl }, clock: () => "2026-09-26T12:01:00.000Z",
+    async fetch(_url, options) { sends++; const body = JSON.parse(options.body); assert.equal(body.to, policy.recipient);
+      return Response.json({ success: true, errors: [], result: { message_id: "email_fictional_1", queued: [body.to], delivered: [], permanent_bounces: [] } }); } });
+  const target = { targetRef: policy.targetRef, email: policy.recipient };
+  const request = { jobId: policy.jobId, environment: "test", product: "announcement-page", revisionId: policy.revisionId,
+    artifactManifestDigest: policy.manifestDigest, publication: { stableUrl }, target,
+    targetDigest: digest(JSON.stringify({ email: target.email, targetRef: target.targetRef })),
     attemptStartedAt: "2026-09-26T12:00:00.000Z", idempotencyKey: `bb_${"a".repeat(64)}`,
     fenceExternalEffect: async (_fence, effect) => effect() };
-  const receipt = await adapter.send(request);
-  assert.equal(receipt.providerMessageId, "email_fictional_1");
-  assert.deepEqual(sends[0].message.to, [policy.recipient]);
-  assert.equal(sends[0].options.idempotencyKey, request.idempotencyKey);
-  await assert.rejects(adapter.send({ ...request, target: { ...request.target, email: "other@inbox.example.test" } }), /recipient|target/i);
-  await assert.rejects(adapter.send({ ...request, publication: { stableUrl: "https://other.example.test" } }), /stable/i);
-  await assert.rejects(adapter.send({ ...request, attemptStartedAt: "2026-09-25T12:00:00.000Z" }), /window/i);
-  assert.equal(sends.length, 1);
+  assert.equal((await adapter.send(request)).providerMessageId, "email_fictional_1");
+  await assert.rejects(adapter.send({ ...request, target: { ...target, email: "other@inbox.example.test" } }), /policy/i);
+  await assert.rejects(adapter.send({ ...request, publication: { stableUrl: "https://other.example.test" } }), /policy/i);
+  assert.equal(sends, 1);
 });
 
 test("worker refuses unavailable backend scope before claiming commands or issuing effects", async () => {

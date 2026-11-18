@@ -3,7 +3,6 @@ import test from "node:test";
 
 import {
   loadHostedCustomerFlowConfig,
-  loadResendDeliveryConfig,
 } from "../../src/config/hosted-customer-flow-config.mjs";
 
 const environment = {
@@ -16,8 +15,6 @@ const environment = {
   STRIPE_CUSTOMER_FLOW_WEBHOOK_SECRET: "whsec_candidate_only",
   STRIPE_CHECKOUT_SUCCESS_URL: "https://bonjour.example.test/suivi?checkout=success",
   STRIPE_CHECKOUT_CANCEL_URL: "https://bonjour.example.test/suivi?checkout=cancel",
-  RESEND_API_KEY: "re_candidate_only",
-  RESEND_FROM: "Bébé Bonjour <delivery@example.test>",
 };
 
 test("hosted customer-flow config accepts only explicit test-mode provider boundaries", () => {
@@ -44,16 +41,4 @@ test("hosted customer-flow config accepts only explicit test-mode provider bound
     () => loadHostedCustomerFlowConfig({ ...environment, CUSTOMER_FLOW_ALLOWED_ORIGINS: '["http://localhost:5173"]' }),
     /HTTPS origin/i,
   );
-});
-
-test("Resend delivery credentials load only for the operator delivery runtime", () => {
-  assert.deepEqual(loadResendDeliveryConfig(environment), {
-    apiKey: environment.RESEND_API_KEY,
-    from: environment.RESEND_FROM,
-  });
-  assert.doesNotThrow(() => loadHostedCustomerFlowConfig({
-    ...environment,
-    RESEND_API_KEY: undefined,
-    RESEND_FROM: undefined,
-  }));
 });

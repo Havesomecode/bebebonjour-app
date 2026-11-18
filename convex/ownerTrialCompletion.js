@@ -75,7 +75,7 @@ export async function reviewedOwnerTrialCompletionPolicy(ctx, jobId) {
   const policy = { jobId, revisionId: job.currentRevisionId, manifestDigest: releases[0].assetManifestDigest,
     recipient: authority.recipient, origin: authority.origin, ticketId: authority.ticketId,
     intakeDigest: job.intakeDigest, ownerSourceReference: OWNER_TRIAL_SOURCE,
-    targetRef: `resend:fictional:${jobId}`, workerId: OWNER_TRIAL_WORKER_ID };
+    targetRef: `cloudflare:fictional:${jobId}`, workerId: OWNER_TRIAL_WORKER_ID };
   for (const type of ["content", "narration"]) {
     const receipt = await ctx.db.query("ownerTrialReviews").withIndex("by_job_type", q => q.eq("jobId", jobId).eq("decisionType", type)).unique();
     const id = receipt?.receipt?.result?.approvalId;
@@ -345,7 +345,9 @@ const COMPLETION_FAILURE_REASON_CODES_BY_STAGE = Object.freeze({
   ]),
   deliver: new Set([
     "lease_expired", "provider_outcome_unknown", "provider_receipt_invalid", "provider_unavailable",
-    "resend_send_failed", "resend_status_failed", "stage_error",
+    "cloudflare_send_uncertain", "cloudflare_recipient_rejected",
+    "cloudflare_configuration_invalid", "cloudflare_input_invalid", "cloudflare_fence_required",
+    "cloudflare_fence_repeated", "cloudflare_policy_invalid", "cloudflare_status_unavailable", "stage_error",
   ]),
 });
 
@@ -475,8 +477,9 @@ async function validStageAttemptChange(currentAggregate, nextAggregate, transiti
 
 async function validCompletionOperationBinding(stage, binding, canonical) {
   if (stage !== "deliver") return binding === null;
-  const targetRef = canonical ? `resend:fictional:${canonical.jobId}` : "resend:test-a-sink";
-  const email = canonical ? canonical.recipient : "delivered@resend.dev";
+  if (!canonical) return false;
+  const targetRef = `cloudflare:fictional:${canonical.jobId}`;
+  const email = canonical.recipient;
   const expectedTargetDigest = await sha256Hex(canonicalJson({
     targetRef, email,
   }));
@@ -702,9 +705,9 @@ async function assertCompletionTransitionPayload(ctx, current, next, transition,
   }
   if (transition === "sending>sent") {
     const d = next.deliveryAttempts.at(-1);
-    if (!attempt.effectStartedAt || !d || d.provider !== "resend" || d.status !== "sent" || d.revisionId !== policy.revisionId
+    if (!attempt.effectStartedAt || !d || d.provider !== "cloudflare" || d.status !== "sent" || d.revisionId !== policy.revisionId
       || d.targetRef !== policy.targetRef || d.targetRef !== attempt.operationBinding?.targetRef
-      || !/^[A-Za-z0-9_-]{1,160}$/u.test(d.providerMessageId || "")
+      || !/^[\x21-\x7e]{1,998}$/u.test(d.providerMessageId || "")
       || d.operationsCommandId !== args.commandId || d.idempotencyKey !== attempt.idempotencyKey
       || d.deliveredAt !== null || d.lastOutcome !== null
       || !hasExactKeys(d, ["provider", "revisionId", "providerMessageId", "idempotencyKey", "operationsCommandId", "targetRef", "status", "deliveredAt", "lastOutcome"])) throw new Error("Owner trial exact delivery receipt rejected.");

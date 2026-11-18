@@ -280,8 +280,8 @@ export const fence = mutationGeneric({
     auth(args.workerToken); const row = await get(ctx, args.jobId); const lease = authorizeLease(row, args.leaseToken, args.revision, args.stage);
     if (["generate", "finalize"].includes(args.stage)) throw new Error("email_stage_required");
     if (lease.effectStartedAtMs === undefined) {
-      const provider = process.env.BEBEBONJOUR_DELIVERY_LOOP_EMAIL_PROVIDER || "resend";
-      if (!["resend", "cloudflare"].includes(provider)) throw new Error("email_provider_invalid");
+      const provider = process.env.BEBEBONJOUR_DELIVERY_LOOP_EMAIL_PROVIDER || "cloudflare";
+      if (provider !== "cloudflare") throw new Error("email_provider_invalid");
       lease.effectStartedAtMs = Date.now();
       lease.emailProvider = provider;
       lease.emailIdempotencyKey = `bebe-loop:${row.jobId}:${row.data.desiredRevision}:${args.stage}`;
@@ -292,20 +292,20 @@ export const fence = mutationGeneric({
   },
 });
 export const completeEmail = mutationGeneric({
-  args: { ...leaseArgs, revision: v.number(), stage: stageValue, providerMessageId: v.string(), provider: v.optional(v.union(v.literal("resend"), v.literal("cloudflare"))) },
+  args: { ...leaseArgs, revision: v.number(), stage: stageValue, providerMessageId: v.string(), provider: v.optional(v.literal("cloudflare")) },
   handler: async (ctx, args) => {
     auth(args.workerToken); const row = await get(ctx, args.jobId);
     if (!/^[\x21-\x7e]{1,998}$/.test(args.providerMessageId)) throw new Error("invalid_provider_message_id");
     if (["generate", "finalize"].includes(args.stage)) throw new Error("email_stage_required");
     const previous = row.data.emailReceipts.find((e) => e.revision === args.revision && e.stage === args.stage);
     if (previous) {
-      if (previous.providerMessageId !== args.providerMessageId || previous.leaseToken !== args.leaseToken || (previous.provider || "resend") !== (args.provider || "resend")) throw new Error("email_completion_conflict");
+      if (previous.providerMessageId !== args.providerMessageId || previous.leaseToken !== args.leaseToken || previous.provider !== (args.provider || "cloudflare")) throw new Error("email_completion_conflict");
       return safeStatus(row);
     }
     const lease = authorizeLease(row, args.leaseToken, args.revision, args.stage);
     if (lease.effectStartedAtMs === undefined) throw new Error("email_not_fenced");
-    if ((lease.emailProvider || "resend") !== (args.provider || "resend")) throw new Error("provider_mismatch");
-    row.data.emailReceipts.push({ revision: args.revision, stage: args.stage, provider: lease.emailProvider || "resend", providerMessageId: args.providerMessageId, idempotencyKey: lease.emailIdempotencyKey, leaseToken: args.leaseToken, sentAtMs: Date.now() });
+    if (lease.emailProvider !== (args.provider || "cloudflare")) throw new Error("provider_mismatch");
+    row.data.emailReceipts.push({ revision: args.revision, stage: args.stage, provider: lease.emailProvider, providerMessageId: args.providerMessageId, idempotencyKey: lease.emailIdempotencyKey, leaseToken: args.leaseToken, sentAtMs: Date.now() });
     if (isPaid(row)) {
       if (args.stage === "draft_email") row.data.previewExpiresAtMs = Date.now() + PREVIEW_MS;
       else {

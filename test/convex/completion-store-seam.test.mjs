@@ -24,7 +24,7 @@ const workerId = "test-a-completion-worker";
 const revisionId = "r1";
 const publicationOrigin = "https://private.example.test";
 const deliveryTargetDigest = createHash("sha256")
-  .update('{"email":"delivered@resend.dev","targetRef":"resend:test-a-sink"}')
+  .update('{"email":"fictional@example.test","targetRef":"cloudflare:fictional:job_test"}')
   .digest("hex");
 const sourceDigests = Object.freeze({
   pageDigest: "1".repeat(64),
@@ -317,7 +317,7 @@ function deliveryCompletionScenario() {
     leaseMs: 300_000,
     maxAttempts: 2,
     operationBinding: {
-      targetRef: "resend:test-a-sink",
+      targetRef: "cloudflare:fictional:job_test",
       targetDigest: deliveryTargetDigest,
     },
     operationsCommandId: commandId,
@@ -336,7 +336,7 @@ function deliveryCompletionScenario() {
     leaseToken: fenced.stageAttempts.at(-1).leaseToken,
     result: {
       delivery: {
-        provider: "resend",
+        provider: "cloudflare",
         revisionId,
         providerMessageId: "email_completion_store_boundary",
       },
@@ -423,56 +423,6 @@ function exactBoundaryScenarios() {
     owned: new Set(["retry", "stageAttempts"]),
   };
 
-  const queueCommandId = "command_completion_store_queue_boundary";
-  const queueOrigin = aggregate("published");
-  const queueCommand = {
-    commandId: queueCommandId,
-    revisionId,
-    publicationId: queueOrigin.publication.providerReceiptId,
-  };
-  const queueDelivery = {
-    current: queueOrigin,
-    next: queueDeliveryTransition(queueOrigin, queueCommand, "2026-09-08T10:01:00.000Z"),
-    authority: {
-      action: "queue_delivery",
-      commandId: queueCommandId,
-      expectedState: queueOrigin.state,
-      expectedVersion: queueOrigin.version,
-      payload: { revisionId, publicationId: queueCommand.publicationId },
-    },
-    owned: new Set(),
-  };
-
-  const deliverySuccess = deliveryCompletionScenario();
-  const deliveryOrigin = aggregate("delivery_queued");
-  const deliveryClaimed = claimStageTransition(deliveryOrigin, {
-    commandId: `claim:${jobId}:${revisionId}:deliver:1`,
-    stage: "deliver",
-    leaseToken: "stage_lease_deliver_boundary",
-    leaseMs: 300_000,
-    maxAttempts: 2,
-    operationBinding: { targetRef: "resend:test-a-sink", targetDigest: deliveryTargetDigest },
-    operationsCommandId: deliverySuccess.authority.commandId,
-  }, "2026-09-08T10:01:00.000Z");
-  const deliveryClaim = {
-    current: deliveryOrigin,
-    next: deliveryClaimed,
-    authority: deliverySuccess.authority,
-    owned: new Set(["stageAttempts"]),
-  };
-  const deliveryFailure = {
-    current: deliveryClaimed,
-    next: failStageTransition(deliveryClaimed, {
-      commandId: `fail:${deliveryClaimed.stageAttempts.at(-1).attemptId}:delivery_failed`,
-      stage: "deliver",
-      leaseToken: deliveryClaimed.stageAttempts.at(-1).leaseToken,
-      reasonCode: "delivery_failed",
-      retryable: false,
-    }, retryPolicy, "2026-09-08T10:02:00.000Z"),
-    authority: deliverySuccess.authority,
-    owned: new Set(["retry", "stageAttempts"]),
-  };
-
   return [
     ["render claim", renderClaim],
     ["render success", { ...renderSuccess, owned: new Set(["artifactSets", "stageAttempts"]) }],
@@ -483,13 +433,6 @@ function exactBoundaryScenarios() {
     ["publish success", {
       ...publishSuccess,
       owned: new Set(["publication", "publishedRevisionId", "stageAttempts"]),
-    }],
-    ["queue delivery", queueDelivery],
-    ["delivery claim", deliveryClaim],
-    ["delivery failure", deliveryFailure],
-    ["delivery success", {
-      ...deliverySuccess,
-      owned: new Set(["deliveryAttempts", "stageAttempts"]),
     }],
   ];
 }
@@ -524,184 +467,6 @@ function preparedArtifact() {
   };
 }
 
-test("real Convex completion store preserves both authorities through render, publish, and deliver", async () => {
-  const { convex, store } = fixture();
-  await seedAggregate(convex, aggregate("render_queued"));
-  const renderAuthority = await seedCommand(convex, {
-    action: "render",
-    expectedState: "render_queued",
-    expectedVersion: 8,
-  });
-  let publicationEffects = 0;
-  let deliveryEffects = 0;
-  const orchestrator = createOrchestrator(store, {
-    render_approved: async () => ({ artifactSet: preparedArtifact() }),
-    publish: async (context) => context.fenceExternalEffect({ effectMayBeIssued: true }, async () => {
-      publicationEffects += 1;
-      return {
-        publication: {
-          provider: "vercel",
-          revisionId,
-          stableUrl: `${process.env.TEST_A_PUBLICATION_ORIGIN}/announcements/${jobId}`,
-          artifactManifestDigest: preparedDigests.assetManifestDigest,
-          providerReceiptId: "dpl_completion_store_seam",
-        },
-      };
-    }),
-    prepare_delivery: async () => ({
-      targetRef: "resend:test-a-sink",
-      targetDigest: deliveryTargetDigest,
-    }),
-    deliver: async (context) => context.fenceExternalEffect({ effectMayBeIssued: true }, async () => {
-      deliveryEffects += 1;
-      return {
-        delivery: {
-          provider: "resend",
-          revisionId,
-          providerMessageId: "email_completion_store_seam",
-        },
-      };
-    }),
-  }, "happy");
-
-  const renderClaim = {
-    commandId: `claim:${jobId}:${revisionId}:render_approved:1`,
-    stage: "render_approved",
-    leaseToken: "stage_lease_render_replay",
-    leaseMs: 300_000,
-    maxAttempts: 2,
-    operationBinding: null,
-    operationsCommandId: renderAuthority.commandId,
-  };
-  const claimed = await store.claimStage(jobId, renderClaim, "2026-09-08T10:01:00.000Z", renderAuthority);
-  const replayed = await store.claimStage(jobId, renderClaim, "2026-09-08T10:01:00.000Z", renderAuthority);
-  assert.equal(claimed.acquired, true);
-  assert.equal(replayed.acquired, false);
-  assert.equal(replayed.aggregate.version, claimed.aggregate.version);
-  assert.notEqual(claimed.aggregate.stageAttempts.at(-1).leaseToken, renderAuthority.leaseToken);
-  assert.equal(claimed.aggregate.events.at(-1).commandId, renderClaim.commandId);
-  await store.completeStage(jobId, {
-    commandId: `complete:${claimed.aggregate.stageAttempts.at(-1).attemptId}`,
-    stage: "render_approved",
-    leaseToken: renderClaim.leaseToken,
-    result: { artifactSet: preparedArtifact() },
-  }, "2026-09-08T10:02:00.000Z", renderAuthority);
-
-  let current = await store.getJob(jobId, renderAuthority);
-  const publishAuthority = await seedCommand(convex, {
-    action: "publish",
-    expectedState: "publish_ready",
-    expectedVersion: current.version,
-  });
-  await orchestrator.runExpectedStage(jobId, "publish", {
-    operationsCommandId: publishAuthority.commandId,
-    workerAuthority: publishAuthority,
-  });
-
-  current = await store.getJob(jobId, publishAuthority);
-  assert.deepEqual(current.events.map((event) => event.type), [
-    "stage_claimed",
-    "stage_completed",
-    "stage_claimed",
-    "external_effect_fenced",
-    "stage_completed",
-  ]);
-  assert.equal(current.state, "published");
-  const queueAuthority = await seedCommand(convex, {
-    action: "queue_delivery",
-    expectedState: "published",
-    expectedVersion: current.version,
-    payload: {
-      revisionId,
-      publicationId: current.publication.providerReceiptId,
-    },
-  });
-  await orchestrator.queueDelivery(jobId, {
-    commandId: queueAuthority.commandId,
-    revisionId,
-    publicationId: current.publication.providerReceiptId,
-  }, queueAuthority);
-
-  current = await store.getJob(jobId, queueAuthority);
-  const deliverAuthority = await seedCommand(convex, {
-    action: "deliver",
-    expectedState: "delivery_queued",
-    expectedVersion: current.version,
-  });
-  await orchestrator.runExpectedStage(jobId, "deliver", {
-    operationsCommandId: deliverAuthority.commandId,
-    workerAuthority: deliverAuthority,
-  });
-
-  current = await store.getJob(jobId, deliverAuthority);
-  assert.equal(current.state, "sent");
-  assert.equal(publicationEffects, 1);
-  assert.equal(deliveryEffects, 1);
-  assert.equal(current.publication.operationsCommandId, publishAuthority.commandId);
-  assert.equal(current.deliveryAttempts.at(-1).operationsCommandId, deliverAuthority.commandId);
-  for (const attempt of current.stageAttempts) {
-    assert.notEqual(attempt.leaseToken, attempt.operationsCommandId);
-  }
-  assert.deepEqual(
-    current.events.filter((event) => event.type === "external_effect_fenced").map((event) => event.commandId),
-    [
-      `effect-fence:${current.stageAttempts[1].attemptId}:1`,
-      `effect-fence:${current.stageAttempts[2].attemptId}:1`,
-    ],
-  );
-});
-
-for (const scenario of [
-  { action: "render", stage: "render_approved", state: "render_queued", resumed: "render_queued" },
-  { action: "publish", stage: "publish", state: "publish_ready", resumed: "publish_ready" },
-  { action: "deliver", stage: "deliver", state: "delivery_queued", resumed: "delivery_queued" },
-]) {
-  test(`real Convex completion store fails and recovers ${scenario.action} without provider effects`, async () => {
-    const { convex, store } = fixture();
-    await seedAggregate(convex, aggregate(scenario.state));
-    const authority = await seedCommand(convex, {
-      action: scenario.action,
-      expectedState: scenario.state,
-      expectedVersion: 8,
-    });
-    let providerEffects = 0;
-    const orchestrator = createOrchestrator(store, {
-      [scenario.stage]: async () => {
-        throw Object.assign(new Error("pre-provider failure"), {
-          reasonCode: "provider_unavailable",
-          retryable: true,
-        });
-      },
-      ...(scenario.stage === "deliver" ? {
-        prepare_delivery: async () => ({
-          targetRef: "resend:test-a-sink",
-          targetDigest: deliveryTargetDigest,
-        }),
-      } : {}),
-    }, `failure_${scenario.action}`);
-
-    const failed = await orchestrator.runExpectedStage(jobId, scenario.stage, {
-      operationsCommandId: authority.commandId,
-      workerAuthority: authority,
-    });
-    assert.equal(failed.state, "retry_wait");
-    assert.equal(failed.stageAttempts.at(-1).failure.reasonCode, "provider_unavailable");
-    assert.equal(providerEffects, 0);
-
-    const retryAuthority = await seedCommand(convex, {
-      action: "retry",
-      commandId: `command_completion_store_retry_${scenario.action}`,
-      expectedState: "retry_wait",
-      expectedVersion: failed.version,
-      effectStarted: false,
-    });
-    const recovered = await store.resumeRetry(jobId, {
-      commandId: retryAuthority.commandId,
-    }, failed.retry.availableAt, retryAuthority);
-    assert.equal(recovered.state, scenario.resumed);
-    assert.equal(providerEffects, 0);
-  });
-}
 
 test("real Convex completion store rejects stale, wrong-command, wrong-job, and forged transition authority", async () => {
   const { convex, client, store } = fixture();
@@ -929,41 +694,6 @@ test("real Convex completion store binds every publication field to the active p
   }
 });
 
-test("real Convex completion store binds every delivery field to the active delivery attempt", async () => {
-  const scenario = deliveryCompletionScenario();
-  const forgeries = {
-    extra: (next) => { next.deliveryAttempts.at(-1).extra = "forged"; },
-    provider: (next) => { next.deliveryAttempts.at(-1).provider = "attacker"; },
-    revisionId: (next) => { next.deliveryAttempts.at(-1).revisionId = "forged-revision"; },
-    providerMessageId: (next) => {
-      next.deliveryAttempts.at(-1).providerMessageId = "email_forged_nonempty";
-    },
-    idempotencyKey: (next) => { next.deliveryAttempts.at(-1).idempotencyKey = "bb_" + "c".repeat(64); },
-    operationsCommandId: (next) => {
-      next.deliveryAttempts.at(-1).operationsCommandId = "command_attacker_deliver";
-    },
-    targetRef: (next) => { next.deliveryAttempts.at(-1).targetRef = "resend:attacker"; },
-    status: (next) => { next.deliveryAttempts.at(-1).status = "delivered"; },
-    deliveredAt: (next) => { next.deliveryAttempts.at(-1).deliveredAt = next.updatedAt; },
-    lastOutcome: (next) => {
-      next.deliveryAttempts.at(-1).lastOutcome = { outcome: "delivered" };
-    },
-  };
-  for (const [field, forge] of Object.entries(forgeries)) {
-    await assertForgedReplacementRejected(
-      scenario,
-      (next) => {
-        forge(next);
-        const { provider, revisionId: deliveredRevision, providerMessageId } = next.deliveryAttempts.at(-1);
-        rebindStageCompletionDigest(scenario.current, next, "deliver", {
-          delivery: { provider, revisionId: deliveredRevision, providerMessageId },
-        });
-      },
-      field,
-      /canonical transition evidence|exact delivery result/u,
-    );
-  }
-});
 
 test("real Convex completion store rejects every unrelated mutable aggregate field across transitions", async () => {
   const forgeries = {
@@ -1031,27 +761,6 @@ test("real Convex completion store rejects non-monotonic transition timestamps",
   );
 });
 
-test("real Convex completion store binds the delivery target digest at claim time", async () => {
-  const [, scenario] = exactBoundaryScenarios().find(([name]) => name === "delivery claim");
-  await assertForgedReplacementRejected(
-    scenario,
-    (next) => {
-      const attempt = next.stageAttempts.at(-1);
-      attempt.operationBinding.targetDigest = "b".repeat(64);
-      const event = next.events.at(-1);
-      event.commandDigest = commandReplayDigest("stage_claimed", {
-        commandId: event.commandId,
-        stage: attempt.stage,
-        leaseMs: 300_000,
-        maxAttempts: 2,
-        operationBinding: attempt.operationBinding,
-        operationsCommandId: attempt.operationsCommandId,
-      });
-    },
-    "targetDigest",
-    /synthetic stage authority/u,
-  );
-});
 
 test("real Convex completion store rejects every mutable field in a forged replay replacement", async () => {
   const renderSuccess = renderCompletionScenario();
@@ -1104,7 +813,7 @@ test("real Convex completion store rejects forged stage lease, effect, and failu
     }],
     ["failure reason", failure, (next) => {
       const attempt = next.stageAttempts.at(-1);
-      attempt.failure.reasonCode = "resend_send_failed";
+      attempt.failure.reasonCode = "cloudflare_send_uncertain";
       const event = next.events.at(-1);
       event.commandId = `fail:${attempt.attemptId}:${attempt.failure.reasonCode}`;
       event.eventId = `event_${createHash("sha256")

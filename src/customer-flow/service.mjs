@@ -9,12 +9,7 @@ const CHECKOUT_METADATA = Object.freeze({
   product: "announcement-page",
   environment: "test",
 });
-const RESEND_TEST_SINKS = new Set([
-  "bounced@resend.dev",
-  "complained@resend.dev",
-  "delivered@resend.dev",
-  "suppressed@resend.dev",
-]);
+
 
 export class CustomerFlowError extends Error {
   constructor(statusCode, code, message) {
@@ -312,7 +307,7 @@ function invalidIntake() {
 
 function isSyntheticTestEmail(value) {
   const email = value.toLowerCase();
-  return email.endsWith(".test") || RESEND_TEST_SINKS.has(email);
+  return email.endsWith(".test");
 }
 
 function normalizePaymentEvent(event) {

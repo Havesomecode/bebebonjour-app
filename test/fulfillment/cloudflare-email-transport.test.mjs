@@ -26,13 +26,12 @@ const json = (value, status = 200) => Response.json(value, { status });
 test("Cloudflare configuration is explicit, strict, inert by default and snapshots credentials", async () => {
   const example = JSON.parse(await readFile(new URL("../../ops/cloudflare-email.example.json", import.meta.url)));
   assert.throws(() => readCloudflareEmailConfiguration(example, environment), /configuration/i);
-  for (const change of [ { enabled: false }, { enabled: "true" }, { provider: "resend" },
+  for (const change of [ { enabled: false }, { enabled: "true" }, { provider: "other-provider" },
     { accountId: ` ${config.accountId}` }, { zoneId: "not-an-id" }, { from: "other@example.invalid" },
     { replyTo: "z@havesomecode.io" }, { endpoint: "https://example.invalid" } ]) {
     assert.throws(() => readCloudflareEmailConfiguration({ ...config, ...change }, environment), /configuration/i);
   }
-  for (const env of [{}, { RESEND_API_KEY: "synthetic" },
-    { ...environment, BEBEBONJOUR_CLOUDFLARE_EMAIL_TOKEN: "bad\r\nheader" }]) {
+  for (const env of [{}, { ...environment, BEBEBONJOUR_CLOUDFLARE_EMAIL_TOKEN: "bad\r\nheader" }]) {
     assert.throws(() => readCloudflareEmailConfiguration(config, env), /configuration/i);
   }
   const mutable = { ...config };

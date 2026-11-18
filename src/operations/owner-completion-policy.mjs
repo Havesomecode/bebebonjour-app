@@ -31,9 +31,6 @@ export function requireOwnerCompletionEnvironment(environment = process.env) {
     throw new Error("OWNER_APPROVED_AUDIO_SHA256 must be the exact approved 64-character digest.");
   }
   requiredExact(environment, "OWNER_APPROVED_AUDIO_BYTES", String(OWNER_COMPLETION_AUDIO_BYTES));
-  const resendApiKey = requiredString(environment, "RESEND_API_KEY");
-  if (!resendApiKey.startsWith("re_")) throw new Error("Owner completion Resend key is invalid.");
-  requiredString(environment, "OWNER_RESEND_FROM");
   requiredSecret(environment, "CRON_SECRET", 32);
   if (environment.CRON_SECRET === environment.BEBEBONJOUR_OWNER_COMPLETION_WORKER_TOKEN) {
     throw new Error("Owner completion CRON_SECRET must be distinct from the worker token.");

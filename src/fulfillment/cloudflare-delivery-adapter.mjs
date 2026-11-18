@@ -1,8 +1,6 @@
 import { createHash } from "node:crypto";
 import { createCloudflareEmailTransport } from "./cloudflare-email-transport.mjs";
 
-// Opt-in replacement at the existing fulfillment adapter seam, never a change
-// to the running TEST-A/owner/automatic delivery worker's provider selection.
 export function createCloudflareDeliveryAdapter(options = {}) {
   const policy = Object.freeze({ ...options.policy });
   if (!/^job_[A-Za-z0-9_-]+$/u.test(policy.jobId || "")
@@ -43,7 +41,6 @@ export function createCloudflareDeliveryAdapter(options = {}) {
     },
     async status(request) {
       assertIdentity(request);
-      // Historical Resend receipts must be inspected with Resend, not migrated.
       if (request.provider !== "cloudflare") throw policyFailure();
       return transport.status(request);
     },

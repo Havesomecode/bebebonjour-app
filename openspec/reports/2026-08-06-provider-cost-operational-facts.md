@@ -1,5 +1,7 @@
 # Candidate provider cost and operational facts
 
+> Historical email-provider passages were removed; see `docs/cloudflare-delivery-loop.md` for the current path.
+
 Official public sources reviewed on 2026-08-06 for a low-volume production birth-announcement pipeline. Prices can change and may be localized.
 
 ## Tally
@@ -31,13 +33,8 @@ Official public sources reviewed on 2026-08-06 for a low-volume production birth
 - Runtime logs are retained for one hour on Hobby and one day on Pro. Do not log birth details, recipient addresses, tokens, or webhook bodies. [Limits](https://vercel.com/docs/limits)
 - Environment values are encrypted at rest, but Vercel says they are visible to anyone with project access. Keep membership least-privileged and separate production, preview, and development secrets. Variable changes apply only to new deployments. [Environment variables](https://vercel.com/docs/environment-variables)
 
-## Resend
 
 - Free is **$0/month** for 3,000 emails/month, limited to 100/day, one domain, and 30-day data retention.
-- Pro is **$20/month** for 50,000 emails/month, no daily cap, ten domains, 30-day retention, and overage at $0.90 per additional 1,000 emails. [Pricing](https://resend.com/pricing)
-- At least one owned domain must be verified. Resend recommends using a sending subdomain to isolate reputation; a verified domain can send from any address under that domain. [Verified domains](https://resend.com/docs/dashboard/domains/introduction)
-- API keys are confidential. Use separate keys to isolate applications, and restrict permission and domain where possible. A key value cannot be viewed again after creation; delete inactive keys. [API keys](https://resend.com/docs/dashboard/api-keys/introduction)
-- Verify webhook signatures using the signing secret and raw body. [Webhook verification](https://resend.com/docs/dashboard/webhooks/verify-webhooks-requests)
 
 ## OpenAI text to speech
 
@@ -46,10 +43,7 @@ Official public sources reviewed on 2026-08-06 for a low-volume production birth
 
 ## Low-volume production implication
 
-- A non-pausing database plus commercial Vercel hosting gives a fixed baseline of approximately **$45/month**: Supabase Pro ($25) + Vercel Pro ($20). Tally Free and Resend Free can cover low volume; Stripe and OpenAI TTS remain usage-priced.
 - A genuinely non-commercial announcement can use Vercel Hobby. Supabase Free is viable only if inactivity pausing and unavailable downloadable backups are acceptable.
-- Server-only credentials: Stripe secret/restricted key, Stripe webhook secret, Supabase secret key, Resend API key, Resend webhook secret, and Tally signing secret. Store them in deployment environment variables, grant project access sparingly, and rotate on suspected exposure.
-- Minimize data copied between Tally, Supabase, Resend, and logs. Avoid storing card details entirely; prefer provider-hosted payment collection.
 
 ## Pricing caveat
 

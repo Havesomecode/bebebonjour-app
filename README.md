@@ -87,7 +87,7 @@ npm run verify
 ```
 
 The verification command runs the complete unit and synthetic workflow suites,
-the consolidated production-boundary audit, and the production dependency audit.
+the routing checks, and the production dependency audit.
 
 ## Synthetic fulfillment tracer
 
@@ -164,7 +164,7 @@ It listens only on `http://127.0.0.1:8787`. The local payment adapter makes no
 provider calls, the intake accepts only synthetic `.test` addresses, and the
 server removes its canonical state file on shutdown. In a second terminal, run the landing repository
 with `npm run dev:local`. This is not a deployable production persistence adapter;
-Convex, Stripe test mode, Resend test mode, hosted URLs, and production remain
+Convex, Stripe test mode, Cloudflare Email, hosted URLs, and production remain
 behind their recorded authorization gates.
 
 ## Synthetic workflow demo artifact
@@ -179,7 +179,7 @@ The exporter runs two built-in `.test` intakes through the canonical TEST-A cust
 flow, fulfillment orchestrator, exact-revision review, publication, and delivery
 projections. It creates static announcement slugs for Amal and Bayane. The public
 approval key, checkout, payment event, narration placeholders, publication receipt,
-and delivery receipt are synthetic test fixtures; no Stripe, Resend, TTS, Vercel, or
+and delivery receipt are synthetic test fixtures; no Stripe, email, TTS, Vercel, or
 other provider call is made. Re-running the command replaces only the target demo
 directory and produces the same manifest and static paths.
 

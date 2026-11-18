@@ -7,7 +7,6 @@ import { convexTest } from "convex-test";
 import { getFunctionName, makeFunctionReference } from "convex/server";
 import schema from "../../convex/schema.js";
 import http from "../../convex/http.js";
-import { verifySuccessorBoundary } from '../../ops/cloudflare-successor-verify.mjs';
 
 const manifest = JSON.parse(readFileSync(new URL("../../ops/installation-compatibility.json", import.meta.url), "utf8"));
 const promotionPins = JSON.parse(readFileSync(new URL('../../ops/promotion-candidate-pins.json', import.meta.url), 'utf8'));

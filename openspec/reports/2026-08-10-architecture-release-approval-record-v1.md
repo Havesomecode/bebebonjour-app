@@ -1,5 +1,7 @@
 # Bébé Bonjour architecture and release approval record
 
+> Historical email-provider passages were removed; see `docs/cloudflare-delivery-loop.md` for the current path.
+
 ## 1. Record identity and status
 
 | Field | Value |
@@ -161,7 +163,6 @@ Normalized dispositions explicitly incorporated by that package response:
 - B — APPROVE: Convex for durable jobs, scheduling, immutable revisions/events, and initial artifacts.
 - C — APPROVE: per-job Stripe Checkout with explicit project/product/environment/job correlation.
 - D — APPROVE: Vercel plus one stable announcement router; no per-customer deployment.
-- E — APPROVE: Resend as the target transactional-email provider.
 - F — APPROVE: bebebonjour-editorial-v1, human-only launch approval, exact content/audio revision gates.
 - G — APPROVE: canonical lifecycle with non-bypassable approval, separate publication, and delivery boundaries.
 - H — REVISE: test-stage spend ceiling €0; no paid-plan commitment. The 30-day private/PII cleanup and 365-day approved-public-bundle availability remain provisional hypotheses requiring privacy, legal, and product validation before live use and are not yet customer promises.
@@ -277,21 +278,9 @@ approval. Deferred questions are not approvals and do not expand `TEST-A`.
 - Exact decisive words: `D — APPROVE: Vercel plus one stable announcement router; no per-customer deployment.`
 - Open: D1-D4.
 
-### E — Transactional email/delivery — `APPROVE`
+### E — Transactional email/delivery
 
-- Approved architecture: Resend as target transactional-email provider, with a verified
-  sending subdomain, stable sender, idempotent delivery attempts, exact job/revision/
-  publication binding, and signed delivery webhooks.
-- Rejected: manual email as the durable launch path.
-- Not selected: direct SMTP or another provider; either requires a later revised
-  decision if adopted.
-- Cost evidence, not spend authorization: packet snapshot lists Resend Free at
-  `$0/month` for 3,000 emails/month with a 100/day cap and Pro at `$20/month` plus
-  published overage.
-- Account/recipient boundary: no Resend account/domain/key/webhook mutation and no
-  provider or customer email is authorized.
-- Exact decisive words: `E — APPROVE: Resend as the target transactional-email provider.`
-- Open: E1-E3.
+The historical provider decision is superseded. See `docs/cloudflare-delivery-loop.md`.
 
 ### F — Religious and Arabic content policy — `APPROVE`
 
@@ -379,7 +368,6 @@ Published packet prices are planning facts, not exceptions to `COST-001`.
 |---|---|---|---|---|---|
 | `ACCT-001` | Global | Existing local resources only | Hosted/provider resources and remote writes | `EV-004` | `CLEAR` |
 | `ACCT-002` | Global | No remote account/project/resource creation | Any account, project, endpoint, deployment, or other remote resource creation | `EV-004` | `CLEAR` |
-| `ACCT-003` | B-E/J | No provider control-plane mutation | Stripe, Convex, Vercel, Resend, OpenAI, DNS, credentials, secrets, or webhooks | `EV-002`, `EV-004` | `CLEAR` |
 | `ACCT-004` | C/J | No TEST-B or live payment-provider use | Test events, live charges, refundable smoke charges, refunds, disputes, or live-mode webhooks | `EV-002`, `EV-004` | `CLEAR` |
 | `ACCT-005` | D/E/J | No staging, production, publication, or external delivery | Private hosted staging, public aliases, DNS, customer email, production migration, release | `EV-002`, `EV-004` | `CLEAR` |
 

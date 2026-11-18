@@ -1,5 +1,7 @@
 # Bébé Bonjour architecture and release decision packet
 
+> Historical email-provider passages were removed; see `docs/cloudflare-delivery-loop.md` for the current path.
+
 - **Packet ID:** `BB-ARCH-RELEASE-2026-08-06-v3.0`
 - **Prepared:** 2026-08-06T16:36:31Z
 - **Status:** Pending explicit written dispositions
@@ -9,7 +11,6 @@
 
 ## Executive recommendation
 
-Adopt a first-party intake form, Convex as the durable database/job-state/scheduler and initial file store, per-job Stripe Checkout, Vercel-hosted operator and public-router applications, Resend email, and `bebebonjour-editorial-v1`. Preserve immutable revision and approval boundaries from the verified local pipeline. Before any public release, choose and test a safe runtime for TTS/media validation, remediate the landing build vulnerabilities, and obtain separate production authorization.
 
 This packet authorizes nothing by itself. It is a written decision request.
 
@@ -221,47 +222,7 @@ Public bundle allowlists exclude email, internal requests, reviewer details, pro
 
 ## E. Transactional email
 
-**Recommended choice**
-
-Use Resend for payment-link and final-delivery email from a verified sending subdomain. Bind each delivery attempt to the exact job, revision, publication, stable URL, and application idempotency key. Treat `sent` as provider acceptance and `delivered` as a valid signed delivery webhook.
-
-**Material alternatives**
-
-- Direct SMTP: lower vendor abstraction but more deliverability, telemetry, and operational work.
-- Manual email: reject as the durable launch path; it lacks idempotent evidence and reliable status.
-- Another transactional provider: viable if data location, retention, or deliverability requirements disqualify Resend.
-
-**Rationale**
-
-Resend supplies a small operational surface, domain-scoped keys, provider IDs, and signed delivery events. A stable sender and custom-domain URL avoid exposing provider-owned customer links.
-
-**Known costs**
-
-Resend Free is displayed at `$0/month` for 3,000 emails/month with a 100/day cap; Pro is `$20/month` for 50,000 emails/month, with published overage beyond that allowance.[9]
-
-**Required accounts**
-
-Resend account, owned domain, verified sending subdomain, restricted/domain-scoped API keys, and webhook signing secrets. Resend recommends a sending subdomain to isolate reputation.[10]
-
-**Operational constraints**
-
-Non-production recipients are allowlisted. Use bounded retries and one logical idempotency key. Bounce/complaint suppresses automatic resend. Subject lines omit the baby's name by default; the body includes the stable URL, support/takedown instructions, and retention promise.
-
-**Security/compliance implications**
-
-Do not log recipient address, baby details, URL token, or raw provider payload. Minimize retained provider metadata, verify webhook raw bodies, restrict keys, and disclose Resend as a processor.
-
-**Open questions**
-
-- `E1`: Confirm sending subdomain, sender identity, reply/support address, and recipient allowlist.
-- `E2`: Is provider acceptance or confirmed delivery the customer-facing completion target?
-- `E3`: Confirm required email/provider retention and bounce/complaint operating procedure.
-
-**Decision — choose exactly one:**
-
-- `APPROVE E` — approve Resend and record `E1-E3` as release-gate questions.
-- `REJECT E` — reject Resend and name the selected email path.
-- `REVISE E: <exact changes and constraints>`.
+The historical provider decision is superseded. See `docs/cloudflare-delivery-loop.md`.
 
 ---
 
@@ -336,7 +297,6 @@ Only database functions may advance validated state. Approval makes an exact rev
 
 - Dependable fixed baseline: approximately `$45/month` for Convex Professional (`$25/developer/month`) plus Vercel Pro (`$20/month`), before taxes, overages, domains, Stripe, TTS, email upgrades, monitoring, backups/exports, and human review.[1][5]
 - Lower-cost authorized testing may use Convex Free/Starter and existing Vercel capacity, but this does not approve purchases or production use.
-- Resend Free may cover low launch volume; Stripe and TTS are usage-priced.[6][9]
 
 **Recommended retention pending final legal/product approval**
 
@@ -389,7 +349,6 @@ Permit source/schema/migration changes, local deterministic generation/review co
 
 ### `TEST-B` — local plus existing non-production provider resources
 
-Permit `TEST-A` plus use of already-existing Stripe test mode, non-production Convex deployment, private non-production Vercel preview/staging, and Resend test/allowlisted recipients, using synthetic data only. Permit creation or mutation of test-only records/endpoints only after read-only inventory and within existing accounts/plan allowances. No plan upgrade, new paid account, public production alias, or live-mode credential.
 
 ### Explicit exclusions from both options
 
@@ -456,7 +415,5 @@ Every line requires an explicit disposition. Follow-up exchanges must quote this
 [6] https://stripe.com/fr/pricing — Stripe France pricing
 [7] https://docs.stripe.com/keys — Stripe API keys
 [8] https://docs.stripe.com/webhooks/signature — Stripe webhook signatures
-[9] https://resend.com/pricing — Resend pricing
-[10] https://resend.com/docs/dashboard/domains/introduction — Resend verified domains
 [11] https://tally.so/pricing — Tally pricing
 [12] https://supabase.com/pricing — Supabase pricing

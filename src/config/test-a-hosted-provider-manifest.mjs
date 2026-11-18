@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 
 export const EXPECTED_TEST_A_HOSTED_PROVIDER_MANIFEST_SHA256 =
-  "3605fb59dc51fd7cb9713ee4e8154026cf00bbded6f0b0d7b2800f2da23d224a";
+  "6ba96bbd9316b69bdc2af022146bda48af6b68518d4fc7b7624206032ebc021b";
 
 const manifestUrl = new URL("../../ops/test-a-hosted-provider-manifest.json", import.meta.url);
 
@@ -26,7 +26,7 @@ export function loadReviewedTestAOperatorPolicy(
     throw new Error("TEST-A hosted provider manifest schema version is not supported.");
   }
 
-  const runtime = requireRecord(manifest.resendOperatorRuntime, "operator runtime policy");
+  const runtime = requireRecord(manifest.operatorRuntime, "operator runtime policy");
   requireExactKeys(runtime, [
     "capabilities",
     "environmentVariables",
@@ -46,7 +46,7 @@ export function loadReviewedTestAOperatorPolicy(
     throw new Error("TEST-A operator must require persisted human approval.");
   }
   requireString(runtime.futurePublicationIdentityAuthority, "future publication identity authority");
-  const secretStore = requireRecord(manifest.secretStores?.resendOperator, "operator secret-store policy");
+  const secretStore = requireRecord(manifest.secretStores?.operator, "operator secret-store policy");
   const allowedEnvironmentVariables = requireUniqueStringArray(
     secretStore.allowed,
     "operator allowed environment variables",
@@ -260,8 +260,6 @@ export function loadReviewedTestACompletionPolicy(
     "VERCEL_TOKEN",
     "VERCEL_PROTECTION_BYPASS_SECRET",
     "VERCEL_BUILD_INSPECTION_B64",
-    "RESEND_API_KEY",
-    "RESEND_FROM",
     "TEST_A_PUBLICATION_ORIGIN",
     "TEST_A_PUBLICATION_VERCEL_TEAM_ID",
     "TEST_A_PUBLICATION_VERCEL_PROJECT_ID",
@@ -274,15 +272,14 @@ export function loadReviewedTestACompletionPolicy(
       "persistedSignedContentApproval",
       "claimScopedConvexArtifactReads",
       "authoritativePublicationInspection",
-      "fixedResendTestSink",
     ])
     || JSON.stringify(capabilities) !== JSON.stringify([
-      "approve_content", "render", "publish", "queue_delivery", "deliver", "retry",
+      "approve_content", "render", "publish", "retry",
     ])
     || JSON.stringify(runtimeEnvironmentVariables) !== JSON.stringify(expectedEnvironmentVariables)
-    || JSON.stringify(stages) !== JSON.stringify(["render_approved", "publish", "deliver"])
+    || JSON.stringify(stages) !== JSON.stringify(["render_approved", "publish"])
     || runtime.providerOperationsEnabled
-      !== "access-protected Vercel TEST-A publication and Resend test-sink delivery"
+      !== "access-protected Vercel TEST-A publication"
     || runtime.publicApiAccess !== false
     || JSON.stringify(deployment) !== JSON.stringify({
       provider: "Vercel",

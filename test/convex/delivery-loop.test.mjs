@@ -326,7 +326,7 @@ test("email admissions retain provider identity and opaque Cloudflare receipts",
     const fenced = await t.mutation(ref("fence"), args);
     assert.equal(fenced.emailProvider, "cloudflare");
     const opaque = `<${"opaque".repeat(40)}@example.invalid>`;
-    await assert.rejects(t.mutation(ref("completeEmail"), { ...args, provider: "resend", providerMessageId: opaque }), /provider_mismatch/);
+    await assert.rejects(t.mutation(ref("completeEmail"), { ...args, provider: "other", providerMessageId: opaque }), /Validator error/);
     await t.mutation(ref("completeEmail"), { ...args, provider: "cloudflare", providerMessageId: opaque });
     const stored = (await read(t, job.jobId)).emailReceipts.at(-1);
     assert.equal(stored.provider, "cloudflare");
@@ -343,7 +343,7 @@ test("actual Cloudflare action admits one concurrent send and survives a lost co
   globalThis.fetch=async(_url,opts)=>{calls++;started();await gate;const body=JSON.parse(opts.body);return Response.json({success:true,errors:[],result:{message_id:'<durable@example.invalid>',queued:[body.to],delivered:[],permanent_bounces:[]}});};
   const ctx={runQuery:(fn,a)=>t.query(fn,a),runMutation:async(fn,a)=>{const result=await t.mutation(fn,a);if(getFunctionName(fn).endsWith(':completeEmail'))throw new Error('lost_db_ack');return result;}};
   try {const first=sendEmail._handler(ctx,args);await reached;await assert.rejects(sendEmail._handler(ctx,args),/email_reconciliation_required/);release();await assert.rejects(first,/lost_db_ack/);const row=await read(t,job.jobId);assert.equal(calls,1);assert.equal(row.emailReceipts[0].provider,'cloudflare');assert.equal(row.emailReceipts[0].providerMessageId,'<durable@example.invalid>');await assert.rejects(sendEmail._handler(ctx,args));assert.equal(calls,1);
-    process.env.BEBEBONJOUR_DELIVERY_LOOP_EMAIL_PROVIDER='resend';
+    process.env.BEBEBONJOUR_DELIVERY_LOOP_EMAIL_PROVIDER='other';
     globalThis.fetch=async(url,opts)=>{assert.equal(url,'https://api.cloudflare.com/client/v4/graphql');const datetime=JSON.parse(opts.body).variables.end;return Response.json({data:{viewer:{zones:[{emailSendingAdaptive:[{messageId:'<durable@example.invalid>',status:'delivered',datetime}]}]}}});};
     await assert.rejects(inspectEmail._handler(ctx,{workerToken,jobId:job.jobId,providerMessageId:'<durable@example.invalid>'}), /cloudflare_status_unavailable/);}
   finally {release();globalThis.fetch=original;for(const k of names)if(saved[k]===undefined)delete process.env[k];else process.env[k]=saved[k];}

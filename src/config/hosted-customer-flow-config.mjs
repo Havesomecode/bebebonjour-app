@@ -46,13 +46,6 @@ export function loadCustomerFlowConvexConfig(environment = {}) {
   };
 }
 
-export function loadResendDeliveryConfig(environment = {}) {
-  return {
-    apiKey: requiredPrefix(environment, "RESEND_API_KEY", "re_"),
-    from: requiredString(environment, "RESEND_FROM"),
-  };
-}
-
 export function loadTallyIntakeConfig(environment = {}) {
   const signingSecret = requiredSecret(environment, "TALLY_INTAKE_SIGNING_SECRET", 32);
   const expectedFormId = requiredString(environment, "TALLY_INTAKE_FORM_ID");
@@ -79,12 +72,6 @@ function requiredString(environment, name) {
   const value = environment[name];
   if (typeof value !== "string" || value.trim() === "") throw new Error(`${name} is required.`);
   return value.trim();
-}
-
-function requiredPrefix(environment, name, prefix) {
-  const value = requiredString(environment, name);
-  if (!value.startsWith(prefix)) throw new Error(`${name} has an invalid format.`);
-  return value;
 }
 
 function requiredSecret(environment, name, minimumLength) {

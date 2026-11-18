@@ -15,8 +15,6 @@ const environment = {
   STRIPE_CUSTOMER_FLOW_WEBHOOK_SECRET: "whsec_candidate_only",
   STRIPE_CHECKOUT_SUCCESS_URL: "https://bonjour.example.test/suivi?checkout=success",
   STRIPE_CHECKOUT_CANCEL_URL: "https://bonjour.example.test/suivi?checkout=cancel",
-  RESEND_API_KEY: "re_candidate_only",
-  RESEND_FROM: "Bébé Bonjour <delivery@example.test>",
 };
 
 test("Vercel catch-all completes Node responses and preserves Stripe raw bytes", async (t) => {

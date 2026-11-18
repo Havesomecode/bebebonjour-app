@@ -46,8 +46,8 @@ async function retain(ctx, row, reason) {
   // customer capabilities, storage links, or arbitrary provider response bodies.
   const evidence = { payment: d.payment, approval: d.paidApproval || null, permissions: d.paidPermissions || null,
     editorial: d.editorialApproval || null, deliveredAtMs: d.deliveredAtMs || null,
-    emailReceipts: d.emailReceipts.map(({ revision, stage, provider, providerMessageId, idempotencyKey, sentAtMs }) => ({ revision, stage, provider: provider || "resend", providerMessageId, idempotencyKey, sentAtMs })),
-    uncertainEffect: d.lease?.effectStartedAtMs ? { stage: d.lease.stage, revision: d.desiredRevision, startedAtMs: d.lease.effectStartedAtMs, emailIdempotencyKey: d.lease.emailIdempotencyKey || null, ...(["draft_email", "final_email"].includes(d.lease.stage) ? { emailProvider: d.lease.emailProvider || "resend" } : {}) } : null,
+    emailReceipts: d.emailReceipts.map(({ revision, stage, provider, providerMessageId, idempotencyKey, sentAtMs }) => ({ revision, stage, provider: provider || null, providerMessageId, idempotencyKey, sentAtMs })),
+    uncertainEffect: d.lease?.effectStartedAtMs ? { stage: d.lease.stage, revision: d.desiredRevision, startedAtMs: d.lease.effectStartedAtMs, emailIdempotencyKey: d.lease.emailIdempotencyKey || null, ...(["draft_email", "final_email"].includes(d.lease.stage) ? { emailProvider: d.lease.emailProvider || null } : {}) } : null,
     narrationEffects: (d.narrationEffects || []).map(({ revision, language, textDigest, status, startedAtMs }) => ({ revision, language, textDigest, status, startedAtMs })),
     notice: d.closureNotice || null };
   const prior = await ctx.db.query("deliveryLoopRetainedEvidence").withIndex("by_job_id", q => q.eq("jobId", row.jobId)).unique();
@@ -123,8 +123,8 @@ export const beginNotice = internalMutationGeneric({
   handler: async (ctx, args) => {
     const row = await get(ctx, args.jobId); const d = row.data;
     if (!isPaid(row) || process.env.BEBEBONJOUR_PAID_DATA_AUTOMATION_ENABLED !== "true" || d.closureNotice?.status !== "queued" || d.revokedAtMs || d.cancelledAtMs || d.hostingEndsAtMs <= Date.now()) return null;
-    const provider = process.env.BEBEBONJOUR_DELIVERY_LOOP_EMAIL_PROVIDER || 'resend';
-    if (!['resend', 'cloudflare'].includes(provider)) throw new Error('email_provider_invalid');
+    const provider = process.env.BEBEBONJOUR_DELIVERY_LOOP_EMAIL_PROVIDER || 'cloudflare';
+    if (provider !== 'cloudflare') throw new Error('email_provider_invalid');
     d.closureNotice.status = "inflight"; d.closureNotice.startedAtMs = Date.now(); d.closureNotice.provider = provider;
     await save(ctx, row);
     return { to: d.intake.customer.email, reviewToken: d.reviewToken, hostingEndsAtMs: d.hostingEndsAtMs, idempotencyKey: d.closureNotice.idempotencyKey, provider };

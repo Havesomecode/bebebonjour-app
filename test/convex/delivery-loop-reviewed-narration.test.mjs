@@ -23,7 +23,10 @@ function fixture() {
     BEBEBONJOUR_PAID_STRIPE_ACCOUNT_ID: 'acct_offline',
     CONVEX_SITE_URL: 'https://offline.convex.site',
     OPENAI_API_KEY: 'offline-not-a-real-key',
-    RESEND_API_KEY: 'offline-not-a-real-key',
+    BEBEBONJOUR_DELIVERY_LOOP_EMAIL_PROVIDER: 'cloudflare',
+    BEBEBONJOUR_CLOUDFLARE_ACCOUNT_ID: 'a'.repeat(32),
+    BEBEBONJOUR_CLOUDFLARE_ZONE_ID: 'b'.repeat(32),
+    BEBEBONJOUR_CLOUDFLARE_EMAIL_TOKEN: 'synthetic-send-token',
   });
   return convexTest(schema, {
     './_generated/server.js': () => import('convex/server'),
@@ -46,7 +49,7 @@ for (const language of ['fr', 'ar']) test(`SR-01: ${language} final speech uses 
   context.mock.method(globalThis, 'fetch', async (url, options) => {
     const payload = JSON.parse(options.body); effects.push({url,payload});
     if (url === 'https://api.openai.com/v1/audio/speech') return new Response(new Uint8Array(180).fill(23), {headers:{'content-type':'audio/mpeg'}});
-    if (url === 'https://api.resend.com/emails') return Response.json({id:`offline_message_${effects.length}`});
+    if (url.startsWith('https://api.cloudflare.com/')) return Response.json({success:true,errors:[],result:{message_id:`offline_message_${effects.length}`,queued:[payload.to],delivered:[],permanent_bounces:[]}});
     throw new Error('unexpected_network_forbidden');
   });
   const composer = { async compose(input) {
@@ -105,5 +108,5 @@ for (const language of ['fr', 'ar']) test(`SR-01: ${language} final speech uses 
   assert.equal(audioResponse.status,200);
   assert.equal((await audioResponse.arrayBuffer()).byteLength,180);
   assert.equal((await worker.runOnce()).status,'idle');
-  assert.equal(effects.filter(e => e.url === 'https://api.resend.com/emails').length,2);
+  assert.equal(effects.filter(e => e.url.startsWith('https://api.cloudflare.com/')).length,2);
 });

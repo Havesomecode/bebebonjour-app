@@ -1,9 +1,23 @@
 import { publicPlaybackReservedCommandIds } from "./ownerTrialPublicPlaybackRepair.js";
 import * as live from "../src/forward-coexistence/live/convex/operations.js";
-import { coexistDefinition, selectTrial } from "../src/forward-coexistence/dispatch.mjs";
+import { coexistDefinition as coexistBase, selectTrial } from "../src/forward-coexistence/dispatch.mjs";
 import { mutationGeneric, paginationOptsValidator, queryGeneric } from "convex/server";
 import { findUnresolvedPresentCommand } from "./ownerTrialPublicationPresent.js";
 import { v } from "convex/values";
+
+// The retired TEST-A sink narrows this worker's action scope. Route its
+// operations through the current policy, while keeping the recovered snapshot
+// unchanged for all other workers.
+function coexistDefinition(approved, live, name, module) {
+  const fallback = coexistBase(approved, live, name, module);
+  return { ...fallback, handler: async (context, args) => {
+    const token = process.env.BEBEBONJOUR_COMPLETION_WORKER_TOKEN;
+    if (typeof token === "string" && token.length > 0 && args.workerToken === token) {
+      return approved.handler(context, args);
+    }
+    return fallback.handler(context, args);
+  } };
+}
 import { PRIVATE_GENERATION_ACTIONS, isPrivateGenerationJob, matchesPrivateGenerationAuthority } from "../src/fulfillment/private-generation-authority.mjs";
 import { OWNER_TRIAL_ACTIONS, isOwnerTrialJob, matchesOwnerTrialAuthority } from "../src/fulfillment/owner-trial-authority.mjs";
 import { assertOwnerTrialPersistedAuthority } from "./ownerTrial.js";
@@ -1972,7 +1986,7 @@ function assertCompletionClaimScope(scope, args) {
     return;
   }
   if (scope !== "completion") return;
-  const exactActions = ["approve_content", "deliver", "publish", "queue_delivery", "render", "retry"];
+  const exactActions = ["approve_content", "publish", "render", "retry"];
   if (args.jobId !== "job_03c25b08-8476-4fe1-923b-43d73feab3ff"
       || args.workerId !== "test-a-completion-worker"
       || args.limit !== 1
@@ -2007,7 +2021,7 @@ function assertCompletionCommandScope(scope, command, args) {
     return;
   }
   if (scope !== "completion") return;
-  const actions = new Set(["approve_content", "render", "publish", "queue_delivery", "deliver", "retry"]);
+  const actions = new Set(["approve_content", "render", "publish", "retry"]);
   if (!command
       || command.jobId !== "job_03c25b08-8476-4fe1-923b-43d73feab3ff"
       || !actions.has(command.action)
@@ -2019,7 +2033,7 @@ function assertCompletionCommandScope(scope, command, args) {
 
 function completionCommandMatchesAggregate(scope, command, aggregate) {
   if (scope !== "completion" || command.action !== "retry") return true;
-  return new Set(["render_approved", "publish", "deliver"]).has(aggregate?.retry?.stage);
+  return new Set(["render_approved", "publish"]).has(aggregate?.retry?.stage);
 }
 
 function assertCompletionAggregateScope(scope, command, aggregate) {

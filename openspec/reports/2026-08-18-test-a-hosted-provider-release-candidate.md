@@ -1,5 +1,7 @@
 # TEST-A hosted provider release candidate
 
+> Historical email-provider passages were removed; see `docs/cloudflare-delivery-loop.md` for the current path.
+
 Date: 2026-08-18
 Mode: provider-bound release candidate; no provider mutation performed
 
@@ -15,7 +17,6 @@ The hosted path is:
 4. exact-raw-body verification of one `checkout.session.completed` event;
 5. idempotent payment correlation into the same customer job and canonical fulfillment aggregate;
 6. a persisted `generation_queued` stop, with no public approval, publication, or delivery command;
-7. a separate Resend adapter for an operator runtime after human approval and publication.
 
 The old Tally/Supabase webhook path remains dormant and unchanged as a rollback reference. It is not part of the new route and must not receive new provider subscriptions.
 
@@ -28,7 +29,6 @@ The old Tally/Supabase webhook path remains dormant and unchanged as a rollback 
 | Operational state | Convex customer job + canonical fulfillment aggregate | public status projection |
 | Review | existing trusted review-decision verifier | browser/client state has no authority |
 | Publication | operator-approved Vercel publication receipt | preview URL before approval |
-| Delivery | operator-approved Resend receipt and status | email client/browser state |
 
 Accepted provider event: `checkout.session.completed` only. Publication, customer email, refund, live payment, and provider configuration are out of scope for this candidate.
 
@@ -42,8 +42,6 @@ Accepted provider event: `checkout.session.completed` only. Publication, custome
 - Idempotency replay stores the intake bearer token only as AES-256-GCM ciphertext under a Vercel-only key; Convex rejects plaintext token responses.
 - Every hosted `/v1/*` command also requires a separate high-entropy TEST-A access token; the landing collects it interactively and keeps it in memory only. Its executable client accepts only `https://bebebonjour-fulfillment.vercel.app/api/customer-flow`; an equal operator-provided HTTPS/self override cannot authorize another host.
 - Convex functions require a separate 32+ character backend token stored in both Convex and the Vercel API runtime.
-- The public Vercel API runtime does not require or receive `RESEND_API_KEY`.
-- Resend accepts only test jobs and the exact `delivered@resend.dev` sink, uses the persisted operation idempotency key, and fails closed before Resend's 24-hour idempotency retention can expire.
 - The browser has no approval, publication, payment-success, or delivery command.
 - Provider payloads are not persisted; only normalized data and event fingerprints/results are stored.
 
@@ -60,19 +58,15 @@ The automated suite exercises:
 - concurrent same-ID/different-byte delivery fencing before the second fulfillment effect;
 - one signed wrong-amount event acknowledged only after a redacted durable rejection;
 - the generation stop at `generation_queued`;
-- Resend request idempotency and status mapping with an injected provider client;
 - the Vercel catch-all export and hosted route prefix.
 
-This is signed-synthetic/local evidence only. It does not claim a provider endpoint, deployed environment, provider delivery log, real Convex deployment, Vercel preview, Resend message, publication, or live payment.
 
 ## Provider migration manifest
 
 The machine-readable ordered manifest is `ops/test-a-hosted-provider-manifest.json`. Follow it exactly. Important separation:
 
 - Convex team/project/deployment is fixed to `havesomecode:bebebonjour-test-a:preview/test-a-t_3f375e12`; only its preview secret store receives `CUSTOMER_FLOW_BACKEND_TOKEN`.
-- Vercel production is fixed to project `bebebonjour-fulfillment` in scope `zacaria-chtatars-projects`, project ID `prj_XJrkufo77hXAdvMuYjPn6F6AVZjn`, and canonical alias `https://bebebonjour-fulfillment.vercel.app`. It receives exactly the listed Convex and Stripe test runtime variables plus the TEST-A access and token-encryption keys, but no Resend key.
 - Stripe test account `acct_1MKd4KGrir6mz3o7` receives exactly one endpoint subscribed only to `checkout.session.completed`; it is created against an immutable bootstrap deployment, retargeted to the final immutable deployment for proof, then retargeted once more to `https://bebebonjour-fulfillment.vercel.app/api/customer-flow/webhooks/stripe` after that alias serves the proven app deployment.
-- The operator delivery runtime receives Resend credentials only after the review/publication gate.
 - The landing build receives only the non-secret canonical API base; the retired approved-origin override and every provider secret are forbidden.
 
 The first deployment uses a generated high-entropy bootstrap webhook value held only in the Vercel secret store. The Stripe endpoint is then created against that immutable bootstrap URL so its one-time signing secret can replace the bootstrap value. The same signed app candidate is redeployed after that update, the one endpoint is retargeted to the final immutable URL, and that final deployment is probed before the canonical alias moves. The endpoint is retargeted to the canonical URL and the landing is activated only after alias health succeeds. Both Vercel receipts must prove their deployment occurred after their respective secret update.
@@ -100,12 +94,10 @@ These are deterministic candidate values in `.env.example` and the provider migr
 7. Submit a unique synthetic €39 EUR order, complete one Stripe test Checkout event, and replay the exact event.
 8. Verify Stripe delivery logs and query Convex directly: one customer job, one fulfillment job, one provider event, and no replay transition.
 9. Run generation and persist the qualified human review decision for the exact revision.
-10. Install Resend credentials only in the separate operator runtime, publish only the approved test artifact, send only to `delivered@resend.dev`, and reconcile the exact message ID/status.
 11. Re-check that no provider payload, plaintext intake token, forbidden secret, real payment, or customer email crossed the boundary.
 
 ## Rollback
 
-Before customer traffic, rollback is configuration-only: restore the prior signed landing and canonical-alias targets (or unset the landing API base), disable the exact Stripe test endpoint, and revoke scoped Convex, Vercel-runtime, Stripe-webhook, TEST-A, encryption, and Resend credentials. Do not delete either Vercel deployment, Convex records, Stripe delivery logs, approval/publication receipts, or Resend receipts. The prior local TEST-A and dormant Tally/Supabase code remain available until the observation window is accepted.
 
 ## Exact boundary
 

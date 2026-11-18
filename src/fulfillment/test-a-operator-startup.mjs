@@ -26,7 +26,7 @@ export async function runTestAOperatorCommand(options = {}) {
     throw new Error(
       `${command} is disabled: this private TEST-A operator is status/review-only. `
       + "Use status or persist-approval. Re-enable provider commands only after authoritative Vercel "
-      + "deployment inspection and the patched local Vercel CLI are pinned and reviewed; no Vercel or Resend I/O was attempted.",
+      + "deployment inspection and the patched local Vercel CLI are pinned and reviewed; no provider I/O was attempted.",
     );
   }
 

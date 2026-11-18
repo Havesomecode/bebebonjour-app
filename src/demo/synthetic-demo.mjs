@@ -59,7 +59,7 @@ const TIMELINE_COPY = Object.freeze({
   },
   delivery: {
     label: "Livraison confirmée",
-    description: "Accusé local déterministe; aucun e-mail ni appel Resend.",
+    description: "Accusé local déterministe; aucun e-mail ni appel fournisseur.",
   },
 });
 const PERSONAS = Object.freeze([

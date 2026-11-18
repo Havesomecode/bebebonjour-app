@@ -236,7 +236,6 @@ they must not be represented by direct state mutation.
 `stageIdempotencyKey` in `job-machine.mjs` is the compatibility algorithm. It is stable
 across automatic retries because `operation_number` counts completed logical operations,
 not failed attempts. The same key must be forwarded to the eventual Vercel/storage and
-Resend adapters; storing it only locally is insufficient.
 
 ## 7. Non-bypassable review and authorization gates
 
@@ -293,7 +292,6 @@ or spend remain forbidden until their separate recorded gates are approved.
   the retired local snapshot; it does not implement the approved single stable
   router/pointer topology and must not be used as the hosted publication adapter.
 - `commandSend` supports only a redacted console preview and `commandStatus` reads the
-  retired snapshot. A Resend adapter, aggregate-backed status path, and signed delivery
   webhook/reconciliation path do not yet exist.
 - CLI content and narration approvals contain strong HMAC/digest checks, but their
   portable reviewer strings do not satisfy the persistent authenticated reviewer

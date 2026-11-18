@@ -266,7 +266,6 @@ test("legacy provider-capable runner fails closed before provider construction",
   assert.throws(
     () => createTestAOperatorRunner({
       publicationProvider: () => { providerConstructions += 1; },
-      resend: () => { providerConstructions += 1; },
     }),
     /status\/review-only.*publication and delivery are disabled/i,
   );

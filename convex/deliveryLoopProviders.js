@@ -5,7 +5,7 @@ import { paymentEventFields } from "./deliveryLoopPaymentEvents.js";
 import { paymentEventRejection } from "../src/delivery-loop/paid-event.mjs";
 import { v } from "convex/values";
 import { createHash } from "node:crypto";
-import { performNarration, performEmail } from "../src/delivery-loop/provider-transport.mjs";
+import { performNarration } from "../src/delivery-loop/provider-transport.mjs";
 import { cloudflareTransport, alreadyAdmitted } from "../src/delivery-loop/cloudflare-runtime.mjs";
 import { inspectPaidPayment, PaidPaymentInspectionError } from "../src/delivery-loop/paid-payment.mjs";
 
@@ -51,20 +51,17 @@ export const sendEmail = actionGeneric({
   handler: async (context, args) => {
     const job = await context.runQuery(ref('authorizeProvider'), args);
     const payload = emailPayload(job, args.stage, args.revision);
-    const admission = await context.runMutation(ref('fence'), args);
+    await context.runMutation(ref('fence'), args);
     let receipt;
     try {
-      receipt = admission.emailProvider === 'cloudflare'
-        ? await cloudflareTransport().send(payload, { fenceExternalEffect: alreadyAdmitted })
-        : await provider('sendEmail', payload);
+      receipt = await cloudflareTransport().send(payload, { fenceExternalEffect: alreadyAdmitted });
     } catch (error) {
-      // Never blindly re-send an uncertain email. Resend's canonical idempotency
-      // key stays recorded so the exact effect can be reconciled rather than duplicated.
+      // A started effect requires reconciliation; never issue it again automatically.
       await context.runMutation(ref('fail'), { workerToken: args.workerToken, jobId: args.jobId,
         leaseToken: args.leaseToken, reason: safeReason(error), retryable: false });
       throw new Error(safeReason(error));
     }
-    await context.runMutation(ref('completeEmail'), { ...args, provider: admission.emailProvider || 'resend', providerMessageId: receipt.providerMessageId });
+    await context.runMutation(ref('completeEmail'), { ...args, provider: 'cloudflare', providerMessageId: receipt.providerMessageId });
     return { providerMessageId: receipt.providerMessageId, status: args.stage === 'final_email' ? 'approved_sent' : 'awaiting_review' };
   },
 });
@@ -75,12 +72,8 @@ export const inspectEmail = actionGeneric({
     const job = await context.runQuery(ref('read'), { workerToken: args.workerToken, jobId: args.jobId });
     const matches = (job?.emailReceipts || job?.emails || []).filter(receipt => receipt.providerMessageId === args.providerMessageId);
     if (!matches.length) throw new Error('email_receipt_not_bound');
-    const providers = new Set(matches.map(receipt => receipt.provider || 'resend'));
-    if (providers.size !== 1) throw new Error('email_receipt_provider_ambiguous');
-    const selected = [...providers][0];
-    if (selected === 'cloudflare') return cloudflareTransport().status({ providerMessageId: args.providerMessageId });
-    if (selected !== 'resend') throw new Error('email_provider_invalid');
-    return provider('inspectEmail', { providerMessageId: args.providerMessageId });
+    if (matches.some(receipt => receipt.provider !== 'cloudflare')) throw new Error('email_provider_unknown');
+    return cloudflareTransport().status({ providerMessageId: args.providerMessageId });
   },
 });
 
@@ -108,25 +101,7 @@ function emailPayload(job, stage, revision) {
 }
 
 async function provider(operation, payload) {
-  if (operation !== 'narrate' && process.env.BEBEBONJOUR_DELIVERY_LOOP_PROVIDER_URL) {
-    const url = new URL(process.env.BEBEBONJOUR_DELIVERY_LOOP_PROVIDER_URL);
-    if (url.protocol !== 'https:') throw new Error('provider_url_invalid');
-    const response = await fetch(url, { method: 'POST', headers: {
-      authorization: `Bearer ${process.env.BEBEBONJOUR_DELIVERY_LOOP_TOKEN}`, 'content-type': 'application/json',
-    }, body: JSON.stringify({ operation, payload }), signal: AbortSignal.timeout(150_000) });
-    const result = await response.json();
-    if (!response.ok || result.status !== 'ok') throw new Error(result.code || `provider_proxy_http_${response.status}`);
-    return result.result;
-  }
   if (operation === 'narrate') return performNarration(payload);
-  if (operation === 'sendEmail') return performEmail(payload);
-  if (operation === 'inspectEmail') {
-    const response = await fetch(`https://api.resend.com/emails/${encodeURIComponent(payload.providerMessageId)}`, {
-      headers: { authorization: `Bearer ${process.env.RESEND_API_KEY}` }, signal: AbortSignal.timeout(30_000),
-    });
-    if (!response.ok) throw new Error(`email_inspection_http_${response.status}`);
-    return response.json();
-  }
   throw new Error('provider_operation_invalid');
 }
 

@@ -11,7 +11,7 @@ import schema from '../../convex/schema.js';
 import { DAY } from '../../convex/deliveryLoopData.js';
 import { narrate, sendEmail } from '../../convex/deliveryLoopProviders.js';
 const ref = name => makeFunctionReference(`deliveryLoop:${name}`);
-test('a Cloudflare admission without configuration cannot accidentally send through Resend', async () => {
+test('a Cloudflare admission without configuration cannot send', async () => {
   let calls = 0;
   const original = globalThis.fetch;
   globalThis.fetch = async () => { calls++; throw new Error('unexpected_network'); };
@@ -84,7 +84,7 @@ test('unpaid preview has no exports; revocation closes public text/audio immedia
   assert.equal(await t2.query(ref('publicPage'),{publicToken:row.publicToken}),null);assert.equal(await t2.query(ref('publicAudio'),{publicToken:row.publicToken,revision:1,language:'fr'}),null);
   assert.equal((await t2.fetch(exportUrl(job,'page'))).status,200);assert.equal(await claim(t2),null);
 });
-for (const admissionProvider of ['cloudflare', undefined]) test(`deletion retains each receipt and ${admissionProvider || 'legacy Resend'} admission provider`,async()=>{
+for (const admissionProvider of ['cloudflare', undefined]) test(`deletion retains each receipt and ${admissionProvider || 'unknown'} admission provider`,async()=>{
   const t=fixture();const {job}=await delivered(t);const row=await raw(t,job);
   const [first,second]=row.data.emailReceipts;
   const legacy={...first};delete legacy.provider;
@@ -92,8 +92,8 @@ for (const admissionProvider of ['cloudflare', undefined]) test(`deletion retain
   await patchData(t,job,{emailReceipts:[legacy,cloudflare],lease:{stage:'final_email',effectStartedAtMs:123,emailIdempotencyKey:'offline-uncertain',...(admissionProvider ? {emailProvider:admissionProvider} : {})},desiredRevision:1});
   await t.mutation(dataRef('customerControl'),{...capability(job),action:'delete'});
   const evidence=(await t.query(dataRef('inspect'),{editorialToken,jobId:job.jobId})).retainedEvidence;
-  assert.deepEqual(evidence.emailReceipts.map(({provider,providerMessageId})=>({provider,providerMessageId})),[{provider:'resend',providerMessageId:legacy.providerMessageId},{provider:'cloudflare',providerMessageId:cloudflare.providerMessageId}]);
-  assert.equal(evidence.uncertainEffect.emailProvider,admissionProvider || 'resend');
+  assert.deepEqual(evidence.emailReceipts.map(({provider,providerMessageId})=>({provider,providerMessageId})),[{provider:null,providerMessageId:legacy.providerMessageId},{provider:'cloudflare',providerMessageId:cloudflare.providerMessageId}]);
+  assert.equal(evidence.uncertainEffect.emailProvider,admissionProvider || null);
   assert.doesNotMatch(JSON.stringify(evidence),/FictionalBaby|data-fixture@example.invalid|reviewToken/);
 });
 
@@ -119,14 +119,6 @@ test('calendar hosting expiry closes text/audio and deletes storage; cancellatio
   assert.equal(await t.query(ref('publicPage'),{publicToken:row.publicToken}),null);assert.equal((await t.fetch(exportUrl(job,'page'))).status,404);await t.mutation(dataRef('sweep'),{});assert.equal(await t.run(ctx=>ctx.storage.get(storageId)),null);assert.equal((await raw(t,job)).data.reason,'hosting_ended');
   const t2=fixture();const key='abandoned-idempotency';const cancelled=await t2.mutation(ref('submit'),{idempotencyKey:key,orderMode:'paid_route_a',previewConsent:true,intake});await patchData(t2,cancelled,{cancelledAtMs:Date.now()-30*DAY+2000});await t2.mutation(dataRef('sweep'),{});assert.notEqual((await raw(t2,cancelled)).status,'data_deleted');await patchData(t2,cancelled,{cancelledAtMs:Date.now()-30*DAY});await t2.mutation(dataRef('sweep'),{});assert.equal((await raw(t2,cancelled)).data.reason,'cancelled_retention');await assert.rejects(t2.mutation(ref('submit'),{idempotencyKey:key,orderMode:'paid_route_a',previewConsent:true,intake}),/data_deleted/);
 });
-test('scheduled closure notice invokes actual Resend adapter once; successful/uncertain sends and disabled automation are fenced',async()=>{
-  const t=fixture();const {job}=await delivered(t);await patchData(t,job,{hostingEndsAtMs:Date.now()+30*DAY-1000});
-  const original=globalThis.fetch;let sends=0;globalThis.fetch=async(url,opts)=>{assert.equal(url,'https://api.resend.com/emails');sends++;const value=JSON.parse(opts.body);assert.match(value.text,/texte final.*audio.*archive/);assert.match(value.text,/contact@bebebonjour.com/);assert.match(opts.headers['idempotency-key'],/:closure_notice$/);return Response.json({id:'offline_notice_receipt'});};process.env.RESEND_API_KEY='offline-not-real';
-  try {await t.mutation(dataRef('sweep'),{});await t.finishAllScheduledFunctions(()=>mock.timers.tick(0));assert.equal(sends,1);assert.equal((await raw(t,job)).data.closureNotice.status,'sent');await t.mutation(dataRef('sweep'),{});await t.action(makeFunctionReference('deliveryLoopDataProviders:sendClosureNotice'),{jobId:job.jobId});assert.equal(sends,1);
-    const t2=fixture();const {job:other}=await delivered(t2);await patchData(t2,other,{hostingEndsAtMs:Date.now()+30*DAY-1000});globalThis.fetch=async()=>{sends++;throw new Error('offline_timeout');};await t2.mutation(dataRef('sweep'),{});await t2.finishAllScheduledFunctions(()=>mock.timers.tick(0));assert.equal((await raw(t2,other)).data.closureNotice.status,'reconciliation_required');await t2.action(makeFunctionReference('deliveryLoopDataProviders:sendClosureNotice'),{jobId:other.jobId});assert.equal(sends,2);
-  }finally{globalThis.fetch=original;delete process.env.RESEND_API_KEY;}
-  process.env.BEBEBONJOUR_PAID_DATA_AUTOMATION_ENABLED='false';assert.deepEqual(await t.mutation(dataRef('sweep'),{}),{disabled:true});
-});
 test('Cloudflare closure uses its own durable admission and records provider identity', async()=>{
   const t=fixture(); const {job}=await delivered(t); await patchData(t,job,{hostingEndsAtMs:Date.now()+30*DAY-1000});
   const original=globalThis.fetch; const names=['BEBEBONJOUR_DELIVERY_LOOP_EMAIL_PROVIDER','BEBEBONJOUR_CLOUDFLARE_ACCOUNT_ID','BEBEBONJOUR_CLOUDFLARE_ZONE_ID','BEBEBONJOUR_CLOUDFLARE_EMAIL_TOKEN','BEBEBONJOUR_CLOUDFLARE_ANALYTICS_TOKEN']; const saved=Object.fromEntries(names.map(k=>[k,process.env[k]]));
@@ -134,6 +126,14 @@ test('Cloudflare closure uses its own durable admission and records provider ide
   Object.assign(process.env,{BEBEBONJOUR_DELIVERY_LOOP_EMAIL_PROVIDER:'cloudflare',BEBEBONJOUR_CLOUDFLARE_ACCOUNT_ID:'a'.repeat(32),BEBEBONJOUR_CLOUDFLARE_ZONE_ID:'b'.repeat(32),BEBEBONJOUR_CLOUDFLARE_EMAIL_TOKEN:'synthetic-send-token'});
   let calls=0; globalThis.fetch=async(url,opts)=>{calls++;assert.match(url,/api\.cloudflare\.com/);const body=JSON.parse(opts.body);assert.match(body.headers['X-Bebe-Operation'],/:closure_notice$/);return Response.json({success:true,errors:[],result:{message_id:'<notice@example.invalid>',queued:[body.to],delivered:[],permanent_bounces:[]}});};
   try { await t.mutation(dataRef('sweep'),{});await t.finishAllScheduledFunctions(()=>mock.timers.tick(0));const notice=(await raw(t,job)).data.closureNotice;assert.equal(calls,1);assert.equal(notice.status,'sent');assert.equal(notice.provider,'cloudflare');assert.equal(notice.providerMessageId,'<notice@example.invalid>');await t.action(makeFunctionReference('deliveryLoopDataProviders:sendClosureNotice'),{jobId:job.jobId});assert.equal(calls,1); }
+  finally {globalThis.fetch=original;for(const k of names)if(saved[k]===undefined)delete process.env[k];else process.env[k]=saved[k];}
+});
+test('uncertain closure transport remains fenced against another send', async()=>{
+  const t=fixture(); const {job}=await delivered(t); await patchData(t,job,{hostingEndsAtMs:Date.now()+30*DAY-1000});
+  const names=['BEBEBONJOUR_DELIVERY_LOOP_EMAIL_PROVIDER','BEBEBONJOUR_CLOUDFLARE_ACCOUNT_ID','BEBEBONJOUR_CLOUDFLARE_ZONE_ID','BEBEBONJOUR_CLOUDFLARE_EMAIL_TOKEN']; const saved=Object.fromEntries(names.map(k=>[k,process.env[k]])); const original=globalThis.fetch; let calls=0;
+  Object.assign(process.env,{BEBEBONJOUR_DELIVERY_LOOP_EMAIL_PROVIDER:'cloudflare',BEBEBONJOUR_CLOUDFLARE_ACCOUNT_ID:'a'.repeat(32),BEBEBONJOUR_CLOUDFLARE_ZONE_ID:'b'.repeat(32),BEBEBONJOUR_CLOUDFLARE_EMAIL_TOKEN:'synthetic-send-token'});
+  globalThis.fetch=async()=>{calls++;throw new Error('offline_timeout');};
+  try { await t.mutation(dataRef('sweep'),{}); await t.finishAllScheduledFunctions(()=>mock.timers.tick(0)); assert.equal((await raw(t,job)).data.closureNotice.status,'reconciliation_required'); await t.action(makeFunctionReference('deliveryLoopDataProviders:sendClosureNotice'),{jobId:job.jobId}); assert.equal(calls,1); }
   finally {globalThis.fetch=original;for(const k of names)if(saved[k]===undefined)delete process.env[k];else process.env[k]=saved[k];}
 });
 test('hourly pagination schedules continuation past ten legacy records; privacy UI and operator scripts compile',async()=>{

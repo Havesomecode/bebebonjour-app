@@ -95,7 +95,6 @@ test("reviewed generation policy grants only prepare_review and canonical read/w
   for (const forbidden of [
     "BEBEBONJOUR_APPROVAL_HMAC_KEY",
     "CUSTOMER_FLOW_BACKEND_TOKEN",
-    "RESEND_API_KEY",
     "STRIPE_SECRET_KEY",
     "VERCEL_TOKEN",
   ]) {
@@ -150,7 +149,7 @@ test("reviewed completion policy exposes only the fixed synthetic completion bou
 
   assert.deepEqual(policy, REVIEWED_TEST_A_COMPLETION_POLICY);
   assert.deepEqual(policy.capabilities, [
-    "approve_content", "render", "publish", "queue_delivery", "deliver", "retry",
+    "approve_content", "render", "publish", "retry",
   ]);
   assert.equal(policy.deployment.minimumPlan, "pro");
   assert.equal(policy.allowedEnvironmentVariables.includes("VERCEL_DEPLOYMENT_ID"), false);
@@ -179,16 +178,16 @@ test("reviewed TEST-A operator policy rejects tampered bytes and contradictory s
 
   const tamperedRuntime = Buffer.from(JSON.stringify({
     ...manifest,
-    resendOperatorRuntime: {
-      ...manifest.resendOperatorRuntime,
+    operatorRuntime: {
+      ...manifest.operatorRuntime,
       capabilities: ["status", "persist-approval", "run-next"],
     },
   }));
   assert.throws(() => loadReviewedTestAOperatorPolicy(tamperedRuntime), /manifest digest/i);
 
   const contradictoryPolicy = structuredClone(manifest);
-  contradictoryPolicy.secretStores.resendOperator.allowed = [
-    ...contradictoryPolicy.secretStores.resendOperator.allowed,
+  contradictoryPolicy.secretStores.operator.allowed = [
+    ...contradictoryPolicy.secretStores.operator.allowed,
     "STRIPE_SECRET_KEY",
   ];
   const contradictoryBytes = Buffer.from(JSON.stringify(contradictoryPolicy));

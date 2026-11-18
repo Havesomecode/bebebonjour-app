@@ -5,7 +5,6 @@ import { createExactRevisionPublicationAdapter } from "./exact-revision-publicat
 import { createExternalEffectStageHandlers } from "./external-effect-stage-handlers.mjs";
 import { createFulfillmentOrchestrator } from "./job-orchestrator.mjs";
 import { createPersistedReviewDecisionVerifier } from "./persisted-review-decision.mjs";
-import { createResendDeliveryAdapter } from "./resend-delivery-adapter.mjs";
 import {
   createVercelTestAPublicationProvider,
   parseAuthoritativeVercelBuildInspection,
@@ -13,14 +12,12 @@ import {
 import { createConvexFulfillmentStore } from "../persistence/convex-fulfillment-store.mjs";
 import { TEST_A_COMPLETION_JOB_ID } from "../operations/production-completion-worker.mjs";
 
-const TEST_SINK = "delivered@resend.dev";
 const RETRY_POLICY = Object.freeze({
-  leaseMsByStage: Object.freeze({ render_approved: 300_000, publish: 300_000, deliver: 300_000 }),
-  maxAttemptsByStage: Object.freeze({ render_approved: 2, publish: 2, deliver: 2 }),
+  leaseMsByStage: Object.freeze({ render_approved: 300_000, publish: 300_000 }),
+  maxAttemptsByStage: Object.freeze({ render_approved: 2, publish: 2 }),
   backoffMsByStage: Object.freeze({
     render_approved: Object.freeze([60_000]),
     publish: Object.freeze([60_000]),
-    deliver: Object.freeze([60_000]),
   }),
 });
 
@@ -78,16 +75,7 @@ export async function createTestACompletionCapabilities(options = {}) {
       provider: options.publicationProvider || publicationProvider,
       stableOrigin: identity.publication.stableOrigin,
     }),
-    deliveryAdapter: createResendDeliveryAdapter({
-      apiKey: environment.RESEND_API_KEY,
-      from: identity.resendFrom,
-      resend: options.resend,
-      clock: options.clock,
-    }),
-    resolveDeliveryTarget: async (job) => {
-      assertSyntheticJob(job, policy.jobId);
-      return { targetRef: "resend:test-a-sink", email: TEST_SINK };
-    },
+    publicationOnly: true,
   });
   const verifyApproval = createPersistedReviewDecisionVerifier({
     approvalStore: store,
@@ -163,7 +151,7 @@ function restrictStoreToSyntheticJob(store, jobId) {
 }
 
 function restrictOrchestratorToSyntheticJob(orchestrator, jobId) {
-  const methods = ["status", "recordReviewDecision", "runExpectedStage", "queueDelivery", "resumeRetry"];
+  const methods = ["status", "recordReviewDecision", "runExpectedStage", "resumeRetry"];
   return Object.freeze(Object.fromEntries(methods.map((name) => [name, (candidateJobId, ...args) => {
     if (candidateJobId !== jobId) {
       throw new Error("Completion orchestration is restricted to the exact synthetic job.");
@@ -327,7 +315,6 @@ function requireCompletionIdentity(environment, buildInspection) {
     }
   }
   return Object.freeze({
-    resendFrom: requiredString(environment, "RESEND_FROM"),
     publication: Object.freeze({
       stableOrigin: exactHttpsOrigin(environment.TEST_A_PUBLICATION_ORIGIN),
       teamId: buildInspection.teamId,

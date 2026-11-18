@@ -48,7 +48,7 @@ test("hosted customer-flow API preserves Stripe webhook raw bytes and exposes fa
     boundary: "TEST-A",
     persistence: "convex-hosted",
     payment: "stripe-test-mode",
-    delivery: "operator-gated-resend-test",
+    delivery: "operator-gated",
   });
 });
 

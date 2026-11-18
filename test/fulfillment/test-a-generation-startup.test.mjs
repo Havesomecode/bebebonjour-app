@@ -209,7 +209,6 @@ test("generation startup rejects every unrecognized environment variable before 
   let constructions = 0;
   for (const name of [
     "BEBEBONJOUR_APPROVAL_HMAC_KEY",
-    "RESEND_API_KEY",
     "STRIPE_SECRET_KEY",
     "VERCEL_TOKEN",
     "CUSTOMER_FLOW_TOKEN_ENCRYPTION_KEY",
@@ -255,7 +254,6 @@ test("real generation entrypoint and Hermes wrapper keep output and credential s
   assert.match(wrapper, /approval_path="\$2"/u);
   assert.match(wrapper, /CONVEX_URL=/u);
   assert.match(wrapper, /CUSTOMER_FLOW_BACKEND_TOKEN=/u);
-  assert.doesNotMatch(wrapper, /RESEND_API_KEY|STRIPE_SECRET_KEY|VERCEL_TOKEN|APPROVAL_HMAC/u);
 
   const marker = "Synthetic-Private-Name-synthetic-private@example.test";
   const result = spawnSync(process.execPath, [

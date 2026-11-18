@@ -5,7 +5,8 @@ import { createExactRevisionPublicationAdapter } from "./exact-revision-publicat
 import { createExternalEffectStageHandlers } from "./external-effect-stage-handlers.mjs";
 import { createFulfillmentOrchestrator } from "./job-orchestrator.mjs";
 import { authenticatePersistedReviewApproval, signPersistedReviewApproval } from "./persisted-review-decision.mjs";
-import { createResendConfiguredTestDeliveryAdapter } from "./resend-delivery-adapter.mjs";
+import { createCloudflareDeliveryAdapter } from "./cloudflare-delivery-adapter.mjs";
+import { cloudflareConfig } from "../delivery-loop/cloudflare-runtime.mjs";
 import { createVercelTestAPublicationProvider, parseAuthoritativeVercelBuildInspection } from "./vercel-test-a-publication-provider.mjs";
 import { createConvexFulfillmentStore } from "../persistence/convex-fulfillment-store.mjs";
 
@@ -119,9 +120,9 @@ export async function createCanonicalTestCompletionCapabilities(options = {}) {
   const handlers = createExternalEffectStageHandlers({
     publicationAdapter: createExactRevisionPublicationAdapter({ provider: publicationProvider,
       stableOrigin: environment.CANONICAL_PUBLICATION_ORIGIN }),
-    deliveryAdapter: createResendConfiguredTestDeliveryAdapter({ apiKey: environment.RESEND_API_KEY,
-      from: environment.RESEND_FROM, resend: options.resend, clock: options.clock, policy,
-      stableUrl: `${environment.CANONICAL_PUBLICATION_ORIGIN}/announcements/${policy.jobId}` }),
+    deliveryAdapter: createCloudflareDeliveryAdapter({ environment, config: cloudflareConfig(environment),
+      fetch: options.fetch, clock: options.clock, policy: { ...policy, artifactManifestDigest: policy.manifestDigest,
+        stableUrl: `${environment.CANONICAL_PUBLICATION_ORIGIN}/announcements/${policy.jobId}` } }),
     resolveDeliveryTarget: async (job) => {
       assertCanonicalTestRelease(job, policy, await readApprovals(), hmacKey);
       return Object.freeze({ targetRef: policy.targetRef, email: policy.recipient });

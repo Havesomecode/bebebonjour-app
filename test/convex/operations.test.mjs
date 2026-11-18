@@ -35,7 +35,7 @@ const ownerCompletionToken = "owner-completion-token-at-least-32-characters";
 const rateLimitToken = "rate-limit-token-at-least-32-characters";
 const completionJobId = "job_03c25b08-8476-4fe1-923b-43d73feab3ff";
 const ownerCompletionJobId = "job_narration_test_650a15d1-39bd-4dec-bc0d-3519ace71aa7";
-const completionActions = ["approve_content", "render", "publish", "queue_delivery", "deliver", "retry"];
+const completionActions = ["approve_content", "render", "publish", "retry"];
 const ownerCompletionActions = ["publish", "queue_delivery", "deliver"];
 const allActions = Object.freeze([
   "create_checkout", "generate", "approve_content", "request_content_changes", "reject_content",
@@ -172,9 +172,38 @@ test("completion token is server-enforced to one synthetic job and exact action/
     /exact synthetic claim scope/u,
   );
   await assert.rejects(
+    convex.mutation(claimCommands, { ...exact, actions: [...completionActions, "queue_delivery", "deliver"] }),
+    /exact synthetic claim scope/u,
+  );
+  await assert.rejects(
     convex.mutation(claimCommands, { ...exact, leaseMs: 299_999 }),
     /exact synthetic claim scope/u,
   );
+});
+
+test("completion worker claims an eligible publication retry", async () => {
+  const convex = fixture();
+  const aggregate = fulfillmentAggregate({
+    jobId: completionJobId, state: "retry_wait", version: 7,
+    retry: { stage: "publish", revisionId: "r1", availableAt: "2026-09-08T10:01:00.000Z",
+      attemptNumber: 1, reasonCode: "provider_unavailable" },
+  });
+  await convex.run(async (context) => {
+    await context.db.insert("fulfillmentJobs", { jobId: completionJobId, aggregate });
+    await context.db.insert("customerFlowOperationsCommands", {
+      commandId: "command_completion_retry_publication_001", jobId: completionJobId,
+      action: "retry", expectedState: "retry_wait", expectedVersion: 7, payload: {},
+      requestedAt: "2026-09-08T10:02:00.000Z", requestedBy: "primary_operator",
+      state: "pending", attempts: 0, claim: null, lastFailureReason: null, outcome: null,
+      updatedAt: "2026-09-08T10:02:00.000Z",
+    });
+  });
+  const claimed = await convex.mutation(claimCommands, {
+    workerToken: completionToken, workerId: "test-a-completion-worker", jobId: completionJobId,
+    actions: completionActions, limit: 1, leaseMs: 300_000,
+  });
+  assert.equal(claimed.length, 1);
+  assert.equal(claimed[0].commandId, "command_completion_retry_publication_001");
 });
 
 test("owner completion token is server-enforced to the exact narrated job without retry", async () => {
@@ -286,6 +315,11 @@ test("completion token cannot claim a retry owned by the generate-only worker", 
     leaseMs: 300_000,
   });
   assert.deepEqual(claimed, []);
+  const command = await convex.run(async (context) => context.db.query("customerFlowOperationsCommands")
+    .withIndex("by_command_id", (query) => query.eq("commandId", "command_completion_retry_generation_001"))
+    .unique());
+  assert.equal(command.state, "pending");
+  assert.equal(command.claim, null);
 });
 
 test("completion aggregate writes require one active exact-worker command claim", async () => {

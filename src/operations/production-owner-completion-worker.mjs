@@ -14,7 +14,6 @@ export async function runOwnerCompletionWorkerCommand(options = {}) {
     policy,
     fulfillmentStore: options.fulfillmentStore,
     fetch: options.fetch,
-    resend: options.resend,
     publicationProvider: options.publicationProvider,
     clock: options.clock,
     tokenFactory: options.tokenFactory,

@@ -12,7 +12,6 @@ import {
   OWNER_DELIVERY_EMAIL,
   requireOwnerCompletionEnvironment,
 } from "../../src/operations/owner-completion-policy.mjs";
-import { createResendOwnerDeliveryAdapter } from "../../src/fulfillment/resend-owner-delivery-adapter.mjs";
 import {
   assertOwnerCompletionJob,
   createOwnerCompletionArtifactResolver,
@@ -34,8 +33,9 @@ const baseEnvironment = {
   OWNER_VERCEL_BUILD_INSPECTION_B64: Buffer.from(JSON.stringify({ ok: true })).toString("base64"),
   OWNER_APPROVED_AUDIO_SHA256: `48387158${"a".repeat(53)}58c`,
   OWNER_APPROVED_AUDIO_BYTES: "173568",
-  RESEND_API_KEY: "re_owner",
-  OWNER_RESEND_FROM: "Bebe Bonjour <announcements@example.test>",
+  BEBEBONJOUR_CLOUDFLARE_ACCOUNT_ID: "a".repeat(32),
+  BEBEBONJOUR_CLOUDFLARE_ZONE_ID: "b".repeat(32),
+  BEBEBONJOUR_CLOUDFLARE_EMAIL_TOKEN: "synthetic-send-token",
   VERCEL_TOKEN: "vercel-token",
   CRON_SECRET: "c".repeat(32),
 };
@@ -120,7 +120,6 @@ test("owner capabilities construct with production defaults and no automatic ret
     client: { query: async () => null, mutation: async () => null },
     fulfillmentStore: { getJob: async () => ownerJob() },
     publicationProvider: { reconcile: async () => null, publish: async () => null },
-    resend: { emails: { send: async () => ({ data: { id: "unused" } }), get: async () => ({ data: { last_event: "queued" } }) } },
   });
   assert.equal(typeof capabilities.fulfillmentOrchestrator.runExpectedStage, "function");
   assert.equal((await capabilities.fulfillmentOrchestrator.status(OWNER_COMPLETION_JOB_ID)).state, "publish_ready");
@@ -178,37 +177,6 @@ test("owner artifact resolver publishes exact page and audio behind a playable s
   assert.match(shell, /<audio[^>]+controls[^>]+src="\.\/audio\/fr\/intro\.mp3"/u);
   assert.equal(result.files[2].sha256, (await import("node:crypto")).createHash("sha256").update(result.files[2].bytes).digest("hex"));
   assert.deepEqual(result.manifestBytes, manifestBytes);
-});
-
-test("owner Resend adapter sends exactly one fenced idempotent owner email", async () => {
-  const calls = [];
-  const stableUrl = `https://announcements.example.test/announcements/${OWNER_COMPLETION_JOB_ID}`;
-  const adapter = createResendOwnerDeliveryAdapter({
-    from: "Bebe Bonjour <announcements@example.test>",
-    stableUrl,
-    clock: () => "2026-09-17T12:00:00.000Z",
-    resend: { emails: {
-      send: async (...args) => { calls.push(args); return { data: { id: "email_owner_1" }, error: null }; },
-      get: async () => ({ data: { last_event: "delivered" }, error: null }),
-    } },
-  });
-  const result = await adapter.send({
-    jobId: OWNER_COMPLETION_JOB_ID,
-    environment: "test",
-    revisionId: OWNER_COMPLETION_REVISION_ID,
-    artifactManifestDigest: OWNER_COMPLETION_MANIFEST_DIGEST,
-    target: { targetRef: "resend:owner:z-at-havesomecode", email: OWNER_DELIVERY_EMAIL },
-    targetDigest: "d".repeat(64),
-    attemptStartedAt: "2026-09-17T11:59:00.000Z",
-    idempotencyKey: "bb_" + "1".repeat(64),
-    publication: { stableUrl },
-    fenceExternalEffect: async (_fence, effect) => effect(),
-  });
-  assert.equal(result.providerMessageId, "email_owner_1");
-  assert.equal(calls.length, 1);
-  assert.deepEqual(calls[0][0].to, [OWNER_DELIVERY_EMAIL]);
-  assert.equal(calls[0][1].idempotencyKey, "bb_" + "1".repeat(64));
-  await assert.rejects(adapter.send({ environment: "test", target: { email: "other@example.test" } }), /exact owner/u);
 });
 
 test("owner worker is manual-only and Convex scope is exact without retry", async () => {

@@ -12,6 +12,12 @@ The recovered root convex.config.js has no dependencies or child components. Exi
 
 HTTP retains all accepted paid/complimentary routes and the production completion-artifact token dispatch. There is no new permission or capability. Only synthetic fixtures and local files are used.
 
+The TEST-A completion token uses the current operations policy for its fixed job and
+approval, render, publication and retry actions. The former provider-specific test-sink
+delivery actions are retired; this does not authorize a replacement recipient.
+Other workers continue through their existing coexistence routes. Cloudflare
+delivery requires its separately configured exact job, revision and target policy.
+
 ## Replay locally
 
 1. Verify and extract attachment1000 into an ignored local recovery directory. Replay its bash replay-offline.sh against the pinned existing dependency tree. Historical source-map geometry belongs only in its isolated mounts.

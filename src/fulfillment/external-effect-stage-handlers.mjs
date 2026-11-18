@@ -7,12 +7,13 @@ export function createExternalEffectStageHandlers(options = {}) {
   const deliveryAdapter = options.deliveryAdapter;
   const resolveDeliveryTarget = options.resolveDeliveryTarget;
   assertAdapter(publicationAdapter, "publication", ["reconcile", "publish"]);
-  assertAdapter(deliveryAdapter, "delivery", ["reconcile", "send", "status"]);
-  if (typeof resolveDeliveryTarget !== "function") {
+  const publicationOnly = options.publicationOnly === true;
+  if (!publicationOnly) assertAdapter(deliveryAdapter, "delivery", ["reconcile", "send", "status"]);
+  if (!publicationOnly && typeof resolveDeliveryTarget !== "function") {
     throw new Error("An explicit private delivery target resolver is required.");
   }
 
-  return {
+  const handlers = {
     async prepare_delivery(context) {
       const target = await resolveDeliveryTarget(context.job, null);
       assertDeliveryTarget(target);
@@ -107,6 +108,7 @@ export function createExternalEffectStageHandlers(options = {}) {
       return normalizeDeliveryOutcome(outcome, delivery.providerMessageId);
     },
   };
+  return publicationOnly ? { publish: handlers.publish } : handlers;
 }
 
 function normalizePublication(value, request) {

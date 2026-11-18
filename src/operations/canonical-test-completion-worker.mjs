@@ -21,8 +21,8 @@ export function requireCanonicalTestCompletionEnvironment(environment = process.
     ? approvalId(environment, "BEBEBONJOUR_CANONICAL_COMPLETION_NARRATION_APPROVAL_ID") : null;
   const recipient = required(environment, "BEBEBONJOUR_CANONICAL_COMPLETION_RECIPIENT");
   if (!/^[^\s@<>]+@[^\s@<>]+\.[^\s@<>]+$/u.test(recipient)
-      || ["delivered@resend.dev", "z@havesomecode.io"].includes(recipient.toLowerCase())) {
-    throw new Error("Canonical completion requires an explicit disposable recipient, not the owner or Resend test sink.");
+      || recipient.toLowerCase() === "z@havesomecode.io") {
+    throw new Error("Canonical completion requires an explicit disposable recipient, not the owner.");
   }
   exact(environment, "BEBEBONJOUR_CANONICAL_COMPLETION_WORKER_ID", "canonical-test-completion-worker");
   exact(environment, "BEBEBONJOUR_CANONICAL_COMPLETION_WORKER_ACTIONS", ACTIONS.join(","));
@@ -39,8 +39,7 @@ export function requireCanonicalTestCompletionEnvironment(environment = process.
   origin(environment, "CONVEX_URL");
   origin(environment, "CANONICAL_PUBLICATION_ORIGIN");
   for (const name of ["CANONICAL_PUBLICATION_VERCEL_TEAM_ID", "CANONICAL_PUBLICATION_VERCEL_PROJECT_ID",
-    "CANONICAL_PUBLICATION_VERCEL_PROJECT_NAME", "VERCEL_TOKEN", "RESEND_FROM"]) required(environment, name);
-  if (!required(environment, "RESEND_API_KEY").startsWith("re_")) throw new Error("Canonical Resend key is invalid.");
+    "CANONICAL_PUBLICATION_VERCEL_PROJECT_NAME", "VERCEL_TOKEN"]) required(environment, name);
   secret(environment, "VERCEL_PROTECTION_BYPASS_SECRET");
   const encoded = required(environment, "VERCEL_BUILD_INSPECTION_B64");
   const inspection = Buffer.from(encoded, "base64");
@@ -48,7 +47,7 @@ export function requireCanonicalTestCompletionEnvironment(environment = process.
     throw new Error("Canonical Vercel inspection must be canonical bounded base64.");
   }
   return Object.freeze({ jobId, revisionId, manifestDigest, contentApprovalId, narrationApprovalId, recipient,
-    targetRef: `resend:fictional:${jobId}`, workerId: "canonical-test-completion-worker", actions: ACTIONS,
+    targetRef: `cloudflare:fictional:${jobId}`, workerId: "canonical-test-completion-worker", actions: ACTIONS,
     limit: 1, leaseMs: LEASE_MS });
 }
 

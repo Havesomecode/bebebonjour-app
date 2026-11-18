@@ -1,5 +1,7 @@
 # Bébé Bonjour fulfillment architecture and editorial review policy
 
+> Historical email-provider passages were removed; see `docs/cloudflare-delivery-loop.md` for the current path.
+
 Date: 2026-08-06
 Decision status: Recommended for operator approval; no live action is authorized by this document.
 
@@ -14,7 +16,6 @@ Use:
 - Supabase Postgres as the source of truth and Supabase Storage for immutable private and public artifacts.
 - One Vercel fulfillment project for webhooks, checkout, authenticated review, status APIs, and short stage workers.
 - One separate Vercel public announcement router serving all approved pages from storage under stable custom-domain URLs.
-- Resend for transactional email.
 - The existing deterministic CLI code as the compose/render/TTS core, called by leased stage workers rather than treating local `job.json` as authoritative.
 - Two mandatory approvals when narration is requested: exact content approval, then exact narration-byte approval. A job cannot publish, send, or become complete without every approval required for the exact revision being delivered.
 
@@ -121,7 +122,6 @@ Use four deployment boundaries, with separate production and non-production proj
    - CTA calls the fulfillment service's `/start` endpoint rather than opening a fixed payment link.
 
 2. **Fulfillment and operator service** — `ops.bebebonjour.fr`
-   - Tally, Stripe, and Resend webhook endpoints.
    - `/start`, Tally callback, and per-job Checkout creation.
    - Authenticated operator queue, private preview, approval, retry, refund-request, and status controls.
    - Short, idempotent stage workers invoked on enqueue and by a periodic recovery sweep.
@@ -156,7 +156,6 @@ Do not create a Vercel project per customer and do not use a Vercel deployment U
    - `environment=test|live`
    - `job_id=<uuid>`
    - `intake_digest=<sha256>`
-6. The service sends the checkout URL through Resend. If Tally can safely pipe the opaque token to a custom thank-you redirect, that route may also resolve the same reusable Checkout Session; otherwise the thank-you page says that the secure link is arriving by email.
 7. Stripe's signed webhook is authoritative for payment. It must match the existing job, metadata allowlist, configured Price ID, amount, currency, Stripe account, and environment before generation becomes eligible.
 8. Repeated Tally, Checkout, or Stripe calls return the existing job/session/payment result. They do not create duplicate work.
 
@@ -175,7 +174,6 @@ Use complete environment separation:
 - Stripe test keys, test Price ID, and test webhook secret only in non-production;
 - Stripe live restricted key, live Price ID, and live webhook secret only in production;
 - separate Tally form IDs and signing secrets where practical, or synthetic signed fixtures for automated tests;
-- separate Resend API keys and sending behavior; non-production recipients must be allowlisted;
 - `environment` and `stripe_livemode` are immutable database fields and must agree.
 
 A webhook from the shared Stripe account is ignored or redacted as `out_of_scope` unless all explicit correlation fields match. Amount and email are consistency checks, not identity. Never accept an account-wide `payment_intent.succeeded` merely because it is EUR 39.
@@ -252,7 +250,6 @@ All mutating operations go through narrow transactional RPCs or equivalent serve
 | `publishing` | publication attempt leased | `published` only after upload, manifest verification, route resolution, and health check; `retry_wait`; `failed` |
 | `published` | stable URL resolves the exact approved manifest | `delivery_queued`; `revision_required`; `retired` |
 | `delivery_queued` | one idempotent delivery attempt exists | `sending`; `retry_wait`; `failed` |
-| `sending` | Resend accepted attempt lease | `sent` on provider acceptance; `retry_wait`; `failed` |
 | `sent` | provider accepted the message | `delivered` on provider delivery webhook; `delivery_failed` on bounce/rejection |
 | `delivered` | exact approved publication was delivered | `revision_required` for post-delivery correction; `retired`; `refunded` as a separate payment outcome |
 | `retry_wait` | retryable stage error with attempts remaining | resume the recorded prior stage after `available_at`; `failed`; `blocked` |
@@ -283,7 +280,6 @@ Use the database queue pattern already implemented for generation across every s
 4. Completion verifies current eligibility and exact digests before committing output/evidence.
 5. A periodic recovery sweep requeues expired retryable leases and marks exhausted attempts failed.
 
-Do not run compose, TTS, publish, and send as one request. Do not hold a database transaction while calling Stripe, OpenAI, Vercel, Storage, or Resend.
 
 Recommended stage mapping:
 
@@ -294,8 +290,6 @@ Recommended stage mapping:
 - `record_narration_decision`: authenticated operator command.
 - `materialize_public_bundle`: exact approved page, transcript, runtime, static assets, and approved narration.
 - `publish_bundle`: storage upload, read-back digest verification, atomic current-publication pointer.
-- `send_delivery`: Resend with one idempotency key.
-- `refresh_delivery_status`: signed Resend webhooks and reconciliation sweep.
 
 An AI worker may compose drafts and flag problems. Under this policy it cannot approve its own output. Future agent approval requires a separately approved policy version, qualification evidence for Arabic/religious review, independent execution identity, and sampled human audit.
 
@@ -455,7 +449,6 @@ The database publication function must reject unless all of these are true in on
 5. the candidate public manifest was read back and verified;
 6. no later `request_changes`, `reject`, cancellation, privacy takedown, or payment regression exists.
 
-The delivery function must additionally require a verified `published` record for that exact revision and stable URL. `sent` means Resend accepted the message; `delivered` means a signed provider webhook confirmed delivery. `complete` is a derived label allowed only when the exact approved revision is published and delivery reached the configured terminal success state. UI buttons, CLI flags, service-role access, or manual row edits are not valid substitutes.
 
 ## Publish, send, and status operations
 
@@ -473,9 +466,7 @@ Replace per-customer `vercel deploy --prod` with:
 
 ### Send
 
-Use Resend with a verified sending subdomain such as `updates.bebebonjour.fr`. Keep the customer-facing sender stable. Email subject should avoid the baby's name by default. The body contains the stable custom-domain URL, support/takedown instructions, and the announced retention period.
 
-Use `job_id:revision_id:delivery` as the application idempotency key. Store provider message ID and redacted event evidence. Never log recipient address, URL token, baby details, or provider payload. Bounce/complaint events suppress automatic resend and require operator review.
 
 ### Status
 
@@ -502,7 +493,6 @@ Server-only production credentials:
 - a separately issued least-privilege generation-worker database credential;
 - OpenAI API key restricted to the project where supported;
 - approval HMAC/signing key;
-- Resend restricted/domain-scoped API key and webhook secret;
 - Vercel project/org identifiers and deployment credentials only where runtime deployment actually remains necessary.
 
 Rules:
@@ -540,7 +530,6 @@ Recommended low-volume production baseline:
 - Supabase Pro: $25/month to avoid paused production database behavior and obtain paid allowances.
 - Vercel Pro: $20/month because a revenue-generating site is commercial; included usage/credit applies before overage.
 - Tally Free: $0/month at launch; Pro is optional for custom domain/branding, Business for automatic retention controls.
-- Resend Free: $0/month within 3,000 emails/month and 100/day; move to Pro only when limits or support require it.
 - Stripe: no fixed standard fee; standard EEA card pricing was 1.5% + €0.25. On a €39 charge this is approximately €0.84, leaving €38.16 before VAT, refunds, disputes, hosting, TTS, and labor.
 - OpenAI `gpt-4o-mini-tts`: $0.60 per million input text tokens and $12 per million output audio tokens. Record real usage per job because length and retries vary.
 - Domain, taxes, refund/dispute costs, backup exports, monitoring, and reviewer labor are additional.
@@ -559,7 +548,6 @@ Record per job: Stripe fee/refund/dispute, OpenAI usage/cost, storage bytes, fun
 - **Vercel Blob/S3 instead of Supabase Storage:** valid if routing/CDN behavior is materially better. Supabase Storage minimizes vendors and keeps authorization close to Postgres.
 - **One aggregate static Vercel deploy:** simpler serving but every publication rebuilds all pages, risks replacing routes, grows with retention, and complicates rollback. Reject.
 - **One Vercel project per customer:** operationally expensive and produces unstable/provider-owned URLs. Reject.
-- **SMTP directly:** cheaper in isolation but weaker deliverability/telemetry and more operations. Resend is the recommended launch provider.
 
 ### Migration sequence
 
@@ -573,7 +561,6 @@ No step below is authorized merely because it is documented.
 6. Add artifact Storage adapters and persist private generation manifests from the existing leased generation worker.
 7. Add authenticated content and narration decision APIs that reuse current digest/signature verification.
 8. Replace CLI deploy with upload/read-back/publish-pointer logic and implement the shared public router.
-9. Add Resend send/webhook reconciliation and database-backed status.
 10. Add retention/takedown jobs and operator dashboards for blocked, retry, review, and delivery queues.
 11. Run synthetic end-to-end tests, security review, accessibility/browser checks, and approved staging tests.
 12. Update landing CTAs and copy; remove the fixed Stripe Payment Link only when the per-job checkout path is verified.
@@ -586,7 +573,6 @@ The operator should explicitly decide:
 
 - [ ] Tally intake-only plus per-job Stripe Checkout is approved.
 - [ ] `annonces.bebebonjour.fr/a/<public-id>/<slug>/` is the stable URL contract, or replacement names are supplied.
-- [ ] Supabase Postgres/Storage, Vercel Pro, and Resend are approved launch providers.
 - [ ] The $45/month fixed baseline plus usage is acceptable when accepting paid orders.
 - [ ] The 30-day private/PII and 365-day public retention policy is acceptable and will be reflected in customer copy.
 - [ ] `bebebonjour-editorial-v1` is approved, including human-only approval at launch and the no-hadith-by-default rule.

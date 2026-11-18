@@ -14,7 +14,6 @@ import {
 } from "../../src/fulfillment/job-orchestrator.mjs";
 import { createExternalEffectStageHandlers } from "../../src/fulfillment/external-effect-stage-handlers.mjs";
 import { claimStageTransition } from "../../src/forward-coexistence/live/src/fulfillment/job-machine.mjs";
-import { createResendDeliveryAdapter } from "../../src/fulfillment/resend-delivery-adapter.mjs";
 import { createLocalTestFulfillmentStore } from "../../src/persistence/local-test-fulfillment-store.mjs";
 
 const DIGESTS = Object.freeze({
@@ -1350,7 +1349,7 @@ test("ambiguous delivery acceptance is reconciled before retrying the send effec
       assert.equal(request.attemptStartedAt, "2026-08-11T00:00:00.000Z");
       return request.fenceExternalEffect({ effectMayBeIssued: true }, async () => {
         const receipt = {
-          provider: "fake-resend",
+          provider: "fake-provider",
           revisionId: request.revisionId,
           providerMessageId: "fake-message-ambiguous-001",
           idempotencyKey: request.idempotencyKey,
@@ -1392,7 +1391,7 @@ test("ambiguous delivery acceptance is reconciled before retrying the send effec
   ]);
 });
 
-test("delivery retries reconcile only and never retarget or resend", async (t) => {
+test("delivery retries reconcile only and never retarget or send again", async (t) => {
   let now = "2026-08-11T00:00:00.000Z";
   let address = "first@example.test";
   let sendCalls = 0;
@@ -1500,150 +1499,6 @@ test("an issued delivery remains nonterminal when the final reconciliation lease
     releaseFinalReconciliation();
     await finalReconciliation.catch(() => undefined);
   }
-});
-
-test("an expired delivery worker is fenced before the real Resend send boundary", async (t) => {
-  let now = "2026-08-11T00:00:00.000Z";
-  let resolverCalls = 0;
-  let sendCalls = 0;
-  let releaseStaleResolver;
-  let signalStaleResolverStarted;
-  const staleResolverRelease = new Promise((resolve) => { releaseStaleResolver = resolve; });
-  const staleResolverStarted = new Promise((resolve) => { signalStaleResolverStarted = resolve; });
-  const deliveryAdapter = createResendDeliveryAdapter({
-    from: "Bébé Bonjour <delivery@example.test>",
-    clock: () => now,
-    resend: {
-      emails: {
-        async send() {
-          sendCalls += 1;
-          return { data: { id: "email_fenced_001" }, error: null };
-        },
-      },
-    },
-  });
-  const externalHandlers = createExternalEffectStageHandlers({
-    publicationAdapter: fakePublicationAdapter(),
-    deliveryAdapter,
-    async resolveDeliveryTarget() {
-      resolverCalls += 1;
-      if (resolverCalls === 2) {
-        signalStaleResolverStarted();
-        await staleResolverRelease;
-      }
-      return { targetRef: "synthetic-recipient-001", email: "delivered@resend.dev" };
-    },
-  });
-  const retryPolicy = {
-    leaseMsByStage: Object.fromEntries([
-      "prepare_review", "generate_tts", "render_approved", "publish", "deliver",
-    ].map((stage) => [stage, 1_000])),
-    maxAttemptsByStage: Object.fromEntries([
-      "prepare_review", "generate_tts", "render_approved", "publish", "deliver",
-    ].map((stage) => [stage, 2])),
-    backoffMsByStage: Object.fromEntries([
-      "prepare_review", "generate_tts", "render_approved", "publish", "deliver",
-    ].map((stage) => [stage, [1_000]])),
-  };
-  const { orchestrator } = await fixture(t, {
-    clock: () => now,
-    handlers: externalHandlers,
-    retryPolicy,
-  });
-  await reachPublishReady(orchestrator);
-  await orchestrator.runNext("job_synthetic_001");
-  await orchestrator.queueDelivery("job_synthetic_001", { commandId: "queue-fenced-delivery" });
-
-  const staleRun = orchestrator.runNext("job_synthetic_001");
-  await staleResolverStarted;
-  try {
-    now = "2026-08-11T00:00:01.000Z";
-    await orchestrator.runNext("job_synthetic_001");
-    now = "2026-08-11T00:00:02.000Z";
-    const recovered = await orchestrator.runNext("job_synthetic_001");
-    assert.equal(recovered.state, "sent");
-    assert.equal(sendCalls, 1);
-  } finally {
-    releaseStaleResolver();
-    await staleRun.catch(() => undefined);
-  }
-  assert.equal(sendCalls, 1);
-});
-
-test("a stale delivery worker cannot invoke its Resend callback after its persisted fence loses ownership", async (t) => {
-  let now = "2026-08-11T00:00:00.000Z";
-  let sendCalls = 0;
-  let releaseStaleSendFence;
-  let signalStaleSendFencePersisted;
-  const staleSendFenceRelease = new Promise((resolve) => { releaseStaleSendFence = resolve; });
-  const staleSendFencePersisted = new Promise((resolve) => { signalStaleSendFencePersisted = resolve; });
-  const deliveryAdapter = createResendDeliveryAdapter({
-    from: "Bébé Bonjour <delivery@example.test>",
-    clock: () => now,
-    resend: {
-      emails: {
-        async send() {
-          sendCalls += 1;
-          return { data: { id: "email_fenced_001" }, error: null };
-        },
-      },
-    },
-  });
-  const externalHandlers = createExternalEffectStageHandlers({
-    publicationAdapter: fakePublicationAdapter(),
-    deliveryAdapter,
-    resolveDeliveryTarget: async () => ({
-      targetRef: "synthetic-recipient-001",
-      email: "delivered@resend.dev",
-    }),
-  });
-  const retryPolicy = {
-    leaseMsByStage: Object.fromEntries([
-      "prepare_review", "generate_tts", "render_approved", "publish", "deliver",
-    ].map((stage) => [stage, 1_000])),
-    maxAttemptsByStage: Object.fromEntries([
-      "prepare_review", "generate_tts", "render_approved", "publish", "deliver",
-    ].map((stage) => [stage, 2])),
-    backoffMsByStage: Object.fromEntries([
-      "prepare_review", "generate_tts", "render_approved", "publish", "deliver",
-    ].map((stage) => [stage, [1_000]])),
-  };
-  const { orchestrator } = await fixture(t, {
-    clock: () => now,
-    decorateStore(persistedStore) {
-      return {
-        ...persistedStore,
-        async fenceExternalEffect(jobId, command, at) {
-          const aggregate = await persistedStore.fenceExternalEffect(jobId, command, at);
-          if (command.effectMayBeIssued === true) {
-            signalStaleSendFencePersisted();
-            await staleSendFenceRelease;
-          }
-          return aggregate;
-        },
-      };
-    },
-    handlers: externalHandlers,
-    retryPolicy,
-  });
-  await reachPublishReady(orchestrator);
-  await orchestrator.runNext("job_synthetic_001");
-  await orchestrator.queueDelivery("job_synthetic_001", { commandId: "queue-fenced-delivery" });
-
-  const staleRun = orchestrator.runNext("job_synthetic_001");
-  await staleSendFencePersisted;
-  try {
-    now = "2026-08-11T00:00:01.000Z";
-    await orchestrator.runNext("job_synthetic_001");
-    now = "2026-08-11T00:00:02.000Z";
-    const recovered = await orchestrator.runNext("job_synthetic_001");
-    assert.equal(recovered.state, "reconciliation_required");
-    assert.equal(sendCalls, 0);
-  } finally {
-    releaseStaleSendFence();
-    await staleRun.catch(() => undefined);
-  }
-  assert.equal(sendCalls, 0);
 });
 
 test("caller-asserted delivery completion is rejected without a trusted verifier", async (t) => {
@@ -1772,7 +1627,7 @@ function fakeDeliveryAdapter(overrides = {}) {
     },
     async send(request) {
       const receipt = {
-        provider: "fake-resend",
+        provider: "fake-provider",
         revisionId: request.revisionId,
         providerMessageId: "fake-message-001",
         idempotencyKey: request.idempotencyKey,

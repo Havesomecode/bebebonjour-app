@@ -38,7 +38,6 @@ test("operator isolation inventory keeps TEST-A capabilities outside every publi
   assert.ok(inventory.generationModuleGraph.includes("src/fulfillment/local-prepare-review-stage-handler.mjs"));
   assert.ok(inventory.generationModuleGraph.includes("src/fulfillment/job-scoped-generation-approval.mjs"));
   assert.equal(inventory.generationModuleGraph.includes("src/fulfillment/operator-runner-test-a.mjs"), false);
-  assert.equal(inventory.generationModuleGraph.includes("src/fulfillment/resend-delivery-adapter.mjs"), false);
   assert.equal(inventory.generationModuleGraph.includes("src/fulfillment/vercel-test-a-publication-provider.mjs"), false);
   assert.equal(inventory.operationsWorkerEntrypoint, "generation-worker/api/worker.mjs");
   assert.ok(inventory.operationsWorkerModuleGraph.includes("src/operations/production-generation-worker.mjs"));

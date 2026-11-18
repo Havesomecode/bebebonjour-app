@@ -8,8 +8,6 @@ export const TEST_A_COMPLETION_ACTIONS = Object.freeze([
   "approve_content",
   "render",
   "publish",
-  "queue_delivery",
-  "deliver",
   "retry",
 ]);
 export const TEST_A_COMPLETION_LEASE_MS = 300_000;
@@ -36,9 +34,6 @@ export function requireTestACompletionEnvironment(environment = process.env) {
   requiredString(environment, "VERCEL_TOKEN");
   requiredSecret(environment, "VERCEL_PROTECTION_BYPASS_SECRET", 32);
   requiredBase64(environment, "VERCEL_BUILD_INSPECTION_B64", 65_536);
-  const resendApiKey = requiredString(environment, "RESEND_API_KEY");
-  if (!resendApiKey.startsWith("re_")) throw new Error("TEST-A completion Resend key is invalid.");
-  requiredString(environment, "RESEND_FROM");
   requiredHttpsOrigin(environment, "TEST_A_PUBLICATION_ORIGIN");
   for (const name of [
     "TEST_A_PUBLICATION_VERCEL_TEAM_ID",
@@ -71,7 +66,6 @@ export async function runTestACompletionWorkerCommand(options = {}) {
     policy,
     fulfillmentStore: options.fulfillmentStore,
     fetch: options.fetch,
-    resend: options.resend,
     publicationProvider: options.publicationProvider,
     clock: options.clock,
     tokenFactory: options.tokenFactory,

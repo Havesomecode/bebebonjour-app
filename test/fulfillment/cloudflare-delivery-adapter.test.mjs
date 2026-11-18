@@ -58,7 +58,7 @@ test("exact synthetic policy, revision, target and provider guards reject before
     { attemptStartedAt: "2026-11-09T00:00:00Z" }]) {
     await assert.rejects(adapter.send({ ...request, ...change }), /policy|input|reconciliation/i);
   }
-  for (const change of [{ environment: "production" }, { provider: "resend" }, { revisionId: "r2" }]) {
+  for (const change of [{ environment: "production" }, { provider: "other-provider" }, { revisionId: "r2" }]) {
     await assert.rejects(adapter.status({ jobId: policy.jobId, revisionId: "r1", environment: "test",
       provider: "cloudflare", providerMessageId: messageId, ...change }), /policy/i);
   }
@@ -118,7 +118,7 @@ test("parallel durable workers issue at most one Cloudflare send for the same qu
   assert.equal(sends, 1);
 });
 
-test("a lost Cloudflare response persists a started effect; reopened orchestrator never resends", async t => {
+test("a lost Cloudflare response persists a started effect; reopened orchestrator never sends again", async t => {
   let calls = 0;
   const fixture = await fulfillment(t, async () => { calls++; throw new Error("synthetic connection reset after POST"); });
   const status = await fixture.orchestrator.runNext(policy.jobId);

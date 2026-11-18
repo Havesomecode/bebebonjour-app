@@ -218,14 +218,10 @@ test("explicit intake idempotency replays only the same request and rejects conf
   );
 });
 
-test("synthetic-only intake accepts the documented Resend delivery test sink", async () => {
+test("synthetic-only intake rejects addresses outside the test domain", async () => {
   const { service } = harness();
-  const submission = await createJob(service, {
-    ...structuredClone(syntheticIntake),
-    customer: { email: "delivered@resend.dev", consent: true },
-  });
-
-  assert.equal(submission.status, "payment_pending");
+  await assert.rejects(createJob(service, { ...structuredClone(syntheticIntake),
+    customer: { email: "family@example.com", consent: true } }));
 });
 
 test("customer-flow service exposes no parallel editorial or delivery lifecycle", () => {

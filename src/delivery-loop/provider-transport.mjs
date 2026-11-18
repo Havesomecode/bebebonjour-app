@@ -25,28 +25,6 @@ export async function performNarration({ text, textDigest, language }, environme
     provider: 'openai', model: speechModel, voice: speechVoice };
 }
 
-export async function performEmail({ from, to, subject, html, text, idempotencyKey }, environment = process.env, fetchImpl = fetch) {
-  if (typeof to !== 'string' || !/^[^\s@<>]+@[^\s@<>]+\.[^\s@<>]+$/.test(to)
-      || !/^bebe-loop:job_[A-Za-z0-9_-]+:\d+:(draft_email|final_email|closure_notice)$/.test(idempotencyKey || '')
-      || [subject, html, text].some(value => typeof value !== 'string' || !value || value.length > 32_000)) {
-    throw new Error('email_input_invalid');
-  }
-  const sender = environment.BEBEBONJOUR_DELIVERY_LOOP_FROM || environment.RESEND_FROM
-    || 'Bébé Bonjour <bonjour@updates.bebebonjour.com>';
-  if (from && from !== sender) throw new Error('email_sender_invalid');
-  const response = await fetchImpl('https://api.resend.com/emails', {
-    method: 'POST',
-    headers: { authorization: `Bearer ${required(environment, 'RESEND_API_KEY')}`, 'content-type': 'application/json',
-      'idempotency-key': idempotencyKey },
-    body: JSON.stringify({ from: sender, to: [to], subject, html, text }),
-    signal: AbortSignal.timeout(45_000),
-  });
-  if (!response.ok) throw new Error(`email_provider_http_${response.status}`);
-  const result = await response.json();
-  if (typeof result.id !== 'string' || !/^[A-Za-z0-9_-]{8,100}$/.test(result.id)) throw new Error('email_provider_receipt_invalid');
-  return { providerMessageId: result.id, provider: 'resend', idempotencyKey };
-}
-
 export function authorizeProviderToken(actual, environment = process.env) {
   const expected = required(environment, 'BEBEBONJOUR_DELIVERY_LOOP_TOKEN');
   if (Buffer.byteLength(expected) < 32 || typeof actual !== 'string') throw new Error('provider_unauthorized');

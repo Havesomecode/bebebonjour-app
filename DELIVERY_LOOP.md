@@ -15,7 +15,7 @@ This mandate replaces earlier one-job trial restrictions for the new delivery-lo
 
 ## Implementation boundary
 
-The additive `deliveryLoop` Convex lifecycle is the authority for new password-waived first-party intakes. The first-party hosted intake, reviewer UI and unguessable public announcement links use HTTP routes. Content uses the existing Codex ChatGPT subscription; OpenAI API is for Cedar narration only; Resend delivers real messages.
+The additive `deliveryLoop` Convex lifecycle is the authority for new password-waived first-party intakes. The first-party hosted intake, reviewer UI and unguessable public announcement links use HTTP routes. Content uses the existing Codex ChatGPT subscription; OpenAI API is for Cedar narration only; The current source uses Cloudflare Email for outgoing messages; activation requires a separately authorized deployment.
 
 The worker must be supervised independently of this conversation. Every generated revision and provider receipt persists. Correction republishes the stable announcement link while retaining earlier revisions. The live acceptance exercise uses fictional baby data and the owner's inbox, `z@havesomecode.io`.
 
@@ -26,11 +26,11 @@ Before using any inherited deployment credential, verify its exact project: the 
 Verified on October 5, 2026 through **final provider send acceptance**, not independent inbox delivery confirmation:
 
 1. The fictional Amal intake persists with explicit consent and `payment.status = waived`; no charge or fabricated payment record.
-2. Revision one was composed through the actual Codex subscription, narrated through OpenAI Cedar, published anonymously, and accepted by Resend before any review. The pre-review snapshot records zero reviews.
+2. Revision one was composed through the actual Codex subscription, narrated through OpenAI Cedar, published anonymously, and accepted by the then-configured email provider before any review. The pre-review snapshot records zero reviews.
 3. An explicitly `simulated_human` correction produced revision two on the same shareable URL. Its final displayed and narrated sentence is exactly `Bienvenue Amal, notre petite lumière.`. The corrected MP3 is different, decodes as MP3 (17.256 seconds, 276096 bytes), and its text digest matches the corrected narration. The original revision-one audio remains byte-identical and reachable.
-4. Explicitly `simulated_human` approval led automatically to `approved_sent`. There are two immutable revisions, two durable narration receipts and three distinct Resend send IDs: initial draft, corrected draft and final approved link. Read-back timestamps prove that ordering. The final public response is revision two/approved, removes both draft markers and does not expose the private review token or customer email.
+4. Explicitly `simulated_human` approval led automatically to `approved_sent`. There are two immutable revisions, two durable narration receipts and three distinct provider send IDs: initial draft, corrected draft and final approved link. Read-back timestamps prove that ordering. The final public response is revision two/approved, removes both draft markers and does not expose the private review token or customer email.
 
-**Delivery limitation:** the hosted Resend credential is sending-scoped. Read-only inspection of the exact first/final message returns `email_inspection_http_401` (bridge HTTP 502). Send acceptance and durable IDs are verified; delivered/bounced events, actual inbox receipt and owner listening are not. No resend was attempted to compensate for that denial. Do not report actual human approval or inbox delivery from these receipts.
+**Delivery limitation:** the then-hosted email credential was sending-scoped. Read-only inspection of the exact first/final message returns `email_inspection_http_401` (bridge HTTP 502). Send acceptance and durable IDs are verified; delivered/bounced events, actual inbox receipt and owner listening are not. No repeat send was attempted to compensate for that denial. Do not report actual human approval or inbox delivery from these receipts.
 
 ## Runtime and recovery
 

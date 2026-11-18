@@ -5,7 +5,6 @@ export const REVIEWED_TEST_A_OPERATOR_IDENTITY = REVIEWED_TEST_A_OPERATOR_POLICY
 export function requireReviewedTestAOperatorIdentity(environment) {
   const expected = REVIEWED_TEST_A_OPERATOR_IDENTITY;
   return Object.freeze({
-    resendFrom: requireExact(environment, "RESEND_FROM", expected.resendFrom),
     publication: Object.freeze({
       stableOrigin: requireExactHttpsOrigin(
         environment,

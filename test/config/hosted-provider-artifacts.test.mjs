@@ -44,7 +44,6 @@ test("hosted TEST-A artifacts pin CORS and checkout callbacks to the active land
   assert.equal(environmentValue("STRIPE_CHECKOUT_SUCCESS_URL"), successUrl);
   assert.equal(environmentValue("STRIPE_CHECKOUT_CANCEL_URL"), cancelUrl);
   for (const name of [
-    "RESEND_FROM",
     "TEST_A_PUBLICATION_ORIGIN",
     "TEST_A_PUBLICATION_VERCEL_TEAM_ID",
     "TEST_A_PUBLICATION_VERCEL_PROJECT_ID",
@@ -98,11 +97,11 @@ test("provider manifest binds one executable least-privilege hosted candidate", 
     preAliasTarget: "vercelFinalDeploymentUrl",
     providerIdEvidence: "required-after-creation",
   });
-  assert.deepEqual(providerManifest.resendOperatorRuntime.capabilities, ["status", "persist-approval"]);
-  assert.equal(providerManifest.resendOperatorRuntime.providerOperationsEnabled, false);
-  assert.equal(Object.hasOwn(providerManifest.resendOperatorRuntime, "identity"), false);
+  assert.deepEqual(providerManifest.operatorRuntime.capabilities, ["status", "persist-approval"]);
+  assert.equal(providerManifest.operatorRuntime.providerOperationsEnabled, false);
+  assert.equal(Object.hasOwn(providerManifest.operatorRuntime, "identity"), false);
   assert.equal(
-    providerManifest.resendOperatorRuntime.futurePublicationIdentityAuthority,
+    providerManifest.operatorRuntime.futurePublicationIdentityAuthority,
     "parsed exact Vercel inspection bytes for deploymentId, revisionId, buildId, teamId, projectId, and projectName; environment values may only assert expected values",
   );
 
@@ -153,7 +152,6 @@ test("provider manifest binds one executable least-privilege hosted candidate", 
 
   assert.deepEqual(providerManifest.secretStores.landingBuild.allowed, []);
   assert.ok(providerManifest.secretStores.landingBuild.forbidden.includes("CUSTOMER_FLOW_TEST_ACCESS_TOKEN"));
-  assert.ok(providerManifest.secretStores.vercelProduction.forbidden.includes("RESEND_API_KEY"));
   assert.ok(providerManifest.secretStores.convexProduction.forbidden.includes("STRIPE_SECRET_KEY"));
   assert.ok(providerManifest.convex.tables.includes("customerFlowWorkItems"));
   assert.equal(providerManifest.tallyIntake.mode, "intake-only");
@@ -163,17 +161,17 @@ test("provider manifest binds one executable least-privilege hosted candidate", 
     "TALLY_INTAKE_FORM_ID",
     "TALLY_INTAKE_FIELD_MAP",
   ]) assert.ok(providerManifest.secretStores.vercelProduction.allowed.includes(name));
-  assert.ok(providerManifest.secretStores.resendOperator.forbidden.includes("STRIPE_SECRET_KEY"));
-  assert.deepEqual(providerManifest.secretStores.resendOperator.allowed, [
+  assert.ok(providerManifest.secretStores.operator.forbidden.includes("STRIPE_SECRET_KEY"));
+  assert.deepEqual(providerManifest.secretStores.operator.allowed, [
     "CONVEX_URL",
     "CUSTOMER_FLOW_BACKEND_TOKEN",
     "BEBEBONJOUR_APPROVAL_HMAC_KEY",
   ]);
-  for (const name of ["VERCEL_TOKEN", "RESEND_API_KEY", "RESEND_FROM", "TEST_A_PUBLICATION_ORIGIN"]) {
-    assert.ok(providerManifest.secretStores.resendOperator.forbidden.includes(name));
+  for (const name of ["VERCEL_TOKEN", "TEST_A_PUBLICATION_ORIGIN"]) {
+    assert.ok(providerManifest.secretStores.operator.forbidden.includes(name));
   }
-  assert.deepEqual(providerManifest.resendOperatorRuntime.environmentVariables,
-    providerManifest.secretStores.resendOperator.allowed);
+  assert.deepEqual(providerManifest.operatorRuntime.environmentVariables,
+    providerManifest.secretStores.operator.allowed);
   assert.equal(providerManifest.rollback.mode, "configuration-only");
   assert.equal(providerManifest.rollback.preserveEvidence, true);
   assert.ok(providerManifest.rollback.actions.every(({ deleteEvidence }) => deleteEvidence === false));
@@ -203,8 +201,6 @@ test("production build syntax-checks every private TEST-A operator module", () =
     "./src/config/test-a-hosted-provider-manifest.mjs",
     "./src/config/test-a-operator-isolation.mjs",
     "./ops/run-test-a-operator.mjs",
-    "./ops/test-a-consolidated-candidate-audit.mjs",
-    "./ops/test-a-operator-isolation-audit.mjs",
   ]) {
     assert.ok(packageJson.scripts.build.includes(`node --check ${modulePath}`));
   }
@@ -216,20 +212,13 @@ test("production build syntax-checks every private TEST-A operator module", () =
     packageJson.scripts["test:integration"],
     "node --test --test-concurrency=1 test/integration/fulfillment-workflow-tracer.test.mjs",
   );
-  assert.equal(
-    packageJson.scripts["test:operator-isolation"],
-    "node ./ops/test-a-consolidated-candidate-audit.mjs",
-  );
-  assert.equal(
-    packageJson.scripts["test:production-audit"],
-    "node ./ops/test-a-consolidated-candidate-audit.mjs && node ./ops/test-a-completion-worker-audit.mjs",
-  );
+
 });
 
 test("TEST-A operator runner is absent from public HTTP and package command surfaces", () => {
   assert.doesNotMatch(hostedRuntime, /createTestAOperatorRunner|operator-runner-test-a|test-a-operator-runner/);
   assert.deepEqual(packageJson.bin, { announce: "./bin/announce.mjs" });
-  assert.equal(providerManifest.resendOperatorRuntime.publicApiAccess, false);
+  assert.equal(providerManifest.operatorRuntime.publicApiAccess, false);
   assert.match(vercelRoutingVerifier, /inspectGeneratedPublicArtifact\(outputRoot\)/);
   assert.match(vercelRoutingVerifier, /HERMES_VERIFY_RESULT/);
   assert.equal(packageJson.devDependencies.vercel, "62.7.0");

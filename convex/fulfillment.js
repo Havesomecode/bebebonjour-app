@@ -543,7 +543,9 @@ const COMPLETION_FAILURE_REASON_CODES_BY_STAGE = Object.freeze({
   ]),
   deliver: new Set([
     "lease_expired", "provider_outcome_unknown", "provider_receipt_invalid", "provider_unavailable",
-    "resend_send_failed", "resend_status_failed", "stage_error",
+    "cloudflare_send_uncertain", "cloudflare_recipient_rejected",
+    "cloudflare_configuration_invalid", "cloudflare_input_invalid", "cloudflare_fence_required",
+    "cloudflare_fence_repeated", "cloudflare_policy_invalid", "cloudflare_status_unavailable", "stage_error",
   ]),
 });
 
@@ -673,8 +675,9 @@ async function validStageAttemptChange(currentAggregate, nextAggregate, transiti
 
 async function validCompletionOperationBinding(stage, binding, canonical) {
   if (stage !== "deliver") return binding === null;
-  const targetRef = canonical ? `resend:fictional:${canonical.jobId}` : "resend:test-a-sink";
-  const email = canonical ? canonical.recipient : "delivered@resend.dev";
+  if (!canonical) return false;
+  const targetRef = `cloudflare:fictional:${canonical.jobId}`;
+  const email = canonical.recipient;
   const expectedTargetDigest = await sha256Hex(canonicalJson({
     targetRef, email,
   }));
@@ -970,13 +973,11 @@ async function assertCompletionTransitionPayload(context, current, next, transit
       "provider", "revisionId", "providerMessageId", "idempotencyKey", "operationsCommandId",
       "targetRef", "status", "deliveredAt", "lastOutcome",
     ])
-        || delivery.provider !== "resend"
-        || delivery.targetRef !== (canonical ? `resend:fictional:${canonical.jobId}` : "resend:test-a-sink")
+        || delivery.provider !== "cloudflare"
+        || delivery.targetRef !== (canonical ? `cloudflare:fictional:${canonical.jobId}` : null)
         || delivery.targetRef !== attempt?.operationBinding?.targetRef
         || delivery.revisionId !== current.currentRevisionId
-        || !/^(?:[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}|email_completion_store_(?:boundary|seam))$/.test(
-          delivery.providerMessageId || "",
-        )
+        || !/^[\x21-\x7e]{1,998}$/.test(delivery.providerMessageId || "")
         || delivery.idempotencyKey !== attempt?.idempotencyKey
         || delivery.operationsCommandId !== args.commandId
         || delivery.status !== "sent"

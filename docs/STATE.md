@@ -25,11 +25,11 @@ A parent creates a French or Arabic digital birth announcement (optional Cedar n
 
 ## 4. What we drop
 
-- TEST-A / TEST-B vocabulary and gates: the frozen consolidated-candidate audit (`ops/test-a-consolidated-candidate-audit.mjs`, its evidence JSON and `test/config/test-a-operator-isolation-audit.test.mjs`) fails on every change and proves nothing for a customer. Delete it and drop `test:production-audit` from `verify` (small Haiku task).
+- TEST-A / TEST-B frozen exact-source audits and their build hooks are retired; they do not establish customer delivery.
 - Exact-source reviews, "witness", parity and evidence-bundle cards; owner publication runbooks scoped to old jobs.
 - The older **owner-trial line** (operator-assisted publication, narration worker, `vercel.owner-trial-*`): not merged. Kept at tag `archive/2026-11-18/main-pre-live-integration` (it conflicts with the live line in 6 files). Reopen only if operator-assisted publication is wanted again.
 - The Tally→Stripe checkout handoff WIP (tag `archive/2026-11-18/resume-bebe-private-trial-current`): superseded by the first-party `/delivery` flow.
-- Cloudflare-only-mail and Resend-forwarding WIP (tag `archive/2026-11-18/migration/cloudflare-only-mail-20261111`): finish only if item 1 shows mail is not reliable.
+- The earlier mail migration branch is archived; the current source must be reviewed and deployed separately.
 
 ## 5. Real blockers (need Zacaria)
 

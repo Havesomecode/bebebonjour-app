@@ -25,7 +25,7 @@ export function canonicalConfig() {
       || !/^approval_[a-f0-9]{24}$/u.test(config.contentApprovalId || '')
       || (config.narrationApprovalId && !/^approval_[a-f0-9]{24}$/u.test(config.narrationApprovalId))
       || !/^[^\s@<>]+@[^\s@<>]+\.[^\s@<>]+$/u.test(config.recipient || '')
-      || ['delivered@resend.dev', 'z@havesomecode.io'].includes(config.recipient?.toLowerCase())
+      || config.recipient?.toLowerCase() === 'z@havesomecode.io'
       || !isExactHttpsOrigin(config.origin)
       || typeof env.BEBEBONJOUR_APPROVAL_HMAC_KEY !== 'string'
       || new TextEncoder().encode(env.BEBEBONJOUR_APPROVAL_HMAC_KEY).length < 32) {
@@ -89,7 +89,7 @@ export async function assertCanonicalRelease(context, config, aggregate) {
       || aggregate.publication.revisionId !== config.revisionId)) {
     throw new Error('Canonical TEST completion publication origin or manifest changed.');
   }
-  const targetRef = `resend:fictional:${config.jobId}`;
+  const targetRef = `cloudflare:fictional:${config.jobId}`;
   const targetDigest = await sha256(canonicalJson({ targetRef, email: config.recipient }));
   for (const attempt of aggregate.stageAttempts || []) {
     if (attempt.stage === 'deliver' && (attempt.operationBinding?.targetRef !== targetRef

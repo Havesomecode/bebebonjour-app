@@ -227,7 +227,7 @@ obtain a fallback, and the approved path always uses the general-wishes fallback
 
 This entrypoint has only canonical Convex reads/writes and Convex private-file
 storage. It has no persisted content-approval, TTS, render-after-approval,
-publication, delivery, Vercel management, Resend, Stripe mutation, or generic
+publication, delivery, Vercel management, email delivery, Stripe mutation, or generic
 run-next capability. Do not replace it with
 `ops/run-test-a-operator.mjs run-next` and do not add provider credentials to
 its environment.
