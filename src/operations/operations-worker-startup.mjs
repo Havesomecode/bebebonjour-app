@@ -2,6 +2,7 @@ import { ConvexHttpClient } from "convex/browser";
 
 import { requireReviewedTestAGenerationEnvironment } from "../config/test-a-hosted-provider-manifest.mjs";
 import { createOperationsWorkerRuntime } from "./operations-worker-runtime.mjs";
+import { createProductionCheckoutWorker } from "./production-checkout-worker.mjs";
 import { createProductionGenerationWorker } from "./production-generation-worker.mjs";
 
 const WORKER_ID = /^[A-Za-z0-9][A-Za-z0-9_-]{2,63}$/u;
@@ -34,8 +35,16 @@ export async function runOperationsWorkerCommand(options = {}) {
     options.authorizeReviewDecision,
     options.reconcileExternalEffect,
   ].some((value) => value !== undefined);
-  if (!injectedCapabilities && enabledActions.some((action) => action !== "generate")) {
-    throw new Error("Production Operations worker permits only the generate action.");
+  if (!injectedCapabilities && enabledActions.some((action) => action !== "generate")
+      && (enabledActions.length !== 1 || enabledActions[0] !== "create_checkout")) {
+    throw new Error("Production Operations worker permits only the generate action or a single checkout-only action scope.");
+  }
+  if (options.jobId !== undefined
+      && !/^job_[A-Za-z0-9][A-Za-z0-9_-]{2,127}$/u.test(options.jobId)) {
+    throw new Error("Operations worker job scope is invalid.");
+  }
+  if (!injectedCapabilities && enabledActions.includes("create_checkout") && !options.jobId) {
+    throw new Error("Production Checkout worker requires one explicit job scope.");
   }
   if (!injectedCapabilities && enabledActions.includes("generate")) {
     requireReviewedTestAGenerationEnvironment(environment);
@@ -56,13 +65,16 @@ export async function runOperationsWorkerCommand(options = {}) {
         tokenFactory: options.tokenFactory,
       })
     : {};
+  const productionCheckout = !injectedCapabilities && enabledActions.includes("create_checkout")
+    ? createProductionCheckoutWorker({ client, environment, stripe: options.stripe })
+    : {};
 
   const runtime = createOperationsWorkerRuntime({
     client,
     workerToken,
     enabledActions,
-    operationsCheckout: options.operationsCheckout,
-    customerStore: options.customerStore,
+    operationsCheckout: options.operationsCheckout || productionCheckout.operationsCheckout,
+    customerStore: options.customerStore || productionCheckout.customerStore,
     fulfillmentOrchestrator: options.fulfillmentOrchestrator || productionGeneration.fulfillmentOrchestrator,
     fulfillmentStore: options.fulfillmentStore || productionGeneration.fulfillmentStore,
     authorizeReviewDecision: options.authorizeReviewDecision,
@@ -75,7 +87,10 @@ export async function runOperationsWorkerCommand(options = {}) {
     || health.scope !== "worker") {
     throw new Error("Operations worker health protocol mismatch.");
   }
-  const result = await runtime.runOnce({ workerId, limit, leaseMs });
+  const result = await runtime.runOnce({
+    workerId, limit, leaseMs,
+    ...(options.jobId ? { jobId: options.jobId } : {}),
+  });
   assertRunResult(result);
   return Object.freeze({
     status: "ok",

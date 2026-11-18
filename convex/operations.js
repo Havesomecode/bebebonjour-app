@@ -1,6 +1,8 @@
 import { mutationGeneric, paginationOptsValidator, queryGeneric } from "convex/server";
 import { v } from "convex/values";
 import { assertNarrationToken, assertNarrationClaim, assertNarrationCommand } from "./narrationScope.js";
+import { assertCanonicalToken, canonicalConfig, canonicalScope, assertCanonicalRelease,
+  CANONICAL_WORKER_ID, CANONICAL_ACTIONS } from "./canonicalCompletionScope.js";
 
 import { TEST_A_PREPARE_REVIEW_RETRY_POLICY } from "../src/fulfillment/test-a-generation-policy.mjs";
 
@@ -109,8 +111,9 @@ export const operatorHealth = queryGeneric({
 
 export const workerHealth = queryGeneric({
   args: { workerToken: v.string() },
-  handler: async (_context, args) => {
+  handler: async (context, args) => {
     const scope = assertWorkerToken(args.workerToken);
+    if (scope === "canonical_test_completion") await canonicalScope(context, canonicalConfig().jobId);
     return { protocolVersion: "1.0", scope };
   },
 });
@@ -349,6 +352,144 @@ export const requestCommand = mutationGeneric({
   },
 });
 
+// Enqueue the non-human narration stages in the same transaction as the
+// approved content/render transition. Fictional or uncorrelated jobs cannot spend.
+export async function enqueuePaidNarrationProgression(context, source, prior, next) {
+  if (prior.jobId !== source.jobId || next.jobId !== prior.jobId
+    || next.version !== prior.version + 1
+    || next.currentRevisionId !== prior.currentRevisionId
+    || next.narrationRequired !== true
+    || next.product !== "announcement-page") return;
+
+  let action;
+  if (source.action === "approve_content"
+    && source.expectedState === "content_review_required"
+    && source.expectedVersion === prior.version
+    && prior.state === "content_review_required"
+    && next.state === "render_queued") {
+    const decision = next.reviewDecisions?.at(-1);
+    const review = latestArtifactForRevision(prior, "private_review");
+    if (decision?.operationsCommandId !== source.commandId
+      || decision.decisionType !== "content" || decision.outcome !== "approved"
+      || decision.revisionId !== next.currentRevisionId
+      || decision.artifactDigests?.assetManifestDigest !== review?.assetManifestDigest
+      || source.payload?.artifactManifestDigest !== review?.assetManifestDigest
+      || stableStringify(decision.artifactDigests) !== stableStringify(source.payload.artifactDigests)) return;
+    action = "render";
+  } else if (source.action === "render"
+    && source.expectedState === "render_queued"
+    && source.expectedVersion === prior.version - 1
+    && prior.state === "rendering"
+    && next.state === "tts_queued") {
+    const artifact = latestArtifactForRevision(next, "prepared_bundle");
+    const attempt = next.stageAttempts?.at(-1);
+    if (artifact?.operationsCommandId !== source.commandId
+      || artifact.revisionId !== next.currentRevisionId
+      || attempt?.operationsCommandId !== source.commandId
+      || attempt.stage !== "render_approved" || attempt.status !== "completed"
+      || !hasOperationEvent(next, `complete:${attempt.attemptId}`, "stage_completed")) return;
+    action = "generate_narration";
+  } else return;
+
+  const customer = (await findCustomerJob(context, next.jobId))?.job;
+  const correlation = next.paymentCorrelation;
+  if (customer?.jobId !== next.jobId || customer.intakeDigest !== next.intakeDigest
+    || customer.payment?.status !== "paid"
+    || !customer.payment.paymentIntentId || !customer.payment.acceptedEventId
+    || !next.payment?.providerPaymentId || !next.payment?.providerEventId
+    || next.payment.providerPaymentId !== customer.payment.paymentIntentId
+    || next.payment.providerEventId !== customer.payment.acceptedEventId
+    || correlation?.project !== "bebebonjour"
+    || correlation.product !== next.product || correlation.jobId !== next.jobId
+    || correlation.intakeDigest !== next.intakeDigest
+    || correlation.environment !== next.environment
+    || stableStringify(next.payment.correlation) !== stableStringify(correlation)) return;
+
+  const commandId = `command_auto_narration_${(await sha256Hex(`${next.jobId}\0${action}\0${next.version}`)).slice(0, 40)}`;
+  const existing = await context.db.query("customerFlowOperationsCommands")
+    .withIndex("by_job_action_version", (query) => query.eq("jobId", next.jobId)
+      .eq("action", action).eq("expectedVersion", next.version))
+    .collect();
+  if (existing.length) {
+    if (existing.length !== 1 || existing[0].commandId !== commandId
+      || existing[0].requestedBy !== "automatic_narration_progression"
+      || existing[0].expectedState !== next.state
+      || stableStringify(existing[0].payload) !== "{}") {
+      throw new Error("Conflicting automatic narration command.");
+    }
+    return;
+  }
+  const requestedAt = new Date(Date.now()).toISOString();
+  const command = {
+    commandId, jobId: next.jobId, action,
+    expectedState: next.state, expectedVersion: next.version,
+    payload: {}, requestedAt, requestedBy: "automatic_narration_progression",
+    state: "pending", attempts: 0, claim: null,
+    lastFailureReason: null, outcome: null, updatedAt: requestedAt,
+  };
+  assertCommandInput(command);
+  await context.db.insert("customerFlowOperationsCommands", command);
+}
+
+export const queueCanonicalPublication = mutationGeneric({
+  args: { workerToken: v.string(), jobId: v.string() },
+  handler: async (context, args) => {
+    assertCanonicalToken(args.workerToken);
+    const config = await canonicalScope(context, args.jobId);
+    const aggregate = (await findFulfillmentJob(context, args.jobId))?.aggregate;
+    await assertCanonicalRelease(context, config, aggregate);
+    if (aggregate.state !== "publish_ready") return false;
+    return enqueueCanonicalCompletionCommand(context, config, aggregate, "publish");
+  },
+});
+
+// Called from a validated canonical completion replacement transaction; only
+// publish->published and queue_delivery->delivery_queued can create successors.
+export async function enqueueCanonicalCompletionSuccessor(context, config, source, prior, next) {
+  const action = source?.action === "publish" && prior.state === "publishing" && next.state === "published"
+    ? "queue_delivery"
+    : source?.action === "queue_delivery" && prior.state === "published" && next.state === "delivery_queued"
+      ? "deliver" : null;
+  if (!action || next.version !== prior.version + 1 || next.jobId !== config.jobId) return false;
+  return enqueueCanonicalCompletionCommand(context, config, next, action);
+}
+
+async function enqueueCanonicalCompletionCommand(context, config, aggregate, action) {
+  if (aggregate.jobId !== config.jobId || aggregate.currentRevisionId !== config.revisionId
+    || !({ publish: "publish_ready", queue_delivery: "published", deliver: "delivery_queued" })[action]
+    || aggregate.state !== ({ publish: "publish_ready", queue_delivery: "published", deliver: "delivery_queued" })[action]) {
+    throw new Error("Canonical completion command is outside the exact release state.");
+  }
+  await assertCanonicalRelease(context, config, aggregate);
+  const payload = action === "publish"
+    ? { revisionId: config.revisionId, artifactManifestDigest: config.manifestDigest }
+    : { revisionId: config.revisionId, publicationId: canonicalPublicationId(aggregate.publication),
+      artifactManifestDigest: config.manifestDigest };
+  assertCanonicalActionBinding(action, payload, aggregate);
+  const commandId = `command_auto_completion_${(await sha256Hex(`${config.jobId}\0${action}\0${aggregate.version}\0${config.manifestDigest}`)).slice(0, 40)}`;
+  const existing = await context.db.query("customerFlowOperationsCommands")
+    .withIndex("by_job_action_version", (query) => query.eq("jobId", config.jobId)
+      .eq("action", action).eq("expectedVersion", aggregate.version)).collect();
+  if (existing.length) {
+    if (existing.length !== 1 || existing[0].expectedState !== aggregate.state
+      || stableStringify(existing[0].payload) !== stableStringify(payload)) {
+      throw new Error("Conflicting canonical completion command.");
+    }
+    return false;
+  }
+  const collision = await context.db.query("customerFlowOperationsCommands")
+    .withIndex("by_command_id", (query) => query.eq("commandId", commandId)).unique();
+  if (collision) throw new Error("Canonical completion command identity collision.");
+  const requestedAt = new Date(Date.now()).toISOString();
+  const command = { commandId, jobId: config.jobId, action, expectedState: aggregate.state,
+    expectedVersion: aggregate.version, payload, requestedAt,
+    requestedBy: "automatic_canonical_completion", state: "pending", attempts: 0,
+    claim: null, lastFailureReason: null, outcome: null, updatedAt: requestedAt };
+  assertCommandInput(command);
+  await context.db.insert("customerFlowOperationsCommands", command);
+  return true;
+}
+
 export const claimCommands = mutationGeneric({
   args: {
     workerToken: v.string(),
@@ -396,6 +537,12 @@ export const claimCommands = mutationGeneric({
     const claimed = [];
 
     for (const command of candidates) {
+      if (workerScope === "canonical_test_completion") {
+        const config = await canonicalScope(context, command.jobId);
+        const aggregate = (await findFulfillmentJob(context, command.jobId))?.aggregate;
+        await assertCanonicalRelease(context, config, aggregate);
+        await canonicalScope(context, command.jobId, { pin: true });
+      }
       if (command.state === "running"
           && EXTERNAL_EFFECT_ACTIONS.has(command.action)
           && command.claim?.effectStartedAtMs !== undefined) {
@@ -502,6 +649,7 @@ export const fenceCommand = mutationGeneric({
     const nowMs = Date.now();
     const command = await findCommand(context, args.commandId);
     assertCompletionCommandScope(workerScope, command, args);
+    await assertCanonicalCommandRelease(context, workerScope, command);
     if (command?.state !== "running"
       || command.claim?.workerId !== args.workerId
       || command.claim?.leaseToken !== args.leaseToken) {
@@ -611,6 +759,7 @@ export const completeCommand = mutationGeneric({
     const command = await findCommand(context, args.commandId);
     assertCompletionCommandScope(workerScope, command, args);
     assertCommandOutcome(command, args.outcome);
+    await assertCanonicalCommandRelease(context, workerScope, command);
     if (command?.state === "completed") {
       if (command.claim?.workerId !== args.workerId
         || command.claim?.leaseToken !== args.leaseToken
@@ -676,6 +825,7 @@ export const failCommand = mutationGeneric({
     const command = await findCommand(context, args.commandId);
     assertCompletionCommandScope(workerScope, command, args);
     assertClaimIdentity(command, args.workerId, args.leaseToken);
+    await assertCanonicalCommandRelease(context, workerScope, command);
     const effectMayHaveOccurred = EXTERNAL_EFFECT_ACTIONS.has(command.action)
       && command.claim.effectStartedAtMs !== undefined;
     const next = {
@@ -714,6 +864,21 @@ async function completeReconciliation(context, command, outcome, customer, aggre
   }
 
   if (command.payload.providerStatus === "confirmed_absent") {
+    if (isExactFailedLioraGenerationWithoutEffect(source, customer, aggregate)) {
+      const orphan = await context.db.query("fulfillmentGenerationArtifactSets")
+        .withIndex("by_job_revision_kind", (query) => query.eq("jobId", source.jobId)).first();
+      if (orphan) {
+        throw new Error("An absent generation effect requires no persisted artifact set.");
+      }
+      await context.db.patch(source._id, {
+        state: "failed",
+        claim: null,
+        lastFailureReason: "reconciliation_confirmed_absent",
+        outcome: null,
+        updatedAt: completedAt,
+      });
+      return;
+    }
     if (aggregate.state !== source.expectedState || aggregate.version !== source.expectedVersion) {
       throw new Error("An absent external effect requires the unchanged authoritative fulfillment target.");
     }
@@ -739,6 +904,56 @@ async function completeReconciliation(context, command, outcome, customer, aggre
     outcome: authoritativeSourceOutcome,
     updatedAt: completedAt,
   });
+}
+
+function isExactFailedLioraGenerationWithoutEffect(source, customer, aggregate) {
+  const jobId = "job_ac41c7b1-f532-430e-8a88-fb1aaa268a6d";
+  const attemptId = "attempt_1705ef800557f5f4478cea04";
+  const commandId = "command_auto_9b8a92018feb8baf15b4d9fc619964bc";
+  const attempt = aggregate.stageAttempts?.[0];
+  return source.jobId === jobId
+    && source.commandId === commandId
+    && source.action === "generate"
+    && source.expectedState === "generation_queued"
+    && source.expectedVersion === 2
+    && source.attempts === 1
+    && source.claim === null
+    && source.lastFailureReason === "generation_stage_failed"
+    && source.outcome === null
+    && stableStringify(source.payload) === "{}"
+    && customer.jobId === jobId
+    && customer.payment?.status === "paid"
+    && aggregate.jobId === jobId
+    && aggregate.state === "failed"
+    && aggregate.version === 4
+    && aggregate.payment?.providerEventId
+    && aggregate.payment?.providerPaymentId
+    && aggregate.currentRevisionId === null
+    && aggregate.publishedRevisionId === null
+    && aggregate.retry === null
+    && aggregate.publication === null
+    && aggregate.revisions?.length === 0
+    && aggregate.artifactSets?.length === 0
+    && aggregate.reviewDecisions?.length === 0
+    && aggregate.deliveryAttempts?.length === 0
+    && aggregate.stageAttempts?.length === 1
+    && attempt.attemptId === attemptId
+    && attempt.stage === "prepare_review"
+    && attempt.revisionId === null
+    && attempt.status === "failed"
+    && attempt.attemptNumber === 1
+    && attempt.operationNumber === 1
+    && attempt.operationsCommandId === commandId
+    && attempt.operationBinding === null
+    && attempt.effectStartedAt === null
+    && attempt.leaseToken === null
+    && attempt.leaseExpiresAt === null
+    && attempt.failure?.reasonCode === "stage_error"
+    && attempt.failure?.retryable === false
+    && aggregate.events?.length === 4
+    && aggregate.events[2]?.type === "stage_claimed"
+    && aggregate.events[3]?.type === "stage_failed"
+    && aggregate.events[3]?.commandId === `fail:${attemptId}:stage_error`;
 }
 
 function canonicalOutcomeForCommand(command, customer, aggregate) {
@@ -1515,6 +1730,9 @@ function assertRateLimitToken(value) {
 
 function assertWorkerToken(value) {
   assertDistinctOperationsTokens();
+  if (value && value === process.env.BEBEBONJOUR_CANONICAL_COMPLETION_WORKER_TOKEN) {
+    assertCanonicalToken(value); return "canonical_test_completion";
+  }
   if (value && value === process.env.BEBEBONJOUR_NARRATION_WORKER_TOKEN) { assertNarrationToken(value); return "narration"; }
   if (value === process.env.BEBEBONJOUR_OPERATIONS_WORKER_TOKEN
       && typeof value === "string" && value.length >= 32) return "worker";
@@ -1527,6 +1745,14 @@ function assertWorkerToken(value) {
 
 function assertCompletionClaimScope(scope, args) {
   if (scope === "narration") return assertNarrationClaim(args);
+  if (scope === "canonical_test_completion") {
+    if (args.jobId !== canonicalConfig().jobId || args.workerId !== CANONICAL_WORKER_ID
+        || args.limit !== 1 || args.leaseMs !== 300_000
+        || JSON.stringify([...args.actions].sort()) !== JSON.stringify(CANONICAL_ACTIONS)) {
+      throw new Error("Canonical completion token exceeds its exact fictional claim scope.");
+    }
+    return;
+  }
   if (scope === "owner_completion") {
     const exactActions = ["deliver", "publish", "queue_delivery"];
     if (args.jobId !== OWNER_COMPLETION_JOB_ID
@@ -1551,6 +1777,14 @@ function assertCompletionClaimScope(scope, args) {
 
 function assertCompletionCommandScope(scope, command, args) {
   if (scope === "narration") return assertNarrationCommand(command, args);
+  if (scope === "canonical_test_completion") {
+    if (!command || command.jobId !== canonicalConfig().jobId
+        || !CANONICAL_ACTIONS.includes(command.action) || args.workerId !== CANONICAL_WORKER_ID
+        || (args.leaseMs !== undefined && args.leaseMs !== 300_000)) {
+      throw new Error("Canonical completion token exceeds its exact fictional command scope.");
+    }
+    return;
+  }
   if (scope === "owner_completion") {
     if (!command
         || command.jobId !== OWNER_COMPLETION_JOB_ID
@@ -1583,12 +1817,19 @@ function assertCompletionAggregateScope(scope, command, aggregate) {
   }
 }
 
+async function assertCanonicalCommandRelease(context, scope, command) {
+  if (scope !== "canonical_test_completion") return;
+  const config = await canonicalScope(context, command.jobId);
+  await assertCanonicalRelease(context, config, (await findFulfillmentJob(context, command.jobId))?.aggregate);
+}
+
 function assertDistinctOperationsTokens() {
   const configured = [
     process.env.BEBEBONJOUR_OPERATIONS_TOKEN,
     process.env.BEBEBONJOUR_OPERATIONS_WORKER_TOKEN,
     process.env.BEBEBONJOUR_COMPLETION_WORKER_TOKEN,
     process.env.BEBEBONJOUR_OWNER_COMPLETION_WORKER_TOKEN,
+    process.env.BEBEBONJOUR_CANONICAL_COMPLETION_WORKER_TOKEN,
     process.env.BEBEBONJOUR_NARRATION_WORKER_TOKEN,
     process.env.BEBEBONJOUR_OPS_RATE_LIMIT_TOKEN,
     process.env.CUSTOMER_FLOW_BACKEND_TOKEN,

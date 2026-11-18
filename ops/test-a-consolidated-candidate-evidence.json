@@ -4,17 +4,31 @@
   "baselineCommit": "82be6b29eab9245400e928623ec15a3f1ae1ca27",
   "candidateBoundary": {
     "changedPaths": [
+      ".gitignore",
       "OWNER_PUBLICATION_DELIVERY_RUNBOOK.md",
       "README.md",
+      "api/operator/checkout.mjs",
+      "canonical-completion-worker/api/worker.mjs",
       "completion-worker/api/worker.mjs",
+      "convex/_generated/api.d.ts",
+      "convex/_generated/api.js",
+      "convex/_generated/dataModel.d.ts",
+      "convex/_generated/server.d.ts",
+      "convex/_generated/server.js",
+      "convex/automaticGeneration.js",
+      "convex/canonicalCompletionScope.js",
+      "convex/customerFlow.js",
       "convex/fulfillment.js",
+      "convex/generation.js",
       "convex/http.js",
       "convex/narration.js",
       "convex/narrationHttp.js",
       "convex/narrationRuntime.js",
       "convex/narrationScope.js",
       "convex/operations.js",
+      "convex/schema.js",
       "docs/hosted-narration.md",
+      "ops/create-tally-checkout.mjs",
       "ops/test-a-completion-candidate-preflight.md",
       "ops/test-a-completion-worker-audit.mjs",
       "ops/test-a-consolidated-candidate-audit.mjs",
@@ -23,12 +37,16 @@
       "owner-completion-worker/api/worker.mjs",
       "package-lock.json",
       "package.json",
+      "schemas/job-scoped-editorial-approval.schema.json",
       "scripts/create-fictional-narration-test.mjs",
+      "scripts/lib/codex-subscription-composition.mjs",
       "scripts/lib/secure-filesystem-snapshot.py",
+      "scripts/package-codex-runtime.mjs",
       "scripts/verify-vercel-routing.mjs",
       "src/config/test-a-hosted-provider-manifest.mjs",
       "src/demo/synthetic-demo.mjs",
       "src/demo/synthetic-narration-fixture.mjs",
+      "src/fulfillment/canonical-test-completion-capabilities.mjs",
       "src/fulfillment/committed-artifact-content-set.mjs",
       "src/fulfillment/exact-revision-publication-adapter.mjs",
       "src/fulfillment/external-effect-stage-handlers.mjs",
@@ -40,52 +58,89 @@
       "src/fulfillment/local-generation-workspace.mjs",
       "src/fulfillment/narrated-release-content-set.mjs",
       "src/fulfillment/owner-completion-capabilities.mjs",
+      "src/fulfillment/resend-delivery-adapter.mjs",
       "src/fulfillment/resend-owner-delivery-adapter.mjs",
       "src/fulfillment/secure-filesystem-snapshot.mjs",
       "src/fulfillment/test-a-completion-capabilities.mjs",
+      "src/fulfillment/test-a-generation-runner.mjs",
       "src/fulfillment/vercel-test-a-publication-provider.mjs",
       "src/http/operations-worker-handler.mjs",
+      "src/http/scoped-checkout-handler.mjs",
+      "src/operations/canonical-test-completion-worker.mjs",
+      "src/operations/checkout-worker-startup.mjs",
+      "src/operations/codex-packaged-runtime.mjs",
       "src/operations/operations-action-handlers.mjs",
       "src/operations/operations-command-worker.mjs",
+      "src/operations/operations-worker-startup.mjs",
       "src/operations/owner-completion-policy.mjs",
+      "src/operations/production-checkout-worker.mjs",
       "src/operations/production-completion-worker.mjs",
       "src/operations/production-generation-worker.mjs",
       "src/operations/production-owner-completion-worker.mjs",
+      "src/operations/tally-checkout-handoff.mjs",
       "src/persistence/convex-fulfillment-store.mjs",
+      "test/api/scoped-checkout.test.mjs",
       "test/api/webhook-entrypoints.test.mjs",
+      "test/config/generation-worker-isolation.test.mjs",
       "test/config/hosted-provider-artifacts.test.mjs",
       "test/config/test-a-hosted-provider-manifest-policy.test.mjs",
       "test/config/test-a-operator-isolation-audit.test.mjs",
+      "test/config/test-a-operator-isolation.test.mjs",
+      "test/convex/automatic-generation-handoff.test.mjs",
+      "test/convex/canonical-completion-scope.test.mjs",
       "test/convex/completion-store-seam.test.mjs",
+      "test/convex/generation.test.mjs",
       "test/convex/hosted-narration-contract.test.mjs",
       "test/convex/narration-lifecycle.test.mjs",
       "test/convex/narration.test.mjs",
       "test/convex/operations.test.mjs",
       "test/demo/synthetic-demo.test.mjs",
+      "test/fulfillment/codex-subscription-composer.test.mjs",
       "test/fulfillment/committed-artifact-content-set.test.mjs",
+      "test/fulfillment/failed-prepare-review-recovery.test.mjs",
       "test/fulfillment/generation-stage-workspace.test.mjs",
+      "test/fulfillment/hosted-narration-handoff.test.mjs",
       "test/fulfillment/job-orchestration.test.mjs",
       "test/fulfillment/secure-filesystem-snapshot.test.mjs",
       "test/fulfillment/vercel-test-a-publication-provider.test.mjs",
+      "test/operations/canonical-test-completion.test.mjs",
       "test/operations/completion-worker-boundary.test.mjs",
       "test/operations/hosted-generation-storage.test.mjs",
       "test/operations/operations-worker-startup.test.mjs",
       "test/operations/owner-completion-boundary.test.mjs",
+      "test/operations/tally-checkout-handoff.test.mjs",
+      "test/private-review.test.mjs",
+      "vercel.canonical-completion-worker.json",
       "vercel.completion-worker.json",
+      "vercel.generation-worker.json",
       "vercel.owner-completion-worker.json"
     ],
     "pathAllowlist": [
+      ".gitignore",
       "OWNER_PUBLICATION_DELIVERY_RUNBOOK.md",
       "README.md",
+      "api/operator/checkout.mjs",
+      "canonical-completion-worker/api/worker.mjs",
       "completion-worker/api/worker.mjs",
+      "convex/_generated/api.d.ts",
+      "convex/_generated/api.js",
+      "convex/_generated/dataModel.d.ts",
+      "convex/_generated/server.d.ts",
+      "convex/_generated/server.js",
+      "convex/automaticGeneration.js",
+      "convex/canonicalCompletionScope.js",
+      "convex/customerFlow.js",
       "convex/fulfillment.js",
+      "convex/generation.js",
       "convex/http.js",
       "convex/narration.js",
       "convex/narrationHttp.js",
       "convex/narrationRuntime.js",
       "convex/narrationScope.js",
       "convex/operations.js",
+      "convex/schema.js",
       "docs/hosted-narration.md",
+      "ops/create-tally-checkout.mjs",
       "ops/test-a-completion-candidate-preflight.md",
       "ops/test-a-completion-worker-audit.mjs",
       "ops/test-a-consolidated-candidate-audit.mjs",
@@ -94,12 +149,16 @@
       "owner-completion-worker/api/worker.mjs",
       "package-lock.json",
       "package.json",
+      "schemas/job-scoped-editorial-approval.schema.json",
       "scripts/create-fictional-narration-test.mjs",
+      "scripts/lib/codex-subscription-composition.mjs",
       "scripts/lib/secure-filesystem-snapshot.py",
+      "scripts/package-codex-runtime.mjs",
       "scripts/verify-vercel-routing.mjs",
       "src/config/test-a-hosted-provider-manifest.mjs",
       "src/demo/synthetic-demo.mjs",
       "src/demo/synthetic-narration-fixture.mjs",
+      "src/fulfillment/canonical-test-completion-capabilities.mjs",
       "src/fulfillment/committed-artifact-content-set.mjs",
       "src/fulfillment/exact-revision-publication-adapter.mjs",
       "src/fulfillment/external-effect-stage-handlers.mjs",
@@ -111,38 +170,61 @@
       "src/fulfillment/local-generation-workspace.mjs",
       "src/fulfillment/narrated-release-content-set.mjs",
       "src/fulfillment/owner-completion-capabilities.mjs",
+      "src/fulfillment/resend-delivery-adapter.mjs",
       "src/fulfillment/resend-owner-delivery-adapter.mjs",
       "src/fulfillment/secure-filesystem-snapshot.mjs",
       "src/fulfillment/test-a-completion-capabilities.mjs",
+      "src/fulfillment/test-a-generation-runner.mjs",
       "src/fulfillment/vercel-test-a-publication-provider.mjs",
       "src/http/operations-worker-handler.mjs",
+      "src/http/scoped-checkout-handler.mjs",
+      "src/operations/canonical-test-completion-worker.mjs",
+      "src/operations/checkout-worker-startup.mjs",
+      "src/operations/codex-packaged-runtime.mjs",
       "src/operations/operations-action-handlers.mjs",
       "src/operations/operations-command-worker.mjs",
+      "src/operations/operations-worker-startup.mjs",
       "src/operations/owner-completion-policy.mjs",
+      "src/operations/production-checkout-worker.mjs",
       "src/operations/production-completion-worker.mjs",
       "src/operations/production-generation-worker.mjs",
       "src/operations/production-owner-completion-worker.mjs",
+      "src/operations/tally-checkout-handoff.mjs",
       "src/persistence/convex-fulfillment-store.mjs",
+      "test/api/scoped-checkout.test.mjs",
       "test/api/webhook-entrypoints.test.mjs",
+      "test/config/generation-worker-isolation.test.mjs",
       "test/config/hosted-provider-artifacts.test.mjs",
       "test/config/test-a-hosted-provider-manifest-policy.test.mjs",
       "test/config/test-a-operator-isolation-audit.test.mjs",
+      "test/config/test-a-operator-isolation.test.mjs",
+      "test/convex/automatic-generation-handoff.test.mjs",
+      "test/convex/canonical-completion-scope.test.mjs",
       "test/convex/completion-store-seam.test.mjs",
+      "test/convex/generation.test.mjs",
       "test/convex/hosted-narration-contract.test.mjs",
       "test/convex/narration-lifecycle.test.mjs",
       "test/convex/narration.test.mjs",
       "test/convex/operations.test.mjs",
       "test/demo/synthetic-demo.test.mjs",
+      "test/fulfillment/codex-subscription-composer.test.mjs",
       "test/fulfillment/committed-artifact-content-set.test.mjs",
+      "test/fulfillment/failed-prepare-review-recovery.test.mjs",
       "test/fulfillment/generation-stage-workspace.test.mjs",
+      "test/fulfillment/hosted-narration-handoff.test.mjs",
       "test/fulfillment/job-orchestration.test.mjs",
       "test/fulfillment/secure-filesystem-snapshot.test.mjs",
       "test/fulfillment/vercel-test-a-publication-provider.test.mjs",
+      "test/operations/canonical-test-completion.test.mjs",
       "test/operations/completion-worker-boundary.test.mjs",
       "test/operations/hosted-generation-storage.test.mjs",
       "test/operations/operations-worker-startup.test.mjs",
       "test/operations/owner-completion-boundary.test.mjs",
+      "test/operations/tally-checkout-handoff.test.mjs",
+      "test/private-review.test.mjs",
+      "vercel.canonical-completion-worker.json",
       "vercel.completion-worker.json",
+      "vercel.generation-worker.json",
       "vercel.owner-completion-worker.json"
     ],
     "reviewedFileDigests": [
@@ -151,28 +233,76 @@
         "sha256": "2e92d12f27b4c18076cad7ddae18237b04c936dd7165771ec52673d4b5150339"
       },
       {
+        "path": ".gitignore",
+        "sha256": "c4fd045e8360914eed608e4215571d7b39656c0ecb5940bf5ab14c1fb684d8ed"
+      },
+      {
         "path": "OWNER_PUBLICATION_DELIVERY_RUNBOOK.md",
         "sha256": "4d9e48e353f059d0844bca2f5001178535717b7f98336a4a8089a9e38c61e4b7"
       },
       {
         "path": "README.md",
-        "sha256": "af5363afa3b70d45f1e783a9066fe8d7b4d97774c89b3950a5c7b3f887103f30"
+        "sha256": "9391e3ea7a449a37226afd2b952227ac7c724f23a935a0d9396b8c68cdd15ef7"
       },
       {
         "path": "api/customer-flow/[...route].mjs",
         "sha256": "c02c032e2ac35fe0201d9cf3750eb5acfbbc326c27c473a4ffe3fc3dd4a93531"
       },
       {
+        "path": "api/operator/checkout.mjs",
+        "sha256": "f648e5bb649cf1a11c437bfdb0c10fbe8fad39dca0205707adbbb0954748fc50"
+      },
+      {
         "path": "api/webhooks/tally.mjs",
         "sha256": "17b3458ba697b19814ad2ca22ed5ec7cf090d3f4cf027020a2712cb2f068aad0"
+      },
+      {
+        "path": "canonical-completion-worker/api/worker.mjs",
+        "sha256": "5da6ef4325a0fc52f34f814869f737dfd605493c03127ed043d2cce343096af2"
       },
       {
         "path": "completion-worker/api/worker.mjs",
         "sha256": "50952e33035e1a1a94a95e81f17613fa60609723bf2fa488509b204f66c408e7"
       },
       {
+        "path": "convex/_generated/api.d.ts",
+        "sha256": "898ee0fea7cb9f6d3fa938d5a37f2e1cde713dabde2bc009e2767807e6d89798"
+      },
+      {
+        "path": "convex/_generated/api.js",
+        "sha256": "f513058549831e85376f8d19cafaf2a4a770b6eb1b859fb371141f2c9dec0d70"
+      },
+      {
+        "path": "convex/_generated/dataModel.d.ts",
+        "sha256": "db177073d16a4393c7a96bcdc3a2a904e88c2432d54d138ca7715cc431982c17"
+      },
+      {
+        "path": "convex/_generated/server.d.ts",
+        "sha256": "2b536ee08d434dd044efe0302aeaf4ccb00cd08af10c9f8c7bc7a6734e4aa49b"
+      },
+      {
+        "path": "convex/_generated/server.js",
+        "sha256": "0cdd1d842b9458d8a6f2444c35eb9929312316a384ca76a4b1d964bedde8a6f2"
+      },
+      {
+        "path": "convex/automaticGeneration.js",
+        "sha256": "9ab6c36d422bbd468da5cdad7cb5f71e3a6543ff231c8d0ce88a6ac8609526e6"
+      },
+      {
+        "path": "convex/canonicalCompletionScope.js",
+        "sha256": "0223b16dc6d1996677050edc01105898500079d78ac023d732aa5091f2428fc1"
+      },
+      {
+        "path": "convex/customerFlow.js",
+        "sha256": "016bff95d19d36735245882d3e63addc2c09e88209887eae37e0d14995db1243"
+      },
+      {
         "path": "convex/fulfillment.js",
-        "sha256": "87dcfa2fc52fea647dfe2209a6b89b4cd2a964feb46ac4d94c6da99bdc63aeb9"
+        "sha256": "9b77c5a1716794f5c1b1b6e03a7597be603dbf125b8161fad088204e8f7d9de1"
+      },
+      {
+        "path": "convex/generation.js",
+        "sha256": "b514862d40947eb809dbe5206e515634e139ee23a0f8e78bba1faf8bf518b98d"
       },
       {
         "path": "convex/http.js",
@@ -180,7 +310,7 @@
       },
       {
         "path": "convex/narration.js",
-        "sha256": "e8d6c3c986a3aa67f961aaa8d3cbcdbdc56f6aae02fee94f618ffa8b6403d4eb"
+        "sha256": "f37d22c6514973dea642d4fd79c05d7844482f2c9468bdf750719817c090548f"
       },
       {
         "path": "convex/narrationHttp.js",
@@ -196,11 +326,19 @@
       },
       {
         "path": "convex/operations.js",
-        "sha256": "082d3c23ef19406a7eee4fe3e971f558edd083e6ee8e1c310bd8f33a0e5b12ec"
+        "sha256": "52c4bdd9aaab477c84d250be4984a58dde0bc41098ce62e1f4aea374947d4a08"
+      },
+      {
+        "path": "convex/schema.js",
+        "sha256": "60db9a2107ced4a10de64a15fc0929fdd7b7da81d0cda20f5aef8ff2b4d0ddd7"
       },
       {
         "path": "docs/hosted-narration.md",
         "sha256": "eb76e56cc068c9e257f4eeba9b95f841ee06eb54f1569ba2f0146631a38d9e22"
+      },
+      {
+        "path": "ops/create-tally-checkout.mjs",
+        "sha256": "8167f0046bbcc98b8fd25b279373e1a89fe895ebb55466231525ca363b27e55e"
       },
       {
         "path": "ops/persist-test-a-generation-approval.mjs",
@@ -243,12 +381,16 @@
         "sha256": "36809d5af17a405ee35d799c63361fe58372cf77fc4a49b5693edce236b8d140"
       },
       {
+        "path": "schemas/job-scoped-editorial-approval.schema.json",
+        "sha256": "53e96491436ba9e11e840a989ea6b2fa606db187f232a38d25e6dee68ba90a83"
+      },
+      {
         "path": "scripts/create-fictional-narration-test.mjs",
         "sha256": "fc9c20985205e1f6947e57fa5132149c7be14ed046303063954587f5e8b62b74"
       },
       {
         "path": "scripts/lib/codex-subscription-composition.mjs",
-        "sha256": "c94eff5b76f260943912770554d89e006666d5877deefa1b4fbc82c0d3e9bd0f"
+        "sha256": "300318d432a2cf4186c32d86afb75dc6b49d7def73b693b8700cb7786b54fe52"
       },
       {
         "path": "scripts/lib/commands.mjs",
@@ -277,6 +419,10 @@
       {
         "path": "scripts/lib/validators.mjs",
         "sha256": "26e05efd57bc079e76e57a89ae070e6bc27b38ff8cc84bdb6878a8c08ffec164"
+      },
+      {
+        "path": "scripts/package-codex-runtime.mjs",
+        "sha256": "2a4938c8e2812632fbbac6b28bf1daabff6d53ea6ac033b5aae9d6d69cd4863f"
       },
       {
         "path": "scripts/verify-vercel-routing.mjs",
@@ -335,6 +481,10 @@
         "sha256": "4707f6ff6ef705bc4301fe7789675eaa5ac2c0a7f247598d7daa7a5c66e1f8b6"
       },
       {
+        "path": "src/fulfillment/canonical-test-completion-capabilities.mjs",
+        "sha256": "52c44d97170fb992beaab177e0ff83bf8ad33ef632da83747c35bd540831e92a"
+      },
+      {
         "path": "src/fulfillment/committed-artifact-content-set.mjs",
         "sha256": "c3f46c0296fdec31c98ff16828d2fe2166e1d3f149e2c7b63e9dc8f6ba9a2b87"
       },
@@ -352,11 +502,11 @@
       },
       {
         "path": "src/fulfillment/hosted-narration-transitions.mjs",
-        "sha256": "8c7050fe01b9d8d975d366334e8d89472bf65b3a8a6e964d58048a7f9f62b88e"
+        "sha256": "2b6067fc610717b58126774315217d1ce9dc459c6a108e8366c5523ffc71fdc4"
       },
       {
         "path": "src/fulfillment/job-machine.mjs",
-        "sha256": "109b627f2c2532a44962988d36edb363300fd53925ad475b7669b7653acf9786"
+        "sha256": "4d6cab4bbabe764cb1dcee4c3252cdd542ae72b9b0f9cdd72b0bc2a2d4949059"
       },
       {
         "path": "src/fulfillment/job-orchestrator.mjs",
@@ -399,6 +549,10 @@
         "sha256": "8205892867650843273eff9de97307ea55302ceee023e35b299e542419ef9798"
       },
       {
+        "path": "src/fulfillment/resend-delivery-adapter.mjs",
+        "sha256": "a1de2f24951955fe85ef8965c57c14450366a13ca468381881402615b97abdfb"
+      },
+      {
         "path": "src/fulfillment/resend-owner-delivery-adapter.mjs",
         "sha256": "ddf582af84bf2f25368a2015f3111aa97e6b54b539e1dd503a9f37b5889d3e21"
       },
@@ -420,7 +574,7 @@
       },
       {
         "path": "src/fulfillment/test-a-generation-runner.mjs",
-        "sha256": "9adc5dd58d5dd3e74d11be541da3b97a8a32593ab2a4f55920874e7b7999612d"
+        "sha256": "5ad3a208fada90d274ce7dae216a6bcaeac527c8acc835d9052e1faf5a3d7370"
       },
       {
         "path": "src/fulfillment/test-a-generation-startup.mjs",
@@ -439,8 +593,24 @@
         "sha256": "06f1f0db6f5bc185effb6f192c9dda796c5e582eb1399e6b9e6ce04f91d715a2"
       },
       {
+        "path": "src/http/scoped-checkout-handler.mjs",
+        "sha256": "f3590b5479627bc3d1d8c90e71031f625c43adae51ec46df7a16e3c3cfbbcc25"
+      },
+      {
         "path": "src/http/tally-intake-handler.mjs",
         "sha256": "e72cb33a4de0290944adcb6bb58ee50ab0ed282a7b4420ddcf487023909e788c"
+      },
+      {
+        "path": "src/operations/canonical-test-completion-worker.mjs",
+        "sha256": "6939d071b4abe821df973fc2a64ee1b3b7c24f93e69e42d481817e915e654ce9"
+      },
+      {
+        "path": "src/operations/checkout-worker-startup.mjs",
+        "sha256": "d64dad04f8d4a2c60464be1f3c7bf9a7092109f20838642a1466acc358c942b2"
+      },
+      {
+        "path": "src/operations/codex-packaged-runtime.mjs",
+        "sha256": "536e464680ac06a94b9f41d6b86b32c54f5bf0bfc18a96f75f5ac6e3c88e81c3"
       },
       {
         "path": "src/operations/operations-action-handlers.mjs",
@@ -455,8 +625,20 @@
         "sha256": "78e890ab2cb3d7086cc9bcf6ddab43ebbca538f6937c97e27f690fbf71254c07"
       },
       {
+        "path": "src/operations/operations-worker-runtime.mjs",
+        "sha256": "5da50acaf24f8b85bd2ad000932d60c815e2983b5a4499dc8b5fc28d7f93ae0c"
+      },
+      {
+        "path": "src/operations/operations-worker-startup.mjs",
+        "sha256": "a0a1fdb7fc0d6f631655f5bb231e30f28d057c30cf22bb9367bebab385fd4b93"
+      },
+      {
         "path": "src/operations/owner-completion-policy.mjs",
         "sha256": "0fff9a5a1ec98ba33d5f28021dfc62ddadbd92eac7af6ad18b837c9738ee3210"
+      },
+      {
+        "path": "src/operations/production-checkout-worker.mjs",
+        "sha256": "a6ccfe5f3de78c2e40b14da2effae09c7adecd1dec30737a9c420aca8a1b2296"
       },
       {
         "path": "src/operations/production-completion-worker.mjs",
@@ -471,6 +653,10 @@
         "sha256": "4684759388b03831f52324d082ab349b8fc9b51b60924f3e2ab6efca46b81526"
       },
       {
+        "path": "src/operations/tally-checkout-handoff.mjs",
+        "sha256": "4e05a8b6e37770595df7a671ef1a3b2447bbbfa0c371dfcac3b5c5dcbd74edda"
+      },
+      {
         "path": "src/persistence/convex-customer-flow-store.mjs",
         "sha256": "849d86eaa2dc796b795aa7bb8ac205dfc0695adb9dd74645c8cd1537e913d551"
       },
@@ -479,8 +665,20 @@
         "sha256": "e09c49c91b6d6186555dd024c2926370e0c4932209079d544503fad99df06b9e"
       },
       {
+        "path": "src/persistence/convex-operations-command-queue.mjs",
+        "sha256": "ae96208839d26bda0c89af18e37952c150f1aade424302f81b110243a2430a5c"
+      },
+      {
+        "path": "test/api/scoped-checkout.test.mjs",
+        "sha256": "26a7bec499d99ccc62a92c08aff7517e794c88a70981733055c5593b693a2720"
+      },
+      {
         "path": "test/api/webhook-entrypoints.test.mjs",
         "sha256": "3297b72943d5ca67f5fe267ae3647c8ea1077ae422bdd2ffef18e6d56856a970"
+      },
+      {
+        "path": "test/config/generation-worker-isolation.test.mjs",
+        "sha256": "1f3deed893123cd8b46d2185224b96cbcae6cd44cf2ab72cbbe747e50a1be18d"
       },
       {
         "path": "test/config/hosted-provider-artifacts.test.mjs",
@@ -495,8 +693,24 @@
         "sha256": "d45ac73425f90a541e8074cfba40d3a5065a72a20dec24d716075660dcb996a2"
       },
       {
+        "path": "test/config/test-a-operator-isolation.test.mjs",
+        "sha256": "873926a5b463e291048d89b987d72e465a73096807723ddaa312f560e788f69b"
+      },
+      {
+        "path": "test/convex/automatic-generation-handoff.test.mjs",
+        "sha256": "7e11b77c940edddc399bc58f1548050da869858c5f1b97a67343fea11154cc05"
+      },
+      {
+        "path": "test/convex/canonical-completion-scope.test.mjs",
+        "sha256": "fbe99d31b9c4db0246d24af7369d331573057b0a3dbc87c3ab83f1151f7f5f40"
+      },
+      {
         "path": "test/convex/completion-store-seam.test.mjs",
         "sha256": "73c0f8f6e0a1e7f43184ccbe6acf1801e2a853558d123370fb4cb0274d8e2ff5"
+      },
+      {
+        "path": "test/convex/generation.test.mjs",
+        "sha256": "d9a46d88c84f645aae7b00061b107405312e0259961bd09723212b77435e2b7a"
       },
       {
         "path": "test/convex/hosted-narration-contract.test.mjs",
@@ -504,7 +718,7 @@
       },
       {
         "path": "test/convex/narration-lifecycle.test.mjs",
-        "sha256": "82f35e87daa73bd2c803c7f547dddb28e90ee6419422b0553162b624bee054a6"
+        "sha256": "e95303fa1ff37ff273075e3d54d6ef30b24b7773dbc79a1e00952c313f97bfe4"
       },
       {
         "path": "test/convex/narration.test.mjs",
@@ -512,19 +726,31 @@
       },
       {
         "path": "test/convex/operations.test.mjs",
-        "sha256": "ac2068fa3a73815f4c991984beb84b04fa639748bc842aaa132ed9e020b0eaca"
+        "sha256": "ed31dc03692c2c864334367dcd4491904a32acac2881d1c3782e6263167a398c"
       },
       {
         "path": "test/demo/synthetic-demo.test.mjs",
         "sha256": "d7b5922bbb05c25d2219546c948cbeface1f768b5a1a7be661f43fc76382a0c2"
       },
       {
+        "path": "test/fulfillment/codex-subscription-composer.test.mjs",
+        "sha256": "ddaacfd1b8f3cb61fb394539e575203d95d09d5da5c2c7d017b32154bf00829b"
+      },
+      {
         "path": "test/fulfillment/committed-artifact-content-set.test.mjs",
         "sha256": "6d6e0322b3d9d33975fe7e486f83e9797158796259c12055ce6519021a94a12c"
       },
       {
+        "path": "test/fulfillment/failed-prepare-review-recovery.test.mjs",
+        "sha256": "cf87269282cbdf30306bb8bf8bac1ab5f860810787c7bd76fac53a08a765467d"
+      },
+      {
         "path": "test/fulfillment/generation-stage-workspace.test.mjs",
         "sha256": "2db66b5eb547624fcbdfde275591a0ec18de2d414ce7229557dc6b02ad0a616d"
+      },
+      {
+        "path": "test/fulfillment/hosted-narration-handoff.test.mjs",
+        "sha256": "55e88aba30f5adb7ad1e6bde662219a9ccfd74f37bc74e35448be8c0b06984f1"
       },
       {
         "path": "test/fulfillment/job-orchestration.test.mjs",
@@ -537,6 +763,10 @@
       {
         "path": "test/fulfillment/vercel-test-a-publication-provider.test.mjs",
         "sha256": "8c7b0cee648bbafa7664c1d45a18ad3c0bc8877cf4917b6821660d927020d95c"
+      },
+      {
+        "path": "test/operations/canonical-test-completion.test.mjs",
+        "sha256": "467a4990db79bb7882c804799346bbd171f85cefec5b2ceb63320aa3c620583c"
       },
       {
         "path": "test/operations/completion-worker-boundary.test.mjs",
@@ -555,12 +785,24 @@
         "sha256": "5374658ed200f3fb03417ff6db90758937953e251a948ef9d795f88635954270"
       },
       {
+        "path": "test/operations/tally-checkout-handoff.test.mjs",
+        "sha256": "5a90366dc3a1f96356d22cdeea4d467d1665f3b6d961176dc6fdd05675ce7dd1"
+      },
+      {
+        "path": "test/private-review.test.mjs",
+        "sha256": "aa6db064fe4fbba23bbfa60775e6977a454cc7de0436e701c5736174a683fbb8"
+      },
+      {
+        "path": "vercel.canonical-completion-worker.json",
+        "sha256": "34a7ba2c1a871a9eb17d8ec1d0626fcfe0f4040a3be708682d457a2cfe260c1e"
+      },
+      {
         "path": "vercel.completion-worker.json",
         "sha256": "0d5107dcb612ed9b1dad6e4ee52a86e49fc57f361364eb80f9db973c4fe4dd07"
       },
       {
         "path": "vercel.generation-worker.json",
-        "sha256": "8afde19b10e14b4b18be4f9516af8855c46d5c019064cc00e72a2d7d4612b841"
+        "sha256": "c28b81ac762e8c1e8cc0e4f8edd0de906e45b5c75cf87962d39a57c87a174227"
       },
       {
         "path": "vercel.json",
@@ -685,6 +927,7 @@
   "isolation": {
     "customerPublicModuleGraph": [
       "api/customer-flow/[...route].mjs",
+      "api/operator/checkout.mjs",
       "api/webhooks/tally.mjs",
       "src/config/hosted-customer-flow-config.mjs",
       "src/customer-flow/hosted-http-api.mjs",
@@ -699,9 +942,18 @@
       "src/fulfillment/job-machine.mjs",
       "src/fulfillment/job-orchestrator.mjs",
       "src/fulfillment/job-scoped-editorial-approval-canonicalization.mjs",
+      "src/http/scoped-checkout-handler.mjs",
       "src/http/tally-intake-handler.mjs",
+      "src/operations/checkout-worker-startup.mjs",
+      "src/operations/operations-action-handlers.mjs",
+      "src/operations/operations-command-error.mjs",
+      "src/operations/operations-command-worker.mjs",
+      "src/operations/operations-worker-runtime.mjs",
+      "src/operations/production-checkout-worker.mjs",
+      "src/operations/tally-checkout-handoff.mjs",
       "src/persistence/convex-customer-flow-store.mjs",
-      "src/persistence/convex-fulfillment-store.mjs"
+      "src/persistence/convex-fulfillment-store.mjs",
+      "src/persistence/convex-operations-command-queue.mjs"
     ],
     "generationApprovalInvocation": "ops/persist-test-a-generation-approval.mjs",
     "generationApprovalModuleGraph": [
@@ -758,7 +1010,10 @@
       "scripts/lib/render-html.mjs",
       "scripts/lib/schema-validation.mjs",
       "scripts/lib/validators.mjs",
+      "src/config/hosted-customer-flow-config.mjs",
       "src/config/test-a-hosted-provider-manifest.mjs",
+      "src/customer-flow/service.mjs",
+      "src/customer-flow/stripe-test-gateway.mjs",
       "src/fulfillment/codex-subscription-composer.mjs",
       "src/fulfillment/committed-artifact-content-set.mjs",
       "src/fulfillment/hosted-generation-workspace.mjs",
@@ -778,8 +1033,10 @@
       "src/operations/operations-command-worker.mjs",
       "src/operations/operations-worker-runtime.mjs",
       "src/operations/operations-worker-startup.mjs",
+      "src/operations/production-checkout-worker.mjs",
       "src/operations/production-generation-worker.mjs",
       "src/persistence/convex-codex-auth-state-store.mjs",
+      "src/persistence/convex-customer-flow-store.mjs",
       "src/persistence/convex-fulfillment-store.mjs",
       "src/persistence/convex-generation-artifact-store.mjs",
       "src/persistence/convex-operations-command-queue.mjs"
@@ -787,10 +1044,12 @@
     "privateInvocation": "ops/run-test-a-operator.mjs",
     "publicEntrypoints": [
       "api/customer-flow/[...route].mjs",
+      "api/operator/checkout.mjs",
       "api/webhooks/tally.mjs"
     ],
     "publicModuleGraph": [
       "api/customer-flow/[...route].mjs",
+      "api/operator/checkout.mjs",
       "api/webhooks/tally.mjs",
       "src/config/hosted-customer-flow-config.mjs",
       "src/customer-flow/hosted-http-api.mjs",
@@ -805,9 +1064,18 @@
       "src/fulfillment/job-machine.mjs",
       "src/fulfillment/job-orchestrator.mjs",
       "src/fulfillment/job-scoped-editorial-approval-canonicalization.mjs",
+      "src/http/scoped-checkout-handler.mjs",
       "src/http/tally-intake-handler.mjs",
+      "src/operations/checkout-worker-startup.mjs",
+      "src/operations/operations-action-handlers.mjs",
+      "src/operations/operations-command-error.mjs",
+      "src/operations/operations-command-worker.mjs",
+      "src/operations/operations-worker-runtime.mjs",
+      "src/operations/production-checkout-worker.mjs",
+      "src/operations/tally-checkout-handoff.mjs",
       "src/persistence/convex-customer-flow-store.mjs",
-      "src/persistence/convex-fulfillment-store.mjs"
+      "src/persistence/convex-fulfillment-store.mjs",
+      "src/persistence/convex-operations-command-queue.mjs"
     ],
     "privateCapabilityModules": [
       "ops/persist-test-a-generation-approval.mjs",

@@ -155,6 +155,27 @@ test("request projection is bounded and privacy allowlisted", () => {
   );
 });
 
+test("general-wishes intake reaches composition without exposing private fields", () => {
+  const intake = structuredClone(SYNTHETIC_INTAKE);
+  intake.baby = { firstName: "Liora", gender: "girl" };
+  intake.languages = ["fr"];
+  intake.context.religion = "general";
+  const request = buildCodexCompositionRequest(intake);
+  assert.deepEqual(request, {
+    schemaVersion: "1.0",
+    baby: { firstName: "Liora", nameArabic: null, gender: "girl" },
+    languages: ["fr"],
+    context: { religion: "general" },
+    preferences: { specificDemands: "Warm and restrained." },
+  });
+  const suggestion = codexCompositionToSuggestion(receiptFor(VALID_COMPOSITION, intake), intake);
+  assert.deepEqual(suggestion.frWishLines, VALID_COMPOSITION.languages.fr.blessingLines);
+  assert.equal(suggestion.frDuaLines, undefined);
+
+  intake.context.religion = "unrecognized";
+  assert.throws(() => buildCodexCompositionRequest(intake), /composition input rejected/u);
+});
+
 test("composer runs Codex in an ephemeral tool-disabled directory with a minimal environment", async (t) => {
   const calls = [];
   const context = await fixture(t, {
@@ -472,6 +493,115 @@ test("ephemeral managed auth is restored, proven ready, refreshed, and written b
   assert.deepEqual(authCalls[1], { type: "commit", value: lease, authJson: refreshedAuth });
   assert.equal(authCalls.length, 2);
   await assert.rejects(access(path.dirname(codexHome)), { code: "ENOENT" });
+});
+
+function pathAliasRefusalWarning(tempDir, codexHome) {
+  return `WARNING: proceeding, even though we could not create PATH aliases: Refusing to create helper binaries under temporary dir ${JSON.stringify(tempDir)} (codex_home: AbsolutePathBuf(${JSON.stringify(codexHome)}))\n`;
+}
+
+test("readiness accepts only the invocation-bound temporary PATH alias refusal warning", async (t) => {
+  const root = await mkdtemp(path.join(os.tmpdir(), "bebebonjour-codex-warning-test-"));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const tempDir = os.tmpdir();
+  const codexHome = path.join(root, 'codex.[home]+(synthetic)"\\');
+  const warning = pathAliasRefusalWarning(tempDir, codexHome);
+  const version = { stdout: "codex-cli 0.146.0\n", stderr: warning };
+  const status = { stdout: "", stderr: `${warning}Logged in using ChatGPT\n` };
+  const cases = [
+    { name: "reproduced stderr status", ready: true },
+    { name: "stdout status", status: { stdout: "Logged in using ChatGPT\n", stderr: warning }, ready: true },
+    { name: "warning-free stdout status", version: { stdout: version.stdout }, status: { stdout: "Logged in using ChatGPT\n" }, ready: true },
+    { name: "warning-free stderr status", version: { stdout: version.stdout }, status: { stderr: "Logged in using ChatGPT\n" }, ready: true },
+    { name: "unknown version warning", version: { ...version, stderr: "WARNING: unknown warning\n" } },
+    { name: "additional version warning", version: { ...version, stderr: `${warning}WARNING: unknown warning\n` } },
+    { name: "additional version error", version: { ...version, stderr: `${warning}ERROR: unsafe\n` } },
+    { name: "duplicate version warning", version: { ...version, stderr: warning.repeat(2) } },
+    { name: "unknown status warning", status: { stderr: "WARNING: unknown warning\nLogged in using ChatGPT\n" } },
+    { name: "additional status warning", status: { stderr: `${warning}WARNING: unknown warning\nLogged in using ChatGPT\n` } },
+    { name: "additional status error", status: { stderr: `${warning}Logged in using ChatGPT\nERROR: unsafe\n` } },
+    { name: "duplicate status warning", status: { stderr: `${warning.repeat(2)}Logged in using ChatGPT\n` } },
+    { name: "warning after status", status: { stderr: `Logged in using ChatGPT\n${warning}` } },
+    { name: "warning in version stdout", version: { stdout: `${warning}${version.stdout}` } },
+    { name: "warning in status stdout", status: { stdout: `${warning}Logged in using ChatGPT\n` } },
+    { name: "different CODEX_HOME", status: { stderr: `${pathAliasRefusalWarning(tempDir, `${codexHome}-other`)}Logged in using ChatGPT\n` } },
+    { name: "different temporary directory", version: { ...version, stderr: pathAliasRefusalWarning(`${tempDir}-other`, codexHome) } },
+    { name: "regex-like path mismatch", status: { stderr: `${pathAliasRefusalWarning(tempDir, codexHome.replace(".", "x"))}Logged in using ChatGPT\n` } },
+    { name: "missing CODEX_HOME", environment: { TMPDIR: tempDir } },
+    { name: "non-temporary CODEX_HOME", environment: { TMPDIR: tempDir, CODEX_HOME: "/synthetic/persistent/codex-home" }, customWarning: true },
+    { name: "temporary directory prefix sibling", environment: { TMPDIR: tempDir, CODEX_HOME: `${tempDir}-sibling/codex-home` }, customWarning: true },
+    { name: "temporary directory itself", environment: { TMPDIR: tempDir, CODEX_HOME: tempDir }, customWarning: true },
+    { name: "relative CODEX_HOME", environment: { TMPDIR: tempDir, CODEX_HOME: "relative/codex-home" }, customWarning: true },
+    { name: "traversal CODEX_HOME", environment: { TMPDIR: tempDir, CODEX_HOME: `${tempDir}/nested/../../persistent/codex-home` }, customWarning: true },
+    { name: "API-key status", status: { stderr: `${warning}Logged in using an API key\n` } },
+    { name: "no-login status", status: { stderr: `${warning}Not logged in\n` } },
+    { name: "missing status", status: { stderr: warning } },
+  ];
+  for (const entry of cases) {
+    await t.test(entry.name, async () => {
+      const environment = entry.environment || { TMPDIR: tempDir, CODEX_HOME: codexHome };
+      const customWarning = pathAliasRefusalWarning(environment.TMPDIR, environment.CODEX_HOME);
+      const composer = createCodexSubscriptionComposer({
+        environment,
+        async probeImpl(_command, args, options) {
+          assert.deepEqual(options.env, environment);
+          if (entry.customWarning) {
+            return args[0] === "--version"
+              ? { stdout: version.stdout, stderr: customWarning }
+              : { stderr: `${customWarning}Logged in using ChatGPT\n` };
+          }
+          return args[0] === "--version"
+            ? (entry.version || version)
+            : (entry.status || (entry.version ? { stderr: "Logged in using ChatGPT\n" } : status));
+        },
+        spawnImpl() { assert.fail("readiness must not call the provider"); },
+      });
+      if (entry.ready) {
+        const result = await composer.readiness();
+        assert.equal(result.status, "ready");
+        assert.equal(result.cliVersion, "0.146.0");
+      } else {
+        await assert.rejects(composer.readiness(), (error) => (
+          error.reasonCode === "composition_provider_unavailable"
+          && error.retryable === true
+          && error.message === "composition_provider_unavailable"
+        ));
+      }
+    });
+  }
+});
+
+test("managed readiness and composition tolerate only the bound PATH alias refusal", async () => {
+  const lease = { authJson: '{"auth_mode":"chatgpt","synthetic":true}\n' };
+  const commits = [];
+  const homes = [];
+  const calls = [];
+  const composer = createCodexSubscriptionComposer({
+    environment: { TMPDIR: os.tmpdir(), CODEX_HOME: "/must/not/be/used", HOME: "/must/not/cross" },
+    authStateStore: {
+      async claim() { return lease; },
+      async commit(value, authJson) { commits.push({ value, authJson }); },
+      async release() { assert.fail("successful synthetic auth must be committed"); },
+    },
+    async probeImpl(_command, args, options) {
+      const codexHome = options.env.CODEX_HOME;
+      assert.equal(codexHome, path.join(options.cwd, "codex-home"));
+      assert.equal(Object.hasOwn(options.env, "HOME"), false);
+      homes.push(codexHome);
+      const warning = pathAliasRefusalWarning(options.env.TMPDIR, codexHome);
+      return args[0] === "--version"
+        ? { stdout: "codex-cli 0.146.0\n", stderr: warning }
+        : { stdout: "", stderr: `${warning}Logged in using ChatGPT\n` };
+    },
+    spawnImpl: successfulSpawn(calls),
+  });
+  assert.equal((await composer.readiness()).authMode, "managed-chatgpt-ephemeral");
+  assert.deepEqual((await composer.compose(SYNTHETIC_INTAKE)).composition, VALID_COMPOSITION);
+  assert.equal(calls.length, 1);
+  assert.equal(commits.length, 2);
+  for (const commit of commits) assert.deepEqual(commit, { value: lease, authJson: lease.authJson });
+  assert.equal(homes.length, 4);
+  assert.notEqual(homes[0], homes[2]);
+  for (const home of homes) await assert.rejects(access(path.dirname(home)), { code: "ENOENT" });
 });
 
 test("managed auth writeback failure discards model output", async (t) => {

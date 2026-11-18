@@ -4,6 +4,7 @@ import {
   queryGeneric,
 } from "convex/server";
 import { v } from "convex/values";
+import { enqueueApprovedGeneration } from "./automaticGeneration.js";
 
 import {
   canonicalizeJobScopedEditorialApproval,
@@ -162,12 +163,14 @@ export const saveEditorialApproval = mutationGeneric({
         !== JSON.stringify(approval)) {
         throw new Error("Generation editorial approval is immutable once provisioned.");
       }
+      await enqueueApprovedGeneration(context, args.jobId);
       return { created: false, approval };
     }
     await context.db.insert("fulfillmentGenerationEditorialApprovals", {
       jobId: args.jobId,
       approval,
     });
+    await enqueueApprovedGeneration(context, args.jobId);
     return { created: true, approval };
   },
 });
@@ -492,8 +495,12 @@ async function assertEditorialApproval(value, jobId) {
     || typeof sourceEvidence !== "object"
     || Array.isArray(sourceEvidence)
     || Object.keys(sourceEvidence).sort().join("\0") !== "kind\0reference"
-    || sourceEvidence.kind !== "kanban_human_decision"
-    || !/^kanban:t_[A-Za-z0-9_-]{3,128}$/u.test(sourceEvidence.reference || "")
+    || !(
+      (sourceEvidence.kind === "kanban_human_decision"
+        && /^kanban:t_[A-Za-z0-9_-]{3,128}$/u.test(sourceEvidence.reference || ""))
+      || (sourceEvidence.kind === "conversation_human_decision"
+        && /^hermes:session:[0-9]{8}_[0-9]{6}_[a-f0-9]{6}:sha256:[a-f0-9]{64}$/u.test(sourceEvidence.reference || ""))
+    )
     || !DIGEST.test(value.recordDigest || "")
     || !DIGEST.test(record.sourceDigest || "")
   ) {

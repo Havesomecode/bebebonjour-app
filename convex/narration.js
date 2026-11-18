@@ -9,6 +9,7 @@ import {
   assertNarrationToken,
   assertNarrationCommand,
 } from "./narrationScope.js";
+import { enqueuePaidNarrationProgression } from "./operations.js";
 export const insertFictionalTest = internalMutationGeneric({
   args: { operatorToken: v.string(), aggregate: v.any(), language: v.string() },
   handler: async (ctx, args) => {
@@ -102,7 +103,7 @@ export const readClaim = internalQueryGeneric({
 export const commitTransition = internalMutationGeneric({
   args: { ...authorityArgs, expectedVersion: v.number(), aggregate: v.any() },
   handler: async (ctx, args) => {
-    const { document } = await claimed(ctx, args);
+    const { command, document } = await claimed(ctx, args);
     if (
       document.aggregate.version !== args.expectedVersion ||
       args.aggregate.version !== args.expectedVersion + 1
@@ -112,6 +113,7 @@ export const commitTransition = internalMutationGeneric({
       document.aggregate.artifactSets.length,
     ))
       await verifyStoredArtifact(ctx, artifact);
+    await enqueuePaidNarrationProgression(ctx, command, document.aggregate, args.aggregate);
     await ctx.db.patch(document._id, { aggregate: args.aggregate });
     return null;
   },

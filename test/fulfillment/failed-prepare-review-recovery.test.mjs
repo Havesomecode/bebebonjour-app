@@ -36,15 +36,14 @@ const FAILURE_POLICY = Object.freeze({
   backoffMsByStage: Object.freeze({ prepare_review: Object.freeze([]) }),
 });
 
-function editorialApproval() {
-  const sourceEvidence = {
-    kind: "kanban_human_decision",
-    reference: "kanban:t_synthetic_recovery_authority",
-  };
+function editorialApproval(jobId = JOB_ID) {
+  const sourceEvidence = jobId === JOB_ID
+    ? { kind: "kanban_human_decision", reference: "kanban:t_synthetic_recovery_authority" }
+    : { kind: "conversation_human_decision", reference: "hermes:session:20260926_113745_b2a0fa:sha256:0442bfa5a8d804126f9ab947a9a0ac7b827b0aed2a34d39222bb8ab2e451d4eb" };
   const record = {
     schemaVersion: "1.0",
     approvalType: "job_scoped_editorial_policy",
-    jobId: JOB_ID,
+    jobId,
     policy: EDITORIAL_POLICY,
     sourceEvidence,
     sourceDigest: sha256(JSON.stringify(sourceEvidence)),
@@ -55,13 +54,14 @@ function editorialApproval() {
   };
 }
 
-function failedAggregate() {
+function failedAggregate(jobId = JOB_ID) {
+  const paymentCorrelation = { ...PAYMENT_CORRELATION, jobId };
   const input = {
-    jobId: JOB_ID,
+    jobId,
     environment: "test",
     product: "announcement-page",
     intakeDigest: INTAKE_DIGEST,
-    paymentCorrelation: PAYMENT_CORRELATION,
+    paymentCorrelation,
     narrationRequired: false,
   };
   let aggregate = createJobAggregate(input, {
@@ -72,7 +72,7 @@ function failedAggregate() {
     commandId: "pay-exact-recovery-fixture",
     providerEventId: "evt_exact_recovery_fixture",
     providerPaymentId: "pi_exact_recovery_fixture",
-    correlation: PAYMENT_CORRELATION,
+    correlation: paymentCorrelation,
     recordedAt: "2026-09-01T12:01:00.000Z",
   }, "2026-09-01T12:01:00.000Z");
   aggregate = claimStageTransition(aggregate, {
@@ -82,6 +82,7 @@ function failedAggregate() {
     leaseMs: 300_000,
     maxAttempts: 1,
     operationBinding: null,
+    ...(jobId === JOB_ID ? {} : { operationsCommandId: "command_auto_9b8a92018feb8baf15b4d9fc619964bc" }),
   }, "2026-09-01T12:02:00.000Z");
   return failStageTransition(aggregate, {
     commandId: "fail-prepare-review-fixture",
@@ -93,13 +94,14 @@ function failedAggregate() {
 }
 
 function recoveryCommand(aggregate = failedAggregate()) {
-  const approval = editorialApproval();
+  const jobId = aggregate.jobId;
+  const approval = editorialApproval(jobId);
   return {
-    commandId: `recover-failed-prepare-review:${JOB_ID}:${aggregate.stageAttempts.at(-1).attemptId}`,
-    jobId: JOB_ID,
+    commandId: `recover-failed-prepare-review:${jobId}:${aggregate.stageAttempts.at(-1).attemptId}`,
+    jobId,
     failedAttemptId: aggregate.stageAttempts.at(-1).attemptId,
     intakeDigest: INTAKE_DIGEST,
-    paymentCorrelation: PAYMENT_CORRELATION,
+    paymentCorrelation: { ...PAYMENT_CORRELATION, jobId },
     editorialApproval: {
       approvalType: approval.record.approvalType,
       jobId: approval.record.jobId,
@@ -149,6 +151,46 @@ test("the exact failed prepare_review transition is audited, terminal-evidence p
     }, "2026-09-01T12:05:00.000Z"),
     /command replay/i,
   );
+});
+
+test("the separate Liora conversation approval recovers only its bound failed command", () => {
+  const jobId = "job_ac41c7b1-f532-430e-8a88-fb1aaa268a6d";
+  const failed = failedAggregate(jobId);
+  const command = recoveryCommand(failed);
+  const before = clone(failed);
+  assert.equal(failed.stageAttempts[0].attemptId, "attempt_1705ef800557f5f4478cea04");
+  const recovered = recoverFailedPrepareReviewTransition(
+    failed, command, "2026-09-28T09:00:00.000Z",
+  );
+  assert.equal(recovered.state, "generation_queued");
+  assert.equal(recovered.version, failed.version + 1);
+  assert.deepEqual(recovered.stageAttempts, failed.stageAttempts);
+  assert.deepEqual(failed, before);
+  const secondClaim = claimStageTransition(recovered, {
+    commandId: "claim-recovered-liora",
+    stage: "prepare_review",
+    leaseToken: "recovered-liora-lease",
+    leaseMs: 300_000,
+    maxAttempts: 2,
+    operationBinding: null,
+    operationsCommandId: "command_recovered_liora_001",
+  }, "2026-09-28T09:01:00.000Z");
+  assert.equal(secondClaim.stageAttempts[1].attemptNumber, 2);
+  assert.equal(secondClaim.stageAttempts[1].operationNumber, 1);
+  assert.equal(secondClaim.stageAttempts[1].idempotencyKey, failed.stageAttempts[0].idempotencyKey);
+  for (const mutate of [
+    (job) => { job.stageAttempts[0].operationsCommandId = "command_other_001"; },
+    (job) => { job.stageAttempts[0].effectStartedAt = job.updatedAt; },
+    (job) => { job.artifactSets.push({ kind: "private_review" }); },
+    (_job, request) => { request.editorialApproval.record.sourceEvidence.reference = "hermes:session:wrong"; },
+  ]) {
+    const candidate = clone(failed);
+    const request = clone(command);
+    mutate(candidate, request);
+    assert.throws(() => recoverFailedPrepareReviewTransition(
+      candidate, request, "2026-09-28T09:00:00.000Z",
+    ), /failed prepare-review recovery rejected/i);
+  }
 });
 
 test("recovery rejects every non-exact or ambiguous failed-state predicate without mutation", async (t) => {

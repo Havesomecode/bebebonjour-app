@@ -6,7 +6,7 @@
       "src": "generation-worker/api/worker.mjs",
       "use": "@vercel/node",
       "config": {
-        "includeFiles": [".codex-runtime/**"]
+        "includeFiles": "codex-runtime/**"
       }
     }
   ],

@@ -1,0 +1,12 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "installCommand": "npm ci",
+  "builds": [
+    { "src": "delivery-loop-provider/api/provider.mjs", "use": "@vercel/node" },
+    { "src": "owner-completion-worker/api/worker.mjs", "use": "@vercel/node" }
+  ],
+  "routes": [
+    { "src": "/api/delivery-loop/provider", "dest": "delivery-loop-provider/api/provider.mjs" },
+    { "src": "/api/operations/owner-completion-worker", "dest": "owner-completion-worker/api/worker.mjs" }
+  ]
+}

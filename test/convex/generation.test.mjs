@@ -138,6 +138,32 @@ test("Convex keeps editorial approval immutable and claim-scoped", async () => {
   );
 });
 
+test("Convex accepts an exact conversation-sourced human editorial decision", async () => {
+  const convex = fixture();
+  await seedClaim(convex);
+  const sourceEvidence = {
+    kind: "conversation_human_decision",
+    reference: `hermes:session:20260926_113745_b2a0fa:sha256:${"a".repeat(64)}`,
+  };
+  const record = {
+    ...editorialApproval().record,
+    sourceEvidence,
+    sourceDigest: sha256(JSON.stringify(sourceEvidence)),
+  };
+  const approval = { record, recordDigest: sha256(`${JSON.stringify(record, null, 2)}\n`) };
+  await assert.rejects(
+    convex.mutation(saveEditorialApproval, {
+      backendToken, jobId,
+      approval: { ...approval, record: { ...record, sourceEvidence: { ...sourceEvidence, reference: "kanban:t_wrong_origin" } } },
+    }),
+    /editorial approval is invalid/u,
+  );
+  assert.deepEqual(await convex.mutation(saveEditorialApproval, { backendToken, jobId, approval }), {
+    created: true, approval,
+  });
+  assert.deepEqual(await convex.query(readEditorialApproval, { ...authority, jobId }), approval);
+});
+
 test("Convex canonicalizes an approved record before the generation runner verifies it", async () => {
   const convex = fixture();
   await seedClaim(convex);

@@ -3,6 +3,56 @@ import { Resend } from "resend";
 const RESEND_TEST_SINK = "delivered@resend.dev";
 const MAX_IDEMPOTENCY_AGE_MS = 23 * 60 * 60 * 1000;
 
+// A separate, explicitly configured synthetic-job path. The existing TEST-A
+// sink adapter below remains scoped to delivered@resend.dev.
+export function createResendConfiguredTestDeliveryAdapter(options = {}) {
+  const policy = options.policy;
+  if (!policy?.jobId || !policy?.revisionId || !/^[a-f0-9]{64}$/u.test(policy.manifestDigest || "")
+      || !policy?.targetRef || !/^[^\s@<>]+@[^\s@<>]+\.[^\s@<>]+$/u.test(policy.recipient || "")
+      || [RESEND_TEST_SINK, "z@havesomecode.io"].includes(policy.recipient.toLowerCase())) {
+    throw new Error("Configured TEST delivery requires an exact fictional job and disposable recipient.");
+  }
+  const stableUrl = requireNonEmptyString(options.stableUrl, "canonical stable URL");
+  if (!stableUrl.startsWith("https://") || new URL(stableUrl).href !== stableUrl) {
+    throw new Error("Canonical stable URL must be exact HTTPS.");
+  }
+  const resend = options.resend || createResendClient(options.apiKey);
+  const from = requireNonEmptyString(options.from, "Resend from address");
+  const clock = options.clock || (() => new Date().toISOString());
+  const statusAdapter = createResendDeliveryAdapter({ resend, from, clock });
+  return Object.freeze({
+    reconcile: statusAdapter.reconcile,
+    status: statusAdapter.status,
+    async send(request) {
+      if (request?.jobId !== policy.jobId || request?.environment !== "test"
+          || request?.revisionId !== policy.revisionId || request?.artifactManifestDigest !== policy.manifestDigest
+          || request?.target?.targetRef !== policy.targetRef || request?.target?.email !== policy.recipient) {
+        throw new Error("Configured TEST delivery recipient or exact release target mismatch.");
+      }
+      if (request?.publication?.stableUrl !== stableUrl) throw new Error("Canonical stable URL mismatch.");
+      requireNonEmptyString(request.idempotencyKey, "delivery idempotency key");
+      const startedAt = Date.parse(request.attemptStartedAt);
+      const checkedAt = Date.parse(clock());
+      if (!Number.isFinite(startedAt) || !Number.isFinite(checkedAt) || checkedAt < startedAt
+          || checkedAt - startedAt >= MAX_IDEMPOTENCY_AGE_MS) {
+        throw new Error("Resend delivery is outside the safe provider idempotency window.");
+      }
+      const { data, error } = await fencedProviderMutation(request, () => resend.emails.send({
+        from, to: [policy.recipient], subject: "Votre annonce Bébé Bonjour est prête", html: deliveryHtml(stableUrl),
+      }, { idempotencyKey: request.idempotencyKey }));
+      if (error || !data?.id) {
+        const failure = new Error("Resend did not accept the delivery request.", { cause: error });
+        failure.reasonCode = "resend_send_failed";
+        failure.retryable = true;
+        throw failure;
+      }
+      return { provider: "resend", providerMessageId: data.id, revisionId: request.revisionId,
+        artifactManifestDigest: request.artifactManifestDigest, targetDigest: request.targetDigest,
+        idempotencyKey: request.idempotencyKey };
+    },
+  });
+}
+
 export function createResendDeliveryAdapter(options = {}) {
   const resend = options.resend || createResendClient(options.apiKey);
   const from = requireNonEmptyString(options.from, "Resend from address");

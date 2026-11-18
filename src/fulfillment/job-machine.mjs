@@ -6,6 +6,7 @@ import { serializeCanonicalJobScopedEditorialApprovalRecord } from "./job-scoped
 export const EDITORIAL_POLICY_VERSION = "bebebonjour-editorial-v1";
 export const RECOVERABLE_FAILED_PREPARE_REVIEW_JOB_ID =
   "job_c633aa4c-0039-4257-8913-eaa6f6197d0c";
+export const RECOVERABLE_LIORA_JOB_ID = "job_ac41c7b1-f532-430e-8a88-fb1aaa268a6d";
 
 const FAILED_PREPARE_REVIEW_EDITORIAL_POLICY = Object.freeze({
   id: "unknown_name_general_wishes",
@@ -329,16 +330,17 @@ export function failStageTransition(aggregate, failure, policy, at) {
 export function recoverFailedPrepareReviewTransition(aggregate, recovery, at) {
   return withCommand(aggregate, recovery, "failed_prepare_review_recovered", at, (next) => {
     const attempt = next.stageAttempts?.at(-1);
+    const isLiora = next.jobId === RECOVERABLE_LIORA_JOB_ID;
     const expectedCorrelation = {
       project: "bebebonjour",
       product: "announcement-page",
       environment: "test",
-      jobId: RECOVERABLE_FAILED_PREPARE_REVIEW_JOB_ID,
+      jobId: next.jobId,
       intakeDigest: next.intakeDigest,
     };
     const expectedApproval = {
       approvalType: "job_scoped_editorial_policy",
-      jobId: RECOVERABLE_FAILED_PREPARE_REVIEW_JOB_ID,
+      jobId: next.jobId,
       policy: FAILED_PREPARE_REVIEW_EDITORIAL_POLICY,
       record: recovery?.editorialApproval?.record,
       recordDigest: recovery?.editorialApproval?.recordDigest,
@@ -363,8 +365,8 @@ export function recoverFailedPrepareReviewTransition(aggregate, recovery, at) {
         "recordDigest",
         "sourceDigest",
       ])
-      && next.jobId === RECOVERABLE_FAILED_PREPARE_REVIEW_JOB_ID
-      && recovery.jobId === RECOVERABLE_FAILED_PREPARE_REVIEW_JOB_ID
+      && (next.jobId === RECOVERABLE_FAILED_PREPARE_REVIEW_JOB_ID || isLiora)
+      && recovery.jobId === next.jobId
       && next.environment === "test"
       && next.product === "announcement-page"
       && next.state === "failed"
@@ -382,6 +384,8 @@ export function recoverFailedPrepareReviewTransition(aggregate, recovery, at) {
       && Array.isArray(next.stageAttempts)
       && next.stageAttempts.length === 1
       && attempt?.attemptId === recovery.failedAttemptId
+      && (!isLiora || (attempt.attemptId === "attempt_1705ef800557f5f4478cea04"
+        && attempt.operationsCommandId === "command_auto_9b8a92018feb8baf15b4d9fc619964bc"))
       && attempt?.stage === "prepare_review"
       && attempt?.revisionId === null
       && attempt?.attemptNumber === 1
@@ -404,7 +408,7 @@ export function recoverFailedPrepareReviewTransition(aggregate, recovery, at) {
       && next.deliveryAttempts.length === 0
       && DIGEST_PATTERN.test(recovery.editorialApproval.recordDigest || "")
       && DIGEST_PATTERN.test(recovery.editorialApproval.sourceDigest || "")
-      && isValidFailedPrepareReviewApproval(recovery.editorialApproval.record)
+      && isValidFailedPrepareReviewApproval(recovery.editorialApproval.record, next.jobId)
       && recovery.editorialApproval.recordDigest === createHash("sha256")
         .update(serializeCanonicalJobScopedEditorialApprovalRecord(
           recovery.editorialApproval.record,
@@ -1025,7 +1029,11 @@ function hasExactKeys(value, expectedKeys) {
     && sortedExpectedKeys.every((key, index) => actualKeys[index] === key);
 }
 
-function isValidFailedPrepareReviewApproval(record) {
+function isValidFailedPrepareReviewApproval(record, jobId) {
+  const lioraSourceEvidence = {
+    kind: "conversation_human_decision",
+    reference: "hermes:session:20260926_113745_b2a0fa:sha256:0442bfa5a8d804126f9ab947a9a0ac7b827b0aed2a34d39222bb8ab2e451d4eb",
+  };
   if (
     !hasExactKeys(record, [
       "approvalType",
@@ -1038,10 +1046,12 @@ function isValidFailedPrepareReviewApproval(record) {
     || !hasExactKeys(record?.sourceEvidence, ["kind", "reference"])
     || record.schemaVersion !== "1.0"
     || record.approvalType !== "job_scoped_editorial_policy"
-    || record.jobId !== RECOVERABLE_FAILED_PREPARE_REVIEW_JOB_ID
+    || record.jobId !== jobId
     || !isDeepStrictEqual(record.policy, FAILED_PREPARE_REVIEW_EDITORIAL_POLICY)
-    || record.sourceEvidence.kind !== "kanban_human_decision"
-    || !/^kanban:t_[A-Za-z0-9_-]{3,128}$/.test(record.sourceEvidence.reference || "")
+    || (jobId === RECOVERABLE_LIORA_JOB_ID
+      ? !isDeepStrictEqual(record.sourceEvidence, lioraSourceEvidence)
+      : (record.sourceEvidence.kind !== "kanban_human_decision"
+        || !/^kanban:t_[A-Za-z0-9_-]{3,128}$/.test(record.sourceEvidence.reference || "")))
   ) {
     return false;
   }

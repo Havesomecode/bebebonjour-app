@@ -62,14 +62,26 @@
         "reference"
       ],
       "properties": {
-        "kind": {
-          "const": "kanban_human_decision"
+        "kind": { "type": "string" },
+        "reference": { "type": "string" }
+      },
+      "oneOf": [
+        {
+          "properties": {
+            "kind": { "const": "kanban_human_decision" },
+            "reference": { "type": "string", "pattern": "^kanban:t_[A-Za-z0-9_-]{3,128}$" }
+          }
         },
-        "reference": {
-          "type": "string",
-          "pattern": "^kanban:t_[A-Za-z0-9_-]{3,128}$"
+        {
+          "properties": {
+            "kind": { "const": "conversation_human_decision" },
+            "reference": {
+              "type": "string",
+              "pattern": "^hermes:session:[0-9]{8}_[0-9]{6}_[a-f0-9]{6}:sha256:[a-f0-9]{64}$"
+            }
+          }
         }
-      }
+      ]
     },
     "sourceDigest": {
       "type": "string",
