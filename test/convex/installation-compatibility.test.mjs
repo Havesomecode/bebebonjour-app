@@ -37,15 +37,15 @@ test('worker import/help loads the exact signed dynamic composition schema witho
   assert.equal(result.status, 0, result.stderr); assert.match(result.stdout, /^Usage: node scripts\/run-delivery-loop-worker.mjs/);
 });
 
-test("installation preserves all 23 production validators/indexes and adds only four paid tables plus the support fence", () => {
+test("installation preserves all 23 production validators/indexes and adds only four paid tables", () => {
   const current = JSON.parse(schema.export()), production = manifest.productionSchema;
   assert.equal(current.schemaValidation, production.schemaValidation);
   assert.equal(production.tables.length, 23);
-  assert.equal(current.tables.length, 28);
+  assert.equal(current.tables.length, 27);
   for (const table of production.tables) {
     assert.deepEqual(normalize(current.tables.find(item => item.tableName === table.tableName)), normalize(table), table.tableName);
   }
-  assert.deepEqual(current.tables.filter(table => !production.tables.some(old => old.tableName === table.tableName)).map(table => table.tableName).sort(), ["customerFlowAbuseBudgets", "deliveryLoopPaymentEvents", "deliveryLoopPaymentEvidence", "deliveryLoopRetainedEvidence", "supportForwardReceipts"]);
+  assert.deepEqual(current.tables.filter(table => !production.tables.some(old => old.tableName === table.tableName)).map(table => table.tableName).sort(), ["customerFlowAbuseBudgets", "deliveryLoopPaymentEvents", "deliveryLoopPaymentEvidence", "deliveryLoopRetainedEvidence"]);
 });
 
 test("installation retains all existing production artifact routes and every accepted paid/complimentary route", () => {
@@ -56,7 +56,6 @@ test("installation retains all existing production artifact routes and every acc
     "GET /delivery/terms/route-a-39-v1",
     "GET /generation/artifact", "GET /narration/artifact", "POST /delivery/data", "POST /delivery/data/operator",
     "POST /delivery/intake", "POST /delivery/operator", "POST /delivery/payment/webhook", "POST /delivery/review",
-    "POST /support/resend/webhook",
   ].sort());
 });
 

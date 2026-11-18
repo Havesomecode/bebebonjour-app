@@ -65,14 +65,6 @@ const operationOutcome = v.union(v.null(), v.object({
 }));
 
 export default defineSchema({
-  // Identifier-only, durable one-shot support forwarding fence. Never reclaim
-  // uncertain rows or remove this table during source rollback.
-  supportForwardReceipts: defineTable({
-    eventId: v.string(), emailId: v.string(), rawBodySha256: v.string(),
-    status: v.union(v.literal('inflight'), v.literal('sent'), v.literal('ignored'), v.literal('reconciliation_required')),
-    reason: v.union(v.literal('forwarding'), v.literal('policy_ignored'), v.literal('provider_accepted'), v.literal('provider_uncertain')),
-    startedAtMs: v.number(), updatedAtMs: v.number(), providerMessageId: v.optional(v.string()),
-  }).index('by_event_id', ['eventId']).index('by_email_id', ['emailId']),
   // Recovered verbatim from the hash-verified reviewed security successor.
   customerFlowAbuseBudgets: defineTable({
     scope: v.string(),

@@ -11,7 +11,7 @@ The repository currently contains three connected but deliberately separated par
 
 ## Support email routing
 
-The disabled-by-default Resend receiving route forwards only `contact@bebebonjour.com` to `z@havesomecode.io` through the existing Convex backend. See [routing, effect-fence semantics and release/rollback instructions](docs/resend-support-forwarding.md). Source verification does not establish live routing or inbox delivery.
+`contact@bebebonjour.com` is forwarded to the owner through Cloudflare Email Routing. See [support email routing](docs/support-email-routing.md). Source verification does not establish live routing or inbox delivery.
 
 ## Safety boundary
 

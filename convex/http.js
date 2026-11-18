@@ -11,11 +11,9 @@ const authorizeOwnerTrialCompletionArtifactRead = makeFunctionReference("ownerTr
 import { narrationArtifact } from "./narrationHttp.js";
 import { paidPaymentWebhook } from "./deliveryLoopPaymentHttp.js";
 import { termsPage } from "./deliveryLoopTerms.js";
-import { supportForwardWebhook } from "./supportForwardHttp.js";
 import { intakePage, intakeSubmit, reviewPage, reviewSubmit, announcement, privatePreview, operatorPage, operatorSubmit } from "./deliveryLoopHttp.js";
 
 const http = httpRouter();
-http.route({ path: "/support/resend/webhook", method: "POST", handler: supportForwardWebhook });
 http.route({ path: "/delivery/terms/route-a-39-v1", method: "GET", handler: termsPage });
 http.route({ path: "/delivery/payment/webhook", method: "POST", handler: paidPaymentWebhook });
 import { dataControl, dataExport, dataOperatorPage, dataOperatorControl } from "./deliveryLoopDataHttp.js";
