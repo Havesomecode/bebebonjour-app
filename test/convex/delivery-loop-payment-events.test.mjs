@@ -68,7 +68,7 @@ function fixture(context) {
   return { t: convexTest(schema, modules), state };
 }
 const read = (t, job) => t.query(ref('read'), { workerToken, jobId: job.jobId });
-const claim = t => t.mutation(ref('claim'), { workerToken, workerId: 'offline-fixture', leaseToken: crypto.randomUUID() });
+const claim = t => t.mutation(ref('claim'), { workerToken, voiceReady: true, workerId: 'offline-fixture', leaseToken: crypto.randomUUID() });
 async function ready(t) {
   const intake = { email: `fictional-${crypto.randomUUID()}@example.invalid`, babyName: 'Amal', language: 'fr', gender: 'girl', context: 'general', voiceEnabled: true, consent: true, termsAccepted: true, publication: true, customerPermissions: true, fictional: true };
   const job = await t.mutation(ref('submit'), { intake, orderMode: 'paid_route_a', idempotencyKey: crypto.randomUUID() });

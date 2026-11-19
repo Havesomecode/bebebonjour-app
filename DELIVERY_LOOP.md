@@ -4,7 +4,7 @@
 
 Every request waits in `awaiting_operator` until an operator reads it in the ops console (`/commandes/<jobId>`) and launches generation from a brief, or refuses it. The model only receives the brief. Public orders (€39) pay after the launch and before any generation. Full contract: [docs/operator-gated-intake.md](docs/operator-gated-intake.md).
 
-Narration speaks the page's screens (`buildAnnouncementChapters`), synthesized phrase by phrase and concatenated with frame-rounded 0.5 s pauses within a chapter and 1.0 s between chapters. Narration receipts and publication `audioFiles` carry `phraseStarts` (seconds, one per screen, from 0, strictly increasing); the page switches screens on them. Contract: `docs/r1-announcement.md` § Timing.
+Narrated generation waits in the queue until the LAN voice worker's authenticated `/ready` reports the tower GPU free; waiting consumes no generation attempt. The VM rechecks every `BEBEBONJOUR_VOICE_READY_RECHECK_MS` (default 180000 ms). Non-narrated generation and email can proceed. Narration speaks the page's screens (`buildAnnouncementChapters`), synthesized phrase by phrase and concatenated with frame-rounded 0.5 s pauses within a chapter and 1.0 s between chapters. Narration receipts and publication `audioFiles` carry `phraseStarts` (seconds, one per screen, from 0, strictly increasing); the page switches screens on them. Contract: `docs/r1-announcement.md` § Timing.
 
 The October 2026 mandate below published a first version automatically before review; that path no longer exists. Its acceptance evidence is historical.
 

@@ -22,7 +22,7 @@ test('complimentary admission waits for operator and cannot be claimed', async (
     intake: { email: 'fictional@example.invalid', babyName: 'Amal', language: 'fr', gender: 'girl', context: 'general', voiceEnabled: false, consent: true, fictional: true },
   });
   assert.equal(job.status, 'awaiting_operator');
-  assert.equal(await t.mutation(ref('claim'), { workerToken, workerId: 'offline', leaseToken: 'offline-lease-token-1234' }), null);
+  assert.equal(await t.mutation(ref('claim'), { workerToken, voiceReady: true, workerId: 'offline', leaseToken: 'offline-lease-token-1234' }), null);
   const row = await t.run(ctx => ctx.db.query('deliveryLoopJobs').first());
   assert.deepEqual(row.data.notices.map(({ kind, revision, status }) => ({ kind, revision, status })), [
     { kind: 'operator_new', revision: 1, status: 'pending' },
@@ -48,7 +48,7 @@ test('operator validates a brief before launch and claim excludes raw intake', a
   const detail = await t.query(ref('operatorJob'), { operatorToken, jobId: job.jobId });
   assert.equal(detail.brief.nameMeaning, 'Notre lumière');
   assert.match(detail.catalogMeaning.fr, /^l'espérance/);
-  const work = await t.mutation(ref('claim'), { workerToken, workerId: 'offline', leaseToken: 'offline-lease-token-5678' });
+  const work = await t.mutation(ref('claim'), { workerToken, voiceReady: true, workerId: 'offline', leaseToken: 'offline-lease-token-5678' });
   assert.equal(work.stage, 'generate');
   assert.equal(work.brief.firstName, 'Amal');
   assert.doesNotMatch(JSON.stringify(work), /fictional@example\.invalid|IGNORE ALL PREVIOUS INSTRUCTIONS|evil@example\.com/);

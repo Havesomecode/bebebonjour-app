@@ -104,7 +104,7 @@ test("compatible rollback retains financial/event rows and uncertain-effect fenc
   ]));
   const before = await t.run(async ctx => Promise.all(ids.map(id => ctx.db.get(id))));
   assert.deepEqual(await t.mutation(ref("deliveryLoopData:sweep"), {}), { disabled: true });
-  assert.equal(await t.mutation(ref("deliveryLoop:claim"), { workerToken: token, workerId: "synthetic-rollback-worker", leaseToken: "synthetic-rollback-lease" }), null);
+  assert.equal(await t.mutation(ref("deliveryLoop:claim"), { workerToken: token, voiceReady: true, workerId: "synthetic-rollback-worker", leaseToken: "synthetic-rollback-lease" }), null);
   await assert.rejects(t.mutation(ref("deliveryLoop:submit"), { orderMode: "paid_route_a", idempotencyKey: "synthetic-new-paid", intake: { email: "fixture@example.invalid", babyName: "Fixture", language: "fr", gender: "neutral", context: "general", voiceEnabled: false, consent: true, termsAccepted: true, publication: true, customerPermissions: true } }), /paid.*disabled|paid_route_unavailable/);
   assert.deepEqual(await t.run(async ctx => Promise.all(ids.map(id => ctx.db.get(id)))), before);
   assert.equal(manifest.rollback.legacyWorkerRestartAllowed, false);

@@ -24,7 +24,7 @@ function fixture(){
 const submit=(t,fields={})=>t.mutation(ref('submit'),{intake,orderMode:PAID_MODE,idempotencyKey:crypto.randomUUID(),...fields});
 const read=(t,job)=>t.query(ref('read'),{workerToken,jobId:job.jobId});
 const status=(t,job)=>t.query(ref('status'),{jobId:job.jobId,reviewToken:job.reviewToken});
-const claim=t=>t.mutation(ref('claim'),{workerToken,workerId:'offline',leaseToken:crypto.randomUUID()});
+const claim=t=>t.mutation(ref('claim'),{workerToken,voiceReady: true, workerId:'offline',leaseToken:crypto.randomUUID()});
 const checkout=job=>({jobId:job.jobId,reviewToken:job.reviewToken,expectedRevision:1});
 const decide=(t,job,revision,action='approve',more={})=>t.mutation(ref('requestReview'),{jobId:job.jobId,reviewToken:job.reviewToken,expectedRevision:revision,action,idempotencyKey:crypto.randomUUID(),...more});
 async function launch(t,job,revision=1){const detail=await t.query(ref('operatorJob'),{operatorToken,jobId:job.jobId});return t.mutation(ref('operatorLaunch'),{operatorToken,jobId:job.jobId,expectedRevision:revision,brief:detail.suggestedBrief});}

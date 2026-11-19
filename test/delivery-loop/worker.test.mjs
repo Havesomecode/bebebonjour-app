@@ -73,6 +73,17 @@ async function journalFiles(root) {
   return files;
 }
 
+test('voice wait checks are throttled and ready retries the claim', async t => {
+  const f = await fixture(t); let clock = 1000, checks = 0, ready = false;
+  f.client.mutation = async (name, args) => { assert.equal(name, 'deliveryLoop:claim'); f.calls.push({ name, args }); return { waitingForVoice: true }; };
+  const worker = createDeliveryLoopWorker({ ...f.options, now: () => clock, checkVoiceReady: async () => { checks++; return ready; } });
+  assert.equal((await worker.runOnce()).status, 'waiting_for_voice');
+  assert.equal(checks, 1); assert.equal(f.calls.length, 1); assert.equal(f.calls[0].args.voiceReady, false);
+  clock += 1000; assert.equal((await worker.runOnce()).status, 'waiting_for_voice'); assert.equal(checks, 1);
+  ready = true; clock += 180000; assert.equal((await worker.runOnce()).status, 'waiting_for_voice');
+  assert.equal(checks, 2); assert.equal(f.calls.at(-1).args.voiceReady, true);
+});
+
 test("voice worker failure retries without an inflight journal", async t => {
   const f = await fixture(t);
   const worker = createDeliveryLoopWorker({ ...f.options, narrate: async () => { throw new Error('offline'); } });

@@ -9,7 +9,7 @@ import { assertValidCodexCompositionReceipt, buildCodexCompositionRequest, sha25
 import { buildAnnouncementChapters } from "./chapters.mjs";
 import { renderAnnouncement } from "./render.mjs";
 import { chapterNarrationText, splitNarrationPhrases, validPhraseStarts } from "./narration-timing.mjs";
-import { performNarration } from "./provider-transport.mjs";
+import { performNarration, checkVoiceReady } from "./provider-transport.mjs";
 
 const STAGES = new Set(["generate", "draft_email", "final_email"]);
 const DEFAULT_STATE_DIR = "/home/hermes/.local/share/bebebonjour-delivery-loop";
@@ -42,6 +42,9 @@ export function createDeliveryLoopWorker(options = {}) {
   const composer = options.composer ?? createCodexSubscriptionComposer({ model: environment.BEBEBONJOUR_COMPOSITION_MODEL ?? "gpt-5.6-sol", timeoutMs: compositionTimeoutMs, environment });
   if (typeof composer.compose !== "function") reject("worker_configuration_rejected");
   const now = options.now ?? Date.now;
+  const voiceState = { ready: false, checkedAtMs: 0 };
+  let voiceChecked = false;
+  const recheckMs = bounded(Number(environment.BEBEBONJOUR_VOICE_READY_RECHECK_MS ?? 180_000), 1, 86_400_000);
   const logger = options.logger ?? ((event) => console.log(JSON.stringify(event)));
   if (typeof now !== "function" || typeof logger !== "function") reject("worker_configuration_rejected");
   const log = (event, job, extra = {}) => {
@@ -206,16 +209,30 @@ export function createDeliveryLoopWorker(options = {}) {
     let job;
     try {
       // Locally generated fencing token: never reused across claims.
-      const claimed = await invoke("mutation", "deliveryLoop:claim", { workerToken, workerId, leaseToken: randomUUID() }, signal);
+      let claimed = await invoke("mutation", "deliveryLoop:claim", { workerToken, workerId, leaseToken: randomUUID(), voiceReady: voiceState.ready && now() - voiceState.checkedAtMs < 60_000 }, signal);
+      if (claimed?.waitingForVoice) {
+        if (!voiceChecked || now() - voiceState.checkedAtMs >= recheckMs) {
+          voiceState.ready = await (options.checkVoiceReady ?? checkVoiceReady)(environment);
+          voiceState.checkedAtMs = now();
+          voiceChecked = true;
+          if (voiceState.ready) {
+            log("voice_ready");
+            claimed = await invoke("mutation", "deliveryLoop:claim", { workerToken, workerId, leaseToken: randomUUID(), voiceReady: true }, signal);
+          }
+        }
+        if (claimed?.waitingForVoice) { log("voice_wait"); return { status: "waiting_for_voice" }; }
+      }
       if (!claimed) return { status: "idle" };
       validateClaim(claimed);
       job = claimed;
       log("claimed", job);
       const journal = await openJournal(stateDir, job);
       const result = job.stage === "generate" ? await generate(job, journal, signal) : await sendEmail(job, journal, signal);
+      if (job.stage === "generate" && job.intake.voicePreference?.enabled !== false) { voiceState.ready = true; voiceState.checkedAtMs = now(); voiceChecked = true; }
       return result;
     } catch (error) {
       const { reasonCode, retryable } = safeFailure(error);
+      if (reasonCode === "voice_worker_unavailable") { voiceState.ready = false; voiceState.checkedAtMs = now(); voiceChecked = true; }
       log("failed", job, { reason: reasonCode, retryable });
       if (job) {
         try {

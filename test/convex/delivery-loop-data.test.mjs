@@ -31,7 +31,7 @@ function fixture() {
   Object.assign(process.env,{BEBEBONJOUR_DELIVERY_LOOP_TOKEN:workerToken,BEBEBONJOUR_OPERATIONS_TOKEN:operatorToken,BEBEBONJOUR_DELIVERY_LOOP_ORIGIN:'https://offline.invalid',BEBEBONJOUR_PAID_EDITORIAL_TOKEN:editorialToken,BEBEBONJOUR_PAID_ROUTE_A_ENABLED:'true',BEBEBONJOUR_PAID_TERMS_URL:'https://offline.invalid/terms',BEBEBONJOUR_PAID_STRIPE_ACCOUNT_ID:'acct_offline',BEBEBONJOUR_PAID_DATA_AUTOMATION_ENABLED:'true'});
   return convexTest(schema,{'../../convex/_generated/server.js':()=>import('convex/server'),'../../convex/deliveryLoop.js':()=>import('../../convex/deliveryLoop.js'),'../../convex/deliveryLoopNotices.js':()=>import('../../convex/deliveryLoopNotices.js'),'../../convex/deliveryLoopData.js':()=>import('../../convex/deliveryLoopData.js'),'../../convex/deliveryLoopDataProviders.js':()=>import('../../convex/deliveryLoopDataProviders.js'),'../../convex/http.js':()=>import('../../convex/http.js')});
 }
-const claim=t=>t.mutation(ref('claim'),{workerToken,workerId:'offline-data',leaseToken:crypto.randomUUID()});
+const claim=t=>t.mutation(ref('claim'),{workerToken,voiceReady: true, workerId:'offline-data',leaseToken:crypto.randomUUID()});
 const raw=(t,job)=>t.run(ctx=>ctx.db.query('deliveryLoopJobs').withIndex('by_job_id',q=>q.eq('jobId',job.jobId)).unique());
 const patchData=(t,job,patch)=>t.run(async ctx=>{const row=await ctx.db.query('deliveryLoopJobs').withIndex('by_job_id',q=>q.eq('jobId',job.jobId)).unique();await ctx.db.patch(row._id,{data:{...row.data,...patch}});});
 const submit=async (t,key=crypto.randomUUID())=>{const job=await t.mutation(ref('submit'),{idempotencyKey:key,orderMode:'paid_route_a',intake});await t.finishAllScheduledFunctions(()=>mock.timers.tick(0));return job;};

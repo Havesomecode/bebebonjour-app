@@ -64,7 +64,7 @@ for (const language of ['fr', 'ar']) test(`SR-01: ${language} generated speech u
   const client = Object.fromEntries(['query','mutation','action'].map(method => [method,(name,args) => t[method](makeFunctionReference(name),args)]));
   const stateDir = await mkdtemp(path.join(process.env.TMPDIR,'sr01-regression-'));
   context.after(() => rm(stateDir, {recursive:true,force:true}));
-  const worker = createDeliveryLoopWorker({client,composer,stateDir,workerToken,workerId:'offline-review',reconciliationAttempts:1,logger(){}});
+  const worker = createDeliveryLoopWorker({client,composer,stateDir,workerToken,workerId:'offline-review',reconciliationAttempts:1,checkVoiceReady: async () => true,logger(){}});
   const intake = {email:'fictional@example.invalid',babyName:'Amal',language,gender:'girl',context:'general',voiceEnabled:true,consent:true,customerPermissions:true,termsAccepted:true,publication:true,fictional:true};
   const job = await t.mutation(ref('submit'), {intake,orderMode:'paid_route_a',idempotencyKey:crypto.randomUUID()});
   await t.mutation(ref('operatorLaunch'), {operatorToken,jobId:job.jobId,expectedRevision:1,brief:{firstName:'Amal',nameArabic:null,gender:'girl',birthDate:null,religion:'general',tone:'tendre',phrases:[]}});

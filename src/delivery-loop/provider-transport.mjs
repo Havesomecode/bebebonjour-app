@@ -4,6 +4,21 @@ import { setTimeout as sleep } from 'node:timers/promises';
 import { narratePhrases } from './narration-timing.mjs';
 
 const MAX_AUDIO_BYTES = 5 * 1024 * 1024;
+let lastReadyWake = -Infinity;
+export async function checkVoiceReady(environment = process.env, fetchImpl = fetch, wake = sendWakePacket) {
+  try {
+    const url = required(environment, 'BEBEBONJOUR_VOICE_WORKER_URL').replace(/\/+$/, '');
+    const token = required(environment, 'BEBEBONJOUR_VOICE_WORKER_TOKEN');
+    const response = await fetchImpl(`${url}/ready`, { method: 'GET', headers: { authorization: `Bearer ${token}` }, signal: AbortSignal.timeout(20_000) });
+    return response.status === 200 && (await response.json()).ready === true;
+  } catch (error) {
+    if (['TypeError', 'AbortError', 'TimeoutError'].includes(error?.name) && environment.BEBEBONJOUR_VOICE_WORKER_WAKE_MAC && Date.now() - lastReadyWake >= 120_000) {
+      lastReadyWake = Date.now();
+      try { await wake(environment.BEBEBONJOUR_VOICE_WORKER_WAKE_MAC, environment.BEBEBONJOUR_VOICE_WORKER_WAKE_BROADCAST ?? '192.168.1.255'); } catch { /* readiness remains false */ }
+    }
+    return false;
+  }
+}
 export async function performNarration({ text, textDigest, language, voice }, environment = process.env, fetchImpl = fetch, wake = sendWakePacket) {
   if (!['fr', 'ar'].includes(language) || !['pere', 'mere'].includes(voice) || typeof text !== 'string' || !text.trim()
       || Buffer.byteLength(text, 'utf8') > 16_000

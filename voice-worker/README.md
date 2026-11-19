@@ -1,6 +1,10 @@
 # Voice worker
 
-Speaks one announcement phrase per call with VoxCPM2 (`openbmb/VoxCPM2` @ `7936080b`, `voxcpm==2.0.3`) on CPU. It runs as the Railway `voice` service; the delivery loop reaches it at `BEBEBONJOUR_VOICE_WORKER_URL` with `BEBEBONJOUR_VOICE_WORKER_TOKEN` and calls it one phrase at a time.
+Speaks one announcement phrase per call with VoxCPM2 (`openbmb/VoxCPM2` @ `7936080b`, `voxcpm==2.0.3`). Production runs on the gamer tower on the LAN, not Railway. The delivery loop reaches it at `BEBEBONJOUR_VOICE_WORKER_URL` with `BEBEBONJOUR_VOICE_WORKER_TOKEN`.
+
+Build GPU image from the repository root: `docker build -f voice-worker/Dockerfile --build-arg TORCH_BACKEND=cu130 -t bebe-voice .`. Run with `--gpus all -e VOICE_DEVICE=cuda -e NVIDIA_DRIVER_CAPABILITIES=compute,utility`, a private `VOICE_WORKER_TOKEN`, and a LAN port mapping. CPU is the default (`VOICE_DEVICE=cpu`). The model loads on the first speak and unloads after `VOICE_IDLE_UNLOAD_S` idle seconds (default 300; 0 disables).
+
+Authenticated `GET /ready` returns JSON `{ready, reason, device, loaded, busy, free_mb, total_mb, util_percent}`. CPU is ready; CUDA uses `nvidia-smi` samples (`VOICE_READY_SAMPLES`, default 3, one second apart), requiring utilization at most `VOICE_READY_MAX_UTIL` (15 percent) and available memory at least `VOICE_READY_MIN_FREE_MB` (6000 MB), including this worker's reserved memory. Reasons are `ok`, `busy_with_narration`, `gpu_busy`, `gpu_memory_low`, or `gpu_unavailable`; unavailable metrics are null. Queued/running narration is considered ready. `/health` is unauthenticated and reports `loaded` without loading the model.
 
 ```
 POST /speak   {"voice": "pere"|"mere", "language": "fr"|"ar", "text": "<one phrase>", "seed"?: int}
@@ -17,7 +21,7 @@ GET  /health
 - **Loudness**: `gain_db` brings every voice to about -21 dB mean with a limiter, so the whispered père voice is as audible as the mère voice.
 - A phrase that runs to its length cap never stopped by itself; it is re-rolled with the next seed, up to three tries.
 
-## Railway sizing
+## Railway CPU measurement (historical)
 
 8 vCPU / 8 GB. Measured on staging (19/11/2026, bf16, one Bayane announcement, fr + ar, 9 phrases each):
 
@@ -28,6 +32,4 @@ GET  /health
 
 About 3.5–4 minutes of voice work per announcement. The model takes 5.6 GB at rest; each `spoke` log line carries `generation_s`, `rtf` and `phrase_peak_anon_mb`. `MALLOC_ARENA_MAX=2`, a single inference thread and `malloc_trim` after each phrase keep memory flat; without them the service hit its 8 GB limit.
 
-The service sleeps when idle (Railway Serverless). The first phrase wakes it; the delivery loop retries 502/503 and refused connections for about two minutes (`BEBEBONJOUR_VOICE_WORKER_WAKE_DELAY_MS`, default 10 s × 12).
-
-Deploy: `railway up -s voice` from a folder holding `voice-worker/` and `data/voices/` (`RAILWAY_DOCKERFILE_PATH=voice-worker/Dockerfile`). The image bakes in the model weights.
+The image bakes in the model weights. The delivery loop can wake the tower using Wake-on-LAN and waits for readiness before claiming narrated work.

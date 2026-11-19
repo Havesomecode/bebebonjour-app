@@ -1,9 +1,22 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
+import { readFile } from 'node:fs/promises';
 import { performNarration } from '../../src/delivery-loop/provider-transport.mjs';
 const environment = { BEBEBONJOUR_VOICE_WORKER_URL: 'https://voice.example.invalid', BEBEBONJOUR_VOICE_WORKER_TOKEN: 'offline-token' };
 const sha = text => createHash('sha256').update(text).digest('hex');
+test('voice server structurally gates GPU readiness and serializes lazy lifecycle', async () => {
+  const source = await readFile(new URL('../../voice-worker/server.py', import.meta.url), 'utf8');
+  assert.match(source, /device=DEVICE/);
+  assert.match(source, /inference\.submit\(queued_speak, request\)/);
+  assert.match(source, /inference\.submit\(unload_if_idle\)/);
+  assert.doesNotMatch(source, /inference\.submit\(load\)/);
+  assert.match(source, /if self\.path == "\/ready":[\s\S]*?if not self\.authorized\(\)/);
+  assert.match(source, /nvidia-smi.*utilization\.gpu,memory\.free,memory\.total/);
+  assert.match(source, /torch\.cuda\.reset_peak_memory_stats\(\)/);
+  assert.match(source, /torch\.cuda\.empty_cache\(\)/);
+});
+
 test('worker receives phrases sequentially with selected voice and language', async () => {
   const text = 'Bienvenue.\nMila.'; const calls = []; let active = 0;
   const frame = Buffer.alloc(384); frame.set([0xff, 0xf3, 0xc4, 0xc4]);

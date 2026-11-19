@@ -33,7 +33,7 @@ function fixture() {
   fixtures.push(t); return t;
 }
 const submit = (t, idempotencyKey = "intake-offline-001", fields = {}) => t.mutation(ref("submit"), { intake, magicPassword: password, idempotencyKey, ...fields });
-const claim = (t, leaseToken = "offline-lease-token-001") => t.mutation(ref("claim"), { workerToken, workerId: "offline-worker", leaseToken });
+const claim = (t, leaseToken = "offline-lease-token-001") => t.mutation(ref("claim"), { workerToken, voiceReady: true, workerId: "offline-worker", leaseToken });
 const launch = (t, jobId, revision = 1) => t.mutation(ref("operatorLaunch"), { operatorToken, jobId, expectedRevision: revision, brief });
 const read = (t, jobId) => t.query(ref("read"), { workerToken, jobId });
 
@@ -86,7 +86,7 @@ test("operator console lists newest first with the specified projection", async 
   const listed = await t.query(ref("operatorJobs"), { operatorToken });
   assert.deepEqual(listed.map(job => job.jobId), [second.jobId, first.jobId]);
   const [pending, published] = listed;
-  assert.deepEqual(Object.keys(published).sort(), ["jobId", "status", "orderMode", "paymentStatus", "createdAtMs", "fictional", "babyName", "customerEmail", "languages", "desiredRevision", "latestRevision", "revisions", "publicUrl", "lastError"].sort());
+  assert.deepEqual(Object.keys(published).sort(), ["jobId", "status", "waitingForVoice", "waitingForVoiceSinceMs", "orderMode", "paymentStatus", "createdAtMs", "fictional", "babyName", "customerEmail", "languages", "desiredRevision", "latestRevision", "revisions", "publicUrl", "lastError"].sort());
   assert.equal(pending.publicUrl, null);
   assert.equal(published.babyName, "Amal");
   assert.equal(published.customerEmail, intake.email);
@@ -95,6 +95,27 @@ test("operator console lists newest first with the specified projection", async 
   assert.deepEqual(published.revisions.map(r => r.revision), [1]);
   assert.equal(published.publicUrl, first.publicUrl);
   assert.equal(JSON.stringify(listed).includes("reviewToken"), false);
+});
+
+test('voice queue waits without attempts and claims oldest when ready', async () => {
+  const t = fixture();
+  const first = await submit(t, 'voice-wait-first', { intake: { ...intake, voiceEnabled: true } });
+  const second = await submit(t, 'voice-wait-second', { intake: { ...intake, voiceEnabled: true } });
+  await launch(t, first.jobId); await launch(t, second.jobId);
+  const request = { workerToken, workerId: 'offline-worker', leaseToken: 'voice-wait-token-0001', voiceReady: false };
+  assert.deepEqual(await t.mutation(ref('claim'), request), { waitingForVoice: true });
+  assert.deepEqual(await t.mutation(ref('claim'), request), { waitingForVoice: true });
+  const row = await read(t, first.jobId);
+  assert.equal(row.generationAttempts, 0); assert.ok(row.waitingForVoiceSinceMs);
+  assert.equal(row.audit.filter(e => e.type === 'voice_wait').length, 1);
+  const list = await t.query(ref('operatorJobs'), { operatorToken });
+  assert.equal(list.find(j => j.jobId === first.jobId).waitingForVoice, true);
+  assert.equal((await t.query(ref('operatorJob'), { operatorToken, jobId: first.jobId })).waitingForVoice, true);
+  const textOnly = await submit(t, 'voice-wait-text'); await launch(t, textOnly.jobId);
+  assert.equal((await t.mutation(ref('claim'), request)).jobId, textOnly.jobId);
+  const claimed = await t.mutation(ref('claim'), { ...request, leaseToken: 'voice-ready-token-0002', voiceReady: true });
+  assert.equal(claimed.jobId, first.jobId);
+  assert.equal((await read(t, first.jobId)).waitingForVoiceSinceMs, undefined);
 });
 
 test('voice unavailability requeues repeatedly without spending generation attempts', async () => {

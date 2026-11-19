@@ -196,7 +196,7 @@ function work(row) {
   return { jobId: row.jobId, revision: desiredRevision, stage: lease.stage, leaseToken: lease.leaseToken, leaseExpiresAtMs: lease.leaseExpiresAtMs, ...(lease.effectStartedAtMs === undefined ? {} : { effectStartedAtMs: lease.effectStartedAtMs }), orderMode: row.data.orderMode || "complimentary", publicUrl: links(row).publicUrl, ...(lease.stage === "generate" ? { brief } : {}), intake: { languages: intake.languages, voicePreference: intake.voicePreference, fictional: intake.fictional } };
 }
 export const claim = mutationGeneric({
-  args: { workerToken: v.string(), workerId: v.string(), leaseToken: v.string() },
+  args: { workerToken: v.string(), workerId: v.string(), leaseToken: v.string(), voiceReady: v.boolean() },
   handler: async (ctx, args) => {
     auth(args.workerToken);
     text(args.workerId, 200);
@@ -216,9 +216,13 @@ export const claim = mutationGeneric({
         await save(ctx, row, status);
       }
     }
+    let waitingForVoice = false;
+    // by_status orders equal-status rows by _creationTime ascending.
     for (const stage of ["generate", "draft_email", "final_email"]) {
       const state = stageState(stage, "queued");
-      const rows = await ctx.db.query("deliveryLoopJobs").withIndex("by_status", (q) => q.eq("status", state)).take(100);
+      const query = ctx.db.query("deliveryLoopJobs").withIndex("by_status", (q) => q.eq("status", state));
+      // Waiting narrated jobs must not hide later text-only work behind the old 100-row cap.
+      const rows = stage === "generate" ? await query.collect() : await query.take(100);
       let row;
       for (const candidate of rows) {
         if (stage === "generate" && !(candidate.data.briefs || []).some((item) => item.revision === candidate.data.desiredRevision)) {
@@ -231,11 +235,22 @@ export const claim = mutationGeneric({
           await save(ctx, candidate, "payment_pending");
           continue;
         }
-        try { paidStageGate(candidate, stage); row = candidate; break; }
-        catch { audit(candidate, "paid_work_denied", { stage }); await save(ctx, candidate, "paid_blocked"); }
+        try { paidStageGate(candidate, stage); }
+        catch { audit(candidate, "paid_work_denied", { stage }); await save(ctx, candidate, "paid_blocked"); continue; }
+        if (stage === "generate" && candidate.data.intake.voicePreference?.enabled !== false && !args.voiceReady) {
+          waitingForVoice = true;
+          if (candidate.data.waitingForVoiceSinceMs === undefined) {
+            candidate.data.waitingForVoiceSinceMs = Date.now();
+            audit(candidate, "voice_wait");
+            await save(ctx, candidate);
+          }
+          continue;
+        }
+        row = candidate; break;
       }
       if (!row) continue;
       if (row.data.usedLeaseTokens.includes(args.leaseToken)) throw new Error("reused_lease_token");
+      delete row.data.waitingForVoiceSinceMs;
       if (stage === "generate") row.data.generationAttempts++;
       row.data.usedLeaseTokens.push(args.leaseToken);
       row.data.lease = { stage, workerId: args.workerId, leaseToken: args.leaseToken, claimedAtMs: Date.now(), leaseExpiresAtMs: Date.now() + LEASE_MS };
@@ -243,7 +258,7 @@ export const claim = mutationGeneric({
       await save(ctx, row, stageState(stage, "running"));
       return work(row);
     }
-    return null;
+    return waitingForVoice ? { waitingForVoice: true } : null;
   },
 });
 export const authorizeProvider = queryGeneric({
@@ -380,7 +395,7 @@ export const operatorJobs = queryGeneric({
     return rows.filter((row) => !row.data.deletedAtMs).map((row) => {
       const d = row.data, intake = d.intake || {}, revisions = d.revisions || [];
       return {
-        jobId: row.jobId, status: row.status, orderMode: d.orderMode || "complimentary", paymentStatus: d.payment?.status || null,
+        jobId: row.jobId, status: row.status, waitingForVoice: row.status === "generation_queued" && d.waitingForVoiceSinceMs != null, waitingForVoiceSinceMs: d.waitingForVoiceSinceMs ?? null, orderMode: d.orderMode || "complimentary", paymentStatus: d.payment?.status || null,
         createdAtMs: d.createdAtMs ?? row._creationTime, fictional: intake.fictional === true,
         babyName: intake.baby?.firstName ?? null, customerEmail: intake.customer?.email ?? null, languages: intake.languages ?? [],
         desiredRevision: d.desiredRevision, latestRevision: d.latestRevision ?? 0,
@@ -400,7 +415,7 @@ function operatorDetail(row) {
   const current = (d.briefs || []).find((item) => item.revision === d.desiredRevision)?.brief || null;
   const previous = (d.briefs || []).find((item) => item.revision === d.desiredRevision - 1)?.brief;
   const suggested = previous ? Object.fromEntries(Object.entries(previous).filter(([key]) => key !== "languages")) : suggestBrief(intake);
-  return { jobId: row.jobId, status: row.status, orderMode: d.orderMode || "complimentary", paymentStatus: d.payment?.status || null, createdAtMs: d.createdAtMs ?? row._creationTime, fictional: intake.fictional === true, desiredRevision: d.desiredRevision, latestRevision: d.latestRevision ?? 0,
+  return { jobId: row.jobId, status: row.status, waitingForVoice: row.status === "generation_queued" && d.waitingForVoiceSinceMs != null, waitingForVoiceSinceMs: d.waitingForVoiceSinceMs ?? null, orderMode: d.orderMode || "complimentary", paymentStatus: d.payment?.status || null, createdAtMs: d.createdAtMs ?? row._creationTime, fictional: intake.fictional === true, desiredRevision: d.desiredRevision, latestRevision: d.latestRevision ?? 0,
     intake: { email: intake.customer?.email ?? null, babyName: baby.firstName ?? null, nameArabic: baby.nameArabic ?? null, gender: baby.gender ?? null, languages: intake.languages ?? [], religion: intake.context?.religion ?? null, birthDate: intake.birthDate ?? null, request: intake.request ?? null, voiceEnabled: intake.voicePreference?.enabled ?? false, voice: intake.voicePreference?.voice ?? "pere" },
     feedback: d.feedback ?? null, correctionsUsed: d.correctionsUsed ?? 0, brief: current, suggestedBrief: suggested, catalogMeaning: catalogMeaningOf(current || suggested), publicUrl: d.latestRevision ? links(row).publicUrl : null, orderUrl: links(row).reviewUrl, notices: (d.notices || []).map(({kind, revision, status, atMs}) => ({kind, revision, status, atMs})), lastError: d.lastError ?? null, canLaunch: canLaunch(row), canRefuse: row.status === "awaiting_operator", revisions: revisions.map(({revision, publishedAtMs}) => ({revision, publishedAtMs})), options: { tones: TONES, genders: GENDERS, religions: RELIGIONS } };
 }

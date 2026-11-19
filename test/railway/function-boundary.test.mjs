@@ -13,7 +13,8 @@ test('public function boundary excludes internal and unrelated functions', async
 
 test('function arguments enforce required fields, types and closed objects', async () => {
   const fn = await resolveFunction('deliveryLoop:claim', 'mutation');
-  assert.doesNotThrow(() => validateArguments(fn, { workerToken: 'x', workerId: 'y', leaseToken: 'z' }));
+  assert.doesNotThrow(() => validateArguments(fn, { workerToken: 'x', workerId: 'y', leaseToken: 'z', voiceReady: true }));
+  assert.throws(() => validateArguments(fn, { workerToken: 'x', workerId: 'y', leaseToken: 'z' }));
   assert.throws(() => validateArguments(fn, { workerToken: 'x', workerId: 'y' }));
   assert.throws(() => validateArguments(fn, { workerToken: 1, workerId: 'y', leaseToken: 'z' }));
   assert.throws(() => validateArguments(fn, { workerToken: 'x', workerId: 'y', leaseToken: 'z', extra: true }));

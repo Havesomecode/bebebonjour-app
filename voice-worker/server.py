@@ -32,6 +32,13 @@ VOICES_DIR = os.environ.get("VOICES_DIR", os.path.join(os.path.dirname(os.path.a
 MODEL_DIR = os.environ.get("VOXCPM_MODEL_DIR", "/models/VoxCPM2")
 TOKEN = os.environ.get("VOICE_WORKER_TOKEN", "")
 MAX_TEXT = 600
+DEVICE = os.environ.get("VOICE_DEVICE", "cpu")
+if DEVICE not in ("cpu", "cuda"):
+    raise ValueError("VOICE_DEVICE must be cpu or cuda")
+IDLE_UNLOAD_S = float(os.environ.get("VOICE_IDLE_UNLOAD_S", "300"))
+READY_SAMPLES = max(1, int(os.environ.get("VOICE_READY_SAMPLES", "3")))
+READY_MAX_UTIL = float(os.environ.get("VOICE_READY_MAX_UTIL", "15"))
+READY_MIN_FREE_MB = float(os.environ.get("VOICE_READY_MIN_FREE_MB", "6000"))
 
 settings = json.load(open(os.path.join(VOICES_DIR, "voices.json"), encoding="utf-8"))
 ENGINE = settings["engine"]
@@ -41,6 +48,81 @@ inference = ThreadPoolExecutor(max_workers=1)
 libc = ctypes.CDLL("libc.so.6")
 model = None
 sample_rate = None
+state_lock = threading.Lock()
+pending = 0
+last_speak = time.monotonic()
+
+
+def sample_gpu():
+    output = subprocess.run(["nvidia-smi", "--query-gpu=utilization.gpu,memory.free,memory.total", "--format=csv,noheader,nounits"], capture_output=True, text=True, check=True, timeout=5).stdout
+    values = output.splitlines()[0].split(",")
+    return tuple(float(value.strip()) for value in values)
+
+
+def readiness():
+    with state_lock:
+        busy = pending > 0
+        loaded = model is not None
+    result = dict(ready=True, reason="ok", device=DEVICE, loaded=loaded, busy=busy, free_mb=None, total_mb=None, util_percent=None)
+    if DEVICE == "cpu":
+        return result
+    if busy:
+        result["reason"] = "busy_with_narration"
+        return result
+    try:
+        samples = []
+        for i in range(READY_SAMPLES):
+            if i:
+                time.sleep(1)
+            samples.append(sample_gpu())
+        util = max(s[0] for s in samples)
+        free = min(s[1] for s in samples)
+        total = min(s[2] for s in samples)
+        with state_lock:
+            busy = pending > 0
+            loaded = model is not None
+            reserved = torch.cuda.memory_reserved() / 2**20 if loaded else 0
+        result.update(busy=busy, loaded=loaded, free_mb=round(free + reserved), total_mb=round(total), util_percent=util)
+        if busy:
+            result["reason"] = "busy_with_narration"
+        elif util > READY_MAX_UTIL:
+            result.update(ready=False, reason="gpu_busy")
+        elif free + reserved < READY_MIN_FREE_MB:
+            result.update(ready=False, reason="gpu_memory_low")
+    except (OSError, subprocess.SubprocessError, ValueError, IndexError, RuntimeError):
+        result.update(ready=False, reason="gpu_unavailable")
+    return result
+
+
+def unload_if_idle():
+    global model, sample_rate
+    with state_lock:
+        if pending or model is None or time.monotonic() - last_speak < IDLE_UNLOAD_S:
+            return
+        model = None
+        sample_rate = None
+        gc.collect()
+        if DEVICE == "cuda":
+            torch.cuda.empty_cache()
+    log(event="unloaded")
+
+
+def idle_monitor():
+    while True:
+        time.sleep(min(IDLE_UNLOAD_S, 10))
+        inference.submit(unload_if_idle)
+
+
+def queued_speak(request):
+    global pending, last_speak
+    try:
+        if model is None:
+            load()
+        return speak(*request)
+    finally:
+        with state_lock:
+            pending -= 1
+            last_speak = time.monotonic()
 
 
 def log(**fields):
@@ -123,12 +205,12 @@ def load():
     default_dtype = torch.get_default_dtype()
     torch.set_default_dtype(getattr(torch, os.environ.get("VOXCPM_DTYPE") or "bfloat16"))
     try:
-        model = VoxCPM.from_pretrained(model_dir(), load_denoiser=False, optimize=False, device="cpu", local_files_only=True)
+        model = VoxCPM.from_pretrained(model_dir(), load_denoiser=False, optimize=False, device=DEVICE, local_files_only=True)
     finally:
         torch.set_default_dtype(default_dtype)
     sample_rate = model.tts_model.sample_rate
     log(event="loaded", seconds=round(time.time() - started, 1), sample_rate=sample_rate, threads=torch.get_num_threads(),
-        dtype=os.environ.get("VOXCPM_DTYPE") or "bfloat16", peak_rss_mb=peak_rss_mb(), anon_rss_mb=anon_rss_mb(), **cpu_features())
+        dtype=os.environ.get("VOXCPM_DTYPE") or "bfloat16", peak_rss_mb=peak_rss_mb(), anon_rss_mb=anon_rss_mb(), **(cpu_features() if DEVICE == "cpu" else {"gpu_reserved_mb": round(torch.cuda.memory_reserved() / 2**20)}))
 
 
 def encode_mp3(wav, gain_db):
@@ -152,6 +234,8 @@ def speak(voice, language, text, seed=None):
     max_len = 20 + int(1.5 * len(text))
     short = len(text.split()) <= 2
     started = time.time()
+    if DEVICE == "cuda":
+        torch.cuda.reset_peak_memory_stats()
     memory = PeakAnon().__enter__()
     for attempt in range(3):
         torch.manual_seed(seed + attempt)
@@ -179,7 +263,7 @@ def speak(voice, language, text, seed=None):
     gc.collect()
     libc.malloc_trim(0)
     log(event="spoke", voice=voice, language=language, seed=seed, attempts=attempt + 1, chars=len(text), generation_s=round(seconds, 2),
-        audio_s=round(audio_seconds, 2), rtf=round(seconds / max(audio_seconds, 0.01), 2), phrase_peak_anon_mb=memory.peak, cgroup_mb=cgroup_mb())
+        audio_s=round(audio_seconds, 2), rtf=round(seconds / max(audio_seconds, 0.01), 2), phrase_peak_anon_mb=memory.peak, cgroup_mb=cgroup_mb(), **({"gpu_peak_mb": round(torch.cuda.max_memory_allocated() / 2**20), "gpu_reserved_mb": round(torch.cuda.max_memory_reserved() / 2**20)} if DEVICE == "cuda" else {}))
     return encode_mp3(wav, entry["gain_db"]), seconds, audio_seconds
 
 
@@ -217,16 +301,23 @@ class Handler(BaseHTTPRequestHandler):
     def error(self, status, code):
         self.reply(status, json.dumps({"error": code}).encode())
 
+    def authorized(self):
+        supplied = self.headers.get("authorization", "")
+        return len(TOKEN) >= 32 and hmac.compare_digest(supplied.encode(), f"Bearer {TOKEN}".encode())
+
     def do_GET(self):
         if self.path == "/health":
-            return self.reply(200, json.dumps({"ok": model is not None, "model": f"{ENGINE['model']}@{ENGINE['revision']}", "peak_rss_mb": peak_rss_mb()}).encode())
+            return self.reply(200, json.dumps({"ok": True, "loaded": model is not None, "model": f"{ENGINE['model']}@{ENGINE['revision']}", "peak_rss_mb": peak_rss_mb()}).encode())
+        if self.path == "/ready":
+            if not self.authorized():
+                return self.error(401, "unauthorized")
+            return self.reply(200, json.dumps(readiness()).encode())
         self.error(404, "not_found")
 
     def do_POST(self):
         if self.path != "/speak":
             return self.error(404, "not_found")
-        supplied = self.headers.get("authorization", "")
-        if len(TOKEN) < 32 or not hmac.compare_digest(supplied.encode(), f"Bearer {TOKEN}".encode()):
+        if not self.authorized():
             return self.error(401, "unauthorized")
         length = int(self.headers.get("content-length") or 0)
         if length <= 0 or length > 8192:
@@ -234,8 +325,12 @@ class Handler(BaseHTTPRequestHandler):
         request = parse(self.rfile.read(length))
         if not request:
             return self.error(400, "invalid_request")
+        global pending, last_speak
+        with state_lock:
+            pending += 1
+            last_speak = time.monotonic()
         try:
-            audio, seconds, audio_seconds = inference.submit(speak, *request).result()
+            audio, seconds, audio_seconds = inference.submit(queued_speak, request).result()
         except Exception as exc:  # noqa: BLE001 - report a stable code, log the detail
             log(event="failed", error=type(exc).__name__, detail=str(exc)[:300])
             return self.error(500, "synthesis_failed")
@@ -255,7 +350,8 @@ class Server(ThreadingHTTPServer):
 if __name__ == "__main__":
     if len(TOKEN) < 32:
         sys.exit("VOICE_WORKER_TOKEN must be at least 32 characters")
-    inference.submit(load).result()
+    if IDLE_UNLOAD_S > 0:
+        threading.Thread(target=idle_monitor, daemon=True).start()
     port = int(os.environ.get("PORT", "8080"))
     log(event="listening", port=port)
     Server(("::", port), Handler).serve_forever()
