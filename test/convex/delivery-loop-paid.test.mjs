@@ -75,3 +75,39 @@ test('provider adapter retrieves the settled intent with immutable order metadat
   intent=stripeFixture(scope,{livemode:false,latest_charge:{...stripeFixture(scope).latest_charge,livemode:false}});assert.equal((await inspect()).livemode,false);
 });
 test('paid form only offers what paid submit accepts',async()=>{const {paidIntakeDocument}=await import('../../convex/deliveryLoopPaidViews.js');const html=paidIntakeDocument((title,body,script)=>body+script,'','https://example.invalid/terms',s=>s);assert.doesNotMatch(html,/islam|musulman/);assert.match(html,/context:'general'/);});
+
+
+test('paid form presents message and meaning before name and email', async()=>{
+ const {paidIntakeDocument}=await import('../../convex/deliveryLoopPaidViews.js');
+ const html=paidIntakeDocument((title,body,script)=>body+script,'','https://example.invalid/terms',s=>s);
+ const order=['request','meaning','language','gender','birthDate','babyName','email'].map(name=>html.indexOf(`name="${name}"`));
+ assert.ok(order.every((value,index)=>value>=0 && (!index || value>order[index-1])),`paid order: ${order}`);
+ assert.match(html,/Sens du prénom/);
+});
+
+test('delivery serves direction A and ordered offered form', async()=>{
+ const response=await fixture().fetch('/delivery'); const html=await response.text();
+ assert.equal(response.status,200);
+ const order=['request','meaning','language','gender','context','birthDate','babyName','email'].map(id=>html.indexOf(`id="offered-${id}"`));
+ assert.ok(order.every((value,index)=>value>=0 && (!index || value>order[index-1])),`offered order: ${order}`);
+ assert.match(html,/font-size:16px/); assert.match(html,/#2f5443/i); assert.match(html,/Instrument Sans/);
+ assert.match(response.headers.get('content-security-policy'),/font-src 'self'/);
+});
+
+
+test('both forms submit the meaning only inside request',async()=>{
+ const {Script,createContext}=await import('node:vm');
+ const response=await fixture().fetch('/delivery'); const html=await response.text();
+ const script=html.match(/<script[^>]*>([\s\S]*?)<\/script>/)[1];
+ const sent=[]; const forms={};
+ for(const id of ['#paid-intake','#offered-intake']) forms[id]={handlers:{},elements:{magicPassword:{value:'secret'}},addEventListener(type,fn){this.handlers[type]=fn;},querySelector(){return {disabled:false};}};
+ const elements={...forms};
+ for(const id of ['#result','#review-link','#offered-result','#offered-links','#show-offer','#paid-section','#offered-section']) elements[id]={addEventListener(){},replaceChildren(){},append(){},hidden:false};
+ const document={querySelector:selector=>elements[selector],createElement:()=>({append(){}})};
+ class FormData {constructor(form){this.form=form;}get(name){return ({request:'Bonjour',meaning:this.form.meaning,email:'fictional@example.invalid',babyName:'Amal',gender:'neutral',language:'fr',context:'general',magicPassword:'secret'})[name]??null;}has(){return true;}}
+ const context=createContext({document,FormData,crypto:{randomUUID:()=> 'test-id'},fetch:async(_url,options)=>{sent.push(JSON.parse(options.body));return {ok:true,json:async()=>({reviewUrl:'/test'})};}});
+ new Script(script).runInContext(context);
+ for(const form of Object.values(forms)) for(const meaning of ['  lumière  ','   ']) {form.meaning=meaning;await form.handlers.submit({preventDefault(){}});}
+ assert.deepEqual(sent.map(x=>x.intake.request),['Bonjour\n\nSens du prénom : lumière','Bonjour','Bonjour\n\nSens du prénom : lumière','Bonjour']);
+ assert.ok(sent.every(x=>!Object.hasOwn(x.intake,'meaning')));
+});

@@ -7,6 +7,13 @@ export function splitNarrationPhrases(text) {
     text: phrase, pauseAfterSeconds: i < lines.length - 1 ? 0.5 : s < sections.length - 1 ? 1 : 0,
   })));
 }
+// buildAnnouncementChapters() output for one language -> the narration text whose
+// phraseStarts index the chapters' phrases in order (one start per screen).
+export function chapterNarrationText(chapters) {
+  if (!Array.isArray(chapters) || !chapters.length || chapters.some(c => !Array.isArray(c?.phrases) || !c.phrases.length
+    || c.phrases.some(p => typeof p?.text !== 'string' || !p.text.trim() || p.text.includes('\n')))) throw new Error('narration_input_invalid');
+  return chapters.map(c => c.phrases.map(p => p.text).join('\n')).join('\n\n');
+}
 export function validPhraseStarts(starts, count = starts?.length) {
   return Array.isArray(starts) && Number.isInteger(count) && count > 0 && starts.length === count && starts[0] === 0
     && starts.every((n, i) => typeof n === 'number' && Number.isFinite(n) && n < 3600 && (i === 0 || n > starts[i - 1]));

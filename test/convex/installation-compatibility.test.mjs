@@ -28,8 +28,8 @@ function fixture() {
   });
 }
 
-test('worker import/help loads the exact signed dynamic composition schema without credentials or network', () => {
-  assert.equal(sha(read('schemas/codex-subscription-composition.schema.json')), '042b96d94b7c77461e02e55a92af7a828b4619c7701aab25f9abb41d98f56914');
+test('worker import/help loads the expected dynamic composition schema without credentials or network', () => {
+  assert.equal(sha(read('schemas/codex-subscription-composition.schema.json')), '56e487e835075c08345705f49b15f7f6cb907cc2d258df58989b64bfd8508b8e');
   const result = spawnSync(process.execPath, ['scripts/run-delivery-loop-worker.mjs', '--help'], {
     cwd: new URL('../../', import.meta.url), env: { PATH: process.env.PATH }, encoding: 'utf8', timeout: 15000,
   });

@@ -10,15 +10,16 @@ import { createDeliveryLoopWorker } from "../../src/delivery-loop/worker.mjs";
 
 const INTAKE = { schemaVersion: "1.0", customer: { email: "synthetic-private@example.test" }, baby: { firstName: "Aélio-Z", gender: "neutral" }, languages: ["fr", "ar"], context: { religion: "general" }, voicePreference: { gender: "neutral" }, notes: { specificDemands: "Un récit sobre et chaleureux." } };
 function compositionFixture() {
-  return { schemaVersion: "1.0", languages: Object.fromEntries(["fr", "ar"].map((lang) => [lang, {
+  return { schemaVersion: "2.0", languages: Object.fromEntries(["fr", "ar"].map((lang) => [lang, {
     description: lang === "fr" ? "Un nouveau bonheur." : "فرح جديد.",
-    introLines: [lang === "fr" ? "Bienvenue, Aélio-Z." : "أهلاً بك."], introNarration: lang === "fr" ? "Bienvenue, Aélio-Z." : "أهلاً بك.",
+    introLines: [lang === "fr" ? "Bienvenue." : "أهلاً بك."], introNarration: lang === "fr" ? "Bienvenue." : "أهلاً بك.",
     blessingLines: [lang === "fr" ? "Que tes jours soient doux." : "أيام جميلة."], blessingNarration: lang === "fr" ? "Que tes jours soient doux." : "أيام جميلة.",
+    meaningLines: ["Douceur."], revealLines: ["Notre enfant."],
     closingLines: [lang === "fr" ? "Nous t’aimons déjà." : "لك كل الحب."], closingNarration: lang === "fr" ? "Nous t’aimons déjà." : "لك كل الحب.",
   }])) };
 }
 function receiptFor(intake, composition = compositionFixture()) {
-  const metadata = { adapterVersion: "1.0.0", provider: "openai-codex-subscription", model: "synthetic-offline-model", requestDigest: sha256(JSON.stringify({ adapterVersion: "1.0.0", provider: "openai-codex-subscription", model: "synthetic-offline-model", request: buildCodexCompositionRequest(intake) })), outputDigest: sha256(JSON.stringify(composition)) };
+  const metadata = { adapterVersion: "2.0.0", provider: "openai-codex-subscription", model: "synthetic-offline-model", requestDigest: sha256(JSON.stringify({ adapterVersion: "2.0.0", provider: "openai-codex-subscription", model: "synthetic-offline-model", request: buildCodexCompositionRequest(intake) })), outputDigest: sha256(JSON.stringify(composition)) };
   return { composition, metadata };
 }
 async function fixture(t, overrides = {}) {
@@ -273,7 +274,7 @@ test("continuous loop waits on empty/error polling and exits on cancellation", a
 
 const BRIEF = { firstName: "Aélio-Z", nameArabic: "أيليو", gender: "neutral", birthDate: null, religion: "general", tone: "tendre", phrases: ["Notre joie immense."], languages: ["fr", "ar"] };
 test("brief rejects unknown keys and unsafe phrases", () => {
-  assert.deepEqual(buildCodexCompositionRequest(BRIEF), { schemaVersion: "2.0", brief: BRIEF });
+  assert.deepEqual(buildCodexCompositionRequest(BRIEF), { schemaVersion: "3.0", brief: BRIEF, nameReference: null });
   for (const bad of [{ ...BRIEF, extra: "x" }, ...["https://evil.example", "une\nphrase", "une {phrase"].map((phrase) => ({ ...BRIEF, phrases: [phrase] }))]) assert.throws(() => buildCodexCompositionRequest(bad));
 });
 test("worker pipes only operator brief to Codex despite hostile claim data", async (t) => {

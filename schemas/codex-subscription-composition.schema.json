@@ -3,16 +3,22 @@
   "$id": "https://bebebonjour.local/schemas/codex-subscription-composition.schema.json",
   "type": "object",
   "additionalProperties": false,
-  "required": ["schemaVersion", "languages"],
+  "required": [
+    "schemaVersion",
+    "languages"
+  ],
   "properties": {
     "schemaVersion": {
       "type": "string",
-      "const": "1.0"
+      "const": "2.0"
     },
     "languages": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["ar", "fr"],
+      "required": [
+        "ar",
+        "fr"
+      ],
       "properties": {
         "ar": {
           "$ref": "#/$defs/languageComposition"
@@ -51,6 +57,8 @@
         "introNarration",
         "blessingLines",
         "blessingNarration",
+        "meaningLines",
+        "revealLines",
         "closingLines",
         "closingNarration"
       ],
@@ -77,6 +85,17 @@
         },
         "closingNarration": {
           "$ref": "#/$defs/narration"
+        },
+        "meaningLines": {
+          "$ref": "#/$defs/lines"
+        },
+        "revealLines": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/line"
+          },
+          "minItems": 1,
+          "maxItems": 2
         }
       }
     }
