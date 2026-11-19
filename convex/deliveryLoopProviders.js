@@ -5,7 +5,6 @@ import { paymentEventFields } from "./deliveryLoopPaymentEvents.js";
 import { paymentEventRejection } from "../src/delivery-loop/paid-event.mjs";
 import { v } from "convex/values";
 import { createHash } from "node:crypto";
-import { performNarration } from "../src/delivery-loop/provider-transport.mjs";
 import { splitNarrationPhrases, validPhraseStarts } from "../src/delivery-loop/narration-timing.mjs";
 import { cloudflareTransport, alreadyAdmitted } from "../src/delivery-loop/cloudflare-runtime.mjs";
 import Stripe from "stripe";
@@ -17,7 +16,7 @@ const ref = (name) => makeFunctionReference(`deliveryLoop:${name}`);
 const identity = { workerToken: v.string(), jobId: v.string(), leaseToken: v.string(), revision: v.number() };
 
 export const narrate = actionGeneric({
-  args: { ...identity, language: v.string(), text: v.string(), textDigest: v.string() },
+  args: { ...identity, language: v.string(), text: v.string(), textDigest: v.string(), audioBase64: v.string(), audioDigest: v.string(), bytes: v.number(), phraseStarts: v.array(v.number()), provider: v.string(), model: v.string(), voice: v.string() },
   handler: async (context, args) => {
     const stage = 'generate';
     const job = await context.runQuery(ref('authorizeProvider'), { ...pickIdentity(args), stage });
@@ -33,9 +32,9 @@ export const narrate = actionGeneric({
         provider: existing.provider, model: existing.model, voice: existing.voice };
     }
     await context.runMutation(ref('beginNarration'), { ...pickIdentity(args), language: args.language, textDigest: args.textDigest });
-    const receipt = await provider('narrate', { language: args.language, text: args.text, textDigest: args.textDigest, voice });
+    const receipt = args;
     const bytes = Buffer.from(receipt.audioBase64, 'base64');
-    if (bytes.length !== receipt.bytes || bytes.length < 128 || bytes.length > 12 * 1024 * 1024
+    if (bytes.length !== receipt.bytes || bytes.length < 128 || bytes.length > 5 * 1024 * 1024
       || createHash('sha256').update(bytes).digest('hex') !== receipt.audioDigest
       || receipt.textDigest !== args.textDigest || receipt.provider !== 'voxcpm'
       || receipt.voice !== voice || !validPhraseStarts(receipt.phraseStarts, phraseCount)) throw new Error('narration_receipt_invalid');
@@ -99,11 +98,6 @@ function emailPayload(job, stage, revision) {
   const html = `<div style="font-family:Georgia,serif;color:#20392d;max-width:580px"><h1>${escapeHtml(subject)}</h1><p>${escapeHtml(intro)}</p><p><a href="${escapeHtml(job.publicUrl)}">Ouvrir votre faire-part</a></p>${final ? '' : `<p><a href="${escapeHtml(job.reviewUrl)}">Corriger ou approuver</a></p>`}<p>Bébé Bonjour</p></div>`;
   return { to: job.intake.customer.email, subject, text, html,
     idempotencyKey: `bebe-loop:${job.jobId}:${revision}:${stage}` };
-}
-
-async function provider(operation, payload) {
-  if (operation === 'narrate') return performNarration(payload);
-  throw new Error('provider_operation_invalid');
 }
 
 function escapeHtml(value) {

@@ -9,7 +9,7 @@ export function createHttpHandler(runtime) {
     if (request.method === "POST" && match) {
       try {
         const reader = request.body?.getReader(); const chunks = []; let size = 0;
-        if (reader) for (;;) { const {value, done} = await reader.read(); if (done) break; size += value.byteLength; if (size > 2 * 1024 * 1024) { await reader.cancel(); return new Response("Payload too large", {status:413}); } chunks.push(value); }
+        if (reader) for (;;) { const {value, done} = await reader.read(); if (done) break; size += value.byteLength; if (size > 8 * 1024 * 1024) { await reader.cancel(); return new Response("Payload too large", {status:413}); } chunks.push(value); }
         const body = JSON.parse(Buffer.concat(chunks.map(chunk => Buffer.from(chunk))).toString());
         if (!Array.isArray(body.args) || body.args.length !== 1 || typeof body.path !== "string") throw new Error("invalid_request");
         const value = await runtime.call(match[1], body.path, jsonToConvex(body.args[0]), false);

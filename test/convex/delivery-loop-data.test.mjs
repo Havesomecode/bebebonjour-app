@@ -144,16 +144,21 @@ test('hourly pagination schedules continuation past ten legacy records; privacy 
   const crons=readFileSync(new URL('../../convex/crons.js',import.meta.url),'utf8');assert.match(crons,/hours: 1/);assert.match(crons,/deliveryLoopData:sweep/);
 });
 test('late narration recording denial removes only the action-owned new blob',async()=>{
-  const original=globalThis.fetch;const previousUrl=process.env.BEBEBONJOUR_VOICE_WORKER_URL;const previousToken=process.env.BEBEBONJOUR_VOICE_WORKER_TOKEN;process.env.BEBEBONJOUR_VOICE_WORKER_URL='https://voice.example.invalid';process.env.BEBEBONJOUR_VOICE_WORKER_TOKEN='offline-token';
   const deleted=[];const bytes=Buffer.alloc(384);bytes.set([0xff,0xf3,0xc4,0xc4]);
-  globalThis.fetch=async url=>{assert.equal(url,'https://voice.example.invalid/speak');return new Response(bytes);};
-  try {
-    const ctx={runQuery:async()=>({orderMode:'paid_route_a',intake:{languages:['fr']},narrationReceipts:[]}),runMutation:async fn=>{if(getFunctionName(fn).endsWith(':recordNarration'))throw new Error('data_deleted');},storage:{store:async()=> 'new_action_owned_blob',delete:async id=>deleted.push(id)}};
-    await assert.rejects(narrate._handler(ctx,{workerToken,jobId:'job_offline',leaseToken:'offline-lease',revision:1,language:'fr',text:'Bienvenue.',textDigest:sha('Bienvenue.')}),/data_deleted/);
-    assert.deepEqual(deleted,['new_action_owned_blob']);
-  }finally{globalThis.fetch=original;if(previousUrl===undefined)delete process.env.BEBEBONJOUR_VOICE_WORKER_URL;else process.env.BEBEBONJOUR_VOICE_WORKER_URL=previousUrl;if(previousToken===undefined)delete process.env.BEBEBONJOUR_VOICE_WORKER_TOKEN;else process.env.BEBEBONJOUR_VOICE_WORKER_TOKEN=previousToken;}
+  const ctx={runQuery:async()=>({orderMode:'paid_route_a',intake:{languages:['fr']},narrationReceipts:[]}),runMutation:async fn=>{if(getFunctionName(fn).endsWith(':recordNarration'))throw new Error('data_deleted');},storage:{store:async()=> 'new_action_owned_blob',delete:async id=>deleted.push(id)}};
+  await assert.rejects(narrate._handler(ctx,{workerToken,jobId:'job_offline',leaseToken:'offline-lease',revision:1,language:'fr',text:'Bienvenue.',textDigest:sha('Bienvenue.'), audioBase64:bytes.toString('base64'),audioDigest:sha(bytes),bytes:bytes.length,phraseStarts:[0],provider:'voxcpm',model:'offline',voice:'pere'}),/data_deleted/);
+  assert.deepEqual(deleted,['new_action_owned_blob']);
 });
 
+
+test('store validates supplied digest and voice before storing', async () => {
+  const bytes = Buffer.alloc(384, 42); let stores = 0;
+  const ctx = {runQuery:async()=>({intake:{languages:['fr'],voicePreference:{voice:'mere'}},narrationReceipts:[]}),runMutation:async()=>{},storage:{store:async()=>{stores++;return 'blob';},delete:async()=>{}}};
+  const args = {workerToken,jobId:'job_offline',leaseToken:'offline-lease',revision:1,language:'fr',text:'Bienvenue.',textDigest:sha('Bienvenue.'),audioBase64:bytes.toString('base64'),audioDigest:sha(bytes),bytes:bytes.length,phraseStarts:[0],provider:'voxcpm',model:'offline',voice:'mere'};
+  await assert.rejects(narrate._handler(ctx,{...args,audioDigest:'bad'}),/narration_receipt_invalid/);
+  await assert.rejects(narrate._handler(ctx,{...args,voice:'pere'}),/narration_receipt_invalid/);
+  assert.equal(stores,0); assert.equal((await narrate._handler(ctx,args)).storageId,'blob'); assert.equal(stores,1);
+});
 
 test('narrate rejects an existing receipt with a voice different from stored intake', async () => {
   const text = 'Bienvenue.'; const digest = sha(text);

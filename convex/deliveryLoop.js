@@ -359,6 +359,7 @@ export const fail = mutationGeneric({
     if (!/^[a-zA-Z0-9_: .-]+$/.test(reason) || reason.includes(args.workerToken)) throw new Error("invalid_failure_reason");
     row.data.lastError = { reason, stage: lease.stage, atMs: Date.now() };
     const uncertain = lease.effectStartedAtMs !== undefined && (isPaid(row) || args.providerDefinitiveFailure !== true);
+    if (!uncertain && args.retryable && lease.stage === "generate" && reason === "voice_worker_unavailable") row.data.generationAttempts = Math.max(0, row.data.generationAttempts - 1);
     const retry = args.retryable && (lease.stage !== "generate" || row.data.generationAttempts < 3);
     const state = uncertain ? "reconciliation_required" : retry ? stageState(lease.stage, "queued") : "failed";
     audit(row, "work_failed", { reason, stage: lease.stage, revision: row.data.desiredRevision, outcome: state, definitiveProviderFailure: args.providerDefinitiveFailure === true });

@@ -9,6 +9,7 @@ import { assertValidCodexCompositionReceipt, buildCodexCompositionRequest, sha25
 import { buildAnnouncementChapters } from "./chapters.mjs";
 import { renderAnnouncement } from "./render.mjs";
 import { chapterNarrationText, splitNarrationPhrases, validPhraseStarts } from "./narration-timing.mjs";
+import { performNarration } from "./provider-transport.mjs";
 
 const STAGES = new Set(["generate", "draft_email", "final_email"]);
 const DEFAULT_STATE_DIR = "/home/hermes/.local/share/bebebonjour-delivery-loop";
@@ -114,10 +115,15 @@ export function createDeliveryLoopWorker(options = {}) {
         } else {
           if (audio?.status === "inflight" || audio?.status === "uncertain") reject("narration_reconciliation_required");
           assertLease(job, signal);
+          let generated;
+          try {
+            generated = await boundedCall(() => (options.narrate ?? performNarration)({ text, textDigest, language, voice: job.intake.voicePreference?.voice ?? 'pere' }, environment), Math.min(narrationTimeoutMs, job.leaseExpiresAtMs - now() - 1000), signal);
+          } catch { reject("voice_worker_unavailable", true); }
+          assertLease(job, signal);
           journal.state.audio[language] = { status: "inflight", textDigest };
           await journal.save();
           try {
-            const result = await invoke("action", "deliveryLoopProviders:narrate", { ...identity(job), language, text, textDigest }, signal, Math.min(narrationTimeoutMs, job.leaseExpiresAtMs - now() - 1000));
+            const result = await invoke("action", "deliveryLoopProviders:narrate", { ...identity(job), language, text, textDigest, audioBase64: generated.audioBase64, audioDigest: generated.audioDigest, bytes: generated.bytes, phraseStarts: generated.phraseStarts, provider: generated.provider, model: generated.model, voice: generated.voice }, signal, Math.min(requestTimeoutMs, job.leaseExpiresAtMs - now() - 1000));
             validateNarration(result, textDigest, phraseCount);
             const committed = await reconcile(job, (remote) => findNarration(remote, job.revision, language, textDigest), signal);
             if (!committed || committed.storageId !== result.storageId || JSON.stringify(committed.phraseStarts) !== JSON.stringify(result.phraseStarts)) reject("narration_reconciliation_required");

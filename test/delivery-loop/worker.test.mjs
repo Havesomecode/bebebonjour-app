@@ -57,7 +57,8 @@ async function fixture(t, overrides = {}) {
   };
   const composer = { async compose(input) { calls.push({ name: "compose", args: input }); return receiptFor(input); } };
   const logs = [];
-  const options = { client, composer, stateDir: path.join(root, "state"), workerToken: "offline-worker-secret", workerId: "offline-worker", logger: (event) => logs.push(event), providerTimeoutMs: 1000, requestTimeoutMs: 1000, reconciliationAttempts: 1 };
+  const narrate = async args => { calls.push({ name: 'local-narrate', args }); const audio = Buffer.alloc(384, 1); return { audioBase64: audio.toString('base64'), audioDigest: sha256(audio), bytes: audio.length, phraseStarts: args.text.split('\n').filter(Boolean).map((_, i) => i), provider: 'voxcpm', model: 'offline', voice: args.voice }; };
+  const options = { client, composer, narrate, stateDir: path.join(root, "state"), workerToken: "offline-worker-secret", workerId: "offline-worker", logger: (event) => logs.push(event), providerTimeoutMs: 1000, requestTimeoutMs: 1000, reconciliationAttempts: 1 };
   return { root, claim, remote, calls, client, composer, logs, options, worker: createDeliveryLoopWorker(options) };
 }
 function count(context, name) { return context.calls.filter((call) => call.name === name).length; }
@@ -72,12 +73,26 @@ async function journalFiles(root) {
   return files;
 }
 
+test("voice worker failure retries without an inflight journal", async t => {
+  const f = await fixture(t);
+  const worker = createDeliveryLoopWorker({ ...f.options, narrate: async () => { throw new Error('offline'); } });
+  const result = await worker.runOnce();
+  assert.equal(result.reason, 'voice_worker_unavailable');
+  assert.equal(result.retryable, true);
+  assert.equal(count(f, 'deliveryLoopProviders:narrate'), 0);
+  const files = await journalFiles(f.options.stateDir);
+  const state = JSON.parse(await readFile(files.find(file => file.endsWith('/state.json')), 'utf8'));
+  assert.deepEqual(state.audio, {});
+});
+
 test("generate composes through subscription, narrates selected languages and publishes, never sends in this lease", async (t) => {
   const f = await fixture(t);
   const result = await f.worker.runOnce();
   assert.equal(result.status, "published");
   assert.equal(count(f, "compose"), 1);
   assert.equal(count(f, "deliveryLoopProviders:narrate"), 2);
+  assert.equal(count(f, "local-narrate"), 2);
+  for (const call of f.calls.filter(call => call.name === 'deliveryLoopProviders:narrate')) { assert.ok(call.args.audioBase64); assert.equal(call.args.voice, 'pere'); }
   assert.equal(count(f, "deliveryLoopProviders:sendEmail"), 0);
   const publish = f.calls.find((call) => call.name === "deliveryLoop:publish").args;
   assert.equal(publish.contentDigest, createHash("sha256").update(publish.contentHtml).digest("hex"));

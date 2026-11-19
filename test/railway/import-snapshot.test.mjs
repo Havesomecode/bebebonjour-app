@@ -35,7 +35,7 @@ test("snapshot import preserves published announcements", async t => {
   t.after(async()=>{await app.close(); await database.close(); await rm(stateDir,{recursive:true,force:true});});
   const base = `http://127.0.0.1:${app.server.address().port}`;
   assert.equal((await fetch(`${base}/version`)).status, 200);
-  const tooLarge = await fetch(`${base}/api/query`, {method:'POST',body:'x'.repeat(2 * 1024 * 1024 + 1)});
+  const tooLarge = await fetch(`${base}/api/query`, {method:'POST',body:'x'.repeat(8 * 1024 * 1024 + 1)});
   assert.equal(tooLarge.status, 413);
   const http = new ConvexHttpClient(base,{skipConvexDeploymentUrlCheck:true,logger:false});
   const intake = {email:"fictional@example.invalid",babyName:"Amal",language:"fr",gender:"girl",context:"general",voiceEnabled:true,consent:true,fictional:true};

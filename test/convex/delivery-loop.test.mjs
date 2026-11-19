@@ -97,6 +97,16 @@ test("operator console lists newest first with the specified projection", async 
   assert.equal(JSON.stringify(listed).includes("reviewToken"), false);
 });
 
+test('voice unavailability requeues repeatedly without spending generation attempts', async () => {
+  const t = fixture(); const job = await submit(t); await launch(t, job.jobId);
+  for (let i = 0; i < 5; i++) {
+    const lease = await claim(t, `voice-offline-lease-${i}`);
+    const result = await t.mutation(ref('fail'), {workerToken, jobId:job.jobId, leaseToken:lease.leaseToken, reason:'voice_worker_unavailable', retryable:true});
+    assert.equal(result.status, 'generation_queued');
+    const row = await read(t, job.jobId); assert.equal(row.generationAttempts, 0); assert.equal(row.lastError.reason, 'voice_worker_unavailable');
+  }
+});
+
 test("operator relaunches exhausted failed generation and resets attempts", async () => {
   const t = fixture(); const job = await submit(t);
   await launch(t, job.jobId);
