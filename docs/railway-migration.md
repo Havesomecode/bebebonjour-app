@@ -297,6 +297,8 @@ Verify:
   live Stripe Checkout (`cs_live_`) at 39,00 € (not paid). Ops login throttle calls
   reach Railway. The unsigned webhook probe answers 400 (signature check on Railway);
   the first signed live delivery is still to be seen on the next real payment.
+- The local exports were deleted right after the switch: the paused Convex deployment
+  holds the same data.
 - To reach the database again (rollback listing, `compare`): recreate a TCP proxy on
   `Postgres` port 5432, use `?sslmode=no-verify`, delete the proxy afterwards.
 
