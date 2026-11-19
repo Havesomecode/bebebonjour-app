@@ -18,7 +18,7 @@ Chapters are variable: one progress bar per section actually present. No verifie
 ## Rules
 
 - `meaning` text must not contain the first name, its Arabic form or catalogue aliases. Reject the composition otherwise.
-- Verses only from `data/reference-catalog.json` (verified quote, translation, reference). Never generated.
+- Verses only from `data/reference-catalog.json` (verified quote, translation, reference), checked against the Tanzil/Hamidullah texts in `data/quran-verses.json`. Never generated. Catalog sources and format: `docs/name-catalog.md`.
 - After the reveal the page turns forest green (#2F5443) and the name stays in the top bar.
 - Without audio, paused, or before timings exist: tap/arrow to advance. `prefers-reduced-motion`: no animation.
 - Visual base: direction A (paper #F5F0E6, card #FFFDF8, ink #20251F, forest #2F5443, clay #94432F; Newsreader titles, Instrument Sans UI, Noto Naskh Arabic). Text contrast ≥ 4.5:1.

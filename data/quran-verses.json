@@ -1,0 +1,224 @@
+{
+  "sources": {
+    "arabic": {
+      "name": "Tanzil Quran Text (Simple)",
+      "url": "https://tanzil.net/download/",
+      "notice": "Tanzil Quran Text, Copyright (C) 2007-2025 Tanzil Project, License: Creative Commons Attribution 3.0. This copy of the Quran text is carefully produced, highly verified and continuously monitored by a group of specialists in Tanzil Project. Verbatim copies only."
+    },
+    "fr": {
+      "name": "Muhammad Hamidullah, Le Saint Coran",
+      "url": "https://quran.com/fr",
+      "api": "https://api.quran.com/api/v4 translation 31"
+    }
+  },
+  "verses": {
+    "2:2": {
+      "surah": {
+        "ar": "البقرة",
+        "fr": "Al-Baqarah"
+      },
+      "ar": "ذَٰلِكَ الْكِتَابُ لَا رَيْبَ فِيهِ هُدًى لِّلْمُتَّقِينَ",
+      "fr": "Voici le Livre au sujet duquel il n’y a aucun doute, c’est un guide pour les pieux,"
+    },
+    "2:31": {
+      "surah": {
+        "ar": "البقرة",
+        "fr": "Al-Baqarah"
+      },
+      "ar": "وَعَلَّمَ آدَمَ الْأَسْمَاءَ كُلَّهَا ثُمَّ عَرَضَهُمْ عَلَى الْمَلَائِكَةِ فَقَالَ أَنبِئُونِي بِأَسْمَاءِ هَٰؤُلَاءِ إِن كُنتُمْ صَادِقِينَ",
+      "fr": "Et Il apprit à Adam tous les noms (de toutes choses), puis Il les présenta aux Anges et dit: \"Informez-Moi des noms de ceux-là, si vous êtes véridiques!\" (dans votre prétention que vous êtes plus méritants qu’Adam)."
+    },
+    "3:33": {
+      "surah": {
+        "ar": "آل عمران",
+        "fr": "Ali 'Imran"
+      },
+      "ar": "إِنَّ اللَّهَ اصْطَفَىٰ آدَمَ وَنُوحًا وَآلَ إِبْرَاهِيمَ وَآلَ عِمْرَانَ عَلَى الْعَالَمِينَ",
+      "fr": "Certes, Allah a élu Adam, Noé, la famille d’Abraham et la famille d’Imrân au-dessus de tout le monde."
+    },
+    "3:45": {
+      "surah": {
+        "ar": "آل عمران",
+        "fr": "Ali 'Imran"
+      },
+      "ar": "إِذْ قَالَتِ الْمَلَائِكَةُ يَا مَرْيَمُ إِنَّ اللَّهَ يُبَشِّرُكِ بِكَلِمَةٍ مِّنْهُ اسْمُهُ الْمَسِيحُ عِيسَى ابْنُ مَرْيَمَ وَجِيهًا فِي الدُّنْيَا وَالْآخِرَةِ وَمِنَ الْمُقَرَّبِينَ",
+      "fr": "(Rappelle-toi,) quand les Anges dirent : “Ô Marie! Voilà qu’Allah t’annonce une parole de Sa part: son nom sera le Messie (Al-Masîḥ) Jésus ('Issâ), fils de Marie, illustre ici-bas comme dans l’au-delà, et l’un des rapprochés d’Allah ."
+    },
+    "3:138": {
+      "surah": {
+        "ar": "آل عمران",
+        "fr": "Ali 'Imran"
+      },
+      "ar": "هَٰذَا بَيَانٌ لِّلنَّاسِ وَهُدًى وَمَوْعِظَةٌ لِّلْمُتَّقِينَ",
+      "fr": "Voilà un exposé pour les gens, un guide, et une exhortation pour les pieux."
+    },
+    "4:125": {
+      "surah": {
+        "ar": "النساء",
+        "fr": "An-Nisa"
+      },
+      "ar": "وَمَنْ أَحْسَنُ دِينًا مِّمَّنْ أَسْلَمَ وَجْهَهُ لِلَّهِ وَهُوَ مُحْسِنٌ وَاتَّبَعَ مِلَّةَ إِبْرَاهِيمَ حَنِيفًا وَاتَّخَذَ اللَّهُ إِبْرَاهِيمَ خَلِيلًا",
+      "fr": "Qui est meilleur en religion que celui qui soumet à Allah son être, tout en se conformant (vertueusement) à la Loi révélée et suivant la religion d’Abraham, homme de droiture? Et Allah a pris Abraham pour ami (intime et) privilégié."
+    },
+    "12:4": {
+      "surah": {
+        "ar": "يوسف",
+        "fr": "Yusuf"
+      },
+      "ar": "إِذْ قَالَ يُوسُفُ لِأَبِيهِ يَا أَبَتِ إِنِّي رَأَيْتُ أَحَدَ عَشَرَ كَوْكَبًا وَالشَّمْسَ وَالْقَمَرَ رَأَيْتُهُمْ لِي سَاجِدِينَ",
+      "fr": "Quand Joseph dit à son père : \"Ô mon père ! J'ai vu [en songe], onze étoiles, et aussi le soleil et la lune ; je les ai vus prosternés devant moi.\""
+    },
+    "18:46": {
+      "surah": {
+        "ar": "الكهف",
+        "fr": "Al-Kahf"
+      },
+      "ar": "الْمَالُ وَالْبَنُونَ زِينَةُ الْحَيَاةِ الدُّنْيَا وَالْبَاقِيَاتُ الصَّالِحَاتُ خَيْرٌ عِندَ رَبِّكَ ثَوَابًا وَخَيْرٌ أَمَلًا",
+      "fr": "Les biens et les enfants sont l’ornement de la vie de ce monde. Cependant, les bonnes œuvres qui perdurent ont auprès de ton Seigneur une meilleure récompense et [suscitent] une belle espérance."
+    },
+    "19:2": {
+      "surah": {
+        "ar": "مريم",
+        "fr": "Maryam"
+      },
+      "ar": "ذِكْرُ رَحْمَتِ رَبِّكَ عَبْدَهُ زَكَرِيَّا",
+      "fr": "C’est un récit de la miséricorde de ton Seigneur envers Son serviteur Zacharie."
+    },
+    "19:7": {
+      "surah": {
+        "ar": "مريم",
+        "fr": "Maryam"
+      },
+      "ar": "يَا زَكَرِيَّا إِنَّا نُبَشِّرُكَ بِغُلَامٍ اسْمُهُ يَحْيَىٰ لَمْ نَجْعَل لَّهُ مِن قَبْلُ سَمِيًّا",
+      "fr": "\"Ô Zacharie ! Nous t’annonçons la bonne nouvelle d’un fils. Son nom sera Jean (Yahyâ). Nous ne lui avons pas donné auparavant d’homonyme.\""
+    },
+    "19:54": {
+      "surah": {
+        "ar": "مريم",
+        "fr": "Maryam"
+      },
+      "ar": "وَاذْكُرْ فِي الْكِتَابِ إِسْمَاعِيلَ إِنَّهُ كَانَ صَادِقَ الْوَعْدِ وَكَانَ رَسُولًا نَّبِيًّا",
+      "fr": "Et mentionne Ismaël, dans le Livre. Il était fidèle à ses promesses; et c’était un Messager et un Prophète."
+    },
+    "21:107": {
+      "surah": {
+        "ar": "الأنبياء",
+        "fr": "Al-Anbya"
+      },
+      "ar": "وَمَا أَرْسَلْنَاكَ إِلَّا رَحْمَةً لِّلْعَالَمِينَ",
+      "fr": "Et Nous ne t’avons envoyé qu’en miséricorde pour l’Univers ."
+    },
+    "24:35": {
+      "surah": {
+        "ar": "النور",
+        "fr": "An-Nur"
+      },
+      "ar": "اللَّهُ نُورُ السَّمَاوَاتِ وَالْأَرْضِ مَثَلُ نُورِهِ كَمِشْكَاةٍ فِيهَا مِصْبَاحٌ الْمِصْبَاحُ فِي زُجَاجَةٍ الزُّجَاجَةُ كَأَنَّهَا كَوْكَبٌ دُرِّيٌّ يُوقَدُ مِن شَجَرَةٍ مُّبَارَكَةٍ زَيْتُونَةٍ لَّا شَرْقِيَّةٍ وَلَا غَرْبِيَّةٍ يَكَادُ زَيْتُهَا يُضِيءُ وَلَوْ لَمْ تَمْسَسْهُ نَارٌ نُّورٌ عَلَىٰ نُورٍ يَهْدِي اللَّهُ لِنُورِهِ مَن يَشَاءُ وَيَضْرِبُ اللَّهُ الْأَمْثَالَ لِلنَّاسِ وَاللَّهُ بِكُلِّ شَيْءٍ عَلِيمٌ",
+      "fr": "Allah est la Lumière des cieux et de la terre. Sa lumière est semblable à une niche où se trouve une lampe. La lampe est dans un (récipient de) cristal et celui-ci ressemble à un astre de grand éclat ; son combustible vient d’un arbre béni: un olivier ni oriental ni occidental dont l’huile semble éclairer sans même que le feu la touche. Lumière sur lumière. Allah guide vers Sa lumière qui Il veut. Et Allah propose aux hommes des paraboles et Allah est Omniscient."
+    },
+    "27:15": {
+      "surah": {
+        "ar": "النمل",
+        "fr": "An-Naml"
+      },
+      "ar": "وَلَقَدْ آتَيْنَا دَاوُودَ وَسُلَيْمَانَ عِلْمًا وَقَالَا الْحَمْدُ لِلَّهِ الَّذِي فَضَّلَنَا عَلَىٰ كَثِيرٍ مِّنْ عِبَادِهِ الْمُؤْمِنِينَ",
+      "fr": "Et Nous avons effectivement donné à David et à Salomon une science; et ils dirent : \"Louange à Allah, Celui qui nous a favorisés à beaucoup de Ses serviteurs croyants.\""
+    },
+    "37:79": {
+      "surah": {
+        "ar": "الصافات",
+        "fr": "As-Saffat"
+      },
+      "ar": "سَلَامٌ عَلَىٰ نُوحٍ فِي الْعَالَمِينَ",
+      "fr": "Paix sur Noé dans tout l’Univers !"
+    },
+    "37:112": {
+      "surah": {
+        "ar": "الصافات",
+        "fr": "As-Saffat"
+      },
+      "ar": "وَبَشَّرْنَاهُ بِإِسْحَاقَ نَبِيًّا مِّنَ الصَّالِحِينَ",
+      "fr": "Nous lui fîmes la bonne annonce d’Isaac comme Prophète d’entre les gens vertueux."
+    },
+    "37:123": {
+      "surah": {
+        "ar": "الصافات",
+        "fr": "As-Saffat"
+      },
+      "ar": "وَإِنَّ إِلْيَاسَ لَمِنَ الْمُرْسَلِينَ",
+      "fr": "Elie était, certes, du nombre des Messagers."
+    },
+    "37:139": {
+      "surah": {
+        "ar": "الصافات",
+        "fr": "As-Saffat"
+      },
+      "ar": "وَإِنَّ يُونُسَ لَمِنَ الْمُرْسَلِينَ",
+      "fr": "Jonas était certes, du nombre des Messagers."
+    },
+    "48:4": {
+      "surah": {
+        "ar": "الفتح",
+        "fr": "Al-Fath"
+      },
+      "ar": "هُوَ الَّذِي أَنزَلَ السَّكِينَةَ فِي قُلُوبِ الْمُؤْمِنِينَ لِيَزْدَادُوا إِيمَانًا مَّعَ إِيمَانِهِمْ وَلِلَّهِ جُنُودُ السَّمَاوَاتِ وَالْأَرْضِ وَكَانَ اللَّهُ عَلِيمًا حَكِيمًا",
+      "fr": "C’est Lui qui a fait descendre la quiétude dans les cœurs des croyants afin qu’ils ajoutent une foi à leur foi. A Allah appartiennent les armées des cieux et de la terre ; et Allah est Omniscient et Sage."
+    },
+    "48:29": {
+      "surah": {
+        "ar": "الفتح",
+        "fr": "Al-Fath"
+      },
+      "ar": "مُّحَمَّدٌ رَّسُولُ اللَّهِ وَالَّذِينَ مَعَهُ أَشِدَّاءُ عَلَى الْكُفَّارِ رُحَمَاءُ بَيْنَهُمْ تَرَاهُمْ رُكَّعًا سُجَّدًا يَبْتَغُونَ فَضْلًا مِّنَ اللَّهِ وَرِضْوَانًا سِيمَاهُمْ فِي وُجُوهِهِم مِّنْ أَثَرِ السُّجُودِ ذَٰلِكَ مَثَلُهُمْ فِي التَّوْرَاةِ وَمَثَلُهُمْ فِي الْإِنجِيلِ كَزَرْعٍ أَخْرَجَ شَطْأَهُ فَآزَرَهُ فَاسْتَغْلَظَ فَاسْتَوَىٰ عَلَىٰ سُوقِهِ يُعْجِبُ الزُّرَّاعَ لِيَغِيظَ بِهِمُ الْكُفَّارَ وَعَدَ اللَّهُ الَّذِينَ آمَنُوا وَعَمِلُوا الصَّالِحَاتِ مِنْهُم مَّغْفِرَةً وَأَجْرًا عَظِيمًا",
+      "fr": "Mohammed est le Messager d’Allah. Et ceux qui sont avec lui sont durs envers les mécréants, miséricordieux entre eux. Tu les vois inclinés, prosternés, recherchant d’Allah grâce et agrément. Leurs visages sont marqués par la trace laissée par la prosternation. Telle est leur image dans la Thora. Et l’image que l’on donne d’eux dans l’Evangile est celle d’une semence qui sort sa pousse, puis se raffermit, s’épaissit, et ensuite se dresse sur sa tige, à l’émerveillement des semeurs. [Allah] par eux [les croyants] remplit de dépit les mécréants. Allah promet à ceux d’entre eux qui croient et font de bonnes œuvres, un pardon et une énorme récompense."
+    },
+    "49:7": {
+      "surah": {
+        "ar": "الحجرات",
+        "fr": "Al-Hujurat"
+      },
+      "ar": "وَاعْلَمُوا أَنَّ فِيكُمْ رَسُولَ اللَّهِ لَوْ يُطِيعُكُمْ فِي كَثِيرٍ مِّنَ الْأَمْرِ لَعَنِتُّمْ وَلَٰكِنَّ اللَّهَ حَبَّبَ إِلَيْكُمُ الْإِيمَانَ وَزَيَّنَهُ فِي قُلُوبِكُمْ وَكَرَّهَ إِلَيْكُمُ الْكُفْرَ وَالْفُسُوقَ وَالْعِصْيَانَ أُولَٰئِكَ هُمُ الرَّاشِدُونَ",
+      "fr": "Et sachez que le Messager d’Allah est parmi vous. S’il vous obéissait dans maintes affaires, vous seriez en difficultés. Mais Allah vous a fait aimer la foi et l’a embellie dans vos cœurs et vous a fait détester la mécréance, la perversité et la désobéissance. Ceux-là sont les biens dirigés,"
+    },
+    "55:4": {
+      "surah": {
+        "ar": "الرحمن",
+        "fr": "Ar-Rahman"
+      },
+      "ar": "عَلَّمَهُ الْبَيَانَ",
+      "fr": "Il lui a appris à s’exprimer clairement."
+    },
+    "61:6": {
+      "surah": {
+        "ar": "الصف",
+        "fr": "As-Saf"
+      },
+      "ar": "وَإِذْ قَالَ عِيسَى ابْنُ مَرْيَمَ يَا بَنِي إِسْرَائِيلَ إِنِّي رَسُولُ اللَّهِ إِلَيْكُم مُّصَدِّقًا لِّمَا بَيْنَ يَدَيَّ مِنَ التَّوْرَاةِ وَمُبَشِّرًا بِرَسُولٍ يَأْتِي مِن بَعْدِي اسْمُهُ أَحْمَدُ فَلَمَّا جَاءَهُم بِالْبَيِّنَاتِ قَالُوا هَٰذَا سِحْرٌ مُّبِينٌ",
+      "fr": "Et quand Jésus fils de Marie dit : \"Ô Enfants d’Israël, je suis vraiment le Messager d’Allah [envoyé] à vous, confirmateur de ce qui, dans la Thora, est antérieur à moi, et annonciateur d’un Messager à venir après moi, dont le nom sera \"Aḥmad.\" Puis quand celui-ci vint à eux avec des preuves évidentes, ils dirent: \"C’est là une magie manifeste.\""
+    },
+    "75:19": {
+      "surah": {
+        "ar": "القيامة",
+        "fr": "Al-Qiyamah"
+      },
+      "ar": "ثُمَّ إِنَّ عَلَيْنَا بَيَانَهُ",
+      "fr": "A Nous, ensuite incombera son explication."
+    },
+    "83:27": {
+      "surah": {
+        "ar": "المطففين",
+        "fr": "Al-Mutaffifin"
+      },
+      "ar": "وَمِزَاجُهُ مِن تَسْنِيمٍ",
+      "fr": "Il est mélangé à la boisson de Tasnîm,"
+    },
+    "108:1": {
+      "surah": {
+        "ar": "الكوثر",
+        "fr": "Al-Kawthar"
+      },
+      "ar": "بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ إِنَّا أَعْطَيْنَاكَ الْكَوْثَرَ",
+      "fr": "Nous t’avons certes, accordé l’Abondance."
+    }
+  }
+}
