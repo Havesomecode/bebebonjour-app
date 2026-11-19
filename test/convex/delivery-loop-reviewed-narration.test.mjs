@@ -43,7 +43,8 @@ const hidden = 'Une affirmation ajoutée uniquement à la narration, jamais mont
 const fr = { description:'Une histoire.', introLines:['Bienvenue.', 'Un bonheur & une joie.'], introNarration:'HIDDEN INTRO FR', blessingLines:['Des jours doux.'], blessingNarration:'HIDDEN BLESSING FR', meaningLines:['Douceur.'], revealLines:['Notre enfant.'], closingLines:['Notre amour.'], closingNarration:hidden };
 const ar = { description:'فرح جديد.', introLines:['أهلاً بك.', 'فرح جديد.'], introNarration:'HIDDEN INTRO AR', blessingLines:['أيام جميلة.'], blessingNarration:'HIDDEN BLESSING AR', meaningLines:['Douceur.'], revealLines:['Notre enfant.'], closingLines:['لك كل الحب.'], closingNarration:hidden };
 const composition = { schemaVersion:'2.0', languages:{fr,ar} };
-const transcript = language => [composition.languages[language].introLines.join('\n'), composition.languages[language].blessingLines.join('\n'), composition.languages[language].closingLines.join('\n')].join('\n\n');
+// Speech reads every displayed screen in order: intro, wishes, meaning, reveal lead-in, the name, closing.
+const transcript = language => { const c = composition.languages[language]; return [...c.introLines, ...c.blessingLines, ...c.meaningLines, ...c.revealLines, language === 'fr' ? 'Amal' : 'أمل', ...c.closingLines].join('\n'); };
 
 for (const language of ['fr', 'ar']) test(`SR-01: ${language} generated speech uses displayed prose, never hidden narration`, async context => {
   const t = fixture(); const effects = [];
@@ -72,7 +73,7 @@ for (const language of ['fr', 'ar']) test(`SR-01: ${language} generated speech u
   assert.equal(result.status,'published',JSON.stringify(result));
   const speech = effects.filter(e => e.url === 'https://api.openai.com/v1/audio/speech');
   const inputs = speech.map(e => e.payload.input);
-  assert.deepEqual(inputs, transcript(language).split('\n').filter(Boolean));
+  assert.deepEqual(inputs, transcript(language).split('\n'));
   assert.ok(inputs.every(input => !input.includes(hidden) && !input.includes('HIDDEN')));
   const final = await read(t,job);
   assert.ok(final.revisions[0].contentHtml.includes(language === 'fr' ? 'Notre amour.' : 'لك كل الحب.'));

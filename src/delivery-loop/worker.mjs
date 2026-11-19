@@ -6,9 +6,9 @@ import path from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
 import { createCodexSubscriptionComposer } from "../fulfillment/codex-subscription-composer.mjs";
 import { assertValidCodexCompositionReceipt, buildCodexCompositionRequest, sha256 } from "../../scripts/lib/codex-subscription-composition.mjs";
+import { buildAnnouncementChapters } from "./chapters.mjs";
 import { renderAnnouncement } from "./render.mjs";
-import { splitNarrationPhrases, validPhraseStarts } from "./narration-timing.mjs";
-import { reviewedNarrationText } from "./reviewed-narration.mjs";
+import { chapterNarrationText, splitNarrationPhrases, validPhraseStarts } from "./narration-timing.mjs";
 
 const STAGES = new Set(["generate", "draft_email", "final_email"]);
 const DEFAULT_STATE_DIR = "/home/hermes/.local/share/bebebonjour-delivery-loop";
@@ -91,11 +91,13 @@ export function createDeliveryLoopWorker(options = {}) {
       await journal.storeReceipt(receipt);
     }
     validateReceipt(receipt, input);
+    // One phrase list for screens and speech: phraseStarts[i] is the start of screen i.
+    const chapters = buildAnnouncementChapters({ composition: receipt.composition, brief: input });
     const audioFiles = [];
     const narrationEnabled = job.intake.voicePreference?.enabled !== false;
     for (const language of narrationEnabled ? input.languages : []) {
       assertLease(job, signal);
-      const text = reviewedNarrationText(receipt.composition.languages[language]);
+      const text = chapterNarrationText(chapters[language]);
       const phraseCount = splitNarrationPhrases(text).length;
       const textDigest = sha256(text);
       let audio = journal.state.audio[language];
@@ -134,7 +136,7 @@ export function createDeliveryLoopWorker(options = {}) {
       validateNarration(audio, textDigest, phraseCount);
       audioFiles.push({ language, storageId: audio.storageId, textDigest, phraseStarts: audio.phraseStarts });
     }
-    const contentHtml = renderAnnouncement({ composition: receipt.composition, baby: { firstName: input.firstName, nameArabic: input.nameArabic }, languages: input.languages, publicUrl: job.publicUrl, revision: job.revision, pendingReview: true, narrationEnabled, phraseStarts: Object.fromEntries(audioFiles.map(file => [file.language, file.phraseStarts])) });
+    const contentHtml = renderAnnouncement({ chapters, languages: input.languages, publicUrl: job.publicUrl, revision: job.revision, pendingReview: true, narrationEnabled, phraseStarts: narrationEnabled ? Object.fromEntries(audioFiles.map(file => [file.language, file.phraseStarts])) : undefined });
     const contentDigest = sha256(contentHtml);
     if (journal.state.published?.contentDigest && journal.state.published.contentDigest !== contentDigest) reject("journal_publication_mismatch");
     const wasPublished = await peek(job, (remote) => findPublication(remote, job.revision, contentDigest), signal);

@@ -1,93 +1,50 @@
 import { assertValidCodexSubscriptionComposition } from "../../scripts/lib/codex-subscription-composition.mjs";
-import { REVIEWED_STORY_SECTIONS } from "./reviewed-narration.mjs";
-import { validPhraseStarts } from "./narration-timing.mjs";
+import { SLIDESHOW_SCRIPT } from "./slideshow-script.mjs";
 
-const LABELS = Object.freeze({
-  fr: { welcome: "Bienvenue au monde", listen: "Écouter le récit", voice: "Une narration créée avec une voix artificielle.", draft: "Première version · en attente de votre validation", introduction: "Une nouvelle présence", blessing: "Pour les jours à venir", closing: "Avec tout notre amour", error: "La narration est indisponible pour le moment. Réessayez plus tard." },
-  ar: { welcome: "أهلاً بك في العالم", listen: "استمع إلى الحكاية", voice: "سرد بصوت مولّد بالذكاء الاصطناعي.", draft: "نسخة أولى · بانتظار موافقتكم", introduction: "حضور جديد", blessing: "للأيام القادمة", closing: "بكل حبنا", error: "السرد غير متاح الآن. يرجى المحاولة لاحقاً." },
-});
+const labels = {
+  fr: { welcome: 'Bienvenue au monde', description: 'Un faire-part de naissance à écouter.', voice: 'Une narration créée avec une voix artificielle.', draft: 'Première version · en attente de votre validation', error: 'La narration est indisponible pour le moment. Réessayez plus tard.', play: 'Écouter', chapters: ['La bonne nouvelle', 'Nos vœux', 'Le sens de son prénom', 'Son prénom', 'Dans le Coran', 'Avec tout notre amour'] },
+  ar: { welcome: 'أهلاً بك في العالم', description: 'إعلان ولادة للاستماع.', voice: 'سرد بصوت مولّد بالذكاء الاصطناعي.', draft: 'نسخة أولى · بانتظار موافقتكم', error: 'السرد غير متاح الآن. يرجى المحاولة لاحقاً.', play: 'تشغيل', chapters: ['الخبر السعيد', 'دعواتنا', 'معنى الاسم', 'الاسم', 'في القرآن الكريم', 'بكل حبنا'] },
+};
+const order = ['intro', 'dua', 'meaning', 'reveal', 'verses', 'closing'];
+const escapeHtml = value => String(value).replace(/[&<>"']/gu, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
+const validString = value => typeof value === 'string' && value.trim().length > 0;
+const reject = () => { throw new Error('render_input_rejected'); };
 
-// This renderer intentionally accepts only a public projection. Never serialize a
-// claim/intake, provider receipt, or review capability into the page or its script.
-export function renderAnnouncement({ composition, baby, languages, publicUrl, publicToken, revision, pendingReview = true, narrationEnabled = true, phraseStarts = {} }) {
-  if (publicToken === undefined) {
-    try { publicToken = /^\/announcements\/([A-Za-z0-9_-]{1,256})\/?$/u.exec(new URL(publicUrl).pathname)?.[1]; } catch { throw new Error("render_input_rejected"); }
-  }
-  assertValidCodexSubscriptionComposition(composition);
-  if (!Array.isArray(languages) || languages.length < 1 || languages.length > 2 || new Set(languages).size !== languages.length || languages.some((lang) => !Object.hasOwn(LABELS, lang)) || typeof baby?.firstName !== "string" || !Number.isSafeInteger(revision) || revision < 1 || typeof publicToken !== "string" || !/^[A-Za-z0-9_-]{1,256}$/u.test(publicToken)) {
-    throw new Error("render_input_rejected");
-  }
-  let origin;
-  try {
-    const url = new URL(publicUrl);
-    if (url.protocol !== "https:" || url.username || url.password) throw new Error();
-    origin = url.origin;
-  } catch {
-    throw new Error("render_input_rejected");
-  }
+export function renderAnnouncement({ chapters, languages, publicUrl, publicToken, revision, pendingReview = true, narrationEnabled = true, phraseStarts }) {
+  if (publicToken === undefined) { try { publicToken = /^\/announcements\/([A-Za-z0-9_-]{1,256})\/?$/u.exec(new URL(publicUrl).pathname)?.[1]; } catch { reject(); } }
+  if (!Array.isArray(languages) || languages.length < 1 || languages.length > 2 || new Set(languages).size !== languages.length || languages.some(l => !Object.hasOwn(labels, l)) || !Number.isSafeInteger(revision) || revision < 1 || typeof publicToken !== 'string' || !/^[A-Za-z0-9_-]{1,256}$/u.test(publicToken)) reject();
+  try { const url = new URL(publicUrl); if (url.protocol !== 'https:' || url.username || url.password) reject(); } catch { reject(); }
+  if (!chapters || typeof chapters !== 'object' || (phraseStarts !== undefined && (!phraseStarts || typeof phraseStarts !== 'object' || Array.isArray(phraseStarts)))) reject();
+  const panels = languages.map(lang => {
+    const list = chapters[lang]; if (!Array.isArray(list) || !list.length) reject();
+    let last = -1, count = 0, namePhrase;
+    for (const chapter of list) {
+      const pos = order.indexOf(chapter?.section); if (pos <= last || !Array.isArray(chapter.phrases) || !chapter.phrases.length) reject(); last = pos;
+      for (const phrase of chapter.phrases) {
+        if (!phrase || !validString(phrase.text) || phrase.text.length > 600 || (phrase.reference !== undefined && !validString(phrase.reference)) || (phrase.arabic !== undefined && !validString(phrase.arabic)) || (phrase.name !== undefined && (!phrase.name || !validString(phrase.name.latin) || (phrase.name.arabic !== undefined && !validString(phrase.name.arabic))))) reject();
+        if (phrase.name) { if (namePhrase) reject(); namePhrase = phrase; } count++;
+      }
+    }
+    if (count > 80) reject();
+    const starts = phraseStarts?.[lang]; if (starts !== undefined && (!Array.isArray(starts) || starts.length !== count || starts.some((v, i) => typeof v !== 'number' || !Number.isFinite(v) || v < 0 || (i && v <= starts[i-1])))) reject();
+    let index = 0;
+    const screens = list.map((chapter, ci) => chapter.phrases.map((p, pi) => {
+      const i = index++, previous = chapter.phrases[pi-1], text = escapeHtml(p.text); let body;
+      if (p.name) {
+        const main = lang === 'ar' ? (p.name.arabic || p.name.latin) : p.name.latin, other = lang === 'ar' ? p.name.latin : p.name.arabic;
+        body = `${previous ? `<p class="prev namelead">${escapeHtml(previous.text)}</p>` : ''}<h1 class="rise">${escapeHtml(main)}</h1>${other ? `<p class="other rise" ${lang === 'fr' ? 'lang="ar" dir="rtl"' : 'lang="fr" dir="ltr"'}>${escapeHtml(other)}</p>` : ''}`;
+      } else if (p.reference) body = `${lang === 'ar' || p.arabic ? `<p class="verse-ar" lang="ar" dir="rtl">${escapeHtml(lang === 'ar' ? p.text : p.arabic)}</p>` : ''}${lang === 'fr' ? `<p class="verse-fr">${text}</p>` : ''}<p class="ref">${escapeHtml(p.reference)}</p>`;
+      else body = `${previous && chapter.section !== 'reveal' ? `<p class="prev">${escapeHtml(previous.text)}</p>` : ''}<p class="phrase${chapter.section === 'reveal' ? ' leadin' : ''}">${text}</p>`;
+      return `<section data-screen data-index="${i}" data-chapter="${chapter.section}" data-chapter-index="${ci}" data-chapter-position="${pi}" data-chapter-count="${chapter.phrases.length}" data-label="${escapeHtml(labels[lang].chapters[order.indexOf(chapter.section)])}"${p.name ? ' data-name-screen' : ''}${starts ? ` data-start="${starts[i]}"` : ''}>${body}</section>`;
+    }).join('')).join('');
+    const chip = namePhrase ? (lang === 'ar' ? namePhrase.name.arabic || namePhrase.name.latin : namePhrase.name.latin) : '';
+    return `<article id="story-${lang}" data-language-panel="${lang}" lang="${lang}" dir="${lang === 'ar' ? 'rtl' : 'ltr'}" data-slideshow><div class="bars">${list.map(() => '<i><b></b></i>').join('')}</div><div class="chap"><span class="eyebrow" data-chapter-label>${labels[lang].chapters[order.indexOf(list[0].section)]}</span><span class="meta" data-chapter-counter>1 / ${list.length}</span><span class="namechip" data-name-chip hidden>${escapeHtml(chip)}</span></div><div class="stage" aria-live="polite">${screens}</div><div class="player">${narrationEnabled ? `<button class="play" type="button" data-play="${lang}" aria-pressed="false" aria-label="${labels[lang].play}">▶</button>` : ''}<div class="track"><b></b></div><span class="meta" data-screen-counter>1/${count}</span></div>${narrationEnabled ? `<audio controls preload="none" src="/announcements/${publicToken}/audio/${revision}/${lang}" aria-label="${labels[lang].play}"></audio><p class="voice-note">${labels[lang].voice}</p><p data-audio-error hidden role="status">${labels[lang].error}</p>` : ''}</article>`;
+  }).join('');
   const first = languages[0];
-  const panels = languages.map((lang) => {
-    const labels = LABELS[lang];
-    const content = composition.languages[lang];
-    const audioUrl = `${origin}/announcements/${publicToken}/audio/${revision}/${lang}`;
-    const count = REVIEWED_STORY_SECTIONS.reduce((sum, [, field]) => sum + content[field].length, 0);
-    if (narrationEnabled && !validPhraseStarts(phraseStarts[lang], count)) throw new Error("render_input_rejected");
-    let phrase = 0;
-    const sections = REVIEWED_STORY_SECTIONS.map(([title, field], index) => `<section class="story"><span class="chapter" aria-hidden="true">0${index + 1}</span><h2>${labels[title]}</h2>${content[field].map((line) => `<p${narrationEnabled ? ` data-start="${phraseStarts[lang][phrase++]}"` : ""}>${escapeHtml(line)}</p>`).join("")}</section>`).join("");
-    return `<article id="story-${lang}" data-language-panel="${lang}" lang="${lang}" dir="${lang === "ar" ? "rtl" : "ltr"}">
-      <header class="welcome"><p class="eyebrow">${labels.welcome}</p><h1>${escapeHtml(lang === "ar" && baby.nameArabic ? baby.nameArabic : baby.firstName)}</h1><p class="description">${escapeHtml(content.description)}</p></header>
-      ${narrationEnabled ? `<div class="narration"><button type="button" data-play="${lang}" aria-controls="audio-${lang}" aria-pressed="false">▷ ${labels.listen}</button><audio id="audio-${lang}" controls preload="none" src="${escapeHtml(audioUrl)}" aria-label="${labels.listen}"></audio><p class="voice-note">${labels.voice}</p><p data-audio-error hidden role="status">${labels.error}</p></div>` : ""}
-      ${sections}
-    </article>`;
-  }).join("\n");
-  const switcher = languages.length > 1 ? `<nav class="language-switch" aria-label="Language / اللغة" data-language-switch>${languages.map((lang) => `<a href="#story-${lang}" data-language="${lang}" lang="${lang}" aria-controls="story-${lang}">${lang === "fr" ? "Français" : "العربية"}</a>`).join("")}</nav>` : "";
-  const draft = pendingReview ? `<!--delivery-loop-draft:start--><aside data-draft-marker class="draft" role="status">${languages.map((lang) => `<span lang="${lang}" dir="${lang === "ar" ? "rtl" : "ltr"}">${LABELS[lang].draft}</span>`).join(" ")}</aside><!--delivery-loop-draft:end-->` : "";
-  return `<!doctype html>
-<html lang="${first}" dir="${first === "ar" ? "rtl" : "ltr"}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="robots" content="noindex, nofollow"><meta name="referrer" content="no-referrer"><title>${escapeHtml(baby.firstName)} · Bébé Bonjour</title><meta name="description" content="${escapeHtml(composition.languages[first].description)}"><style>${STYLES}</style></head><body><div class="topbar"><span class="brand">Bébé Bonjour</span>${switcher}</div>${draft}<main>${panels}</main><footer>Bébé Bonjour <span aria-hidden="true">·</span> Une histoire à partager</footer><script>${SCRIPT}</script></body></html>`;
+  const switcher = languages.length > 1 ? `<nav data-language-switch>${languages.map(lang => `<a href="#story-${lang}" data-language="${lang}" lang="${lang}" aria-controls="story-${lang}">${lang === 'fr' ? 'Français' : 'العربية'}</a>`).join('')}</nav>` : '';
+  const draft = pendingReview ? `<!--delivery-loop-draft:start--><aside data-draft-marker class="draft" role="status">${languages.map(lang => `<span lang="${lang}" dir="${lang === 'ar' ? 'rtl' : 'ltr'}">${labels[lang].draft}</span>`).join(' ')}</aside><!--delivery-loop-draft:end-->` : '';
+  return `<!doctype html><html lang="${first}" dir="${first === 'ar' ? 'rtl' : 'ltr'}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="robots" content="noindex, nofollow"><meta name="referrer" content="no-referrer"><title>${labels[first].welcome} · Bébé Bonjour</title><meta name="description" content="${labels[first].description}"><style>${STYLES}</style></head><body><div class="wrap"><div class="top"><span class="logo"><em>Bébé</em> Bonjour</span>${switcher}</div>${draft}<main>${panels}</main></div><script>${SLIDESHOW_SCRIPT}</script></body></html>`;
 }
-
-function escapeHtml(value) {
-  return String(value).replace(/[&<>"']/gu, (character) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[character]);
-}
-
 const STYLES = `
-:root{color-scheme:light;--paper:#f9f4ec;--ink:#352c2a;--forest:#304c3b;--muted:#6e665e;--line:#ddd5c8}
-*{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;color:var(--ink);background:radial-gradient(ellipse at 50% 0,#fffdf9,transparent 70%),var(--paper);font-family:Georgia,"Times New Roman",serif;line-height:1.7}
-.topbar{display:flex;align-items:center;justify-content:space-between;gap:1rem;max-width:1080px;margin:auto;padding:1.5rem 2rem;border-bottom:1px solid var(--line)}.brand{font-size:1rem;letter-spacing:.04em;color:var(--forest)}.language-switch{display:flex;gap:.7rem;flex-wrap:wrap}.language-switch a{font:inherit;font-size:.9rem;text-decoration:none;color:var(--forest);padding:.3rem .7rem;border:1px solid transparent;border-radius:2rem}.language-switch a[aria-current="true"]{border-color:var(--forest)}
-.draft{max-width:52rem;margin:1.25rem auto 0;padding:.6rem 1.2rem;color:var(--muted);font-size:.82rem;text-align:center}.draft span{display:inline-block;margin-inline:.4rem}main{max-width:760px;margin:auto;padding:0 1.5rem}.welcome{text-align:center;padding:clamp(3rem,9vh,7rem) 0 2rem}.eyebrow{color:var(--forest);font-size:.85rem;letter-spacing:.14em}h1{font-weight:400;font-size:clamp(2.5rem,9vw,5.8rem);line-height:1.2;margin:1.2rem 0;overflow-wrap:anywhere}.description{max-width:34rem;margin:1.5rem auto;color:var(--muted);font-size:1.1rem}.narration{display:flex;flex-direction:column;align-items:center;gap:.8rem;padding:1rem 0 3.5rem}.narration button{font:inherit;background:var(--forest);color:#fffdf9;border:0;border-radius:3rem;padding:.8rem 1.6rem;cursor:pointer}.narration audio{max-width:100%;width:320px}.voice-note{font-size:.75rem;color:var(--muted);margin:0}.story{position:relative;text-align:center;border-top:1px solid var(--line);padding:clamp(3rem,8vh,6rem) 1rem}.chapter{font-size:.72rem;letter-spacing:.16em;color:var(--muted)}h2{font-weight:400;font-size:1rem;letter-spacing:.04em;color:var(--forest);margin:.5rem 0 2rem}.story p{font-size:clamp(1.2rem,3.5vw,1.7rem);line-height:1.9;margin:1rem auto;max-width:38rem}.story:last-child{padding-bottom:5rem}article[lang="ar"]{font-family:"Noto Naskh Arabic","Traditional Arabic",Georgia,serif}article[lang="ar"] p{letter-spacing:normal}article[lang="ar"] .eyebrow{letter-spacing:normal}footer{text-align:center;padding:2rem;border-top:1px solid var(--line);font-size:.8rem;color:var(--muted)}[hidden]{display:none!important}a:focus-visible,button:focus-visible,audio:focus-visible{outline:3px solid #8f7751;outline-offset:4px}@media(max-width:480px){.topbar{padding:1rem}.draft{margin-top:.6rem}.welcome{padding-top:3rem}main{padding-inline:1rem}.story{padding-inline:0}}@media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}}
+html[lang=fr] .draft [lang=ar],html[lang=ar] .draft [lang=fr]{display:none}[dir=rtl] .leadin,[dir=rtl] .namelead{font-style:normal}:root{--paper:#F5F0E6;--card:#FFFDF8;--ink:#20251F;--muted:#575B52;--forest:#2F5443;--clay:#94432F;--rule:#E2DBCB;--ivory:#FFFDF8;--sage:#CFDCD3}*{box-sizing:border-box}body{margin:0;background:var(--paper);color:var(--ink);font-family:"Instrument Sans","Avenir Next",system-ui,sans-serif;transition:background-color 700ms,color 700ms}.wrap{max-width:720px;margin:auto;min-height:100svh;display:flex;flex-direction:column;padding:0 20px}.top{display:flex;align-items:center;justify-content:space-between;padding:18px 0;gap:12px}.logo{font:500 1.125rem/1 "Newsreader",Georgia,serif}.logo em{color:var(--forest)}nav{display:flex;gap:1rem}nav a{color:inherit;font-size:.85rem}.draft{text-align:center;font-size:.75rem;color:var(--muted)}main{flex:1;display:flex;flex-direction:column}article{flex:1;display:flex;flex-direction:column;min-width:0}.bars{display:flex;gap:4px;padding:14px 0 0}.bars i{flex:1;height:3px;border-radius:3px;background:var(--rule);overflow:hidden}.bars b{display:block;height:100%;width:0;background:var(--forest)}.chap{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:12px 2px 0;min-height:30px}.eyebrow{font-size:.75rem;letter-spacing:.05em;text-transform:uppercase;color:var(--clay);font-weight:600}.meta,.ref,.voice-note{font-size:.8125rem;color:var(--muted)}.stage{flex:1;display:grid;align-content:center;gap:18px;padding:20px 2px}.stage section{min-width:0;overflow-wrap:anywhere}.stage p,.stage h1{margin:0}.stage section>*+*{margin-top:18px}.phrase{font:400 clamp(1.75rem,4.5vw,2.75rem)/1.25 "Newsreader",Georgia,serif;text-wrap:balance}.prev{font:400 1.0625rem/1.4 "Newsreader",Georgia,serif;color:var(--muted)}.leadin{text-align:center;font-style:italic}.stage section:has(h1){text-align:center}.namelead{font-style:italic}.stage h1{font:400 clamp(3.5rem,12vw,6rem)/1.25 "Newsreader",Georgia,serif}.other,.verse-ar{font:400 2rem/1.7 "Noto Naskh Arabic","Traditional Arabic",serif;text-align:center}.verse-fr{font:italic 400 1.25rem/1.4 "Newsreader",Georgia,serif;text-align:center}.ref{text-align:center}.namechip{font:italic 400 1rem/1 "Newsreader",Georgia,serif}.player{display:flex;align-items:center;gap:12px;padding:14px 0 18px}.play{width:40px;height:40px;border:0;border-radius:50%;background:var(--clay);color:var(--ivory);cursor:pointer}.track{height:2px;background:var(--rule);flex:1}.track b{display:block;height:100%;background:var(--clay);width:0}audio{max-width:100%}.voice-note{margin:0 0 15px}.rev{background:var(--forest);color:var(--ivory)}.rev .logo em{color:var(--ivory)}.rev .bars i,.rev .track{background:#ffffff33}.rev .bars b,.rev .track b{background:var(--ivory)}.rev .meta,.rev .prev,.rev .ref,.rev .voice-note,.rev .draft{color:var(--sage)}.rev .eyebrow{color:#F2C9B4}.rev .play{background:var(--ivory);color:var(--forest)}.fade{animation:fadein 420ms both}.rise{animation:rise 900ms 250ms both}@keyframes fadein{from{opacity:0;transform:translateY(8px)}}@keyframes rise{from{opacity:0;transform:translateY(14px)}}[hidden]{display:none!important}@media(prefers-reduced-motion:reduce){.fade,.rise{animation:none}body{transition:none}}
 `;
-
-// No JSON bootstrap: the only dynamic values live in escaped HTML attributes.
-const SCRIPT = `(() => {
-  const panels = Array.from(document.querySelectorAll('[data-language-panel]'));
-  const links = Array.from(document.querySelectorAll('[data-language]'));
-  const select = (language) => {
-    panels.forEach((panel) => {
-      const active = panel.dataset.languagePanel === language;
-      panel.hidden = !active;
-      if (!active) panel.querySelector('audio')?.pause();
-    });
-    links.forEach((link) => link.setAttribute('aria-current', String(link.dataset.language === language)));
-    document.documentElement.lang = language;
-    document.documentElement.dir = language === 'ar' ? 'rtl' : 'ltr';
-  };
-  links.forEach((link) => link.addEventListener('click', (event) => { event.preventDefault(); select(link.dataset.language); }));
-  panels.forEach((panel) => {
-    const audio = panel.querySelector('audio');
-    if (!audio) return;
-    const button = panel.querySelector('[data-play]');
-    const error = panel.querySelector('[data-audio-error]');
-    button.addEventListener('click', async () => {
-      if (!audio.paused) { audio.pause(); return; }
-      error.hidden = true;
-      try { await audio.play(); } catch { error.hidden = false; }
-    });
-    audio.addEventListener('play', () => button.setAttribute('aria-pressed', 'true'));
-    ['pause', 'ended'].forEach((event) => audio.addEventListener(event, () => button.setAttribute('aria-pressed', 'false')));
-    audio.addEventListener('error', () => { error.hidden = false; button.setAttribute('aria-pressed', 'false'); });
-  });
-  if (panels.length > 1) {
-    const requested = location.hash.replace('#story-', '');
-    select(panels.some((panel) => panel.dataset.languagePanel === requested) ? requested : panels[0].dataset.languagePanel);
-  }
-})();`;

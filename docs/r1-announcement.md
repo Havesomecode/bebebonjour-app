@@ -48,4 +48,16 @@ The composer rejects (`composition_output_rejected`, retryable: another attempt 
 
 ## Timing
 
-Narration synthesizes each displayed phrase separately, then concatenates MP3 frames with 0.5 seconds of silence between phrases in a section and 1.0 second between sections (rounded to whole frames). Receipts and published `audioFiles` carry `phraseStarts`: seconds, one per displayed phrase in order, first 0 and strictly increasing. Each displayed phrase exposes its start as `data-start` when narration is enabled. `chapterNarrationText(chapters[language])` (`src/delivery-loop/narration-timing.mjs`) turns a `buildAnnouncementChapters` list into that text, so `phraseStarts[i]` is the start of the i-th chapter phrase (verses and the name phrase included). Until the slideshow renders chapters, the worker narrates the three displayed reviewed sections. The current page exposes timing; a future slideshow can use it to switch screens. The voice engine is expected to change (VoiceStudio); the timing contract does not.
+The worker speaks the same phrase list it renders: `chapterNarrationText(chapters[language])` (`src/delivery-loop/narration-timing.mjs`) joins phrases with `\n` inside a chapter and `\n\n` between chapters (the name phrase and verse quotes included; `reference`, `arabic` and `name` stay display-only).
+
+Narration synthesizes each phrase separately (`synthesizePhrase` in `src/delivery-loop/provider-transport.mjs`, the only engine-specific function), then concatenates the MP3 frames with 0.5 s of silence between phrases of a chapter and 1.0 s between chapters, rounded to whole frames. Each start is computed from frame counts, not estimated. Narration receipts and published `audioFiles` carry `phraseStarts`: seconds, one per screen in order, first 0, strictly increasing, rounded to the millisecond. Convex rejects a receipt whose count does not match the text's phrases, and a publication whose starts differ from its receipt. The render turns them into `data-start`.
+
+The voice engine is expected to change (VoiceStudio): replace `synthesizePhrase`; the timing contract does not change.
+
+## Render
+
+`renderAnnouncement({ chapters, languages, publicUrl, revision, phraseStarts? })` (`src/delivery-loop/render.mjs`) takes the per-language chapter list above and emits one `<section data-screen>` per phrase, one bar per chapter. A phrase with `name` is the reveal screen; a phrase with `reference` is a verse screen (Arabic RTL, translation, reference). `phraseStarts[lang]` (seconds, strictly increasing, one per phrase) becomes `data-start`; while the audio plays the page shows the last screen whose start has passed. Without starts, audio or with playback paused, tap or arrows advance. Space/k toggles play.
+
+The page has one inline script, `SLIDESHOW_SCRIPT` (`src/delivery-loop/slideshow-script.mjs`). The Convex announcement route allows exactly its SHA-256 (`script-src 'sha256-…'`, `sandbox allow-scripts`). Changing the script changes the hash automatically; never add another inline script.
+
+The worker renders `buildAnnouncementChapters` output. Fixture preview (prototype `page.json`, via `page-fixture-chapters.mjs`): `npm run render:r1-bayane` → `out/r1-bayane/index.html` (23 screens in French).
