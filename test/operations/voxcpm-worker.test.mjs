@@ -26,6 +26,13 @@ test('worker configuration is required before fetch', async () => {
   }
 });
 
+test('a waking worker (502/503 or refused connection) is retried', async () => {
+  const frame = Buffer.alloc(384); frame.set([0xff, 0xf3, 0xc4, 0xc4]);
+  const replies = [() => { throw new TypeError('fetch failed'); }, () => new Response('', {status:502}), () => new Response('', {status:503}), () => new Response(frame)];
+  const receipt = await performNarration({text:'Bonjour.',textDigest:sha('Bonjour.'),language:'fr',voice:'pere'}, {...environment, BEBEBONJOUR_VOICE_WORKER_WAKE_DELAY_MS:'1'}, async () => replies.shift()());
+  assert.equal(replies.length, 0); assert.equal(receipt.phraseStarts.length, 1);
+});
+
 test('worker errors and invalid audio fail closed', async () => {
   const args = {text:'Bonjour.',textDigest:sha('Bonjour.'),language:'ar',voice:'pere'};
   await assert.rejects(() => performNarration(args,environment,async () => new Response('{}',{status:500})), /narration_provider_http_500/);

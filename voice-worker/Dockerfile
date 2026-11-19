@@ -11,4 +11,4 @@ RUN python -c "from huggingface_hub import snapshot_download; snapshot_download(
 COPY data/voices data/voices
 COPY voice-worker/server.py voice-worker/server.py
 ENV VOXCPM_MODEL_DIR=/models/VoxCPM2 HF_HUB_OFFLINE=1 PYTHONUNBUFFERED=1 MALLOC_ARENA_MAX=2
-CMD ["python", "-I", "voice-worker/server.py"]
+CMD ["python", "-I", "-X", "faulthandler", "voice-worker/server.py"]

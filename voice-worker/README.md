@@ -19,6 +19,15 @@ GET  /health
 
 ## Railway sizing
 
-8 vCPU / 8 GB. Measured on staging (AMD EPYC, bf16): load 11 s, about 5.9 GB anonymous memory while speaking, 2.9× real time, so a 35–40 s narration takes about 100–120 s per language. `MALLOC_ARENA_MAX=2`, a single inference thread and `malloc_trim` after each phrase keep memory flat; without them the service hit its 8 GB limit.
+8 vCPU / 8 GB. Measured on staging (19/11/2026, bf16, one Bayane announcement, fr + ar, 9 phrases each):
+
+| Voice | Narration audio | Generation time | Peak worker memory (anon) |
+| --- | --- | --- | --- |
+| Père | 37.9 s fr + 37.0 s ar | 107 s + 103 s (2.8× real time) | 7.1 GB |
+| Mère | 41.1 s fr + 42.4 s ar | 112 s + 119 s (2.8× real time) | 7.1 GB |
+
+About 3.5–4 minutes of voice work per announcement. The model takes 5.6 GB at rest; each `spoke` log line carries `generation_s`, `rtf` and `phrase_peak_anon_mb`. `MALLOC_ARENA_MAX=2`, a single inference thread and `malloc_trim` after each phrase keep memory flat; without them the service hit its 8 GB limit.
+
+The service sleeps when idle (Railway Serverless). The first phrase wakes it; the delivery loop retries 502/503 and refused connections for about two minutes (`BEBEBONJOUR_VOICE_WORKER_WAKE_DELAY_MS`, default 10 s × 12).
 
 Deploy: `railway up -s voice` from a folder holding `voice-worker/` and `data/voices/` (`RAILWAY_DOCKERFILE_PATH=voice-worker/Dockerfile`). The image bakes in the model weights.

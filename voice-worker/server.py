@@ -19,6 +19,7 @@ import re
 import resource
 import subprocess
 import sys
+import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -48,6 +49,32 @@ def log(**fields):
 
 def peak_rss_mb():
     return round(resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 1024)
+
+
+def cgroup_mb():
+    """Memory the container is charged for (anon + page cache), as the platform's limit sees it."""
+    try:
+        return round(int(open("/sys/fs/cgroup/memory.current").read()) / 2**20)
+    except (OSError, ValueError):
+        return None
+
+
+class PeakAnon:
+    """Samples anonymous memory while a phrase is generated: the per-phrase peak is what can hit the limit."""
+
+    def __enter__(self):
+        self.peak, self.stop = anon_rss_mb() or 0, threading.Event()
+        self.thread = threading.Thread(target=self.watch, daemon=True)
+        self.thread.start()
+        return self
+
+    def watch(self):
+        while not self.stop.wait(0.1):
+            self.peak = max(self.peak, anon_rss_mb() or 0)
+
+    def __exit__(self, *exc):
+        self.stop.set()
+        self.thread.join()
 
 
 def anon_rss_mb():
@@ -125,6 +152,7 @@ def speak(voice, language, text, seed=None):
     max_len = 20 + int(1.5 * len(text))
     short = len(text.split()) <= 2
     started = time.time()
+    memory = PeakAnon().__enter__()
     for attempt in range(3):
         torch.manual_seed(seed + attempt)
         np.random.seed(seed + attempt)
@@ -145,12 +173,13 @@ def speak(voice, language, text, seed=None):
             break
         log(event="runaway", voice=voice, language=language, seed=seed + attempt, chars=len(text))
     seconds = time.time() - started
+    memory.__exit__()
     wav = np.asarray(wav, dtype=np.float32).squeeze()
     audio_seconds = len(wav) / sample_rate
     gc.collect()
     libc.malloc_trim(0)
     log(event="spoke", voice=voice, language=language, seed=seed, attempts=attempt + 1, chars=len(text), generation_s=round(seconds, 2),
-        audio_s=round(audio_seconds, 2), rtf=round(seconds / max(audio_seconds, 0.01), 2), peak_rss_mb=peak_rss_mb(), anon_rss_mb=anon_rss_mb())
+        audio_s=round(audio_seconds, 2), rtf=round(seconds / max(audio_seconds, 0.01), 2), phrase_peak_anon_mb=memory.peak, cgroup_mb=cgroup_mb())
     return encode_mp3(wav, entry["gain_db"]), seconds, audio_seconds
 
 

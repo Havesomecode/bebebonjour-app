@@ -8,11 +8,26 @@ export async function performNarration({ text, textDigest, language, voice }, en
       || createHash('sha256').update(text).digest('hex') !== textDigest) throw new Error('narration_input_invalid');
   const url = required(environment, 'BEBEBONJOUR_VOICE_WORKER_URL').replace(/\/+$/, '');
   const token = required(environment, 'BEBEBONJOUR_VOICE_WORKER_TOKEN');
+  // The voice service sleeps when idle; while it boots, Railway refuses or answers 502/503.
+  // /speak has no side effect, so those answers are retried for about two minutes.
+  const wakeDelayMs = Number(environment.BEBEBONJOUR_VOICE_WORKER_WAKE_DELAY_MS ?? 10_000);
+  const speak = async (phrase) => {
+    for (let attempt = 1; ; attempt++) {
+      let response;
+      try {
+        response = await fetchImpl(`${url}/speak`, {
+          method: 'POST', headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' },
+          body: JSON.stringify({ voice, language: phrase.language, text: phrase.text }), signal: AbortSignal.timeout(180_000),
+        });
+      } catch (error) {
+        if (error?.name !== 'TypeError' || attempt >= 12) throw error;
+      }
+      if (response && ![502, 503].includes(response.status) || attempt >= 12) return response;
+      await new Promise((resolve) => setTimeout(resolve, wakeDelayMs));
+    }
+  };
   const { audio: bytes, phraseStarts } = await narratePhrases({ text, language, concurrency: 1, synthesize: async (phrase) => {
-    const response = await fetchImpl(`${url}/speak`, {
-      method: 'POST', headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' },
-      body: JSON.stringify({ voice, language: phrase.language, text: phrase.text }), signal: AbortSignal.timeout(180_000),
-    });
+    const response = await speak(phrase);
     if (!response.ok) throw new Error(`narration_provider_http_${response.status}`);
     const audio = Buffer.from(await response.arrayBuffer());
     if (audio.length < 128 || audio.length > MAX_AUDIO_BYTES) throw new Error('narration_audio_invalid');
