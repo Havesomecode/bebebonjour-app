@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
 
 import Ajv2020 from "ajv/dist/2020.js";
-import { arabicNameForm, resolvedNameEntry, forbiddenNameForms } from "../../src/delivery-loop/name-reference.mjs";
+import { arabicNameForm, catalogMeaning, forbiddenNameForms } from "../../src/delivery-loop/name-reference.mjs";
 import { validateBrief } from "../../src/delivery-loop/brief.mjs";
 
 export const CODEX_SUBSCRIPTION_ADAPTER_VERSION = "2.0.0";
@@ -35,10 +35,9 @@ export function buildCodexCompositionRequest(brief) {
   const { languages, ...fields } = brief;
   let validated;
   try { validated = validateBrief(fields, { languages }); } catch { throw inputError(); }
-  const { resolution } = resolvedNameEntry(validated);
-  const suggestion = resolution.status === "resolved" ? resolution.suggestions[0] : null;
-  const meaning = suggestion?.meaning?.fr && suggestion.meaning?.ar ? suggestion.meaning : null;
-  const request = { schemaVersion: "3.0", brief: meaning ? { ...validated, nameMeaning: null } : validated, nameReference: meaning ? { meaning: { fr: meaning.fr, ar: meaning.ar } } : null };
+  // The operator's nameMeaning wins; the catalog meaning only fills an empty field.
+  const meaning = validated.nameMeaning ? null : catalogMeaning(validated);
+  const request = { schemaVersion: "3.0", brief: validated, nameReference: meaning ? { meaning } : null };
   if (Buffer.byteLength(JSON.stringify(request), "utf8") > 8_192) throw inputError();
   return request;
 }
@@ -54,7 +53,7 @@ export function buildCodexCompositionPrompt(request) {
     "If phrases are present, include each one unchanged somewhere natural as the parents' words; otherwise include none.",
     "Mention birthDate only if set. Keep names exact.",
     "Reveal the name only at the end, in section order intro, blessing, meaning, reveal, closing.",
-    "meaningLines express nameReference.meaning in each language when present. Otherwise, when brief.nameMeaning is set, they say it: it is the parents' own words about what the name means or why they chose it; render it faithfully in each language (translate for the other language), adding no etymology, origin or detail it does not state, and never the name (use synonyms for words built on the name). Otherwise, they say why the parents chose the name using only the brief's phrases, with no claim about what the name means.",
+    "meaningLines: when brief.nameMeaning is set, they say it: it is the parents' own words about what the name means or why they chose it; render it faithfully in each language (translate for the other language), adding no etymology, origin or detail it does not state, and never the name (use synonyms for words built on the name). Otherwise they express nameReference.meaning in each language when present. Otherwise, they say why the parents chose the name using only the brief's phrases, with no claim about what the name means.",
     "revealLines are 1–2 lead-in phrases ending just before the name, never containing it; adapt to girl, boy, or neutral (e.g. Nous avons accueilli notre fille…).",
     "closingLines come after the reveal: 1–2 full sentences of closing blessing or welcome for the child; they may use the name but are never the name alone.",
     `Forbidden name forms: ${JSON.stringify(forbiddenNameForms(validated.brief))}. These forms and words built on them (e.g. Arabic الأمل for Amal) must not appear in intro, blessing, meaning, reveal lines or introNarration and blessingNarration; use synonyms.`,

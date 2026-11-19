@@ -626,9 +626,13 @@ test("managed auth writeback failure discards model output", async (t) => {
   );
 });
 
-test("catalog meaning wins; otherwise approved meaning reaches the bounded prompt", () => {
-  const catalog = buildCodexCompositionRequest({ ...SYNTHETIC_BRIEF, firstName: "Amal", nameArabic: null, nameMeaning: "Notre lumière" });
-  assert.ok(catalog.nameReference?.meaning.fr);
+test("operator meaning wins over the catalog; an empty field falls back to the catalog meaning", () => {
+  const operator = buildCodexCompositionRequest({ ...SYNTHETIC_BRIEF, firstName: "Amal", nameArabic: null, nameMeaning: "Notre lumière" });
+  assert.equal(operator.nameReference, null);
+  assert.equal(operator.brief.nameMeaning, "Notre lumière");
+  assert.ok(buildCodexCompositionPrompt(operator).includes("Notre lumière"));
+  const catalog = buildCodexCompositionRequest({ ...SYNTHETIC_BRIEF, firstName: "Amal", nameArabic: null, nameMeaning: null });
+  assert.match(catalog.nameReference?.meaning.fr, /^l'espérance/);
   assert.equal(catalog.brief.nameMeaning, null);
   const meaning = "نور".repeat(133) + "ن";
   const request = buildCodexCompositionRequest({ ...SYNTHETIC_BRIEF, nameMeaning: meaning });
