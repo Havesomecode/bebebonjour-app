@@ -140,7 +140,7 @@ test("strict composition schema rejects missing, oversized, and unknown output",
 });
 
 test("request accepts only a validated operator brief and binds receipt", () => {
-  assert.deepEqual(buildCodexCompositionRequest(SYNTHETIC_BRIEF), { schemaVersion: "3.0", brief: SYNTHETIC_BRIEF, nameReference: null });
+  assert.deepEqual(buildCodexCompositionRequest(SYNTHETIC_BRIEF), { schemaVersion: "3.0", brief: { ...SYNTHETIC_BRIEF, nameMeaning: null }, nameReference: null });
   assert.throws(() => buildCodexCompositionRequest(SYNTHETIC_INTAKE), /composition input rejected/i);
   const wrongRequest = receiptFor(); wrongRequest.metadata.requestDigest = "0".repeat(64);
   assert.throws(() => codexCompositionToSuggestion(wrongRequest, SYNTHETIC_BRIEF), /does not match/);
@@ -624,6 +624,21 @@ test("managed auth writeback failure discards model output", async (t) => {
     (error) => error?.reasonCode === "composition_auth_writeback_failed"
       && !error.message.includes("secret persistence detail"),
   );
+});
+
+test("catalog meaning wins; otherwise approved meaning reaches the bounded prompt", () => {
+  const catalog = buildCodexCompositionRequest({ ...SYNTHETIC_BRIEF, firstName: "Amal", nameArabic: null, nameMeaning: "Notre lumière" });
+  assert.ok(catalog.nameReference?.meaning.fr);
+  assert.equal(catalog.brief.nameMeaning, null);
+  const meaning = "نور".repeat(133) + "ن";
+  const request = buildCodexCompositionRequest({ ...SYNTHETIC_BRIEF, nameMeaning: meaning });
+  assert.equal(request.nameReference, null);
+  assert.equal(request.brief.nameMeaning, meaning);
+  assert.ok(Buffer.byteLength(JSON.stringify(request)) <= 8192);
+  const prompt = buildCodexCompositionPrompt(request);
+  assert.ok(prompt.includes(meaning));
+  assert.match(prompt, /parents' own words/);
+  assert.ok(Buffer.byteLength(prompt) <= 12288);
 });
 
 test("name reference is verified and prompt rejects tampering", () => {

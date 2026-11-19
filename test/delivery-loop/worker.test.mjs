@@ -274,7 +274,7 @@ test("continuous loop waits on empty/error polling and exits on cancellation", a
 
 const BRIEF = { firstName: "Aélio-Z", nameArabic: "أيليو", gender: "neutral", birthDate: null, religion: "general", tone: "tendre", phrases: ["Notre joie immense."], languages: ["fr", "ar"] };
 test("brief rejects unknown keys and unsafe phrases", () => {
-  assert.deepEqual(buildCodexCompositionRequest(BRIEF), { schemaVersion: "3.0", brief: BRIEF, nameReference: null });
+  assert.deepEqual(buildCodexCompositionRequest(BRIEF), { schemaVersion: "3.0", brief: { ...BRIEF, nameMeaning: null }, nameReference: null });
   for (const bad of [{ ...BRIEF, extra: "x" }, ...["https://evil.example", "une\nphrase", "une {phrase"].map((phrase) => ({ ...BRIEF, phrases: [phrase] }))]) assert.throws(() => buildCodexCompositionRequest(bad));
 });
 test("worker pipes only operator brief to Codex despite hostile claim data", async (t) => {

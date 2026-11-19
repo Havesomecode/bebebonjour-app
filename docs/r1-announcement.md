@@ -8,7 +8,7 @@ The announcement is a slideshow, one narrated phrase per screen, switched at the
 
 1. `intro` — the good news
 2. `dua` — wishes or invocations (faith-compatible when religion is islam)
-3. `meaning` — what the name means, **without ever saying the name**
+3. `meaning` — the name's meaning or the parents' reason for choosing it, **without ever saying the name**
 4. `reveal` — "Nous avons accueilli notre fille…" then the name (Latin + Arabic)
 5. `verses` — verified religious references where the word appears (they contain the name, so they come after the reveal)
 6. `closing` — blessing
@@ -25,7 +25,7 @@ Chapters are variable: one progress bar per section actually present. No verifie
 
 ## Composition and phrase list
 
-Codex composes only prose (`schemas/codex-subscription-composition.schema.json`, `schemaVersion` `2.0`). Per language it returns `introLines`, `blessingLines`, `meaningLines`, `revealLines` (lead-in phrases such as "Nous avons accueilli notre fille…", never the name) and `closingLines`, plus the legacy `description` and `*Narration` fields. The request carries the brief and, when the name resolves in `data/reference-catalog.json`, its verified meaning (`nameReference`). Without a catalog meaning, `meaningLines` speak of what the parents put into the name and claim no etymology.
+Codex composes only prose (`schemas/codex-subscription-composition.schema.json`, `schemaVersion` `2.0`). Per language it returns `introLines`, `blessingLines`, `meaningLines`, `revealLines` (lead-in phrases such as "Nous avons accueilli notre fille…", never the name) and `closingLines`, plus the legacy `description` and `*Narration` fields. Meaning uses the verified catalog `nameReference` first; otherwise the operator-approved `brief.nameMeaning` is faithfully translated as the parents' words; otherwise only the brief's phrases explain the choice, without a meaning claim. The optional `nameMeaning` suggestion is prefilled from the last `Sens du prénom : ` marker in the intake request and must be reviewed by the operator. The catalog wins when both are present.
 
 The composer rejects (`composition_output_rejected`, retryable: another attempt can succeed) any composition whose `introLines`, `blessingLines`, `meaningLines`, `revealLines`, `introNarration` or `blessingNarration` contain the first name, its Arabic form, or a catalog canonical form or alias. Latin matching ignores case and accents and needs whole words; Arabic matching ignores diacritics and alef variants and also catches clitics (`ال`, `و`, `ب`, `ل`…) and common suffixes. Arabic meaning lines must therefore use synonyms (Amal → الرجاء, not الأمل).
 

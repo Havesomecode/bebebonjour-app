@@ -7,7 +7,7 @@ Owner decisions, 18/11/2026:
 
 ## Rule
 
-No request reaches a model until an operator has read it in the ops console (`bebebonjour-ops`, `/commandes/<jobId>`) and launched it from a **generation brief**. A public (`paid_route_a`) order also needs a verified €39 payment before the first generation. The model receives only the brief, as JSON data in a fixed prompt template: never the customer email, the parents' free text (`intake.request`, correction feedback) or any other intake field.
+No request reaches a model until an operator has read it in the ops console (`bebebonjour-ops`, `/commandes/<jobId>`) and launched it from a **generation brief**. A public (`paid_route_a`) order also needs a verified €39 payment before the first generation. The model receives only the operator-approved brief and verified catalog reference, as JSON data in a fixed prompt template: never the customer email, the raw request, correction feedback or any other intake field. The optional meaning from the request may be prefilled for operator review.
 
 ## Lifecycle
 
@@ -42,11 +42,12 @@ Operator input (validated by `src/delivery-loop/brief.mjs`, shared by Convex and
 | `birthDate` | `null` or a real calendar date `YYYY-MM-DD` |
 | `religion` | `general` / `islam` (paid orders: `general` only; the paid form does not offer `islam`) |
 | `tone` | `tendre` / `joyeux` / `sobre` / `poetique` |
+| `nameMeaning` | optional, null or text up to 400 chars after whitespace normalization; phrase characters only, no URLs, first name or Arabic name. Suggested from the last `Sens du prénom : ` marker for operator review. |
 | `phrases` | array of 0–3 strings, each trimmed 1–140 chars, only letters/marks/digits, space and `. , ; : ! ? ' ’ « » " - ( ) ، ؛ ؟` |
 
 Unknown keys are rejected. Convex adds `languages` (copied from the intake, not editable) and stores `{ revision, brief, briefDigest, launchedAtMs }` in `data.briefs`. `briefDigest` = sha256 of the sorted-key JSON of the stored brief. The paid Checkout and webhook bind the revision-1 `briefDigest`.
 
-Model prompt: fixed template + `JSON.stringify({ schemaVersion: "2.0", brief })`. The template says to treat every value as data, use the tone, optionally weave in the phrases unchanged, mention `birthDate` only if set, keep names exact, invent nothing, return only the schema JSON.
+Model prompt: fixed template + `JSON.stringify({ schemaVersion: "3.0", brief, nameReference })`; verified catalog meaning takes priority over `nameMeaning`. The template treats values as data, uses the tone, optionally weaves in phrases unchanged, mentions `birthDate` only if set, invents nothing and returns only the schema JSON.
 
 ## Ops console contract (Convex, operator token `BEBEBONJOUR_OPERATIONS_TOKEN`)
 
