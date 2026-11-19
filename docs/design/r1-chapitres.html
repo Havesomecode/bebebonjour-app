@@ -1,0 +1,207 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Bébé Bonjour — R1 Chapitres</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;1,6..72,400&family=Instrument+Sans:wght@400;500;600&family=Noto+Naskh+Arabic:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
+  * { box-sizing: border-box; }
+  .wrap { max-width: 960px; padding: 4px 0 24px; }
+  .intro { color: var(--muted-foreground, #555); font: 400 0.9375rem/1.5 system-ui, sans-serif; max-width: 70ch; margin: 0 0 16px; text-wrap: pretty; }
+  .intro strong { color: var(--foreground, #222); font-weight: 600; }
+  .screens { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 280px), 1fr)); gap: 16px; }
+  .sheet { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; margin-top: 8px; }
+  .sheet .phone { border-radius: 16px; padding: 3px; }
+  .sheet .scr { height: 600px; width: 280px; zoom: 0.52; border-radius: 22px; }
+  .sheet .lbl { font: 400 0.6875rem/1.3 system-ui, sans-serif; color: var(--muted-foreground, #555); margin: 4px 2px 0; font-variant-numeric: tabular-nums; }
+  .cap { font: 600 0.75rem/1.2 system-ui, sans-serif; letter-spacing: 0.05em; text-transform: uppercase; color: var(--muted-foreground, #555); margin: 0 0 8px; }
+  h3.cap { margin-top: 28px; }
+  .phone { border-radius: 28px; padding: 6px; background: oklch(0.2 0 0); box-shadow: 0 1px 2px oklch(0 0 0 / 0.12), 0 8px 24px oklch(0 0 0 / 0.12); }
+  .scr { border-radius: 22px; overflow: hidden; height: 600px; display: flex; flex-direction: column; position: relative; }
+  .scr h1, .scr h2, .scr p { margin: 0; }
+  .scr button { font: inherit; cursor: pointer; border: 0; transition-property: scale, background-color; transition-duration: 150ms; transition-timing-function: ease-out; }
+  .scr button:not(:disabled):active { scale: 0.96; }
+  .notes { margin: 12px 0 0; padding: 0 0 0 20px; color: var(--foreground, #222); font: 400 0.875rem/1.55 system-ui, sans-serif; max-width: 74ch; }
+  .notes li + li { margin-top: 6px; }
+  .num { font-variant-numeric: tabular-nums; } .bal { text-wrap: balance; } .pre { text-wrap: pretty; } .nw { white-space: nowrap; }
+
+  .A { --paper: #F5F0E6; --card: #FFFDF8; --ink: #20251F; --muted: #575B52; --forest: #2F5443; --clay: #94432F; --line: #8A8676; --rule: #E2DBCB; --ivory: #FFFDF8; --sage: #CFDCD3;
+    background: var(--paper); color: var(--ink); font-family: "Instrument Sans", "Avenir Next", system-ui, sans-serif;
+    transition: background-color 700ms cubic-bezier(0.2, 0, 0, 1), color 700ms cubic-bezier(0.2, 0, 0, 1); }
+  .A .serif { font-family: "Newsreader", Georgia, serif; font-weight: 400; }
+  .A .ar { font-family: "Noto Naskh Arabic", "Traditional Arabic", serif; }
+  .A .it { font-style: italic; }
+  .A .top { display: flex; justify-content: space-between; align-items: center; padding: 18px 20px; }
+  .A .logo { font: 500 1.125rem/1 "Newsreader", Georgia, serif; } .A .logo em { color: var(--forest); }
+  .A .eyebrow { font-size: 0.75rem; letter-spacing: 0.05em; text-transform: uppercase; color: var(--clay); font-weight: 600; }
+  .A .lead { font-size: 1rem; line-height: 1.55; color: var(--muted); }
+  .A .meta { font-size: 0.8125rem; color: var(--muted); }
+  .A .btn { background: var(--forest); color: var(--ivory); padding: 14px 18px; border-radius: 12px; font-weight: 600; font-size: 1rem; }
+  .A .label { font-size: 0.875rem; font-weight: 500; }
+  .A .help { font-size: 0.8125rem; color: var(--muted); line-height: 1.45; }
+  .A .field { display: grid; gap: 6px; }
+  .A .input { font-size: 16px; padding: 12px 14px; border-radius: 10px; background: var(--card); border: 1px solid var(--line); }
+  .A .ph { color: var(--muted); }
+  .A .play { width: 40px; height: 40px; border-radius: 999px; display: grid; place-items: center; flex: none; background: var(--clay); color: var(--ivory); }
+  .A .play svg { width: 14px; height: 14px; }
+  .A .track { position: relative; height: 2px; background: var(--rule); flex: 1; }
+  .A .track b { position: absolute; inset-block: 0; inset-inline-start: 0; background: var(--clay); }
+
+  /* Barres de chapitres : autant que de sections */
+  .bars { display: flex; gap: 4px; padding: 14px 16px 0; }
+  .bars i { flex: 1; height: 3px; border-radius: 3px; background: var(--rule); overflow: hidden; display: block; }
+  .bars i b { display: block; height: 100%; background: var(--forest); }
+  .chap { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 12px 18px 0; min-height: 30px; }
+  .stage { flex: 1; display: grid; align-content: center; padding: 20px 22px; gap: 18px; }
+  .phrase { font: 400 1.75rem/1.25 "Newsreader", Georgia, serif; letter-spacing: -0.01em; text-wrap: balance; }
+  .prev { font: 400 1.0625rem/1.4 "Newsreader", Georgia, serif; color: var(--muted); text-wrap: pretty; }
+  .verse-ar { font: 400 2rem/1.7 "Noto Naskh Arabic", serif; text-align: center; }
+  .verse-fr { font: italic 400 1.25rem/1.4 "Newsreader", Georgia, serif; text-align: center; text-wrap: balance; }
+  .ref { font-size: 0.8125rem; text-align: center; color: var(--muted); }
+  .namechip { font: italic 400 1rem/1 "Newsreader", Georgia, serif; }
+
+  /* Après la révélation : la page reste en forêt */
+  .rev { background: var(--forest); color: var(--ivory); }
+  .rev .bars i { background: oklch(1 0 0 / 0.2); } .rev .bars i b { background: var(--ivory); }
+  .rev .meta, .rev .prev, .rev .ref { color: var(--sage); }
+  .rev .eyebrow { color: #F2C9B4; }
+  .rev .play { background: var(--ivory); color: var(--forest); }
+  .rev .track { background: oklch(1 0 0 / 0.2); } .rev .track b { background: var(--ivory); }
+
+  .fade { animation: fadein 420ms cubic-bezier(0.2, 0, 0, 1) both; }
+  @keyframes fadein { from { opacity: 0; transform: translateY(8px); filter: blur(2px); } }
+  .rise { animation: rise 900ms cubic-bezier(0.2, 0, 0, 1) 250ms both; }
+  @keyframes rise { from { opacity: 0; transform: translateY(14px) scale(0.98); filter: blur(4px); } }
+  @media (prefers-reduced-motion: reduce) { .fade, .rise { animation: none; } .A { transition: none; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <p class="intro"><strong>R1, revenu à l’idée d’origine.</strong> Le nombre de chapitres suit les sections de l’annonce, pas un chiffre fixe. Ici, l’exemple réel de Bayane, en 6&nbsp;chapitres&nbsp;: la bonne nouvelle, les invocations, le sens du prénom (sans le dire), la révélation, les versets où le mot apparaît, la bénédiction. Après la révélation, la page reste en vert forêt et le prénom reste visible en haut.</p>
+
+  <div class="screens">
+    <div><p class="cap">Landing</p><div class="phone"><div class="scr A">
+      <div class="top"><span class="logo"><em>Bébé</em> Bonjour</span><span class="meta">Commander</span></div>
+      <div style="padding:10px 20px 18px;display:grid;gap:14px">
+        <p class="eyebrow">Faire-part de naissance à écouter</p>
+        <h1 class="serif bal" style="font-size:2.125rem;line-height:1.1;letter-spacing:-0.02em">Son prénom, révélé à la fin.</h1>
+        <p class="lead pre">Une annonce lue à voix haute, phrase après phrase&nbsp;: la bonne nouvelle, vos vœux, ce que veut dire son prénom. Puis son prénom.</p>
+        <button class="btn">Commander mon annonce</button>
+        <p class="meta"><span class="nw">39&nbsp;€</span> en une fois · Français ou arabe</p>
+      </div>
+      <div data-mini style="margin:0 14px 14px;flex:1;border-radius:16px;overflow:hidden;display:flex;flex-direction:column;background:var(--card);box-shadow:0 0 0 1px oklch(0 0 0 / 0.06)"></div>
+    </div></div></div>
+
+    <div><p class="cap">Formulaire</p><div class="phone"><div class="scr A">
+      <div class="bars"><i><b style="width:100%"></b></i><i><b style="width:100%"></b></i><i><b style="width:100%"></b></i><i></i></div>
+      <div class="chap"><span class="meta">← Retour</span><span class="meta num">3 / 4</span></div>
+      <div style="padding:18px 20px 20px;display:grid;gap:16px;flex:1;align-content:start">
+        <p class="eyebrow">Son prénom, avant de le dire</p>
+        <h2 class="serif bal" style="font-size:1.5rem;line-height:1.2;letter-spacing:-0.01em">Que veut dire son prénom&nbsp;?</h2>
+        <div class="field"><span class="label">Ce qu’il signifie pour vous <span class="ph" style="font-weight:400">(facultatif)</span></span><div class="input ph" style="min-height:76px">Clarté, lumière, le prénom de sa grand-mère…</div></div>
+        <div class="field"><span class="label">Références à inclure</span>
+          <div style="display:grid;gap:8px">
+            <label style="display:flex;gap:10px;align-items:center;font-size:.875rem"><span style="width:20px;height:20px;border-radius:5px;background:var(--forest);display:grid;place-items:center;color:#fff"><svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2"><path d="M2.5 6.5l2.5 2.5 4.5-6"/></svg></span>Versets du Coran où le mot apparaît</label>
+            <label style="display:flex;gap:10px;align-items:center;font-size:.875rem"><span style="width:20px;height:20px;border-radius:5px;border:1px solid var(--line);background:var(--card)"></span>Origine et étymologie</label>
+          </div>
+          <p class="help">Nous ne citons que des sources vérifiées. Sinon, ce chapitre est retiré.</p></div>
+      </div>
+      <div style="padding:0 20px 20px"><button class="btn" style="width:100%">Continuer</button><p class="help" style="text-align:center;margin-top:10px">Étape suivante&nbsp;: son prénom.</p></div>
+    </div></div></div>
+
+    <div><p class="cap">Annonce · en lecture</p><div class="phone"><div class="scr A" data-live></div></div></div>
+  </div>
+
+  <h3 class="cap">Toute l’annonce de Bayane, écran par écran</h3>
+  <div class="sheet" data-sheet></div>
+
+  <ul class="notes">
+    <li><strong>Chapitres variables :</strong> une barre par section présente. Une annonce sans références religieuses a 4 ou 5 barres, celle de Bayane en a 6. Les chapitres viennent de l’ordre des sections déjà prévu dans le prototype (<code>intro, dua, meaning, reveal, verses, closing</code>).</li>
+    <li><strong>Sens du prénom avant le prénom :</strong> le texte du chapitre « sens » ne doit jamais contenir le prénom. La génération doit le vérifier, sinon la révélation est gâchée.</li>
+    <li><strong>Versets après la révélation :</strong> ils contiennent le mot (« Bayān »), donc ils viennent après. Chacun a son écran&nbsp;: arabe, traduction, référence. Uniquement des sources vérifiées, comme aujourd’hui.</li>
+    <li><strong>Calé sur la voix :</strong> un écran par phrase, changé au début de la phrase dans l’audio. Sans audio ou en pause, on avance au toucher.</li>
+  </ul>
+</div>
+
+<script>
+// Contenu réel : data/examples/bayane/page.json (fr), dans l’ordre sectionOrder.
+const SECTIONS = [
+  { id: "intro", ch: "La bonne nouvelle", lines: ["Au nom d’Allah, le Tout Miséricordieux, le Très Miséricordieux.", "Louange à Dieu par qui les bienfaits s’accomplissent,", "Par Sa grâce les cœurs se remplissent de lumière et de miséricorde.", "Il nous a accordé un précieux cadeau,", "Une petite âme venue avec paix et douceur."] },
+  { id: "dua", ch: "Nos invocations", lines: ["Nous demandons à Dieu d’en faire une source de joie pour nos yeux,", "Qu’Il la fasse grandir d’une belle croissance,", "Qu’Il lui accorde sagesse et clarté dans ses paroles et ses actes,", "Et que sa vie soit une lumière pour ceux qui l’entourent."] },
+  { id: "meaning", ch: "Le sens de son prénom", lines: ["Nous avons choisi pour elle un prénom porteur de clarté et de lumière.", "Un nom qui évoque la vérité lorsqu’elle se manifeste,", "L’éloquence dans l’expression,", "Et la lumière qui dissipe l’obscurité.", "Il porte en lui la lumière de la compréhension lorsque la vérité se manifeste sans voile."] },
+  { id: "reveal", ch: "Son prénom", reveal: { intro: ["Par la grâce de Dieu,", "Nous avons accueilli notre fille…"], name: "Bayane", ar: "بَيَان" } },
+  { id: "verses", ch: "Dans le Coran", lead: "Le mot « Bayān » apparaît dans ces versets :", verses: [
+    { ar: "عَلَّمَهُ الْبَيَانَ", fr: "Il lui a enseigné l’expression claire.", ref: "Sourate Ar-Rahman, 55:4" },
+    { ar: "هَٰذَا بَيَانٌ لِلنَّاسِ", fr: "Ceci est un exposé clair pour les gens, une guidée et une exhortation pour les pieux.", ref: "Sourate Al-Imran, 3:138" },
+    { ar: "بَيَانَهُ", fr: "Ensuite, c’est à Nous qu’il appartient d’en exposer le sens.", ref: "Sourate Al-Qiyamah, 75:19" } ] },
+  { id: "closing", ch: "Bénédiction", lines: ["Ô Dieu, bénis-la et fais d’elle une enfant vertueuse,", "accorde-lui une belle croissance,", "et fais de ses jours une lumière, une miséricorde et une paix intérieure."] },
+];
+
+// Un écran par phrase narrée.
+const slides = [];
+SECTIONS.forEach((s, si) => {
+  if (s.lines) s.lines.forEach((t, k) => slides.push({ si, k, n: s.lines.length, kind: "line", t, prev: s.lines[k - 1] }));
+  if (s.reveal) { slides.push({ si, k: 0, n: 2, kind: "pre", t: s.reveal.intro }); slides.push({ si, k: 1, n: 2, kind: "name", t: s.reveal.intro, name: s.reveal.name, ar: s.reveal.ar }); }
+  if (s.verses) { const n = s.verses.length + 1; slides.push({ si, k: 0, n, kind: "line", t: s.lead }); s.verses.forEach((v, k) => slides.push({ si, k: k + 1, n, kind: "verse", ...v })); }
+});
+const revealAt = slides.findIndex((s) => s.kind === "name");
+const total = slides.length;
+const PAUSE = '<svg viewBox="0 0 16 16" fill="currentColor"><rect x="3.5" y="2.5" width="3" height="11" rx="1"/><rect x="9.5" y="2.5" width="3" height="11" rx="1"/></svg>';
+
+function bars(i) {
+  const s = slides[i];
+  return SECTIONS.map((_, si) => `<i><b style="width:${si < s.si ? 100 : si > s.si ? 0 : ((s.k + 1) / s.n) * 100}%"></b></i>`).join("");
+}
+
+function slide(i, animate = true) {
+  const s = slides[i], sec = SECTIONS[s.si];
+  const f = animate ? "fade" : "", r = animate ? "rise" : "";
+  const after = i >= revealAt;
+  const right = after && s.kind !== "name" ? `<span class="namechip">Bayane</span>` : `<span class="meta num">${s.si + 1} / ${SECTIONS.length}</span>`;
+  const head = `<div class="bars">${bars(i)}</div><div class="chap"><span class="eyebrow">${sec.ch}</span>${right}</div>`;
+  let body;
+  if (s.kind === "line") body = `<div class="stage">${s.prev ? `<p class="prev">${s.prev}</p>` : ""}<p class="phrase ${f}">${s.t}</p></div>`;
+  else if (s.kind === "pre") body = `<div class="stage" style="text-align:center"><p class="phrase it ${f}">${s.t[0]}<br>${s.t[1]}</p></div>`;
+  else if (s.kind === "name") body = `<div class="stage" style="justify-items:center;text-align:center;gap:14px">
+      <p class="serif it ${f}" style="font-size:1.25rem;line-height:1.35;color:var(--sage)">${s.t[1]}</p>
+      <h1 class="serif ${r}" style="font-size:4.5rem;line-height:1;letter-spacing:-0.02em">${s.name}</h1>
+      <p class="ar ${r}" lang="ar" dir="rtl" style="font-size:2rem;line-height:1.4">${s.ar}</p></div>`;
+  else body = `<div class="stage" style="gap:14px"><p class="verse-ar ${f}" lang="ar" dir="rtl">${s.ar}</p><p class="verse-fr ${f}">${s.fr}</p><p class="ref">${s.ref}</p></div>`;
+  const player = `<div style="display:flex;align-items:center;gap:12px;padding:14px 18px 18px"><span class="play">${PAUSE}</span><div class="track"><b style="width:${Math.round(((i + 1) / total) * 100)}%"></b></div><span class="meta num">${i + 1}/${total}</span></div>`;
+  return [head + body + player, after];
+}
+
+function paint(el, i, animate) {
+  const [html, after] = slide(i, animate);
+  el.innerHTML = html;
+  el.classList.toggle("rev", after);
+}
+
+const sheet = document.querySelector("[data-sheet]");
+slides.forEach((s, i) => {
+  const w = document.createElement("div");
+  w.innerHTML = `<div class="phone"><div class="scr A"></div></div><p class="lbl">${i + 1}. ${SECTIONS[s.si].ch}</p>`;
+  sheet.appendChild(w);
+  paint(w.querySelector(".scr"), i, false);
+});
+
+const live = document.querySelector("[data-live]");
+const still = matchMedia("(prefers-reduced-motion: reduce)").matches || new URLSearchParams(location.search).has("still");
+if (still) paint(live, revealAt, false);
+else {
+  let i = 0;
+  const tick = () => { paint(live, i, true); const wait = slides[i].kind === "name" ? 5000 : slides[i].kind === "verse" ? 3600 : 2600; i = (i + 1) % total; setTimeout(tick, wait); };
+  tick();
+}
+
+const mini = document.querySelector("[data-mini]");
+mini.innerHTML = `<div class="bars">${SECTIONS.map((_, k) => `<i><b style="width:${k ? 0 : 40}%"></b></i>`).join("")}</div>
+  <div class="chap"><span class="eyebrow">La bonne nouvelle</span><span class="meta num">1 / ${SECTIONS.length}</span></div>
+  <div class="stage" style="padding:12px 18px"><p class="serif" style="font-size:1.1875rem;line-height:1.3;text-wrap:balance">Il nous a accordé un précieux cadeau, une petite âme venue avec paix et douceur.</p></div>
+  <div style="display:flex;align-items:center;gap:10px;padding:0 16px 14px"><span class="play" style="width:32px;height:32px"><svg viewBox="0 0 16 16" fill="currentColor" style="margin-inline-start:2px"><path d="M4 2.5v11l9-5.5z"/></svg></span><span class="meta">Écouter l’annonce de Bayane</span></div>`;
+</script>
+</body>
+</html>
