@@ -410,7 +410,7 @@ export const operatorLaunch = mutationGeneric({
     d.briefs.push({ revision: d.desiredRevision, brief, briefDigest: await briefDigest(brief), launchedAtMs: Date.now() });
     d.generationAttempts = 0;
     const pending = isPaid(row) && d.desiredRevision === 1 && d.payment?.status !== "settled";
-        audit(row, "operator_launched", { revision: d.desiredRevision });
+    audit(row, "operator_launched", { revision: d.desiredRevision });
     await save(ctx, row, pending ? "payment_pending" : "generation_queued");
     if (pending) { await queueNotice(ctx, row, "customer_payment", 1); await save(ctx, row); }
     return operatorDetail(row);
