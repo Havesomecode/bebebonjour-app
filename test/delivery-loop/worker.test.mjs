@@ -41,9 +41,9 @@ async function fixture(t, overrides = {}) {
     async action(name, args) {
       calls.push({ name, args });
       if (name === "deliveryLoopProviders:narrate") {
-        const receipt = { revision: args.revision, language: args.language, storageId: `offline-storage-${args.language}`, textDigest: args.textDigest };
+        const receipt = { revision: args.revision, language: args.language, storageId: `offline-storage-${args.language}`, textDigest: args.textDigest, phraseStarts: args.text.split('\n').filter(Boolean).map((_, i) => i) };
         remote.narrationReceipts.push(receipt);
-        return { storageId: receipt.storageId, textDigest: receipt.textDigest };
+        return { storageId: receipt.storageId, textDigest: receipt.textDigest, phraseStarts: receipt.phraseStarts };
       }
       if (name === "deliveryLoopProviders:sendEmail") {
         const providerMessageId = `offline-message-${args.stage}`;

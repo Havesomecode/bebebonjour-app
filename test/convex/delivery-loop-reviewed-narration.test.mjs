@@ -49,7 +49,10 @@ for (const language of ['fr', 'ar']) test(`SR-01: ${language} generated speech u
   const t = fixture(); const effects = [];
   context.mock.method(globalThis, 'fetch', async (url, options) => {
     const payload = JSON.parse(options.body); effects.push({url,payload});
-    if (url === 'https://api.openai.com/v1/audio/speech') return new Response(new Uint8Array(180).fill(23), {headers:{'content-type':'audio/mpeg'}});
+    if (url === 'https://api.openai.com/v1/audio/speech') {
+      const frame = Buffer.alloc(384); frame.set([0xff, 0xf3, 0xc4, 0xc4]);
+      return new Response(frame, {headers:{'content-type':'audio/mpeg'}});
+    }
     if (url.startsWith('https://api.cloudflare.com/')) return Response.json({success:true,errors:[],result:{message_id:`offline_message_${effects.length}`,queued:[payload.to],delivered:[],permanent_bounces:[]}});
     throw new Error('unexpected_network_forbidden');
   });
@@ -67,11 +70,10 @@ for (const language of ['fr', 'ar']) test(`SR-01: ${language} generated speech u
   await t.mutation(ref('recordPaymentEvidence'), {jobId:job.jobId,revision:1,previewDigest:launched.data.briefs[0].briefDigest,providerPaymentId:'pi_offlineReview',amountMinor:3900,currency:'eur',livemode:true,settled:true,providerAccountId:'acct_offline'});
   const result = await worker.runOnce();
   assert.equal(result.status,'published',JSON.stringify(result));
-  const speech = effects.find(e => e.url === 'https://api.openai.com/v1/audio/speech');
-  assert.equal(speech.payload.input,transcript(language));
-  assert.ok(!speech.payload.input.includes(hidden));
-  assert.ok(!speech.payload.input.includes('HIDDEN'));
-  assert.equal(effects.filter(e => e.url === 'https://api.openai.com/v1/audio/speech').length,1);
+  const speech = effects.filter(e => e.url === 'https://api.openai.com/v1/audio/speech');
+  const inputs = speech.map(e => e.payload.input);
+  assert.deepEqual(inputs, transcript(language).split('\n').filter(Boolean));
+  assert.ok(inputs.every(input => !input.includes(hidden) && !input.includes('HIDDEN')));
   const final = await read(t,job);
   assert.ok(final.revisions[0].contentHtml.includes(language === 'fr' ? 'Notre amour.' : 'لك كل الحب.'));
   assert.equal((await worker.runOnce()).status,'email_sent');
@@ -87,7 +89,7 @@ for (const language of ['fr', 'ar']) test(`SR-01: ${language} generated speech u
   assert.ok(publicHtml.includes(`/announcements/${final.publicToken}/audio/1/${language}`));
   const audioResponse = await t.fetch(`/announcements/${final.publicToken}/audio/1/${language}`);
   assert.equal(audioResponse.status,200);
-  assert.equal((await audioResponse.arrayBuffer()).byteLength,180);
+  assert.ok((await audioResponse.arrayBuffer()).byteLength > 384 * 4);
   assert.equal((await worker.runOnce()).status,'idle');
   assert.equal(effects.filter(e => e.url.startsWith('https://api.cloudflare.com/') && e.payload.headers['X-Bebe-Operation'].startsWith('bebe-loop:')).length,2);
 });

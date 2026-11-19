@@ -1,21 +1,15 @@
 import { assertValidCodexSubscriptionComposition } from "../../scripts/lib/codex-subscription-composition.mjs";
 import { REVIEWED_STORY_SECTIONS } from "./reviewed-narration.mjs";
+import { validPhraseStarts } from "./narration-timing.mjs";
 
 const LABELS = Object.freeze({
   fr: { welcome: "Bienvenue au monde", listen: "Écouter le récit", voice: "Une narration créée avec une voix artificielle.", draft: "Première version · en attente de votre validation", introduction: "Une nouvelle présence", blessing: "Pour les jours à venir", closing: "Avec tout notre amour", error: "La narration est indisponible pour le moment. Réessayez plus tard." },
   ar: { welcome: "أهلاً بك في العالم", listen: "استمع إلى الحكاية", voice: "سرد بصوت مولّد بالذكاء الاصطناعي.", draft: "نسخة أولى · بانتظار موافقتكم", introduction: "حضور جديد", blessing: "للأيام القادمة", closing: "بكل حبنا", error: "السرد غير متاح الآن. يرجى المحاولة لاحقاً." },
 });
 
-export function narrationText(composition, language) {
-  assertValidCodexSubscriptionComposition(composition);
-  if (!Object.hasOwn(LABELS, language)) throw new Error("render_input_rejected");
-  const content = composition.languages[language];
-  return [content.introNarration, content.blessingNarration, content.closingNarration].join("\n\n");
-}
-
 // This renderer intentionally accepts only a public projection. Never serialize a
 // claim/intake, provider receipt, or review capability into the page or its script.
-export function renderAnnouncement({ composition, baby, languages, publicUrl, publicToken, revision, pendingReview = true, narrationEnabled = true }) {
+export function renderAnnouncement({ composition, baby, languages, publicUrl, publicToken, revision, pendingReview = true, narrationEnabled = true, phraseStarts = {} }) {
   if (publicToken === undefined) {
     try { publicToken = /^\/announcements\/([A-Za-z0-9_-]{1,256})\/?$/u.exec(new URL(publicUrl).pathname)?.[1]; } catch { throw new Error("render_input_rejected"); }
   }
@@ -36,7 +30,10 @@ export function renderAnnouncement({ composition, baby, languages, publicUrl, pu
     const labels = LABELS[lang];
     const content = composition.languages[lang];
     const audioUrl = `${origin}/announcements/${publicToken}/audio/${revision}/${lang}`;
-    const sections = REVIEWED_STORY_SECTIONS.map(([title, field], index) => `<section class="story"><span class="chapter" aria-hidden="true">0${index + 1}</span><h2>${labels[title]}</h2>${content[field].map((line) => `<p>${escapeHtml(line)}</p>`).join("")}</section>`).join("");
+    const count = REVIEWED_STORY_SECTIONS.reduce((sum, [, field]) => sum + content[field].length, 0);
+    if (narrationEnabled && !validPhraseStarts(phraseStarts[lang], count)) throw new Error("render_input_rejected");
+    let phrase = 0;
+    const sections = REVIEWED_STORY_SECTIONS.map(([title, field], index) => `<section class="story"><span class="chapter" aria-hidden="true">0${index + 1}</span><h2>${labels[title]}</h2>${content[field].map((line) => `<p${narrationEnabled ? ` data-start="${phraseStarts[lang][phrase++]}"` : ""}>${escapeHtml(line)}</p>`).join("")}</section>`).join("");
     return `<article id="story-${lang}" data-language-panel="${lang}" lang="${lang}" dir="${lang === "ar" ? "rtl" : "ltr"}">
       <header class="welcome"><p class="eyebrow">${labels.welcome}</p><h1>${escapeHtml(lang === "ar" && baby.nameArabic ? baby.nameArabic : baby.firstName)}</h1><p class="description">${escapeHtml(content.description)}</p></header>
       ${narrationEnabled ? `<div class="narration"><button type="button" data-play="${lang}" aria-controls="audio-${lang}" aria-pressed="false">▷ ${labels.listen}</button><audio id="audio-${lang}" controls preload="none" src="${escapeHtml(audioUrl)}" aria-label="${labels.listen}"></audio><p class="voice-note">${labels.voice}</p><p data-audio-error hidden role="status">${labels.error}</p></div>` : ""}

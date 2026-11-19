@@ -14,7 +14,8 @@ test('provider authorization rejects wrong tokens without exposing a credential'
 test('narration uses Cedar and preserves exact text with durable audio digest', async () => {
   const text = 'Bienvenue, Mila.';
   const textDigest = createHash('sha256').update(text).digest('hex');
-  const audio = Buffer.alloc(1024, 4);
+  const audio = Buffer.alloc(384);
+  audio.set([0xff, 0xf3, 0xc4, 0xc4]);
   const result = await performNarration({ text, textDigest, language: 'fr' }, environment, async (url, request) => {
     assert.equal(url, 'https://api.openai.com/v1/audio/speech');
     const payload = JSON.parse(request.body);

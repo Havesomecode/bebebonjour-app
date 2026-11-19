@@ -53,8 +53,8 @@ async function delivered(t) {
   const id={workerToken,jobId:job.jobId,revision:1,leaseToken:lease.leaseToken};const textDigest=sha('Bienvenue FictionalBaby.\n\nDouceur.\n\nAmour.');
   await t.mutation(ref('beginNarration'),{...id,language:'fr',textDigest});
   const bytes=new Uint8Array(160).fill(13); const storageId=await t.run(ctx=>ctx.storage.store(new Blob([bytes],{type:'audio/mpeg'})));
-  await t.mutation(ref('recordNarration'),{...id,language:'fr',textDigest,storageId,provider:'openai',model:'offline-fixture',voice:'cedar'});
-  await t.mutation(ref('publish'),{...id,...p,audioFiles:[{language:'fr',textDigest,storageId}]});await email(t,job);
+  await t.mutation(ref('recordNarration'),{...id,language:'fr',textDigest,storageId,provider:'openai',model:'offline-fixture',voice:'cedar',phraseStarts:[0,1,2]});
+  await t.mutation(ref('publish'),{...id,...p,audioFiles:[{language:'fr',textDigest,storageId,phraseStarts:[0,1,2]}]});await email(t,job);
   await t.mutation(ref('requestReview'),{jobId:job.jobId,reviewToken:job.reviewToken,action:'approve',expectedRevision:1,idempotencyKey:crypto.randomUUID()});
   await email(t,job);
   return {job,storageId,bytes};
@@ -145,7 +145,7 @@ test('hourly pagination schedules continuation past ten legacy records; privacy 
 });
 test('late narration recording denial removes only the action-owned new blob',async()=>{
   const original=globalThis.fetch;const previous=process.env.OPENAI_API_KEY;process.env.OPENAI_API_KEY='offline-not-real';
-  const deleted=[];const bytes=new Uint8Array(160).fill(9);
+  const deleted=[];const bytes=Buffer.alloc(384);bytes.set([0xff,0xf3,0xc4,0xc4]);
   globalThis.fetch=async url=>{assert.equal(url,'https://api.openai.com/v1/audio/speech');return new Response(bytes);};
   try {
     const ctx={runQuery:async()=>({orderMode:'paid_route_a',intake:{languages:['fr']},narrationReceipts:[]}),runMutation:async fn=>{if(getFunctionName(fn).endsWith(':recordNarration'))throw new Error('data_deleted');},storage:{store:async()=> 'new_action_owned_blob',delete:async id=>deleted.push(id)}};

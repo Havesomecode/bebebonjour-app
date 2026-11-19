@@ -6,7 +6,8 @@ import path from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
 import { createCodexSubscriptionComposer } from "../fulfillment/codex-subscription-composer.mjs";
 import { assertValidCodexCompositionReceipt, buildCodexCompositionRequest, sha256 } from "../../scripts/lib/codex-subscription-composition.mjs";
-import { narrationText, renderAnnouncement } from "./render.mjs";
+import { renderAnnouncement } from "./render.mjs";
+import { splitNarrationPhrases, validPhraseStarts } from "./narration-timing.mjs";
 import { reviewedNarrationText } from "./reviewed-narration.mjs";
 
 const STAGES = new Set(["generate", "draft_email", "final_email"]);
@@ -94,18 +95,18 @@ export function createDeliveryLoopWorker(options = {}) {
     const narrationEnabled = job.intake.voicePreference?.enabled !== false;
     for (const language of narrationEnabled ? input.languages : []) {
       assertLease(job, signal);
-      // Paid speech reads exactly the displayed prose the customer approves.
-      const text = job.orderMode === "paid_route_a" ? reviewedNarrationText(receipt.composition.languages[language]) : narrationText(receipt.composition, language);
+      const text = reviewedNarrationText(receipt.composition.languages[language]);
+      const phraseCount = splitNarrationPhrases(text).length;
       const textDigest = sha256(text);
       let audio = journal.state.audio[language];
       if (audio?.textDigest && audio.textDigest !== textDigest) reject("journal_narration_mismatch");
       if (audio?.status === "complete") {
-        validateNarration(audio, textDigest);
+        validateNarration(audio, textDigest, phraseCount);
       } else {
         const find = (remote) => findNarration(remote, job.revision, language, textDigest);
         const recovered = audio?.status ? await reconcile(job, find, signal) : await peek(job, find, signal);
         if (recovered) {
-          audio = { status: "complete", storageId: recovered.storageId, textDigest };
+          audio = { status: "complete", storageId: recovered.storageId, textDigest, phraseStarts: recovered.phraseStarts };
         } else {
           if (audio?.status === "inflight" || audio?.status === "uncertain") reject("narration_reconciliation_required");
           assertLease(job, signal);
@@ -113,10 +114,10 @@ export function createDeliveryLoopWorker(options = {}) {
           await journal.save();
           try {
             const result = await invoke("action", "deliveryLoopProviders:narrate", { ...identity(job), language, text, textDigest }, signal, Math.min(providerTimeoutMs, job.leaseExpiresAtMs - now() - 1000));
-            validateNarration(result, textDigest);
+            validateNarration(result, textDigest, phraseCount);
             const committed = await reconcile(job, (remote) => findNarration(remote, job.revision, language, textDigest), signal);
-            if (!committed || committed.storageId !== result.storageId) reject("narration_reconciliation_required");
-            audio = { status: "complete", storageId: committed.storageId, textDigest };
+            if (!committed || committed.storageId !== result.storageId || JSON.stringify(committed.phraseStarts) !== JSON.stringify(result.phraseStarts)) reject("narration_reconciliation_required");
+            audio = { status: "complete", storageId: committed.storageId, textDigest, phraseStarts: committed.phraseStarts };
           } catch {
             const result = await reconcile(job, (remote) => findNarration(remote, job.revision, language, textDigest), signal);
             if (!result) {
@@ -124,15 +125,16 @@ export function createDeliveryLoopWorker(options = {}) {
               await journal.save();
               reject("narration_reconciliation_required");
             }
-            audio = { status: "complete", storageId: result.storageId, textDigest };
+            audio = { status: "complete", storageId: result.storageId, textDigest, phraseStarts: result.phraseStarts };
           }
         }
         journal.state.audio[language] = audio;
         await journal.save();
       }
-      audioFiles.push({ language, storageId: audio.storageId, textDigest });
+      validateNarration(audio, textDigest, phraseCount);
+      audioFiles.push({ language, storageId: audio.storageId, textDigest, phraseStarts: audio.phraseStarts });
     }
-    const contentHtml = renderAnnouncement({ composition: receipt.composition, baby: { firstName: input.firstName, nameArabic: input.nameArabic }, languages: input.languages, publicUrl: job.publicUrl, revision: job.revision, pendingReview: true, narrationEnabled });
+    const contentHtml = renderAnnouncement({ composition: receipt.composition, baby: { firstName: input.firstName, nameArabic: input.nameArabic }, languages: input.languages, publicUrl: job.publicUrl, revision: job.revision, pendingReview: true, narrationEnabled, phraseStarts: Object.fromEntries(audioFiles.map(file => [file.language, file.phraseStarts])) });
     const contentDigest = sha256(contentHtml);
     if (journal.state.published?.contentDigest && journal.state.published.contentDigest !== contentDigest) reject("journal_publication_mismatch");
     const wasPublished = await peek(job, (remote) => findPublication(remote, job.revision, contentDigest), signal);
@@ -238,8 +240,8 @@ function validateReceipt(receipt, intake) {
     if (receipt.metadata.requestDigest !== expected) throw new Error();
   } catch { reject("composition_receipt_rejected"); }
 }
-function validateNarration(receipt, digest) {
-  if (!receipt || typeof receipt.storageId !== "string" || !receipt.storageId || receipt.storageId.length > 256 || /[\u0000-\u0020\u007f/\\?#]/u.test(receipt.storageId) || receipt.textDigest !== digest) reject("narration_receipt_rejected");
+function validateNarration(receipt, digest, phraseCount = receipt?.phraseStarts?.length) {
+  if (!receipt || typeof receipt.storageId !== "string" || !receipt.storageId || receipt.storageId.length > 256 || /[\u0000-\u0020\u007f/\\?#]/u.test(receipt.storageId) || receipt.textDigest !== digest || !validPhraseStarts(receipt.phraseStarts, phraseCount)) reject("narration_receipt_rejected");
 }
 function findNarration(remote, revision, language, digest) {
   const value = remote?.narrationReceipts?.find((receipt) => receipt.revision === revision && receipt.language === language && receipt.textDigest === digest);

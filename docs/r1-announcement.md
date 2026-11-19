@@ -25,4 +25,4 @@ Chapters are variable: one progress bar per section actually present. No verifie
 
 ## Timing
 
-Narration produces, per language, the start time (seconds) of every displayed phrase. Engine-agnostic method: synthesize phrase by phrase, concatenate, record each start. The page reads these starts to switch screens. The voice engine is expected to change (VoiceStudio), the timing contract does not.
+Narration synthesizes each displayed phrase separately, then concatenates MP3 frames with 0.5 seconds of silence between phrases in a section and 1.0 second between sections (rounded to whole frames). Receipts and published `audioFiles` carry `phraseStarts`: seconds, one per displayed phrase in order, first 0 and strictly increasing. Each displayed phrase exposes its start as `data-start` when narration is enabled. The current page exposes timing; a future slideshow can use it to switch screens. The voice engine is expected to change (VoiceStudio); the timing contract does not.

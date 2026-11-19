@@ -1,4 +1,5 @@
 import { createHash, timingSafeEqual } from "node:crypto";
+import { narratePhrases } from './narration-timing.mjs';
 
 const MAX_AUDIO_BYTES = 12 * 1024 * 1024;
 export const speechModel = "gpt-4o-mini-tts";
@@ -10,6 +11,14 @@ export async function performNarration({ text, textDigest, language }, environme
       || createHash('sha256').update(text).digest('hex') !== textDigest) {
     throw new Error('narration_input_invalid');
   }
+  const { audio: bytes, phraseStarts } = await narratePhrases({ text, language, synthesize: (phrase) => synthesizePhrase(phrase, environment, fetchImpl) });
+  if (bytes.length > MAX_AUDIO_BYTES) throw new Error('narration_audio_invalid');
+  return { audioBase64: bytes.toString('base64'), bytes: bytes.length,
+    audioDigest: createHash('sha256').update(bytes).digest('hex'), textDigest, phraseStarts,
+    provider: 'openai', model: speechModel, voice: speechVoice };
+}
+
+export async function synthesizePhrase({ text, language }, environment = process.env, fetchImpl = fetch) {
   const response = await fetchImpl('https://api.openai.com/v1/audio/speech', {
     method: 'POST',
     headers: { authorization: `Bearer ${required(environment, 'OPENAI_API_KEY')}`, 'content-type': 'application/json' },
@@ -20,9 +29,7 @@ export async function performNarration({ text, textDigest, language }, environme
   if (!response.ok) throw new Error(`narration_provider_http_${response.status}`);
   const bytes = Buffer.from(await response.arrayBuffer());
   if (bytes.length < 128 || bytes.length > MAX_AUDIO_BYTES) throw new Error('narration_audio_invalid');
-  return { audioBase64: bytes.toString('base64'), bytes: bytes.length,
-    audioDigest: createHash('sha256').update(bytes).digest('hex'), textDigest,
-    provider: 'openai', model: speechModel, voice: speechVoice };
+  return bytes;
 }
 
 export function authorizeProviderToken(actual, environment = process.env) {

@@ -1,4 +1,5 @@
 import { mutationGeneric, queryGeneric, internalMutationGeneric, internalQueryGeneric, makeFunctionReference } from "convex/server";
+import { validPhraseStarts } from '../src/delivery-loop/narration-timing.mjs';
 import { v } from "convex/values";
 import { promotionEvidence } from './deliveryLoopPromotion.js';
 import { TEST_PROMOTION_POLICY, testPromotionBinding, isTestPromotionReceipt, samePromotion } from '../src/delivery-loop/test-promotion.mjs';
@@ -254,25 +255,26 @@ async function audioMetadata(ctx, storageId) {
   if (!meta || !meta.size || meta.size > 18 * 1024 * 1024 || (meta.contentType !== undefined && !["audio/mpeg", "audio/mp3"].includes(meta.contentType))) throw new Error("invalid_audio_file");
 }
 export const recordNarration = mutationGeneric({
-  args: { ...leaseArgs, revision: v.number(), language: v.string(), textDigest: v.string(), storageId: v.id("_storage"), provider: v.literal("openai"), model: v.string(), voice: v.string() },
+  args: { ...leaseArgs, revision: v.number(), language: v.string(), textDigest: v.string(), storageId: v.id("_storage"), provider: v.literal("openai"), model: v.string(), voice: v.string(), phraseStarts: v.array(v.number()) },
   handler: async (ctx, args) => {
     auth(args.workerToken); const row = await get(ctx, args.jobId); authorizeLease(row, args.leaseToken, args.revision, "generate");
     if (!row.data.intake.voicePreference.enabled || !row.data.intake.languages.includes(args.language) || !DIGEST.test(args.textDigest)) throw new Error("invalid_narration");
+    if (!validPhraseStarts(args.phraseStarts)) throw new Error("narration_receipt_invalid");
     text(args.model, 100); text(args.voice, 100); await audioMetadata(ctx, args.storageId);
     const previous = row.data.narrationReceipts.find((r) => r.revision === args.revision && r.language === args.language && r.textDigest === args.textDigest);
     if (previous) {
-      if (previous.storageId !== args.storageId || previous.model !== args.model || previous.voice !== args.voice) throw new Error("narration_receipt_conflict");
+      if (previous.storageId !== args.storageId || previous.model !== args.model || previous.voice !== args.voice || JSON.stringify(previous.phraseStarts) !== JSON.stringify(args.phraseStarts)) throw new Error("narration_receipt_conflict");
       return previous;
     }
     if (row.data.narrationReceipts.filter((r) => r.revision === args.revision).length >= 4) throw new Error("narration_limit");
-    const receipt = { revision: args.revision, language: args.language, textDigest: args.textDigest, storageId: args.storageId, provider: args.provider, model: args.model, voice: args.voice, recordedAtMs: Date.now() };
+    const receipt = { revision: args.revision, language: args.language, textDigest: args.textDigest, storageId: args.storageId, provider: args.provider, model: args.model, voice: args.voice, phraseStarts: args.phraseStarts, recordedAtMs: Date.now() };
     row.data.narrationReceipts.push(receipt);
     audit(row, "narration_recorded", { revision: args.revision, language: args.language, textDigest: args.textDigest });
     await save(ctx, row); return receipt;
   },
 });
 export const publish = mutationGeneric({
-  args: { ...leaseArgs, revision: v.number(), contentHtml: v.string(), composition: v.any(), compositionReceipt: v.any(), compositionJson: v.optional(v.string()), contentDigest: v.string(), audioFiles: v.array(v.object({ language: v.string(), storageId: v.id("_storage"), textDigest: v.string() })) },
+  args: { ...leaseArgs, revision: v.number(), contentHtml: v.string(), composition: v.any(), compositionReceipt: v.any(), compositionJson: v.optional(v.string()), contentDigest: v.string(), audioFiles: v.array(v.object({ language: v.string(), storageId: v.id("_storage"), textDigest: v.string(), phraseStarts: v.array(v.number()) })) },
   handler: async (ctx, args) => {
     auth(args.workerToken); const row = await get(ctx, args.jobId); authorizeLease(row, args.leaseToken, args.revision, "generate");
     if (isPaid(row)) {
@@ -288,7 +290,7 @@ export const publish = mutationGeneric({
     for (const file of args.audioFiles) {
       if (!row.data.intake.voicePreference.enabled || !row.data.intake.languages.includes(file.language) || !DIGEST.test(file.textDigest)) throw new Error("invalid_audio_file");
       await audioMetadata(ctx, file.storageId);
-      if (!row.data.narrationReceipts.some((r) => r.revision === args.revision && r.language === file.language && r.textDigest === file.textDigest && r.storageId === file.storageId)) throw new Error("narration_receipt_required");
+      if (!row.data.narrationReceipts.some((r) => r.revision === args.revision && r.language === file.language && r.textDigest === file.textDigest && r.storageId === file.storageId && JSON.stringify(r.phraseStarts) === JSON.stringify(file.phraseStarts))) throw new Error("narration_receipt_required");
     }
     // A voiced request cannot be silently delivered as text-only.
     if (row.data.intake.voicePreference.enabled && row.data.intake.languages.some((language) => !args.audioFiles.some((file) => file.language === language))) throw new Error("requested_audio_missing");

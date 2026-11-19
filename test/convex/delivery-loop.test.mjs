@@ -290,7 +290,7 @@ test("narration receipts survive generation reclaim, immutable public audio reso
   const first = await claim(t);
   const fixtureBytes = new TextEncoder().encode("OFFLINE STORAGE FIXTURE — not generated speech".repeat(5));
   const storageId = await t.run((ctx) => ctx.storage.store(new Blob([fixtureBytes], { type: "audio/mpeg" })));
-  const narration = { workerToken, jobId: job.jobId, leaseToken: first.leaseToken, revision: 1, language: "fr", textDigest: sha("offline-narration-text"), storageId, provider: "openai", model: "offline-model-fixture", voice: "cedar" };
+  const narration = { workerToken, jobId: job.jobId, leaseToken: first.leaseToken, revision: 1, language: "fr", textDigest: sha("offline-narration-text"), storageId, provider: "openai", model: "offline-model-fixture", voice: "cedar", phraseStarts: [0] };
   await t.mutation(ref("recordNarration"), narration);
   assert.deepEqual(await t.mutation(ref("recordNarration"), narration), (await read(t, job.jobId)).narrationReceipts[0]);
   await assert.rejects(publish(t, job.jobId, first, "Audio missing"), /requested_audio_missing/);
@@ -298,7 +298,9 @@ test("narration receipts survive generation reclaim, immutable public audio reso
   const reclaimed = await claim(t, "offline-audio-reclaim-002");
   assert.equal((await read(t, job.jobId)).narrationReceipts[0].storageId, storageId);
   const contentHtml = '<html><body><h1>Annonce audio</h1></body></html>';
-  await t.mutation(ref("publish"), { workerToken, jobId: job.jobId, leaseToken: reclaimed.leaseToken, revision: 1, contentHtml, contentDigest: sha(contentHtml), composition: { title: "Audio" }, compositionReceipt: { provider: "offline" }, audioFiles: [{ language: "fr", storageId, textDigest: narration.textDigest }] });
+  const publication = { workerToken, jobId: job.jobId, leaseToken: reclaimed.leaseToken, revision: 1, contentHtml, contentDigest: sha(contentHtml), composition: { title: "Audio" }, compositionReceipt: { provider: "offline" }, audioFiles: [{ language: "fr", storageId, textDigest: narration.textDigest, phraseStarts: [0] }] };
+  await assert.rejects(t.mutation(ref("publish"), { ...publication, audioFiles: [{ ...publication.audioFiles[0], phraseStarts: [0, 1] }] }), /narration_receipt_required/);
+  await t.mutation(ref("publish"), publication);
   const publicToken = new URL(job.publicUrl).pathname.split("/").pop();
   const response = await t.fetch(`/announcements/${publicToken}/audio/1/fr`);
   assert.equal(response.status, 200);
