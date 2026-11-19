@@ -22,7 +22,7 @@ test("PGlite runtime, protocol, transactions, storage, scheduler and HTTP worker
   globalThis.fetch = async (url, options) => {
     const address = String(url);
     if (address.startsWith('http://127.0.0.1:')) return actualFetch(url, options);
-    if (address === 'https://api.openai.com/v1/audio/speech') { effects.push('speech'); return new Response(new Uint8Array(180).fill(23)); }
+    if (address === 'https://api.openai.com/v1/audio/speech') { effects.push('speech'); const frame = Buffer.alloc(384); frame.set([0xff,0xf3,0xc4,0xc4]); return new Response(frame,{headers:{'content-type':'audio/mpeg'}}); }
     if (address.startsWith('https://api.cloudflare.com/')) { const payload = JSON.parse(options.body); effects.push(payload.headers['X-Bebe-Operation']); return Response.json({success:true,errors:[],result:{message_id:`offline-${effects.length}`,queued:[payload.to],delivered:[],permanent_bounces:[]}}); }
     throw new Error('unexpected_external_request');
   };
@@ -50,16 +50,14 @@ test("PGlite runtime, protocol, transactions, storage, scheduler and HTTP worker
   const altered = await fetch(`${base}/delivery/payment/webhook`,{method:"POST",headers:{"content-type":"application/json","stripe-signature":`t=${timestamp},v1=${signature}`},body:raw.trim()});
   assert.equal((await altered.json()).status,"payment_event_signature");
   await http.mutation(ref("operatorLaunch"),{operatorToken:operator,jobId:job.jobId,expectedRevision:1,brief:{firstName:"Amal",nameArabic:null,gender:"girl",birthDate:null,religion:"general",tone:"tendre",phrases:[]}});
-  const fr = {description:"Une histoire.",introLines:["Bienvenue.","Un bonheur et une joie."],introNarration:"Bienvenue.",blessingLines:["Des jours doux."],blessingNarration:"Des jours doux.",closingLines:["Notre amour."],closingNarration:"Notre amour."};
-  const ar = {description:"فرح جديد.",introLines:["أهلاً بك.","فرح جديد."],introNarration:"أهلاً بك.",blessingLines:["أيام جميلة."],blessingNarration:"أيام جميلة.",closingLines:["لك كل الحب."],closingNarration:"لك كل الحب."};
-  const composition = {schemaVersion:"1.0",languages:{fr,ar}};
-  const composer = {async compose(input) {return {composition,metadata:{adapterVersion:"1.0.0",provider:"openai-codex-subscription",model:"offline-fixture",requestDigest:sha(JSON.stringify({adapterVersion:"1.0.0",provider:"openai-codex-subscription",model:"offline-fixture",request:buildCodexCompositionRequest(input)})),outputDigest:sha(JSON.stringify(composition))}};}};
+  const composition = {schemaVersion:"2.0",languages:Object.fromEntries(["fr","ar"].map(lang=>[lang,{description:lang==="fr"?"Un nouveau bonheur.":"فرح جديد.",introLines:[lang==="fr"?"Bienvenue.":"أهلاً بك."],introNarration:lang==="fr"?"Bienvenue.":"أهلاً بك.",blessingLines:[lang==="fr"?"Que tes jours soient doux.":"أيام جميلة."],blessingNarration:lang==="fr"?"Que tes jours soient doux.":"أيام جميلة.",meaningLines:["Douceur."],revealLines:["Notre enfant."],closingLines:[lang==="fr"?"Nous t’aimons déjà.":"لك كل الحب."],closingNarration:lang==="fr"?"Nous t’aimons déjà.":"لك كل الحب."}]))};
+  const composer = {async compose(input) {return {composition,metadata:{adapterVersion:"2.0.0",provider:"openai-codex-subscription",model:"offline-fixture",requestDigest:sha(JSON.stringify({adapterVersion:"2.0.0",provider:"openai-codex-subscription",model:"offline-fixture",request:buildCodexCompositionRequest(input)})),outputDigest:sha(JSON.stringify(composition))}};}};
   const worker = createDeliveryLoopWorker({client:http,composer,stateDir,workerToken:token,workerId:"offline-worker",logger(){}});
   const result = await worker.runOnce(); assert.equal(result.status,"published",JSON.stringify(result));
   const read = await http.query(ref("read"),{workerToken:token,jobId:job.jobId}); assert.equal(read.status,"draft_email_queued");
   assert.ok(effects.includes('speech'));
   const audio = await fetch(`${base}/announcements/${new URL(job.publicUrl).pathname.split('/').pop()}/audio/1/fr`);
-  assert.equal(audio.status, 200); assert.equal((await audio.arrayBuffer()).byteLength,180);
+  assert.equal(audio.status, 200); assert.equal(audio.headers.get('content-type'),'audio/mpeg'); const bytes = new Uint8Array(await audio.arrayBuffer()); assert.ok(bytes.length >= 384 && bytes.length % 384 === 0); assert.deepEqual([...bytes.subarray(0,2)],[0xff,0xf3]);
   assert.equal((await worker.runOnce()).status, 'email_sent');
   const approval = await fetch(`${base}/delivery/review`, {method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({jobId:job.jobId,reviewToken:job.reviewToken,action:'approve',expectedRevision:1,idempotencyKey:'railway-review-1'})});
   assert.equal(approval.status, 200); assert.equal((await approval.json()).status, 'final_email_queued');
