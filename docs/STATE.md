@@ -44,4 +44,4 @@ A parent asks for a French or Arabic digital birth announcement (optional Cedar 
 
 ## Git map
 
-`main` = live delivery-loop line squashed onto `origin/main`; Railway prod `api` runs `00f1fb3`; the delivery-loop worker runtime runs `82e2b6a` (name catalog; the catalog is worker-only, so the api did not change; worker rollback: drop-in backup `20-approved-runtime.conf.00f1fb3.bak`); paused Convex prod holds `ac6c0b3`. Every other branch is a tag `archive/2026-11-18/<branch>`.
+`main` = live delivery-loop line squashed onto `origin/main`; Railway prod `api` and the delivery-loop worker runtime run tag `release/2026-11-19-meaning-operator-first` (`967fe7d` = `82e2b6a` line + operator meaning first; main's VoxCPM2 voice work is not in prod yet). Rollback: api redeploy from `82e2b6a`, worker drop-in backup `20-approved-runtime.conf.82e2b6a.bak`; paused Convex prod holds `ac6c0b3`. Every other branch is a tag `archive/2026-11-18/<branch>`.
