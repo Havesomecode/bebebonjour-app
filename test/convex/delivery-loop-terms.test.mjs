@@ -3,7 +3,7 @@ import test from 'node:test';
 import http from '../../convex/http.js';
 import { TERMS_VERSION } from '../../convex/deliveryLoopPaidPolicy.js';
 
-const path = '/delivery/terms/route-a-39-v1';
+const path = '/delivery/terms/route-a-39-v2';
 const origin = 'https://offline.example.invalid';
 const forbiddenContext = new Proxy({}, { get() { throw Error('Terms must not access the datastore, storage or providers'); } });
 const read = async () => {
@@ -76,7 +76,7 @@ test('terms state the literal settled offer, statutory rights and separate five-
 });
 
 test('only the exact GET version is added; paid and private owner negative routes stay closed', async () => {
-  assert.equal(http.lookup('/delivery/terms/route-a-39-v2', 'GET'), null);
+  assert.equal(http.lookup('/delivery/terms/route-a-39-v1', 'GET'), null);
   assert.equal(http.lookup(path + '/extra', 'GET'), null);
   assert.equal(http.lookup(path, 'POST'), null);
   process.env.BEBEBONJOUR_PAID_ROUTE_A_ENABLED = 'false';

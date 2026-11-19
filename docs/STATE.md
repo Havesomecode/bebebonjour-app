@@ -1,17 +1,17 @@
-# Bébé Bonjour — state of play (2026-11-18)
+# Bébé Bonjour — state of play (2026-11-19)
 
 Repos: `bebebonjour-app` (this one: Convex backend + workers), `bebebonjour-landing` (Vite site), `bebebonjour-ops` (private Next.js console).
 
 ## 1. Goal
 
-A parent creates a French or Arabic digital birth announcement (optional Cedar narration) in a few minutes; it is composed, published at a private link and emailed automatically, then corrected and approved by the parent. Paid offer: €39, one-time.
+A parent asks for a French or Arabic digital birth announcement (optional Cedar narration). An operator reads the request and launches generation from a short brief; public orders pay €39 first. The announcement is published at a private link and emailed, then corrected and approved by the parent.
 
 ## 2. What works today
 
 - **Landing** https://www.bebebonjour.com — offer "Essentiel 39 €", demo https://www.bebebonjour.com/demo/announcements/bayane/fr/ (live, HTTP 200).
 - **Order path today = free only**: "Créer mon faire-part" → `/delivery` (proxied by the landing's Vercel rewrites to `https://tacit-antelope-577.convex.site`, same domain since 18/11) → form with consent and an *offer password* → payment waived. No card is asked anywhere.
-- **Loop behind it** (Convex + `bebebonjour-delivery-loop.service`, running since 9 Nov): Codex composes, OpenAI Cedar narrates, the announcement is published at an unguessable link, the first version is emailed *before* human review; correction request → republished at the same link; approval → final email. Verified 5 Oct on a fictional family up to provider send acceptance (not inbox delivery). Source of this loop: `DELIVERY_LOOP.md`.
-- **Paid €39 route (Stripe Checkout, signed webhooks) — LIVE since 18/11**: merged (fda6e48, payments review PASS), deployed to Convex prod `tacit-antelope-577`, `BEBEBONJOUR_PAID_ROUTE_A_ENABLED=true`. `https://www.bebebonjour.com/delivery` offers the €39 paid preview path (offer-password path kept behind "J’ai un mot de passe offert"). Verified in production: intake → preview → approval → terms → "Payer 39 € par carte" opens a **live** Stripe Checkout (`cs_live_…`, 39,00 €, EUR); session expired unpaid. Live webhook `we_1UdEfEGrir6mz3o7Gwbqmkqm` → `https://www.bebebonjour.com/delivery/payment/webhook` (`payment_intent.succeeded`), signing secret in Convex `BEBEBONJOUR_PAID_STRIPE_WEBHOOK_SECRET`; older `we_1UQuJ6…` (convex.site, unknown secret) disabled. **No real card payment has been made yet**, so webhook reconciliation of a live payment is untested.
+- **Operator gate (branch `wt/operator-gated-intake`, not deployed yet)**: requests wait in `awaiting_operator`; the owner gets an email with a link to `/commandes/<jobId>` in the ops console, edits the brief (first name, Arabic name, gender, date, faith context, tone, up to 3 phrases) and launches or refuses. Paid: launch → customer email with the payment link → Stripe settlement → generation. Codex receives only the brief. Spec: `docs/operator-gated-intake.md`.
+- **Paid €39 route**: `BEBEBONJOUR_PAID_ROUTE_A_ENABLED=false` on Convex prod since 18/11 (owner decision: someone could consume the Codex subscription without paying). Turned back on after the operator gate is deployed. Live webhook `we_1UdEfEGrir6mz3o7Gwbqmkqm` → `https://www.bebebonjour.com/delivery/payment/webhook` (`payment_intent.succeeded`). No real card payment yet.
 - `bebebonjour-ops` main: private operations console with narration and owner-completion controls (builds, 37 tests pass). Not checked against the delivery loop.
 
 ## 3. To make the product viable (ordered, one session each)
@@ -20,7 +20,7 @@ A parent creates a French or Arabic digital birth announcement (optional Cedar n
 2. ~~**Serve `/delivery` on bebebonjour.com itself**~~ DONE 18/11 (`BEBEBONJOUR_DELIVERY_LOOP_ORIGIN=https://www.bebebonjour.com` on Convex prod; POST accepts that origin; landing proxies `/delivery/*` and `/announcements/*`): replace the 307 to `*.convex.site` with a same-domain route so the form, review links and mails carry the brand. Update the landing CSP accordingly.
 3. **Turn on paying customers** (Opus): enable Route A (Stripe Checkout €39 → webhook → paid gate before final narration/publication/mail) in test mode end to end, then live. Needs Zacaria's go for live keys (see §5).
 4. **Replace the offer password with real signup** (Sonnet): free path stays for invited families only; public visitors get the paid path; clear states for pending payment, expiry, failure, support contact.
-5. ~~**Operations view of delivery-loop jobs**~~ DONE 18/11: `bebebonjour-ops` page `/commandes` lists jobs newest first (family, status, revisions, public link, last error) and retries a failed correction. It calls the operator-token functions `deliveryLoop:operatorJobs` and `deliveryLoop:operatorRetryCorrection` (the console never holds the worker token; `retryCorrection` stays worker-only). The retry button needs `retry_correction` in `BEBEBONJOUR_OPS_ENABLED_ACTIONS` on the ops project. The public page serves only the latest revision, so there is one link per job, not one per revision.
+5. ~~**Operations view of delivery-loop jobs**~~ DONE: `bebebonjour-ops` `/commandes` lists jobs; `/commandes/<jobId>` shows the raw request and the brief editor with Launch/Refuse (`deliveryLoop:operatorJobs|operatorJob|operatorLaunch|operatorRefuse`, operator token only). Buttons need `launch_generation` / `refuse_request` in `BEBEBONJOUR_OPS_ENABLED_ACTIONS`.
 6. **First 5 real families** (Haiku drafts, Zacaria sends): invitation text and a feedback question; collect what breaks.
 
 ## 4. What we drop

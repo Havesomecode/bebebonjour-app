@@ -52,7 +52,7 @@ test("installation retains all existing production artifact routes and every acc
   assert.deepEqual(routes, [
     "GET /announcements/*", "GET /completion/artifact", "GET /delivery", "GET /delivery/data/operator",
     "GET /delivery/export", "GET /delivery/operator", "GET /delivery/review",
-    "GET /delivery/terms/route-a-39-v1",
+    "GET /delivery/terms/route-a-39-v2",
     "GET /generation/artifact", "GET /narration/artifact", "POST /delivery/checkout", "POST /delivery/data", "POST /delivery/data/operator",
     "POST /delivery/intake", "POST /delivery/operator", "POST /delivery/payment/webhook", "POST /delivery/review",
   ].sort());

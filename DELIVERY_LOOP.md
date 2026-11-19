@@ -1,4 +1,12 @@
-# Delivery loop — current delivery mandate
+# Delivery loop
+
+## Current flow (18/11/2026)
+
+Every request waits in `awaiting_operator` until an operator reads it in the ops console (`/commandes/<jobId>`) and launches generation from a brief, or refuses it. The model only receives the brief. Public orders (€39) pay after the launch and before any generation. Full contract: [docs/operator-gated-intake.md](docs/operator-gated-intake.md).
+
+The October 2026 mandate below published a first version automatically before review; that path no longer exists. Its acceptance evidence is historical.
+
+# October 2026 mandate (historical)
 
 ## Outcome and authority
 
@@ -38,7 +46,7 @@ Verified on October 5, 2026 through **final provider send acceptance**, not inde
 - Hosted first-party intake: `https://tacit-antelope-577.convex.site/delivery`.
 - Email bridge: `https://bebebonjour-owner-completion-worker.vercel.app/api/delivery-loop/provider`.
 - Persistent worker: `bebebonjour-delivery-loop.service`, enabled/active, `Restart=always`, runs `scripts/run-delivery-loop-worker.mjs` independently of chat. Private environment: `/home/hermes/.config/bebebonjour-delivery-loop/runtime.env`; state: `/home/hermes/.local/share/bebebonjour-delivery-loop`.
-- Semantically unapplied corrections have a finite three-attempt generation budget; uncertain narration/email effects remain fenced against replay. Authenticated `deliveryLoop:retryCorrection` can resume only a failed `correction_not_applied` generation with no narration, publication or email receipt for that revision. It preserves attempt/review/history records and refuses exhausted or downstream-effect states. The recovered acceptance used its original correction/job, not a new intake.
+- Uncertain narration/email effects remain fenced against replay. A generation that failed three times shows in the ops console; the operator can relaunch it with the same or an edited brief.
 
 Protected, mode-0600 acceptance evidence (contains recipient/shareable URLs; do not upload with source):
 

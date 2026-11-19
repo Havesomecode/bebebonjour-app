@@ -14,7 +14,7 @@ import { termsPage } from "./deliveryLoopTerms.js";
 import { intakePage, intakeSubmit, checkoutSubmit, reviewPage, reviewSubmit, announcement, operatorPage, operatorSubmit } from "./deliveryLoopHttp.js";
 
 const http = httpRouter();
-http.route({ path: "/delivery/terms/route-a-39-v1", method: "GET", handler: termsPage });
+http.route({ path: "/delivery/terms/route-a-39-v2", method: "GET", handler: termsPage });
 http.route({ path: "/delivery/payment/webhook", method: "POST", handler: paidPaymentWebhook });
 import { dataControl, dataExport, dataOperatorPage, dataOperatorControl } from "./deliveryLoopDataHttp.js";
 http.route({ path: "/delivery/data", method: "POST", handler: dataControl });
