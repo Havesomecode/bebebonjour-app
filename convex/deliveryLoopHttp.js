@@ -123,7 +123,16 @@ export const announcement = httpActionGeneric(async (ctx, request) => {
     const file = await ctx.runQuery(ref("publicAudio"), { publicToken: audio[1], revision: Number(audio[2]), language: audio[3] });
     const blob = file ? await ctx.storage.get(file.storageId) : null;
     if (!blob) return json({ status: "error", code: "not_found" }, 404);
-    return new Response(blob, { headers: { ...PRIVATE, "content-type": "audio/mpeg", "content-length": String(blob.size) } });
+    const headers = { ...PRIVATE, "content-type": "audio/mpeg", "accept-ranges": "bytes" };
+    // One byte range so the slideshow can seek the voice when the reader taps a screen.
+    const range = /^bytes=(\d*)-(\d*)$/.exec(request.headers.get("range") || "");
+    if (range && (range[1] || range[2])) {
+      const size = blob.size, start = range[1] ? Number(range[1]) : Math.max(0, size - Number(range[2]));
+      const end = range[1] && range[2] ? Math.min(Number(range[2]), size - 1) : size - 1;
+      if (start >= size || start > end) return new Response(null, { status: 416, headers: { ...headers, "content-range": `bytes */${size}` } });
+      return new Response(blob.slice(start, end + 1), { status: 206, headers: { ...headers, "content-range": `bytes ${start}-${end}/${size}`, "content-length": String(end - start + 1) } });
+    }
+    return new Response(blob, { headers: { ...headers, "content-length": String(blob.size) } });
   }
   const match = /^\/announcements\/([a-f0-9]{64})\/?$/.exec(path);
   if (!match) return json({ status: "error", code: "not_found" }, 404);

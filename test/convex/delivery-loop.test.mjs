@@ -306,6 +306,19 @@ test("narration receipts survive generation reclaim, immutable public audio reso
   assert.equal(response.status, 200);
   assert.equal(response.headers.get("content-type"), "audio/mpeg");
   assert.deepEqual(new Uint8Array(await response.arrayBuffer()), fixtureBytes);
+  assert.equal(response.headers.get("accept-ranges"), "bytes");
+  // The slideshow seeks the audio when the reader taps a screen; browsers seek only with byte ranges.
+  const audioUrl = `/announcements/${publicToken}/audio/1/fr`, size = fixtureBytes.length;
+  for (const [range, start, end] of [["bytes=10-19", 10, 19], ["bytes=200-", 200, size - 1], ["bytes=-5", size - 5, size - 1], ["bytes=0-999999", 0, size - 1]]) {
+    const partial = await t.fetch(audioUrl, { headers: { range } });
+    assert.equal(partial.status, 206, range);
+    assert.equal(partial.headers.get("content-range"), `bytes ${start}-${end}/${size}`);
+    assert.equal(partial.headers.get("content-length"), String(end - start + 1));
+    assert.deepEqual(new Uint8Array(await partial.arrayBuffer()), fixtureBytes.slice(start, end + 1));
+  }
+  const unsatisfiable = await t.fetch(audioUrl, { headers: { range: `bytes=${size}-` } });
+  assert.equal(unsatisfiable.status, 416); assert.equal(unsatisfiable.headers.get("content-range"), `bytes */${size}`);
+  assert.equal((await t.fetch(audioUrl, { headers: { range: "bytes=0-1,4-5" } })).status, 200);
   assert.equal((await t.fetch(`/announcements/${publicToken}/audio/2/fr`)).status, 404);
   assert.equal((await t.fetch(`/announcements/${publicToken}/audio/1/ar`)).status, 404);
 });
