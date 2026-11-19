@@ -3,6 +3,7 @@ import { v } from "convex/values";
 import { promotionEvidence } from './deliveryLoopPromotion.js';
 import { TEST_PROMOTION_POLICY, testPromotionBinding, isTestPromotionReceipt, samePromotion } from '../src/delivery-loop/test-promotion.mjs';
 import { reviewedNarrationText } from "../src/delivery-loop/reviewed-narration.mjs";
+import { validateBrief, briefDigest, suggestBrief, TONES, GENDERS, RELIGIONS } from "../src/delivery-loop/brief.mjs";
 import { PAID_MODE, TERMS_VERSION, PREVIEW_MS, isPaid, currentPreview, paidEnabled, activePaid, activePreview, paidEligible, stageState, paidStageGate, paidSafeStatus, expectedLivemode } from "./deliveryLoopPaidPolicy.js";
 
 const LEASE_MS = 15 * 60 * 1000;
@@ -48,6 +49,11 @@ function canonicalIntake(input, idempotencyKey) {
     intake.submittedAt = input.submittedAt;
   }
   if (input.request !== undefined) intake.request = input.request === "" ? "" : text(input.request, 2000);
+  if (input.birthDate !== undefined && input.birthDate !== null && input.birthDate !== "") {
+    const date = input.birthDate;
+    if (typeof date !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(date) || date.startsWith("0000-") || !Number.isFinite(Date.parse(`${date}T00:00:00Z`)) || new Date(`${date}T00:00:00Z`).toISOString().slice(0, 10) !== date) throw new Error("invalid_intake");
+    intake.birthDate = date;
+  }
   return intake;
 }
 function origin() {
@@ -79,6 +85,13 @@ export async function save(ctx, row, status = row.status) {
   await ctx.db.patch(row._id, { status, data: row.data }); row.status = status;
 }
 export function audit(row, type, details = {}) { row.data.audit.push({ type, atMs: Date.now(), ...details }); }
+function queueNotice(row, kind, revision) {
+  row.data.notices ||= [];
+  if (!row.data.notices.some((notice) => notice.kind === kind && notice.revision === revision)) {
+    row.data.notices.push({ kind, revision, status: "pending", atMs: Date.now() });
+    // chunk 2: schedule sendNotice
+  }
+}
 function authorizeLease(row, token, revision, stage) {
   const lease = row.data.lease;
   if (!lease || !equal(lease.leaseToken, token) || lease.leaseExpiresAtMs <= Date.now() || (revision !== undefined && revision !== row.data.desiredRevision) || (stage !== undefined && stage !== lease.stage) || row.status !== stageState(lease.stage, "running")) throw new Error("stale_lease");
@@ -142,8 +155,9 @@ export const submit = mutationGeneric({
       return admission(previous);
     }
     intake.submittedAt ||= new Date().toISOString();
-    const row = { jobId: `job_${randomToken()}`, publicToken: randomToken(), idempotencyKey, status: "generation_queued", data: { intake, requestDigest, reviewToken: randomToken(), payment: { status: "waived", reason: "magic_password", waivedAt: new Date().toISOString() }, desiredRevision: 1, latestRevision: 0, feedback: null, revisions: [], narrationReceipts: [], emailReceipts: [], reviewOperations: [], audit: [], lease: null, usedLeaseTokens: [], generationAttempts: 0, lastError: null, createdAtMs: Date.now() } };
+    const row = { jobId: `job_${randomToken()}`, publicToken: randomToken(), idempotencyKey, status: "awaiting_operator", data: { intake, requestDigest, reviewToken: randomToken(), payment: { status: "waived", reason: "magic_password", waivedAt: new Date().toISOString() }, desiredRevision: 1, latestRevision: 0, feedback: null, revisions: [], narrationReceipts: [], emailReceipts: [], reviewOperations: [], audit: [], lease: null, usedLeaseTokens: [], generationAttempts: 0, lastError: null, createdAtMs: Date.now() } };
     if (paid) Object.assign(row.data, { orderMode: PAID_MODE, previewConsent: { acceptedAtMs: Date.now() }, customerDeclaration: { mainlandFranceAdultWithParentalPermissions: true, acceptedAtMs: Date.now() }, payment: { status: "pending" }, correctionsUsed: 0, previewRenewals: 0, previewExpiresAtMs: null, paidApproval: null, paidPermissions: null, editorialApproval: null, finalPublication: null });
+    queueNotice(row, "operator_new", 1);
     audit(row, "intake_accepted", { paymentStatus: row.data.payment.status, ...(paid ? { orderMode: PAID_MODE } : {}) });
     await ctx.db.insert("deliveryLoopJobs", row);
     return admission(row);
@@ -153,8 +167,9 @@ export const read = queryGeneric({ args: workerArgs, handler: async (ctx, args) 
 export const status = queryGeneric({ args: { jobId: v.string(), reviewToken: v.string() }, handler: async (ctx, args) => { const row = await get(ctx, args.jobId); if (!equal(row.data.reviewToken, args.reviewToken)) throw new Error("forbidden"); return safeStatus(row); } });
 
 function work(row) {
-  const latest = row.data.revisions.find((r) => r.revision === row.data.latestRevision);
-  return { ...full(row), revision: row.data.desiredRevision, stage: row.data.lease.stage, leaseToken: row.data.lease.leaseToken, leaseExpiresAtMs: row.data.lease.leaseExpiresAtMs, effectStartedAtMs: row.data.lease.effectStartedAtMs ?? null, emailProvider: row.data.lease.emailProvider ?? null, emailIdempotencyKey: `bebe-loop:${row.jobId}:${row.data.desiredRevision}:${row.data.lease.stage}`, previousComposition: latest?.composition ?? null, ...(isPaid(row) ? { approvedPreview: latest } : {}) };
+  const { lease, intake, desiredRevision } = row.data;
+  const brief = (row.data.briefs || []).find((item) => item.revision === desiredRevision)?.brief;
+  return { jobId: row.jobId, revision: desiredRevision, stage: lease.stage, leaseToken: lease.leaseToken, leaseExpiresAtMs: lease.leaseExpiresAtMs, ...(lease.effectStartedAtMs === undefined ? {} : { effectStartedAtMs: lease.effectStartedAtMs }), orderMode: row.data.orderMode || "complimentary", publicUrl: links(row).publicUrl, ...(lease.stage === "generate" ? { brief } : {}), intake: { languages: intake.languages, voicePreference: intake.voicePreference, fictional: intake.fictional } };
 }
 export const claim = mutationGeneric({
   args: { workerToken: v.string(), workerId: v.string(), leaseToken: v.string() },
@@ -182,6 +197,16 @@ export const claim = mutationGeneric({
       const rows = await ctx.db.query("deliveryLoopJobs").withIndex("by_status", (q) => q.eq("status", state)).take(100);
       let row;
       for (const candidate of rows) {
+        if (stage === "generate" && !(candidate.data.briefs || []).some((item) => item.revision === candidate.data.desiredRevision)) {
+          audit(candidate, "generation_denied_missing_brief", { revision: candidate.data.desiredRevision });
+          await save(ctx, candidate, "awaiting_operator");
+          continue;
+        }
+        if (stage === "generate" && isPaid(candidate) && candidate.data.payment?.status !== "settled") {
+          audit(candidate, "generation_denied_unpaid", { revision: candidate.data.desiredRevision });
+          await save(ctx, candidate, "payment_pending");
+          continue;
+        }
         try { paidStageGate(candidate, stage); row = candidate; break; }
         catch { audit(candidate, "paid_work_denied", { stage }); await save(ctx, candidate, "paid_blocked"); }
       }
@@ -199,7 +224,7 @@ export const claim = mutationGeneric({
 });
 export const authorizeProvider = queryGeneric({
   args: { ...leaseArgs, revision: v.number(), stage: stageValue },
-  handler: async (ctx, args) => { auth(args.workerToken); const row = await get(ctx, args.jobId); authorizeLease(row, args.leaseToken, args.revision, args.stage); return work(row); },
+  handler: async (ctx, args) => { auth(args.workerToken); const row = await get(ctx, args.jobId); authorizeLease(row, args.leaseToken, args.revision, args.stage); return { ...work(row), ...full(row) }; },
 });
 export const uploadUrl = mutationGeneric({
   args: leaseArgs,
@@ -380,6 +405,42 @@ export const operatorJobs = queryGeneric({
       };
     });
   },
+});
+function canLaunch(row) {
+  const d = row.data, rev = d.desiredRevision;
+  return row.status === "awaiting_operator" || (row.status === "failed" && d.lastError?.stage === "generate" && !d.lease && ![d.revisions || [], d.narrationReceipts || [], d.emailReceipts || []].some((receipts) => receipts.some((receipt) => receipt.revision === rev)));
+}
+function operatorDetail(row) {
+  const d = row.data, intake = d.intake || {}, baby = intake.baby || {}, revisions = d.revisions || [];
+  const current = (d.briefs || []).find((item) => item.revision === d.desiredRevision)?.brief || null;
+  const previous = (d.briefs || []).find((item) => item.revision === d.desiredRevision - 1)?.brief;
+  const suggested = previous ? Object.fromEntries(Object.entries(previous).filter(([key]) => key !== "languages")) : suggestBrief(intake);
+  return { jobId: row.jobId, status: row.status, orderMode: d.orderMode || "complimentary", paymentStatus: d.payment?.status || null, createdAtMs: d.createdAtMs ?? row._creationTime, fictional: intake.fictional === true, desiredRevision: d.desiredRevision, latestRevision: d.latestRevision ?? 0,
+    intake: { email: intake.customer?.email ?? null, babyName: baby.firstName ?? null, nameArabic: baby.nameArabic ?? null, gender: baby.gender ?? null, languages: intake.languages ?? [], religion: intake.context?.religion ?? null, birthDate: intake.birthDate ?? null, request: intake.request ?? null, voiceEnabled: intake.voicePreference?.enabled ?? false },
+    feedback: d.feedback ?? null, correctionsUsed: d.correctionsUsed ?? 0, brief: current, suggestedBrief: suggested, publicUrl: d.latestRevision ? links(row).publicUrl : null, orderUrl: links(row).reviewUrl, notices: (d.notices || []).map(({kind, revision, status, atMs}) => ({kind, revision, status, atMs})), lastError: d.lastError ?? null, canLaunch: canLaunch(row), canRefuse: row.status === "awaiting_operator", revisions: revisions.map(({revision, publishedAtMs}) => ({revision, publishedAtMs})), options: { tones: TONES, genders: GENDERS, religions: RELIGIONS } };
+}
+export const operatorJob = queryGeneric({ args: { operatorToken: v.string(), jobId: v.string() }, handler: async (ctx, args) => { operatorAuth(args.operatorToken); return operatorDetail(await get(ctx, args.jobId)); } });
+export const operatorLaunch = mutationGeneric({
+  args: { operatorToken: v.string(), jobId: v.string(), expectedRevision: v.number(), brief: v.any() },
+  handler: async (ctx, args) => {
+    operatorAuth(args.operatorToken); const row = await get(ctx, args.jobId), d = row.data;
+    if (args.expectedRevision !== d.desiredRevision) throw new Error("stale_revision");
+    if (!canLaunch(row)) throw new Error("launch_unavailable");
+    if (isPaid(row)) paidEnabled();
+    const brief = validateBrief(args.brief, { languages: d.intake?.languages, paid: isPaid(row) });
+    d.briefs = (d.briefs || []).filter((entry) => entry.revision !== d.desiredRevision);
+    d.briefs.push({ revision: d.desiredRevision, brief, briefDigest: await briefDigest(brief), launchedAtMs: Date.now() });
+    d.generationAttempts = 0;
+    const pending = isPaid(row) && d.desiredRevision === 1 && d.payment?.status !== "settled";
+    if (pending) queueNotice(row, "customer_payment", 1);
+    audit(row, "operator_launched", { revision: d.desiredRevision });
+    await save(ctx, row, pending ? "payment_pending" : "generation_queued");
+    return operatorDetail(row);
+  },
+});
+export const operatorRefuse = mutationGeneric({
+  args: { operatorToken: v.string(), jobId: v.string(), expectedRevision: v.number() },
+  handler: async (ctx, args) => { operatorAuth(args.operatorToken); const row = await get(ctx, args.jobId); if (args.expectedRevision !== row.data.desiredRevision) throw new Error("stale_revision"); if (row.status !== "awaiting_operator") throw new Error("refuse_unavailable"); audit(row, "operator_refused", { revision: args.expectedRevision }); await save(ctx, row, "refused"); return operatorDetail(row); },
 });
 export const operatorRetryCorrection = mutationGeneric({
   args: { operatorToken: v.string(), jobId: v.string(), expectedRevision: v.number() },
