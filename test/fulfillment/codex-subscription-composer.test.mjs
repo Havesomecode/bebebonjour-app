@@ -8,6 +8,7 @@ import test from "node:test";
 import {
   assertValidCodexSubscriptionComposition,
   buildCodexCompositionRequest,
+  buildCodexCompositionPrompt,
   codexCompositionToSuggestion,
   sha256,
 } from "../../scripts/lib/codex-subscription-composition.mjs";
@@ -33,7 +34,7 @@ const SYNTHETIC_INTAKE = Object.freeze({
 const SYNTHETIC_BRIEF = Object.freeze({ firstName: "Aélio-Z", nameArabic: "أيليو", gender: "girl", birthDate: null, religion: "islam", tone: "tendre", phrases: [], languages: ["ar", "fr"] });
 
 const VALID_COMPOSITION = Object.freeze({
-  schemaVersion: "1.0",
+  schemaVersion: "2.0",
   languages: {
     ar: {
       description: "إعلان ولادة دافئ وخاص.",
@@ -41,6 +42,7 @@ const VALID_COMPOSITION = Object.freeze({
       introNarration: "بِسْمِ اللهِ الرَّحْمٰنِ الرَّحِيمِ. وصلت صغيرتنا بفرح هادئ.",
       blessingLines: ["نسأل الله أن يبارك أيامها.", "وأن يملأ بيتها سكينة."],
       blessingNarration: "نسأل الله أن يبارك أيامها، وأن يملأ بيتها سكينة.",
+      meaningLines: ["Douceur."], revealLines: ["Notre enfant."],
       closingLines: ["أهلاً بك بيننا.", "لك كل الحب."],
       closingNarration: "أهلاً بك بيننا. لك كل الحب.",
     },
@@ -50,6 +52,7 @@ const VALID_COMPOSITION = Object.freeze({
       introNarration: "Notre petite fille est arrivée. La joie s’est installée tout doucement.",
       blessingLines: ["Que ses jours soient doux.", "Et sa maison pleine de paix."],
       blessingNarration: "Que ses jours soient doux, et sa maison pleine de paix.",
+      meaningLines: ["Douceur."], revealLines: ["Notre enfant."],
       closingLines: ["Bienvenue parmi nous.", "Tu es déjà très aimée."],
       closingNarration: "Bienvenue parmi nous. Tu es déjà très aimée.",
     },
@@ -106,11 +109,11 @@ function receiptFor(composition = VALID_COMPOSITION, intake = SYNTHETIC_BRIEF) {
   return {
     composition: structuredClone(composition),
     metadata: {
-      adapterVersion: "1.0.0",
+      adapterVersion: "2.0.0",
       provider: "openai-codex-subscription",
       model: "gpt-synthetic-codex",
       requestDigest: sha256(JSON.stringify({
-        adapterVersion: "1.0.0",
+        adapterVersion: "2.0.0",
         provider: "openai-codex-subscription",
         model: "gpt-synthetic-codex",
         request: buildCodexCompositionRequest(intake),
@@ -137,7 +140,7 @@ test("strict composition schema rejects missing, oversized, and unknown output",
 });
 
 test("request accepts only a validated operator brief and binds receipt", () => {
-  assert.deepEqual(buildCodexCompositionRequest(SYNTHETIC_BRIEF), { schemaVersion: "2.0", brief: SYNTHETIC_BRIEF });
+  assert.deepEqual(buildCodexCompositionRequest(SYNTHETIC_BRIEF), { schemaVersion: "3.0", brief: SYNTHETIC_BRIEF, nameReference: null });
   assert.throws(() => buildCodexCompositionRequest(SYNTHETIC_INTAKE), /composition input rejected/i);
   const wrongRequest = receiptFor(); wrongRequest.metadata.requestDigest = "0".repeat(64);
   assert.throws(() => codexCompositionToSuggestion(wrongRequest, SYNTHETIC_BRIEF), /does not match/);
@@ -222,7 +225,7 @@ test("composer runs Codex in an ephemeral tool-disabled directory with a minimal
   assert.equal(JSON.stringify(result).includes("must-not-cross"), false);
   assert.deepEqual(result.composition, VALID_COMPOSITION);
   assert.deepEqual(result.metadata, {
-    adapterVersion: "1.0.0",
+    adapterVersion: "2.0.0",
     provider: "openai-codex-subscription",
     model: "gpt-synthetic-codex",
     requestDigest: result.metadata.requestDigest,
@@ -621,4 +624,20 @@ test("managed auth writeback failure discards model output", async (t) => {
     (error) => error?.reasonCode === "composition_auth_writeback_failed"
       && !error.message.includes("secret persistence detail"),
   );
+});
+
+test("name reference is verified and prompt rejects tampering", () => {
+  const bayane = { ...SYNTHETIC_BRIEF, firstName: "Bayane", nameArabic: "بَيَان" };
+  const request = buildCodexCompositionRequest(bayane);
+  assert.ok(request.nameReference.meaning.fr);
+  assert.ok(request.nameReference.meaning.ar);
+  assert.match(buildCodexCompositionPrompt(request), /Bayan/);
+  assert.throws(() => buildCodexCompositionPrompt({ ...request, nameReference: null }));
+});
+
+test("composer rejects name leaks without revealing provider output", async (t) => {
+  const composition = structuredClone(VALID_COMPOSITION);
+  composition.languages.fr.meaningLines = ["Aélio-Z"];
+  const context = await fixture(t, { spawnImpl: successfulSpawn([], composition) });
+  await assert.rejects(context.composer.compose(SYNTHETIC_BRIEF), e => e.reasonCode === "composition_output_rejected" && e.retryable === false && !e.message.includes("Aélio-Z"));
 });

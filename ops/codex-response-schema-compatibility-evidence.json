@@ -10,11 +10,11 @@
   },
   "correction": {
     "schemaPath": "schemas/codex-subscription-composition.schema.json",
-    "schemaSourceSha256": "042b96d94b7c77461e02e55a92af7a828b4619c7701aab25f9abb41d98f56914",
-    "serializedSchemaSha256": "2eecf6d157443e0c19009530c7601145b2ba02fa50715e12852e96adcc5202df",
+    "schemaSourceSha256": "56e487e835075c08345705f49b15f7f6cb907cc2d258df58989b64bfd8508b8e",
+    "serializedSchemaSha256": "56e487e835075c08345705f49b15f7f6cb907cc2d258df58989b64bfd8508b8e",
     "schemaVersionProperty": {
       "type": "string",
-      "const": "1.0"
+      "const": "2.0"
     }
   },
   "packagedRuntime": {
@@ -37,7 +37,7 @@
     "durationMs": 17176.743458,
     "provider": "openai-codex-subscription",
     "model": "gpt-5.6-sol",
-    "adapterVersion": "1.0.0",
+    "adapterVersion": "2.0.0",
     "requestDigest": "eadfd811ba5fea7e7d0a11a5faad0649fe24106f02c47107b24dd0e5b1cd2a6b",
     "outputDigest": "c35ed6cee679206ff5aebafd53cfea973b76255e5a373341a21255c3b7c8258c",
     "fixture": "synthetic-only",

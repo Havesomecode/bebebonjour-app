@@ -1,3 +1,4 @@
+import { assertNameRevealedLast } from "../delivery-loop/name-leak.mjs";
 import { execFile, spawn } from "node:child_process";
 import {
   lstat,
@@ -161,6 +162,7 @@ export function createCodexSubscriptionComposer(options = {}) {
           });
         });
         const composition = await readCompositionOutput(outputPath);
+        try { assertNameRevealedLast(composition, request.brief); } catch { throw safeError("composition_output_rejected", false); }
         const receipt = {
           composition,
           metadata: {
