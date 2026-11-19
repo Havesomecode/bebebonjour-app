@@ -74,3 +74,4 @@ test('provider adapter retrieves the settled intent with immutable order metadat
   for(const override of [{metadata:{...intent.metadata,job_id:'other'}},{metadata:{...intent.metadata,revision:'2'}},{amount_received:3899},{currency:'usd'},{status:'processing'}]) {intent=stripeFixture(scope,override);await assert.rejects(inspect(),/payment_evidence_mismatch/);}
   intent=stripeFixture(scope,{livemode:false,latest_charge:{...stripeFixture(scope).latest_charge,livemode:false}});assert.equal((await inspect()).livemode,false);
 });
+test('paid form only offers what paid submit accepts',async()=>{const {paidIntakeDocument}=await import('../../convex/deliveryLoopPaidViews.js');const html=paidIntakeDocument((title,body,script)=>body+script,'','https://example.invalid/terms',s=>s);assert.doesNotMatch(html,/islam|musulman/);assert.match(html,/context:'general'/);});

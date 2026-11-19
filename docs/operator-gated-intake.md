@@ -40,7 +40,7 @@ Operator input (validated by `src/delivery-loop/brief.mjs`, shared by Convex and
 | `nameArabic` | `null` or same rule |
 | `gender` | `girl` / `boy` / `neutral` |
 | `birthDate` | `null` or a real calendar date `YYYY-MM-DD` |
-| `religion` | `general` / `islam` (paid orders: `general` only) |
+| `religion` | `general` / `islam` (paid orders: `general` only; the paid form does not offer `islam`) |
 | `tone` | `tendre` / `joyeux` / `sobre` / `poetique` |
 | `phrases` | array of 0–3 strings, each trimmed 1–140 chars, only letters/marks/digits, space and `. , ; : ! ? ' ’ « » " - ( ) ، ؛ ؟` |
 
