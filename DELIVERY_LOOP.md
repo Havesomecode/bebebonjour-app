@@ -45,7 +45,7 @@ Verified on October 5, 2026 through **final provider send acceptance**, not inde
 - Correct backend: `https://tacit-antelope-577.convex.cloud`, selected explicitly as `havesomecode:bebebonjour-test-a:prod`.
 - Hosted first-party intake: `https://tacit-antelope-577.convex.site/delivery`.
 - Email bridge: `https://bebebonjour-owner-completion-worker.vercel.app/api/delivery-loop/provider`.
-- Persistent worker: `bebebonjour-delivery-loop.service`, enabled/active, `Restart=always`, runs `scripts/run-delivery-loop-worker.mjs` independently of chat. Private environment: `/home/hermes/.config/bebebonjour-delivery-loop/runtime.env`; state: `/home/hermes/.local/share/bebebonjour-delivery-loop`.
+- Persistent worker: `bebebonjour-delivery-loop.service`, enabled/active, `Restart=always`, runs `scripts/run-delivery-loop-worker.mjs` independently of chat. Since 19/11 the systemd drop-in `20-approved-runtime.conf` points at `~/.local/share/bebebonjour-delivery-loop-runtime/<main commit>` (a `git archive` of main, `node_modules` linked to the previous runtime). Upgrade it whenever `work()`/claim shapes change: the Nov 9 worker read `claim.intake.baby` and would have failed every brief-only generation. Private environment: `/home/hermes/.config/bebebonjour-delivery-loop/runtime.env`; state: `/home/hermes/.local/share/bebebonjour-delivery-loop`.
 - Uncertain narration/email effects remain fenced against replay. A generation that failed three times shows in the ops console; the operator can relaunch it with the same or an edited brief.
 
 Protected, mode-0600 acceptance evidence (contains recipient/shareable URLs; do not upload with source):
