@@ -17,12 +17,12 @@ const ref = name => makeFunctionReference(`deliveryLoop:${name}`);
 
 test("PGlite runtime, protocol, transactions, storage, scheduler and HTTP worker", async t => {
   Object.assign(process.env, {BEBEBONJOUR_DELIVERY_LOOP_TOKEN:token,BEBEBONJOUR_OPERATIONS_TOKEN:operator,BEBEBONJOUR_TRIAL_PASSWORD_SHA256:sha("synthetic-password"),BEBEBONJOUR_DELIVERY_LOOP_ORIGIN:"https://public.example.invalid"});
-  Object.assign(process.env, {OPENAI_API_KEY:'synthetic', BEBEBONJOUR_CLOUDFLARE_ACCOUNT_ID:'a'.repeat(32), BEBEBONJOUR_CLOUDFLARE_ZONE_ID:'b'.repeat(32), BEBEBONJOUR_CLOUDFLARE_EMAIL_TOKEN:'synthetic-send-token', BEBEBONJOUR_OPERATOR_EMAIL:'operator@example.invalid', BEBEBONJOUR_OPS_CONSOLE_URL:'https://ops.example.invalid'});
+  Object.assign(process.env, {BEBEBONJOUR_VOICE_WORKER_URL:'https://voice.example.invalid', BEBEBONJOUR_VOICE_WORKER_TOKEN:'synthetic', BEBEBONJOUR_CLOUDFLARE_ACCOUNT_ID:'a'.repeat(32), BEBEBONJOUR_CLOUDFLARE_ZONE_ID:'b'.repeat(32), BEBEBONJOUR_CLOUDFLARE_EMAIL_TOKEN:'synthetic-send-token', BEBEBONJOUR_OPERATOR_EMAIL:'operator@example.invalid', BEBEBONJOUR_OPS_CONSOLE_URL:'https://ops.example.invalid'});
   const actualFetch = globalThis.fetch; const effects = [];
   globalThis.fetch = async (url, options) => {
     const address = String(url);
     if (address.startsWith('http://127.0.0.1:')) return actualFetch(url, options);
-    if (address === 'https://api.openai.com/v1/audio/speech') { effects.push('speech'); const frame = Buffer.alloc(384); frame.set([0xff,0xf3,0xc4,0xc4]); return new Response(frame,{headers:{'content-type':'audio/mpeg'}}); }
+    if (address === 'https://voice.example.invalid/speak') { effects.push('speech'); const frame = Buffer.alloc(384); frame.set([0xff,0xf3,0xc4,0xc4]); return new Response(frame,{headers:{'content-type':'audio/mpeg'}}); }
     if (address.startsWith('https://api.cloudflare.com/')) { const payload = JSON.parse(options.body); effects.push(payload.headers['X-Bebe-Operation']); return Response.json({success:true,errors:[],result:{message_id:`offline-${effects.length}`,queued:[payload.to],delivered:[],permanent_bounces:[]}}); }
     throw new Error('unexpected_external_request');
   };

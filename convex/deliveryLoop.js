@@ -38,12 +38,15 @@ function canonicalIntake(input, idempotencyKey) {
   const gender = nested ? input.baby?.gender : input.gender;
   const religion = nested ? input.context?.religion : input.context;
   const enabled = nested ? input.voicePreference?.enabled : input.voiceEnabled;
+  const rawVoice = nested ? input.voicePreference?.voice : input.voice;
+  const voice = rawVoice === undefined || rawVoice === "" ? "pere" : rawVoice;
+  if (!["pere", "mere"].includes(voice)) throw new Error("invalid_intake");
   const voiceGender = nested ? input.voicePreference?.gender || "neutral" : "neutral";
   if (!Array.isArray(languages) || languages.length < 1 || languages.length > 2 || new Set(languages).size !== languages.length || languages.some((language) => !["fr", "ar"].includes(language)) || !["girl", "boy", "neutral"].includes(gender) || !["general", "islam"].includes(religion) || typeof enabled !== "boolean" || !["male", "female", "neutral"].includes(voiceGender)) throw new Error("invalid_intake");
   if (input.fictional !== undefined && typeof input.fictional !== "boolean") throw new Error("invalid_intake");
   const baby = { firstName: text(nested ? input.baby?.firstName : input.babyName, 100, "invalid_baby_name"), gender };
   if (input.baby?.nameArabic !== undefined) baby.nameArabic = text(input.baby.nameArabic, 100);
-  const intake = { schemaVersion: "1.0", requestId: input.requestId ? text(input.requestId, 200) : idempotencyKey, customer: { email, consent: true }, baby, languages: [...languages], context: { religion }, voicePreference: { enabled, gender: voiceGender }, fictional: input.fictional === true, source: "first_party_delivery" };
+  const intake = { schemaVersion: "1.0", requestId: input.requestId ? text(input.requestId, 200) : idempotencyKey, customer: { email, consent: true }, baby, languages: [...languages], context: { religion }, voicePreference: { enabled, gender: voiceGender, voice }, fictional: input.fictional === true, source: "first_party_delivery" };
   if (input.submittedAt !== undefined) {
     if (typeof input.submittedAt !== "string" || input.submittedAt.length > 40 || !Number.isFinite(Date.parse(input.submittedAt))) throw new Error("invalid_intake");
     intake.submittedAt = input.submittedAt;
@@ -255,7 +258,7 @@ async function audioMetadata(ctx, storageId) {
   if (!meta || !meta.size || meta.size > 18 * 1024 * 1024 || (meta.contentType !== undefined && !["audio/mpeg", "audio/mp3"].includes(meta.contentType))) throw new Error("invalid_audio_file");
 }
 export const recordNarration = mutationGeneric({
-  args: { ...leaseArgs, revision: v.number(), language: v.string(), textDigest: v.string(), storageId: v.id("_storage"), provider: v.literal("openai"), model: v.string(), voice: v.string(), phraseStarts: v.array(v.number()) },
+  args: { ...leaseArgs, revision: v.number(), language: v.string(), textDigest: v.string(), storageId: v.id("_storage"), provider: v.literal("voxcpm"), model: v.string(), voice: v.string(), phraseStarts: v.array(v.number()) },
   handler: async (ctx, args) => {
     auth(args.workerToken); const row = await get(ctx, args.jobId); authorizeLease(row, args.leaseToken, args.revision, "generate");
     if (!row.data.intake.voicePreference.enabled || !row.data.intake.languages.includes(args.language) || !DIGEST.test(args.textDigest)) throw new Error("invalid_narration");
@@ -396,7 +399,7 @@ function operatorDetail(row) {
   const previous = (d.briefs || []).find((item) => item.revision === d.desiredRevision - 1)?.brief;
   const suggested = previous ? Object.fromEntries(Object.entries(previous).filter(([key]) => key !== "languages")) : suggestBrief(intake);
   return { jobId: row.jobId, status: row.status, orderMode: d.orderMode || "complimentary", paymentStatus: d.payment?.status || null, createdAtMs: d.createdAtMs ?? row._creationTime, fictional: intake.fictional === true, desiredRevision: d.desiredRevision, latestRevision: d.latestRevision ?? 0,
-    intake: { email: intake.customer?.email ?? null, babyName: baby.firstName ?? null, nameArabic: baby.nameArabic ?? null, gender: baby.gender ?? null, languages: intake.languages ?? [], religion: intake.context?.religion ?? null, birthDate: intake.birthDate ?? null, request: intake.request ?? null, voiceEnabled: intake.voicePreference?.enabled ?? false },
+    intake: { email: intake.customer?.email ?? null, babyName: baby.firstName ?? null, nameArabic: baby.nameArabic ?? null, gender: baby.gender ?? null, languages: intake.languages ?? [], religion: intake.context?.religion ?? null, birthDate: intake.birthDate ?? null, request: intake.request ?? null, voiceEnabled: intake.voicePreference?.enabled ?? false, voice: intake.voicePreference?.voice ?? "pere" },
     feedback: d.feedback ?? null, correctionsUsed: d.correctionsUsed ?? 0, brief: current, suggestedBrief: suggested, publicUrl: d.latestRevision ? links(row).publicUrl : null, orderUrl: links(row).reviewUrl, notices: (d.notices || []).map(({kind, revision, status, atMs}) => ({kind, revision, status, atMs})), lastError: d.lastError ?? null, canLaunch: canLaunch(row), canRefuse: row.status === "awaiting_operator", revisions: revisions.map(({revision, publishedAtMs}) => ({revision, publishedAtMs})), options: { tones: TONES, genders: GENDERS, religions: RELIGIONS } };
 }
 export const operatorJob = queryGeneric({ args: { operatorToken: v.string(), jobId: v.string() }, handler: async (ctx, args) => { operatorAuth(args.operatorToken); return operatorDetail(await get(ctx, args.jobId)); } });

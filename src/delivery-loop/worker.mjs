@@ -34,6 +34,8 @@ export function createDeliveryLoopWorker(options = {}) {
   if (typeof workerToken !== "string" || !workerToken || typeof workerId !== "string" || !/^[A-Za-z0-9_-]{1,128}$/u.test(workerId) || typeof stateDir !== "string" || !path.isAbsolute(stateDir) || path.normalize(stateDir) !== stateDir || stateDir === "/") reject("worker_configuration_rejected");
   const compositionTimeoutMs = bounded(options.compositionTimeoutMs ?? Number(environment.BEBEBONJOUR_COMPOSITION_TIMEOUT_MS ?? 300_000), 10, 300_000);
   const providerTimeoutMs = bounded(options.providerTimeoutMs ?? 180_000, 10, 300_000);
+  // VoxCPM2 speaks one phrase at a time on CPU: one language can take several minutes.
+  const narrationTimeoutMs = bounded(options.narrationTimeoutMs ?? Number(environment.BEBEBONJOUR_NARRATION_TIMEOUT_MS ?? 600_000), 10, 840_000);
   const requestTimeoutMs = bounded(options.requestTimeoutMs ?? 30_000, 10, 60_000);
   const reconciliationAttempts = bounded(options.reconciliationAttempts ?? 3, 1, 5);
   const composer = options.composer ?? createCodexSubscriptionComposer({ model: environment.BEBEBONJOUR_COMPOSITION_MODEL ?? "gpt-5.6-sol", timeoutMs: compositionTimeoutMs, environment });
@@ -115,7 +117,7 @@ export function createDeliveryLoopWorker(options = {}) {
           journal.state.audio[language] = { status: "inflight", textDigest };
           await journal.save();
           try {
-            const result = await invoke("action", "deliveryLoopProviders:narrate", { ...identity(job), language, text, textDigest }, signal, Math.min(providerTimeoutMs, job.leaseExpiresAtMs - now() - 1000));
+            const result = await invoke("action", "deliveryLoopProviders:narrate", { ...identity(job), language, text, textDigest }, signal, Math.min(narrationTimeoutMs, job.leaseExpiresAtMs - now() - 1000));
             validateNarration(result, textDigest, phraseCount);
             const committed = await reconcile(job, (remote) => findNarration(remote, job.revision, language, textDigest), signal);
             if (!committed || committed.storageId !== result.storageId || JSON.stringify(committed.phraseStarts) !== JSON.stringify(result.phraseStarts)) reject("narration_reconciliation_required");

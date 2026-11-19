@@ -290,7 +290,7 @@ test("narration receipts survive generation reclaim, immutable public audio reso
   const first = await claim(t);
   const fixtureBytes = new TextEncoder().encode("OFFLINE STORAGE FIXTURE — not generated speech".repeat(5));
   const storageId = await t.run((ctx) => ctx.storage.store(new Blob([fixtureBytes], { type: "audio/mpeg" })));
-  const narration = { workerToken, jobId: job.jobId, leaseToken: first.leaseToken, revision: 1, language: "fr", textDigest: sha("offline-narration-text"), storageId, provider: "openai", model: "offline-model-fixture", voice: "cedar", phraseStarts: [0] };
+  const narration = { workerToken, jobId: job.jobId, leaseToken: first.leaseToken, revision: 1, language: "fr", textDigest: sha("offline-narration-text"), storageId, provider: "voxcpm", model: "offline-model-fixture", voice: "pere", phraseStarts: [0] };
   await t.mutation(ref("recordNarration"), narration);
   assert.deepEqual(await t.mutation(ref("recordNarration"), narration), (await read(t, job.jobId)).narrationReceipts[0]);
   await assert.rejects(publish(t, job.jobId, first, "Audio missing"), /requested_audio_missing/);
@@ -462,4 +462,18 @@ test("announcement slideshow CSP hashes the exact script and avoids duplicate co
   assert.ok(csp.includes("sandbox allow-scripts"));
   assert.ok(csp.includes("'sha256-" + createHash('sha256').update(SLIDESHOW_SCRIPT).digest('base64') + "'"));
   assert.doesNotMatch(await response.text(), /<audio controls/);
+});
+
+
+test("intake persists default and selected voices and rejects invalid values", async () => {
+  const t = fixture();
+  for (const [value, expected] of [[undefined, "pere"], ["", "pere"], ["mere", "mere"]]) {
+    const job = await submit(t, crypto.randomUUID(), { intake: { ...intake, voice: value } });
+    assert.equal((await read(t, job.jobId)).intake.voicePreference.voice, expected);
+    assert.equal((await t.query(ref("operatorJob"), {operatorToken, jobId:job.jobId})).intake.voice, expected);
+  }
+  await assert.rejects(submit(t, crypto.randomUUID(), {intake: {...intake, voice:"x"}}), /invalid_intake/);
+  const nested = {customer:{email:intake.email,consent:true},baby:{firstName:"Amal",gender:"girl"},languages:["fr"],context:{religion:"general"},voicePreference:{enabled:true,voice:"mere"}};
+  const job = await submit(t, crypto.randomUUID(), {intake:nested});
+  assert.equal((await read(t,job.jobId)).intake.voicePreference.voice,"mere");
 });

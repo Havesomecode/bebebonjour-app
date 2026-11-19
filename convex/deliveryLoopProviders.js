@@ -23,21 +23,22 @@ export const narrate = actionGeneric({
     const job = await context.runQuery(ref('authorizeProvider'), { ...pickIdentity(args), stage });
     if (!job.intake.languages.includes(args.language)) throw new Error('narration_language_invalid');
     if (createHash('sha256').update(args.text).digest('hex') !== args.textDigest) throw new Error('narration_text_mismatch');
+    const voice = job.intake.voicePreference?.voice ?? 'pere';
     const phraseCount = splitNarrationPhrases(args.text).length;
     const existing = (job.narrationReceipts || []).find(receipt => receipt.revision === args.revision
       && receipt.language === args.language && receipt.textDigest === args.textDigest);
     if (existing) {
-      if (!validPhraseStarts(existing.phraseStarts, phraseCount)) throw new Error('narration_receipt_invalid');
+      if (existing.provider !== 'voxcpm' || existing.voice !== voice || !validPhraseStarts(existing.phraseStarts, phraseCount)) throw new Error('narration_receipt_invalid');
       return { storageId: existing.storageId, textDigest: existing.textDigest, phraseStarts: existing.phraseStarts,
         provider: existing.provider, model: existing.model, voice: existing.voice };
     }
     await context.runMutation(ref('beginNarration'), { ...pickIdentity(args), language: args.language, textDigest: args.textDigest });
-    const receipt = await provider('narrate', { language: args.language, text: args.text, textDigest: args.textDigest });
+    const receipt = await provider('narrate', { language: args.language, text: args.text, textDigest: args.textDigest, voice });
     const bytes = Buffer.from(receipt.audioBase64, 'base64');
     if (bytes.length !== receipt.bytes || bytes.length < 128 || bytes.length > 12 * 1024 * 1024
       || createHash('sha256').update(bytes).digest('hex') !== receipt.audioDigest
-      || receipt.textDigest !== args.textDigest || receipt.provider !== 'openai'
-      || receipt.voice !== 'cedar' || !validPhraseStarts(receipt.phraseStarts, phraseCount)) throw new Error('narration_receipt_invalid');
+      || receipt.textDigest !== args.textDigest || receipt.provider !== 'voxcpm'
+      || receipt.voice !== voice || !validPhraseStarts(receipt.phraseStarts, phraseCount)) throw new Error('narration_receipt_invalid');
     await context.runQuery(ref('authorizeProvider'), { ...pickIdentity(args), stage });
     const storageId = await context.storage.store(new Blob([bytes], { type: 'audio/mpeg' }));
     try {

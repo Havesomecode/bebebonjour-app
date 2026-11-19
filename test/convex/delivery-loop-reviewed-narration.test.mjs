@@ -22,7 +22,8 @@ function fixture() {
     BEBEBONJOUR_PAID_TERMS_URL: 'https://offline.example.invalid/terms',
     BEBEBONJOUR_PAID_STRIPE_ACCOUNT_ID: 'acct_offline',
     CONVEX_SITE_URL: 'https://offline.convex.site',
-    OPENAI_API_KEY: 'offline-not-a-real-key',
+    BEBEBONJOUR_VOICE_WORKER_URL: 'https://voice.example.invalid',
+    BEBEBONJOUR_VOICE_WORKER_TOKEN: 'offline-token',
     BEBEBONJOUR_DELIVERY_LOOP_EMAIL_PROVIDER: 'cloudflare',
     BEBEBONJOUR_CLOUDFLARE_ACCOUNT_ID: 'a'.repeat(32),
     BEBEBONJOUR_CLOUDFLARE_ZONE_ID: 'b'.repeat(32),
@@ -50,7 +51,7 @@ for (const language of ['fr', 'ar']) test(`SR-01: ${language} generated speech u
   const t = fixture(); const effects = [];
   context.mock.method(globalThis, 'fetch', async (url, options) => {
     const payload = JSON.parse(options.body); effects.push({url,payload});
-    if (url === 'https://api.openai.com/v1/audio/speech') {
+    if (url === 'https://voice.example.invalid/speak') {
       const frame = Buffer.alloc(384); frame.set([0xff, 0xf3, 0xc4, 0xc4]);
       return new Response(frame, {headers:{'content-type':'audio/mpeg'}});
     }
@@ -71,8 +72,8 @@ for (const language of ['fr', 'ar']) test(`SR-01: ${language} generated speech u
   await t.mutation(ref('recordPaymentEvidence'), {jobId:job.jobId,revision:1,previewDigest:launched.data.briefs[0].briefDigest,providerPaymentId:'pi_offlineReview',amountMinor:3900,currency:'eur',livemode:true,settled:true,providerAccountId:'acct_offline'});
   const result = await worker.runOnce();
   assert.equal(result.status,'published',JSON.stringify(result));
-  const speech = effects.filter(e => e.url === 'https://api.openai.com/v1/audio/speech');
-  const inputs = speech.map(e => e.payload.input);
+  const speech = effects.filter(e => e.url === 'https://voice.example.invalid/speak');
+  const inputs = speech.map(e => e.payload.text);
   assert.deepEqual(inputs, transcript(language).split('\n'));
   assert.ok(inputs.every(input => !input.includes(hidden) && !input.includes('HIDDEN')));
   const final = await read(t,job);

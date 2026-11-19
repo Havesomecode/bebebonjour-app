@@ -1,0 +1,35 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
+import { performNarration } from '../../src/delivery-loop/provider-transport.mjs';
+const environment = { BEBEBONJOUR_VOICE_WORKER_URL: 'https://voice.example.invalid', BEBEBONJOUR_VOICE_WORKER_TOKEN: 'offline-token' };
+const sha = text => createHash('sha256').update(text).digest('hex');
+test('worker receives phrases sequentially with selected voice and language', async () => {
+  const text = 'Bienvenue.\nMila.'; const calls = []; let active = 0;
+  const frame = Buffer.alloc(384); frame.set([0xff, 0xf3, 0xc4, 0xc4]);
+  const receipt = await performNarration({ text, textDigest: sha(text), language: 'fr', voice: 'mere' }, environment, async (url, request) => {
+    assert.equal(++active, 1); assert.equal(url, 'https://voice.example.invalid/speak');
+    assert.equal(request.method, 'POST'); assert.equal(request.headers.authorization, 'Bearer offline-token');
+    assert.ok(request.signal instanceof AbortSignal); calls.push(JSON.parse(request.body));
+    await new Promise(resolve => setTimeout(resolve, 5)); active--; return new Response(frame);
+  });
+  assert.deepEqual(calls, [{voice:'mere',language:'fr',text:'Bienvenue.'},{voice:'mere',language:'fr',text:'Mila.'}]);
+  assert.equal(receipt.provider, 'voxcpm'); assert.equal(receipt.model, 'openbmb/VoxCPM2@7936080b'); assert.equal(receipt.voice, 'mere');
+  assert.equal(receipt.textDigest, sha(text)); assert.equal(receipt.phraseStarts.length, 2); assert.equal(receipt.phraseStarts[0], 0); assert.ok(receipt.phraseStarts[1] > 0);
+  await assert.rejects(() => performNarration({text,textDigest:sha(text),language:'fr',voice:'x'},environment), /narration_input_invalid/);
+});
+test('worker configuration is required before fetch', async () => {
+  const args = {text:'Bonjour.',textDigest:sha('Bonjour.'),language:'fr',voice:'pere'};
+  for (const key of ['BEBEBONJOUR_VOICE_WORKER_URL','BEBEBONJOUR_VOICE_WORKER_TOKEN']) {
+    const env = {...environment}; delete env[key];
+    await assert.rejects(() => performNarration(args,env,() => { throw Error('unexpected_fetch'); }), new RegExp(`${key}_not_configured`));
+  }
+});
+
+test('worker errors and invalid audio fail closed', async () => {
+  const args = {text:'Bonjour.',textDigest:sha('Bonjour.'),language:'ar',voice:'pere'};
+  await assert.rejects(() => performNarration(args,environment,async () => new Response('{}',{status:500})), /narration_provider_http_500/);
+  for (const size of [127, 12 * 1024 * 1024 + 1]) {
+    await assert.rejects(() => performNarration(args,environment,async () => new Response(Buffer.alloc(size))), /narration_audio_invalid/);
+  }
+});

@@ -247,7 +247,7 @@ test("remote email effect fence blocks calls when local journal is absent", asyn
 test("timeout in narration is bounded, reconciled and never retried automatically", async (t) => {
   const f = await fixture(t);
   f.client.action = async (name, args) => { f.calls.push({ name, args }); return new Promise(() => {}); };
-  const worker = createDeliveryLoopWorker({ ...f.options, providerTimeoutMs: 15 });
+  const worker = createDeliveryLoopWorker({ ...f.options, narrationTimeoutMs: 15 });
   assert.equal((await worker.runOnce()).status, "failed");
   assert.equal(count(f, "deliveryLoopProviders:narrate"), 1);
   assert.equal(f.calls.find((call) => call.name === "deliveryLoop:fail").args.reason, "narration_reconciliation_required");

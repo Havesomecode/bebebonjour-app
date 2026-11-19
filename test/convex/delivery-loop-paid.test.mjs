@@ -33,7 +33,7 @@ async function pay(t,job,more={}){const row=await read(t,job);return t.mutation(
 async function email(t,job,stage){const lease=await claim(t);assert.equal(lease.stage,stage);const args={workerToken,jobId:job.jobId,leaseToken:lease.leaseToken,revision:lease.revision,stage};await t.mutation(ref('fence'),args);await t.mutation(ref('completeEmail'),{...args,providerMessageId:`offline_${crypto.randomUUID()}`});}
 async function publish(t,job){
  const lease=await claim(t);assert.equal(lease.stage,'generate');const id={workerToken,jobId:job.jobId,leaseToken:lease.leaseToken,revision:lease.revision};const digest=sha('Bienvenue.');await t.mutation(ref('beginNarration'),{...id,language:'fr',textDigest:digest});
- const storageId=await t.run(ctx=>ctx.storage.store(new Blob([new Uint8Array(160).fill(12)],{type:'audio/mpeg'})));await t.mutation(ref('recordNarration'),{...id,language:'fr',textDigest:digest,storageId,provider:'openai',model:'offline-fixture',voice:'cedar',phraseStarts:[0]});
+ const storageId=await t.run(ctx=>ctx.storage.store(new Blob([new Uint8Array(160).fill(12)],{type:'audio/mpeg'})));await t.mutation(ref('recordNarration'),{...id,language:'fr',textDigest:digest,storageId,provider:'voxcpm',model:'offline-fixture',voice:'pere',phraseStarts:[0]});
  const contentHtml=`<html><body>Annonce ${lease.revision}</body></html>`;const composition={schemaVersion:'1.0',languages:{fr:{introNarration:'Bienvenue.',blessingNarration:'Des jours doux.',closingNarration:'Notre amour.'}}};const compositionJson=JSON.stringify(composition);const args={...id,contentHtml,contentDigest:sha(contentHtml),composition,compositionJson,compositionReceipt:{provider:'openai-codex-subscription',outputDigest:sha(compositionJson)},audioFiles:[{language:'fr',textDigest:digest,storageId,phraseStarts:[0]}]};await assert.rejects(t.mutation(ref('publish'),{...args,compositionReceipt:{...args.compositionReceipt,outputDigest:'a'.repeat(64)}}),/composition_digest_mismatch/);await t.mutation(ref('publish'),args);await email(t,job,'draft_email');return lease;
 }
 async function patchData(t,job,patch){await t.run(async ctx=>{const row=await ctx.db.query('deliveryLoopJobs').withIndex('by_job_id',q=>q.eq('jobId',job.jobId)).unique();await ctx.db.patch(row._id,{data:{...row.data,...patch}});});}
@@ -110,4 +110,15 @@ test('both forms submit the meaning only inside request',async()=>{
  for(const form of Object.values(forms)) for(const meaning of ['  lumière  ','   ']) {form.meaning=meaning;await form.handlers.submit({preventDefault(){}});}
  assert.deepEqual(sent.map(x=>x.intake.request),['Bonjour\n\nSens du prénom : lumière','Bonjour','Bonjour\n\nSens du prénom : lumière','Bonjour']);
  assert.ok(sent.every(x=>!Object.hasOwn(x.intake,'meaning')));
+});
+
+
+test('both forms offer and submit a narration voice without duplicate IDs', async () => {
+ const t=fixture();
+ for (const path of ['/delivery?mode=paid_route_a','/delivery']) {
+   const html=await (await t.fetch(path)).text();
+   assert.match(html, /name="voice"/); assert.match(html, /value="pere"/); assert.match(html, /value="mere"/);
+   assert.match(html, /voice:data\.get\('voice'\)/);
+   const ids=[...html.matchAll(/\bid="([^"]+)"/g)].map(match=>match[1]); assert.equal(new Set(ids).size,ids.length);
+ }
 });

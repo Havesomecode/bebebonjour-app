@@ -25,7 +25,7 @@ This mandate replaces earlier one-job trial restrictions for the new delivery-lo
 
 ## Implementation boundary
 
-The additive `deliveryLoop` Convex lifecycle is the authority for new password-waived first-party intakes. The first-party hosted intake, reviewer UI and unguessable public announcement links use HTTP routes. Content uses the existing Codex ChatGPT subscription; OpenAI API is for Cedar narration only; The current source uses Cloudflare Email for outgoing messages; activation requires a separately authorized deployment.
+The additive `deliveryLoop` Convex lifecycle is the authority for new password-waived first-party intakes. The first-party hosted intake, reviewer UI and unguessable public announcement links use HTTP routes. Content uses the existing Codex ChatGPT subscription; narration uses the VoxCPM2 voice worker (`pere`/`mere`), configured with `BEBEBONJOUR_VOICE_WORKER_URL` and `BEBEBONJOUR_VOICE_WORKER_TOKEN`; The current source uses Cloudflare Email for outgoing messages; activation requires a separately authorized deployment.
 
 The worker must be supervised independently of this conversation. Every generated revision and provider receipt persists. Correction republishes the stable announcement link while retaining earlier revisions. The live acceptance exercise uses fictional baby data and the owner's inbox, `z@havesomecode.io`.
 

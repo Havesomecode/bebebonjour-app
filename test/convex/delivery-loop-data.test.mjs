@@ -53,7 +53,7 @@ async function delivered(t) {
   const id={workerToken,jobId:job.jobId,revision:1,leaseToken:lease.leaseToken};const textDigest=sha('Bienvenue FictionalBaby.\n\nDouceur.\n\nAmour.');
   await t.mutation(ref('beginNarration'),{...id,language:'fr',textDigest});
   const bytes=new Uint8Array(160).fill(13); const storageId=await t.run(ctx=>ctx.storage.store(new Blob([bytes],{type:'audio/mpeg'})));
-  await t.mutation(ref('recordNarration'),{...id,language:'fr',textDigest,storageId,provider:'openai',model:'offline-fixture',voice:'cedar',phraseStarts:[0,1,2]});
+  await t.mutation(ref('recordNarration'),{...id,language:'fr',textDigest,storageId,provider:'voxcpm',model:'offline-fixture',voice:'pere',phraseStarts:[0,1,2]});
   await t.mutation(ref('publish'),{...id,...p,audioFiles:[{language:'fr',textDigest,storageId,phraseStarts:[0,1,2]}]});await email(t,job);
   await t.mutation(ref('requestReview'),{jobId:job.jobId,reviewToken:job.reviewToken,action:'approve',expectedRevision:1,idempotencyKey:crypto.randomUUID()});
   await email(t,job);
@@ -144,12 +144,19 @@ test('hourly pagination schedules continuation past ten legacy records; privacy 
   const crons=readFileSync(new URL('../../convex/crons.js',import.meta.url),'utf8');assert.match(crons,/hours: 1/);assert.match(crons,/deliveryLoopData:sweep/);
 });
 test('late narration recording denial removes only the action-owned new blob',async()=>{
-  const original=globalThis.fetch;const previous=process.env.OPENAI_API_KEY;process.env.OPENAI_API_KEY='offline-not-real';
+  const original=globalThis.fetch;const previousUrl=process.env.BEBEBONJOUR_VOICE_WORKER_URL;const previousToken=process.env.BEBEBONJOUR_VOICE_WORKER_TOKEN;process.env.BEBEBONJOUR_VOICE_WORKER_URL='https://voice.example.invalid';process.env.BEBEBONJOUR_VOICE_WORKER_TOKEN='offline-token';
   const deleted=[];const bytes=Buffer.alloc(384);bytes.set([0xff,0xf3,0xc4,0xc4]);
-  globalThis.fetch=async url=>{assert.equal(url,'https://api.openai.com/v1/audio/speech');return new Response(bytes);};
+  globalThis.fetch=async url=>{assert.equal(url,'https://voice.example.invalid/speak');return new Response(bytes);};
   try {
     const ctx={runQuery:async()=>({orderMode:'paid_route_a',intake:{languages:['fr']},narrationReceipts:[]}),runMutation:async fn=>{if(getFunctionName(fn).endsWith(':recordNarration'))throw new Error('data_deleted');},storage:{store:async()=> 'new_action_owned_blob',delete:async id=>deleted.push(id)}};
     await assert.rejects(narrate._handler(ctx,{workerToken,jobId:'job_offline',leaseToken:'offline-lease',revision:1,language:'fr',text:'Bienvenue.',textDigest:sha('Bienvenue.')}),/data_deleted/);
     assert.deepEqual(deleted,['new_action_owned_blob']);
-  }finally{globalThis.fetch=original;if(previous===undefined)delete process.env.OPENAI_API_KEY;else process.env.OPENAI_API_KEY=previous;}
+  }finally{globalThis.fetch=original;if(previousUrl===undefined)delete process.env.BEBEBONJOUR_VOICE_WORKER_URL;else process.env.BEBEBONJOUR_VOICE_WORKER_URL=previousUrl;if(previousToken===undefined)delete process.env.BEBEBONJOUR_VOICE_WORKER_TOKEN;else process.env.BEBEBONJOUR_VOICE_WORKER_TOKEN=previousToken;}
+});
+
+
+test('narrate rejects an existing receipt with a voice different from stored intake', async () => {
+  const text = 'Bienvenue.'; const digest = sha(text);
+  const ctx = {runQuery: async () => ({intake:{languages:['fr'],voicePreference:{voice:'mere'}},narrationReceipts:[{revision:1,language:'fr',textDigest:digest,phraseStarts:[0],provider:'voxcpm',voice:'pere'}]})};
+  await assert.rejects(narrate._handler(ctx,{workerToken,jobId:'job_offline',leaseToken:'offline-lease',revision:1,language:'fr',text,textDigest:digest}),/narration_receipt_invalid/);
 });

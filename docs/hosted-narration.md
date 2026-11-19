@@ -12,7 +12,7 @@ Convex backend:
 Ops server:
 - `CONVEX_URL` exact HTTPS cloud origin; `CONVEX_SITE_URL` corresponding exact HTTPS HTTP-actions origin.
 - Same narration worker token; existing operator/session/access/rate-limit configuration.
-- `OPENAI_API_KEY` only used by `/v1/audio/speech`. Never used for content generation. Model `gpt-4o-mini-tts`, voice `cedar`, MP3, warm intimate male delivery.
+- This separate hosted-narration path still uses `OPENAI_API_KEY` for `gpt-4o-mini-tts` and Cedar. The delivery loop instead uses the VoxCPM2 voice worker, configured with `BEBEBONJOUR_VOICE_WORKER_URL` and `BEBEBONJOUR_VOICE_WORKER_TOKEN`; each announcement selects `pere` or `mere`.
 - `BEBEBONJOUR_OPS_ENABLED_ACTIONS=approve_content,request_content_changes,reject_content,render,generate_narration,approve_narration,request_narration_changes,reject_narration` (merge deliberately with existing allowed actions; this feature does not enable publication/email).
 - Node 22; awaited route `maxDuration=300` requires hosting plan support. Work deadline 210 seconds, queue/stage leases 300 seconds; HTTP RPCs bounded at 20 seconds. MP3 validation uses packaged `mpg123-decoder` WASM, no ffprobe executable required by the hosted path.
 
