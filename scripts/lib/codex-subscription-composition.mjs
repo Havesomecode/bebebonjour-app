@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
 
 import Ajv2020 from "ajv/dist/2020.js";
-import { resolvedNameEntry, forbiddenNameForms } from "../../src/delivery-loop/name-reference.mjs";
+import { arabicNameForm, resolvedNameEntry, forbiddenNameForms } from "../../src/delivery-loop/name-reference.mjs";
 import { validateBrief } from "../../src/delivery-loop/brief.mjs";
 
 export const CODEX_SUBSCRIPTION_ADAPTER_VERSION = "2.0.0";
@@ -56,7 +56,9 @@ export function buildCodexCompositionPrompt(request) {
     "Reveal the name only at the end, in section order intro, blessing, meaning, reveal, closing.",
     "meaningLines express nameReference.meaning in each language when present; otherwise speak of what the parents put into the name, without etymology claims.",
     "revealLines are 1–2 lead-in phrases ending just before the name, never containing it; adapt to girl, boy, or neutral (e.g. Nous avons accueilli notre fille…).",
+    "closingLines come after the reveal: 1–2 full sentences of closing blessing or welcome for the child; they may use the name but are never the name alone.",
     `Forbidden name forms: ${JSON.stringify(forbiddenNameForms(validated.brief))}. These forms and words built on them (e.g. Arabic الأمل for Amal) must not appear in intro, blessing, meaning, reveal lines or introNarration and blessingNarration; use synonyms.`,
+    `In ar lines, write the name as ${JSON.stringify(arabicNameForm(validated.brief))}.`,
     "Do not invent quotations, scripture, name meanings, dates, identities, links, or facts.",
     "Use blessingLines for faith-compatible blessings when religion is islam; otherwise use general wishes.",
     "Write both ar and fr fields as required by the output schema.",

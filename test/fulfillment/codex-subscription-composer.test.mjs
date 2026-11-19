@@ -639,5 +639,5 @@ test("composer rejects name leaks without revealing provider output", async (t) 
   const composition = structuredClone(VALID_COMPOSITION);
   composition.languages.fr.meaningLines = ["Aélio-Z"];
   const context = await fixture(t, { spawnImpl: successfulSpawn([], composition) });
-  await assert.rejects(context.composer.compose(SYNTHETIC_BRIEF), e => e.reasonCode === "composition_output_rejected" && e.retryable === false && !e.message.includes("Aélio-Z"));
+  await assert.rejects(context.composer.compose(SYNTHETIC_BRIEF), e => e.reasonCode === "composition_output_rejected" && e.retryable === true && !e.message.includes("Aélio-Z"));
 });

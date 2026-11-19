@@ -27,21 +27,19 @@
     "manifestSha256": "e003461f5eefaa95d31bf5777ef1a672cb77ba7d8afaf646466ff1154745442f"
   },
   "syntheticProviderProbe": {
-    "observedAt": "2026-09-06T19:58:31Z",
-    "command": "RUN_CODEX_STRICT_RESPONSE_FORMAT_TEST=1 node --test test/operations/codex-packaged-response-schema.test.mjs",
+    "observedAt": "2026-11-19T13:56:07Z",
+    "command": "createCodexSubscriptionComposer({ executable: 'codex' }).compose(synthetic Amal brief) then buildAnnouncementChapters (scratch script, Linux VM)",
     "status": "PASS",
-    "testCount": 2,
-    "passCount": 2,
-    "failCount": 0,
-    "skipCount": 0,
-    "durationMs": 17176.743458,
+    "cliVersion": "0.167.0",
+    "runtimeNote": "Local Codex CLI 0.167.0 on PATH, not the packaged 0.146.0 runtime; the packaged-runtime probe was not re-run for schema 2.0.",
+    "durationMs": 15667,
     "provider": "openai-codex-subscription",
     "model": "gpt-5.6-sol",
     "adapterVersion": "2.0.0",
-    "requestDigest": "eadfd811ba5fea7e7d0a11a5faad0649fe24106f02c47107b24dd0e5b1cd2a6b",
-    "outputDigest": "c35ed6cee679206ff5aebafd53cfea973b76255e5a373341a21255c3b7c8258c",
+    "requestDigest": "dabd1a0572286953f27f3e0632549e8376cae840ff5f8c379dc4b5f4928ffb72",
+    "outputDigest": "94359848c4f569fe41662755ad8fe958e6a25b3b09edb448bb0bfc64398bfd7c",
     "fixture": "synthetic-only",
-    "boundaryResult": "The exact production composer passed the serialized corrected schema to the integrity-checked packaged Codex 0.146.0 executable; OpenAI accepted the strict response format and returned schema-valid output."
+    "boundaryResult": "The production composer passed the schema 2.0 strict response format to Codex; OpenAI accepted it, returned schema-valid output, and the name-leak check and chapter builder accepted it (5 chapters, name only in reveal and closing)."
   },
   "privacyAndReleaseBoundary": {
     "persistedProviderContent": false,

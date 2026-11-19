@@ -11,6 +11,10 @@ export function resolvedNameEntry(brief) {
   const resolution = resolveBriefName(brief);
   return { resolution, entry: resolution.status === "resolved" ? referenceCatalog.names[resolution.match.canonicalKey] : null };
 }
+// The name as written in Arabic text: the parents' form, else the catalog form, else as typed.
+export function arabicNameForm(brief) {
+  return brief.nameArabic ?? resolvedNameEntry(brief).entry?.canonical?.arabic ?? brief.firstName;
+}
 export function forbiddenNameForms(brief) {
   const { entry } = resolvedNameEntry(brief);
   return [...new Set([brief.firstName, brief.nameArabic, entry?.canonical?.latin, entry?.canonical?.arabic, ...(entry?.aliases?.latin || []), ...(entry?.aliases?.arabic || [])].filter(Boolean))];

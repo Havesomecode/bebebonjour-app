@@ -23,6 +23,10 @@ test("general and unknown names omit verses", () => {
   for (const b of [{ ...brief, firstName: "Amal", nameArabic: null, religion: "general" }, { ...brief, firstName: "Lilou", nameArabic: null }]) {
     assert.deepEqual(buildAnnouncementChapters({ composition, brief: b }).fr.map((s) => s.section), ["intro", "dua", "meaning", "reveal", "closing"]);
   }
+  const amal = buildAnnouncementChapters({ composition, brief: { ...brief, firstName: "Amal", nameArabic: null, religion: "general" } });
+  assert.deepEqual(amal.ar[3].phrases.at(-1), { text: "أمل", name: { latin: "Amal", arabic: "أمل" } });
+  const lilou = buildAnnouncementChapters({ composition, brief: { ...brief, firstName: "Lilou", nameArabic: null } });
+  assert.equal(lilou.ar[3].phrases.at(-1).text, "Lilou");
 });
 
 test("name leaks are rejected, including aliases and Arabic clitics", () => {

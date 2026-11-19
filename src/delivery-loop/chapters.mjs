@@ -1,12 +1,12 @@
 import { assertValidCodexSubscriptionComposition } from "../../scripts/lib/codex-subscription-composition.mjs";
 import { assertNameRevealedLast } from "./name-leak.mjs";
-import { resolvedNameEntry } from "./name-reference.mjs";
+import { arabicNameForm, resolvedNameEntry } from "./name-reference.mjs";
 
 export function buildAnnouncementChapters({ composition, brief }) {
   assertValidCodexSubscriptionComposition(composition);
   assertNameRevealedLast(composition, brief);
-  const { resolution, entry } = resolvedNameEntry(brief);
-  const arabic = brief.nameArabic ?? entry?.canonical?.arabic ?? brief.firstName;
+  const { resolution } = resolvedNameEntry(brief);
+  const arabic = arabicNameForm(brief);
   return Object.fromEntries(brief.languages.map((language) => {
     const c = composition.languages[language];
     const section = (section, lines) => ({ section, phrases: lines.map((text) => ({ text })) });

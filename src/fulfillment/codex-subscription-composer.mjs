@@ -162,7 +162,8 @@ export function createCodexSubscriptionComposer(options = {}) {
           });
         });
         const composition = await readCompositionOutput(outputPath);
-        try { assertNameRevealedLast(composition, request.brief); } catch { throw safeError("composition_output_rejected", false); }
+        // A leaked name is a model slip, not a bad brief: another attempt can succeed.
+        try { assertNameRevealedLast(composition, request.brief); } catch { throw safeError("composition_output_rejected", true); }
         const receipt = {
           composition,
           metadata: {
