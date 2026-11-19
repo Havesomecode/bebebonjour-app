@@ -3,7 +3,8 @@ import { getFunctionName } from "convex/server";
 import schema from "../../convex/schema.js";
 import { resolveFunction, validateArguments } from "./function-boundary.mjs";
 
-const tables = new Set(["deliveryLoopJobs", "deliveryLoopIntakeThrottle", "deliveryLoopPaymentEvidence", "deliveryLoopPaymentEvents", "deliveryLoopRetainedEvidence", "customerFlowOperationsLoginThrottle"]);
+export const RUNTIME_TABLES = new Set(["deliveryLoopJobs", "deliveryLoopIntakeThrottle", "deliveryLoopPaymentEvidence", "deliveryLoopPaymentEvents", "deliveryLoopRetainedEvidence", "customerFlowOperationsLoginThrottle"]);
+const tables = RUNTIME_TABLES;
 const nameOf = ref => typeof ref === "string" ? ref : getFunctionName(ref);
 const id = () => randomUUID().replaceAll("-", "");
 
