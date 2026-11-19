@@ -224,6 +224,31 @@ def encode_mp3(wav, gain_db):
     return result.stdout
 
 
+def trim_phrase(wav, rate, threshold_db=-50.0, lead_s=0.05, gap_s=1.0, tail_s=0.3):
+    """Return (wav, babble_cut_s).
+
+    The delivery loop switches screens at each phrase start, so a phrase must start on
+    its voice: continuation mode (bare names) can open on ~1 s of low noise.
+    VoxCPM sometimes misses its stop token, pauses, then babbles on. Natural pauses
+    inside a phrase stay under ~0.7 s, so speech after a 1 s silence is cut.
+    """
+    frame = max(1, int(rate * 0.01))
+    usable = len(wav) // frame * frame
+    if not usable:
+        return wav, 0.0
+    loud = np.sqrt(np.mean(np.square(wav[:usable].reshape(-1, frame)), axis=1)) > 10 ** (threshold_db / 20)
+    spoken = np.nonzero(loud)[0]
+    if not len(spoken):
+        return wav, 0.0
+    start, end, quiet = spoken[0], len(wav), 0
+    for index in range(spoken[0], spoken[-1] + 1):
+        quiet = 0 if loud[index] else quiet + 1
+        if quiet * frame >= gap_s * rate:
+            end = (index - quiet + 1) * frame + int(tail_s * rate)
+            break
+    return wav[max(0, start * frame - int(lead_s * rate)):end], round((len(wav) - end) / rate, 2) if end < len(wav) else 0.0
+
+
 def speak(voice, language, text, seed=None):
     entry = settings["voices"][voice][language]
     seed = entry["seed"] if seed is None else seed
@@ -258,7 +283,9 @@ def speak(voice, language, text, seed=None):
         log(event="runaway", voice=voice, language=language, seed=seed + attempt, chars=len(text))
     seconds = time.time() - started
     memory.__exit__()
-    wav = np.asarray(wav, dtype=np.float32).squeeze()
+    wav, babble_cut_s = trim_phrase(np.asarray(wav, dtype=np.float32).squeeze(), sample_rate)
+    if babble_cut_s:
+        log(event="babble_cut", voice=voice, language=language, seconds=babble_cut_s)
     audio_seconds = len(wav) / sample_rate
     gc.collect()
     libc.malloc_trim(0)

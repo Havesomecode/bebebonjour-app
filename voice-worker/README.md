@@ -18,6 +18,7 @@ GET  /health
 
 - **Sentences** are spoken as `(delivery)text` with the reference clip as the voice.
 - **One- or two-word phrases** (the name reveal) are spoken in continuation mode: the model carries on from the voice's own reference clip. Spoken alone, the père voice garbled names ("Bayane" heard as "Ariane").
+- **Each phrase starts on its voice**: leading near-silence is trimmed to 50 ms, so screens switch as the words begin (continuation mode opened the name reveal on up to 1.2 s of noise). Speech after a silence of 1 s or more is a missed stop token, not a pause (natural pauses measured ≤ 0.7 s): it is cut and logged as `babble_cut`.
 - **Loudness**: `gain_db` brings every voice to about -21 dB mean with a limiter, so the whispered père voice is as audible as the mère voice.
 - A phrase that runs to its length cap never stopped by itself; it is re-rolled with the next seed, up to three tries.
 

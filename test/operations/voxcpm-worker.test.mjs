@@ -17,6 +17,12 @@ test('voice server structurally gates GPU readiness and serializes lazy lifecycl
   assert.match(source, /torch\.cuda\.empty_cache\(\)/);
 });
 
+test('voice server starts each phrase on its voice and cuts babble after a long pause', async () => {
+  const source = await readFile(new URL('../../voice-worker/server.py', import.meta.url), 'utf8');
+  assert.match(source, /def trim_phrase\(wav, rate, threshold_db=-50\.0, lead_s=0\.05, gap_s=1\.0, tail_s=0\.3\)/);
+  assert.match(source, /wav, babble_cut_s = trim_phrase\(np\.asarray\(wav, dtype=np\.float32\)\.squeeze\(\), sample_rate\)\n(.*\n){2}    audio_seconds = len\(wav\) \/ sample_rate/);
+});
+
 test('worker receives phrases sequentially with selected voice and language', async () => {
   const text = 'Bienvenue.\nMila.'; const calls = []; let active = 0;
   const frame = Buffer.alloc(384); frame.set([0xff, 0xf3, 0xc4, 0xc4]);
