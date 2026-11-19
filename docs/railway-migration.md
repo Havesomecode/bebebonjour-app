@@ -124,5 +124,61 @@ still remains on Convex until a separately authorized cutover.
 
 ## 3. Staging
 
-Filled in by the staging run: Railway project, URL, variables (names only),
-and the recorded synthetic run.
+Railway project `bebebonjour-staging` (workspace "Zacaria Chtatar's Projects",
+environment `production` of that project, which is the staging stack):
+
+| Service | URL | Source |
+|---|---|---|
+| `api` | https://api-production-0caba555.up.railway.app | this repo, `Dockerfile` |
+| `ops` | https://ops-production-e1d2e329.up.railway.app | `bebebonjour-ops`, Nixpacks |
+| `Postgres` | private network | Railway PostgreSQL template |
+
+Deploy: `git archive <commit>` into a scratch folder linked to the project, then
+`railway up -s api --ci` (same for `ops` from the ops repo). The lockfile must
+install with the image's npm 10 (`npx npm@10 install --package-lock-only`).
+
+`api` variables (names only): `DATABASE_URL` (`${{Postgres.DATABASE_URL}}`),
+`BEBEBONJOUR_DELIVERY_LOOP_ORIGIN`, `BEBEBONJOUR_DELIVERY_LOOP_TOKEN`,
+`BEBEBONJOUR_OPERATIONS_TOKEN`, `BEBEBONJOUR_PAID_EDITORIAL_TOKEN`,
+`BEBEBONJOUR_OPS_RATE_LIMIT_TOKEN`, `BEBEBONJOUR_PAID_ROUTE_A_ENABLED=true`,
+`BEBEBONJOUR_PAID_STRIPE_LIVEMODE=false`, `BEBEBONJOUR_PAID_STRIPE_ACCOUNT_ID`,
+`BEBEBONJOUR_PAID_TERMS_URL`, `STRIPE_SECRET_KEY` (restricted `rk_test_` key, same
+as the Convex dev deployment), `OPENAI_API_KEY`, `BEBEBONJOUR_CLOUDFLARE_*`,
+`BEBEBONJOUR_DELIVERY_LOOP_EMAIL_PROVIDER=cloudflare`,
+`BEBEBONJOUR_OPERATOR_EMAIL`, `BEBEBONJOUR_OPS_CONSOLE_URL` (the staging `ops`).
+Staging tokens are fresh random values, never the production ones.
+
+`ops` variables: `BEBEBONJOUR_BACKEND_URL` (the staging `api`),
+`BEBEBONJOUR_OPERATIONS_TOKEN`, `BEBEBONJOUR_OPS_RATE_LIMIT_TOKEN`,
+`BEBEBONJOUR_OPS_ACCESS_KEY`, `BEBEBONJOUR_OPS_SESSION_SECRET`,
+`BEBEBONJOUR_OPS_ORIGIN`, `BEBEBONJOUR_OPS_ENABLED_ACTIONS=launch_generation,refuse_request`.
+
+No Stripe webhook points at staging. After a test payment, settle it from `/delivery/operator`
+(`reconcile_payment` with the PaymentIntent id), which runs the same evidence
+check as the webhook. The cutover card adds the webhook for the real switch.
+
+The generation worker is the existing one on this host, pointed at staging:
+`CONVEX_URL=<api url> BEBEBONJOUR_DELIVERY_LOOP_TOKEN=<staging token>
+BEBEBONJOUR_DELIVERY_LOOP_STATE_DIR=<private dir> node scripts/run-delivery-loop-worker.mjs --once`.
+
+### Recorded synthetic run (19/11/2026)
+
+Synthetic orders only, customer address on a mail.tm inbox we control, Stripe
+test mode.
+
+1. `/delivery` paid form (Lina) → `awaiting_operator`.
+2. Staging ops console login (login throttle served by the Railway backend),
+   `/commandes` lists the order, launch from a brief → `payment_pending`;
+   "Lina — votre demande est acceptée" received.
+3. Order page → "Payer 39 € par carte" → Stripe Checkout (test, 39,00 €),
+   Bancontact "Authorize Test Payment" → PaymentIntent `succeeded`;
+   `reconcile_payment` → `generation_queued`, payment `settled`.
+4. Worker `generate` (Codex subscription + Cedar narration) → published;
+   `/announcements/<token>` 200, audio served from PostgreSQL (`audio/mpeg`).
+5. Worker `draft_email` → "Lina — votre faire-part est prêt" received.
+6. Customer approves on the order page; worker `final_email` → `approved_sent`;
+   "Lina — votre faire-part est approuvé" received.
+
+Repeated after rebasing on the R1 changes (Noé): chapter slideshow renders, CSP
+hash matches, audio answers byte ranges (206), screens follow the voice to the
+name reveal, order ends `approved_sent`.
