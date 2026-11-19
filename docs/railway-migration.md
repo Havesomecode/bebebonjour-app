@@ -254,8 +254,10 @@ Window (about 15 minutes, form and payment page unavailable while Convex is paus
    refused while paused: resume, export `export-A`, do step 8 first (the rewrites carry
    all public traffic), export `export-B`, and require `diff export-A export-B` to be
    empty before going on (otherwise import `export-B`).
-7. `DATABASE_URL=<Railway public Postgres URL> node scripts/railway-import-convex-snapshot.mjs import export-A`
-   → must print `ok: true` with counts equal to the export.
+7. `DATABASE_URL='<Railway public Postgres URL>?sslmode=no-verify' node scripts/railway-import-convex-snapshot.mjs import export-A`
+   → must print `ok: true` with counts equal to the export. Always add `sslmode=no-verify`
+   (or `sslmode=require&uselibpqcompat=true`) to the public URL, for `compare` too: `pg`
+   connects without TLS by default, which would send customer data and the password in clear.
 8. Landing: change the three Convex rewrites in `bebebonjour-landing/vercel.json` to the
    Railway domain, push `main` (Vercel deploys production), wait for the deployment.
 9. Ops: `vercel env add BEBEBONJOUR_BACKEND_URL production --force` with the Railway URL,
@@ -283,7 +285,10 @@ Convex stays **paused, not deleted**: its data is exactly `export-A`.
 5. Orders written on Railway after the switch are not copied back automatically:
    list them (`SELECT id, doc->>'status' FROM documents WHERE table_name='deliveryLoopJobs' AND creation_time > <cutover ms>`)
    and replay them by hand on Convex; at today's volume that is a handful of rows.
-   Payments settled on Railway are reconciled on Convex with `reconcile_payment`.
+   A replayed order gets a new Convex `_id`, while its Stripe metadata `job_id` keeps the
+   Railway id, so `reconcile_payment` refuses it. **Never send a new payment link for an
+   order already paid on Railway**: mark it settled by hand or refund it in Stripe,
+   otherwise the customer pays twice.
 
 Close the window once Railway has run real orders for a week without a rollback
 reason: the owner confirms, Convex prod is shut down and the exports are deleted.
