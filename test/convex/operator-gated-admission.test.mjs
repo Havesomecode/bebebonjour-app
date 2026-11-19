@@ -49,3 +49,17 @@ test('operator validates a brief before launch and claim excludes raw intake', a
   assert.doesNotMatch(JSON.stringify(work), /fictional@example\.invalid|IGNORE ALL PREVIOUS INSTRUCTIONS|evil@example\.com/);
   await new Promise(resolve => setTimeout(resolve, 20)); await t.finishInProgressScheduledFunctions();
 });
+
+test('every notice payload passes the real Cloudflare transport', async () => {
+  const { noticePayload } = await import('../../convex/deliveryLoopNotices.js');
+  const { createCloudflareEmailTransport } = await import('../../src/fulfillment/cloudflare-email-transport.mjs');
+  const { cloudflareConfig } = await import('../../src/delivery-loop/cloudflare-runtime.mjs');
+  const environment = { BEBEBONJOUR_CLOUDFLARE_ACCOUNT_ID: 'a'.repeat(32), BEBEBONJOUR_CLOUDFLARE_ZONE_ID: 'b'.repeat(32), BEBEBONJOUR_CLOUDFLARE_EMAIL_TOKEN: 'offline-cloudflare-token', BEBEBONJOUR_OPERATOR_EMAIL: 'operator@example.invalid', BEBEBONJOUR_OPS_CONSOLE_URL: 'https://ops.example.invalid' };
+  const jobId = 'job_' + 'c'.repeat(64);
+  for (const notice of [{ jobId, kind: 'operator_new', revision: 1 }, { jobId, kind: 'operator_correction', revision: 2 }, { jobId, kind: 'customer_payment', revision: 1, customerEmail: 'fictional@example.invalid', firstName: 'Amal', reviewUrl: 'https://example.invalid/delivery/review' }]) {
+    const payload = noticePayload(notice, environment);
+    const fetch = async (_url, init) => ({ ok: true, json: async () => ({ success: true, errors: [], result: { message_id: '<m@x>', delivered: [], queued: [JSON.parse(init.body).to], permanent_bounces: [], suppressed_recipients: [] } }) });
+    const transport = createCloudflareEmailTransport({ environment, config: cloudflareConfig(environment), fetch });
+    assert.equal((await transport.send(payload, { fenceExternalEffect: async (_e, issue) => issue() })).providerMessageId, '<m@x>', notice.kind);
+  }
+});

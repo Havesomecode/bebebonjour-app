@@ -89,5 +89,5 @@ for (const language of ['fr', 'ar']) test(`SR-01: ${language} generated speech u
   assert.equal(audioResponse.status,200);
   assert.equal((await audioResponse.arrayBuffer()).byteLength,180);
   assert.equal((await worker.runOnce()).status,'idle');
-  assert.equal(effects.filter(e => e.url.startsWith('https://api.cloudflare.com/')).length,2);
+  assert.equal(effects.filter(e => e.url.startsWith('https://api.cloudflare.com/') && e.payload.headers['X-Bebe-Operation'].startsWith('bebe-loop:')).length,2);
 });

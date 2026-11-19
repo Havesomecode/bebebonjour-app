@@ -52,8 +52,9 @@ export const send = internalActionGeneric({
       const receipt = await cloudflareTransport().send(payload, { fenceExternalEffect: alreadyAdmitted });
       await ctx.runMutation(ref("finishNotice"), { ...args, providerMessageId: receipt.providerMessageId });
       return { sent: true };
-    } catch {
-      await ctx.runMutation(ref("finishNotice"), { ...args, reason: "notice_send_failed" });
+    } catch (error) {
+      // Transport reason codes are stable and carry no provider response text.
+      await ctx.runMutation(ref("finishNotice"), { ...args, reason: /^cloudflare_[a-z_]{1,48}$/.test(error?.reasonCode || "") ? error.reasonCode : "notice_send_failed" });
       return { sent: false };
     }
   },
