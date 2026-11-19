@@ -1,6 +1,6 @@
 """Bébé Bonjour voice worker: speaks one phrase per request with VoxCPM2 on CPU.
 
-POST /speak  {"voice": "pere"|"mere", "language": "fr"|"ar", "text": "<one phrase>"}
+POST /speak  {"voice": "pere"|"mere", "language": "fr"|"ar", "text": "<one phrase>", "seed"?: int}
   Authorization: Bearer $VOICE_WORKER_TOKEN
   -> 200 audio/mpeg (MPEG-1 Layer III, 48 kHz mono CBR, no ID3/Xing frame)
 GET /health -> 200 once the model is loaded.
@@ -104,40 +104,54 @@ def load():
         dtype=os.environ.get("VOXCPM_DTYPE") or "bfloat16", peak_rss_mb=peak_rss_mb(), anon_rss_mb=anon_rss_mb(), **cpu_features())
 
 
-def encode_mp3(wav):
+def encode_mp3(wav, gain_db):
     pcm = np.clip(np.asarray(wav, dtype=np.float32).squeeze(), -1.0, 1.0).tobytes()
     result = subprocess.run(
         ["ffmpeg", "-hide_banner", "-loglevel", "error", "-f", "f32le", "-ar", str(sample_rate), "-ac", "1", "-i", "pipe:0",
+         "-af", f"volume={gain_db}dB,alimiter=limit=0.89:level=disabled",
          "-codec:a", "libmp3lame", "-b:a", "128k", "-ar", "48000", "-ac", "1",
          "-write_xing", "0", "-id3v2_version", "0", "-map_metadata", "-1", "-f", "mp3", "pipe:1"],
         input=pcm, capture_output=True, check=True)
     return result.stdout
 
 
-def speak(voice, language, text):
+def speak(voice, language, text, seed=None):
     entry = settings["voices"][voice][language]
+    seed = entry["seed"] if seed is None else seed
     reference = os.path.join(VOICES_DIR, entry["reference"])
-    torch.manual_seed(entry["seed"])
-    np.random.seed(entry["seed"])
+    # Each generation step is 0.16 s of audio. A phrase that runs to max_len never
+    # produced its stop token: it is babbling past the text. Cap it close to the text
+    # length (a runaway also overflowed the 8 GB service) and re-roll the seed.
+    max_len = 20 + int(1.5 * len(text))
+    short = len(text.split()) <= 2
     started = time.time()
-    with torch.inference_mode():
-        wav = model.generate(
-            text=f"({entry['delivery']}){text}",
-            cfg_value=ENGINE["cfg_value"],
-            inference_timesteps=ENGINE["inference_timesteps"],
-            max_len=min(4096, max(256, len(text) * 6)),
-            retry_badcase=False,
-            retry_badcase_max_times=1,
-            reference_wav_path=reference,
-        )
+    for attempt in range(3):
+        torch.manual_seed(seed + attempt)
+        np.random.seed(seed + attempt)
+        with torch.inference_mode():
+            wav = model.generate(
+                text=text if short else f"({entry['delivery']}){text}",
+                # Spoken alone, a bare name comes out garbled; continuing from the
+                # voice's own reference clip says it cleanly in the same voice.
+                **({"prompt_wav_path": reference, "prompt_text": entry["reference_text"]} if short else {}),
+                cfg_value=ENGINE["cfg_value"],
+                inference_timesteps=ENGINE["inference_timesteps"],
+                max_len=max_len,
+                retry_badcase=False,
+                retry_badcase_max_times=1,
+                reference_wav_path=reference,
+            )
+        if len(np.asarray(wav).squeeze()) / sample_rate < (max_len - 1) * 0.16:
+            break
+        log(event="runaway", voice=voice, language=language, seed=seed + attempt, chars=len(text))
     seconds = time.time() - started
     wav = np.asarray(wav, dtype=np.float32).squeeze()
     audio_seconds = len(wav) / sample_rate
     gc.collect()
     libc.malloc_trim(0)
-    log(event="spoke", voice=voice, language=language, chars=len(text), generation_s=round(seconds, 2),
+    log(event="spoke", voice=voice, language=language, seed=seed, attempts=attempt + 1, chars=len(text), generation_s=round(seconds, 2),
         audio_s=round(audio_seconds, 2), rtf=round(seconds / max(audio_seconds, 0.01), 2), peak_rss_mb=peak_rss_mb(), anon_rss_mb=anon_rss_mb())
-    return encode_mp3(wav), seconds, audio_seconds
+    return encode_mp3(wav, entry["gain_db"]), seconds, audio_seconds
 
 
 def parse(body):
@@ -152,9 +166,10 @@ def parse(body):
         return None
     # A leading "(...)" is VoxCPM's control syntax: spoken text never carries parentheses.
     text = " ".join(re.sub(r"[()]", " ", text).split())
-    if not text or len(text) > MAX_TEXT:
+    seed = data.get("seed")
+    if not text or len(text) > MAX_TEXT or (seed is not None and (type(seed) is not int or not 0 <= seed < 2**31)):
         return None
-    return voice, language, text
+    return voice, language, text, seed
 
 
 class Handler(BaseHTTPRequestHandler):

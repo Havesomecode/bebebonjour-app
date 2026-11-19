@@ -5,7 +5,8 @@
     "package": "voxcpm==2.0.3",
     "licence": "Apache-2.0",
     "cfg_value": 2.0,
-    "inference_timesteps": 10
+    "inference_timesteps": 10,
+    "loudness": "gain_db = min(-21 dB - reference mean, -1 dB - reference peak), then a limiter at -1 dBFS"
   },
   "chosen": "Owner choice, 2026-11-19 (card t_395521d0). Synthetic voices designed from a text description; no real person is cloned.",
   "voices": {
@@ -17,7 +18,8 @@
         "reference_text": "Par la grâce de Dieu, nous avons accueilli notre fille Bayane.",
         "seed": 17,
         "description": "A French man in his early thirties, a new father, warm and slightly low voice with a soft smile, native Parisian French",
-        "delivery": "speaking softly and close to the microphone, intimate quiet joy, unhurried with natural pauses, sincere, never theatrical"
+        "delivery": "speaking softly and close to the microphone, intimate quiet joy, unhurried with natural pauses, sincere, never theatrical",
+        "gain_db": 16.8
       },
       "ar": {
         "reference": "ar-pere.wav",
@@ -25,7 +27,8 @@
         "reference_text": "بفضل الله ومنّته، رُزقنا بابنتنا بَيَان.",
         "seed": 11,
         "description": "An Arab man in his early thirties, a new father, warm and slightly low voice with a soft smile, fluent Modern Standard Arabic with clear classical pronunciation",
-        "delivery": "speaking softly and close to the microphone, intimate quiet joy, unhurried with natural pauses, sincere, never theatrical"
+        "delivery": "speaking softly and close to the microphone, intimate quiet joy, unhurried with natural pauses, sincere, never theatrical",
+        "gain_db": 11.1
       }
     },
     "mere": {
@@ -36,7 +39,8 @@
         "reference_text": "Par la grâce de Dieu, nous avons accueilli notre fille Bayane.",
         "seed": 31,
         "description": "A French woman in her early thirties, a new mother, warm soft voice with a gentle smile, native French",
-        "delivery": "speaking softly and close to the microphone, tender quiet joy, unhurried with natural pauses, sincere, never theatrical"
+        "delivery": "speaking softly and close to the microphone, tender quiet joy, unhurried with natural pauses, sincere, never theatrical",
+        "gain_db": -1.5
       },
       "ar": {
         "reference": "ar-mere.wav",
@@ -44,7 +48,8 @@
         "reference_text": "بفضل الله ومنّته، رُزقنا بابنتنا بَيَان.",
         "seed": 31,
         "description": "An Arab woman in her early thirties, a new mother, warm soft voice with a gentle smile, fluent Modern Standard Arabic",
-        "delivery": "speaking softly and close to the microphone, tender quiet joy, unhurried with natural pauses, sincere, never theatrical"
+        "delivery": "speaking softly and close to the microphone, tender quiet joy, unhurried with natural pauses, sincere, never theatrical",
+        "gain_db": -0.4
       }
     }
   }
