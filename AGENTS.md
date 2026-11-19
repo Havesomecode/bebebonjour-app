@@ -21,3 +21,5 @@ Read the shared file below before changing this project. Its development rules a
 Record project-specific corrections in this project's `## Lessons` section, not in the shared file.
 
 ## Lessons
+
+- When adding a new email kind, extend the idempotency-key allowlist in `src/fulfillment/cloudflare-email-transport.mjs` and test the real payload through the real transport (mocked fetch only): otherwise every send fails `cloudflare_input_invalid` in prod while unit tests with a fake transport pass.
