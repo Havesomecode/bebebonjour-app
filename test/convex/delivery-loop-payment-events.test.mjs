@@ -11,12 +11,14 @@ import { MAX_PAID_EVENT_BYTES, verifyPaidEvent, readPaidEventBytes } from '../..
 import { paidStripeKeyMode, inspectPaidPayment } from '../../src/delivery-loop/paid-payment.mjs';
 
 const workerToken = 'offline-payment-worker-capability-over-32-characters';
+const operatorToken = 'offline-operations-capability-over-32-characters';
 const editorialToken = 'offline-payment-human-capability-over-32-characters';
 const webhookSecret = 'whsec_offlineSignedEventFixtureNotARealSecret';
 const sha = bytes => createHash('sha256').update(bytes).digest('hex');
 const ref = name => makeFunctionReference(`deliveryLoop:${name}`);
 const modules = {
   './_generated/server.js': () => import('convex/server'),
+  './deliveryLoopNotices.js': () => import('../../convex/deliveryLoopNotices.js'),
   './deliveryLoop.js': () => import('../../convex/deliveryLoop.js'),
   './deliveryLoopHttp.js': () => import('../../convex/deliveryLoopHttp.js'),
   './deliveryLoopData.js': () => import('../../convex/deliveryLoopData.js'),
@@ -28,7 +30,7 @@ const modules = {
 };
 function fixture(context) {
   Object.assign(process.env, {
-    BEBEBONJOUR_DELIVERY_LOOP_TOKEN: workerToken, BEBEBONJOUR_PAID_EDITORIAL_TOKEN: editorialToken,
+    BEBEBONJOUR_DELIVERY_LOOP_TOKEN: workerToken, BEBEBONJOUR_PAID_EDITORIAL_TOKEN: editorialToken, BEBEBONJOUR_OPERATIONS_TOKEN: operatorToken,
     BEBEBONJOUR_PAID_ROUTE_A_ENABLED: 'true', BEBEBONJOUR_PAID_TERMS_URL: 'https://offline.example.invalid/terms',
     BEBEBONJOUR_PAID_STRIPE_ACCOUNT_ID: 'acct_offline', BEBEBONJOUR_PAID_STRIPE_WEBHOOK_SECRET: webhookSecret,
     STRIPE_SECRET_KEY: 'rk_' + 'live_offlineFixtureNotARealCredential', CONVEX_SITE_URL: 'https://offline.convex.site',
@@ -68,21 +70,18 @@ function fixture(context) {
 const read = (t, job) => t.query(ref('read'), { workerToken, jobId: job.jobId });
 const claim = t => t.mutation(ref('claim'), { workerToken, workerId: 'offline-fixture', leaseToken: crypto.randomUUID() });
 async function ready(t) {
-  const intake = { email: `fictional-${crypto.randomUUID()}@example.invalid`, babyName: 'Amal', language: 'fr', gender: 'girl', context: 'general', voiceEnabled: true, consent: true, customerPermissions: true, fictional: true };
-  const job = await t.mutation(ref('submit'), { intake, orderMode: 'paid_route_a', previewConsent: true, idempotencyKey: crypto.randomUUID() });
-  const lease = await claim(t);
-  const contentHtml = '<html><body>Texte privé approuvé.</body></html>';
-  const composition = { languages: { fr: { introLines: ['Bienvenue.'], blessingLines: ['Des jours doux.'], closingLines: ['Notre amour.'] } } };
-  const p = { revision: 1, contentDigest: sha(contentHtml) };
-  await t.mutation(ref('publish'), { workerToken, jobId: job.jobId, leaseToken: lease.leaseToken, revision: 1,
-    contentHtml, contentDigest: p.contentDigest, composition, compositionJson: JSON.stringify(composition),
-    compositionReceipt: { provider: 'openai-codex-subscription', outputDigest: sha(JSON.stringify(composition)) }, audioFiles: [] });
-  const email = await claim(t);
-  const identity = { workerToken, jobId: job.jobId, leaseToken: email.leaseToken, revision: 1, stage: 'draft_email' };
-  await t.mutation(ref('fence'), identity);
-  await t.mutation(ref('completeEmail'), { ...identity, providerMessageId: 'offline_preview_notice' });
-  await t.mutation(ref('requestReview'), { jobId: job.jobId, reviewToken: job.reviewToken, expectedRevision: 1, action: 'approve', idempotencyKey: crypto.randomUUID() });
-  await t.mutation(ref('paidPermissions'), { jobId: job.jobId, reviewToken: job.reviewToken, expectedRevision: 1, termsVersion: 'route-a-39-v1', termsAccepted: true, publication: true });
+  const intake = { email: `fictional-${crypto.randomUUID()}@example.invalid`, babyName: 'Amal', language: 'fr', gender: 'girl', context: 'general', voiceEnabled: true, consent: true, termsAccepted: true, publication: true, customerPermissions: true, fictional: true };
+  const job = await t.mutation(ref('submit'), { intake, orderMode: 'paid_route_a', idempotencyKey: crypto.randomUUID() });
+  assert.equal((await read(t, job)).status, 'awaiting_operator');
+  await t.mutation(ref('operatorLaunch'), { operatorToken, jobId: job.jobId, expectedRevision: 1,
+    brief: { firstName: 'Amal', nameArabic: null, gender: 'girl', birthDate: null, religion: 'general', tone: 'tendre', phrases: [] } });
+  // Let both scheduled notices finish before snapshotting or altering the job.
+  await new Promise(resolve => setTimeout(resolve, 10));
+  await t.finishInProgressScheduledFunctions();
+  const row = await t.run(ctx => ctx.db.query('deliveryLoopJobs').withIndex('by_job_id', q => q.eq('jobId', job.jobId)).unique());
+  assert.equal(row.status, 'payment_pending');
+  const p = { revision: 1, contentDigest: row.data.briefs[0].briefDigest };
+  assert.match(p.contentDigest, /^[a-f0-9]{64}$/);
   return { job, p };
 }
 async function patch(t, job, data) {
@@ -110,24 +109,40 @@ function bind(state, event) { state.intents.set(event.data.object.id, structured
 async function assertUnpaid(t, job) { assert.equal((await read(t, job)).payment.status, 'pending'); assert.equal((await evidence(t)).length, 0); assert.equal(await claim(t), null); }
 
 // These are actual HTTP raw-byte proofs, not direct settlement assertions.
-test('signed HTTP settlement inspects genuine scope, records redacted immutable ledger, and preserves the human/final fences', async context => {
+test('signed HTTP settlement inspects genuine scope, records redacted immutable ledger, and queues generation after operator launch', async context => {
   const { t, state } = fixture(context); const { job, p } = await ready(t); const event = eventFixture(job, p); bind(state, event);
   const bytes = Buffer.from(JSON.stringify(event, null, 2));
   const response = await post(t, bytes); assert.equal(response.status, 200); assert.deepEqual(await response.json(), { status: 'settled' });
-  assert.equal((await read(t, job)).payment.status, 'settled'); assert.equal(await claim(t), null, 'payment never attests human editorial review');
+  assert.equal((await read(t, job)).payment.status, 'settled'); assert.equal((await read(t, job)).status, 'generation_queued');
   assert.equal(state.calls.length, 1);
   const [receipt] = await ledger(t); assert.equal(receipt.rawBodySha256, sha(bytes)); assert.equal(receipt.jobId, job.jobId);
   assert.doesNotMatch(JSON.stringify(receipt), /sensitive|client_secret|receipt_email|metadata|latest_charge|private@example/);
   const before = await read(t, job); const receipts = await ledger(t);
   for (const result of await Promise.all(Array.from({ length: 8 }, () => post(t, bytes)))) assert.equal(result.status, 200);
   assert.deepEqual(await read(t, job), before); assert.deepEqual(await ledger(t), receipts); assert.equal((await evidence(t)).length, 1); assert.equal(state.calls.length, 1, 'duplicate does not invoke provider');
-  await t.mutation(ref('paidEditorial'), { editorialToken, jobId: job.jobId, expectedRevision: 1, previewDigest: p.contentDigest, reviewerId: 'offline-human', humanReviewed: true });
-  const lease = await claim(t); assert.equal(lease.stage, 'finalize');
-  const identity = { workerToken, jobId: job.jobId, leaseToken: lease.leaseToken, revision: 1, language: 'fr', textDigest: sha('Bienvenue.\n\nDes jours doux.\n\nNotre amour.') };
-  await t.mutation(ref('beginNarration'), identity);
-  await assert.rejects(t.mutation(ref('beginNarration'), identity), /narration_reconciliation_required/);
-  await t.mutation(ref('fail'), { workerToken, jobId: job.jobId, leaseToken: lease.leaseToken, reason: 'provider_timeout', retryable: true });
-  await post(t, bytes); assert.equal((await read(t, job)).status, 'reconciliation_required'); assert.equal(await claim(t), null);
+  assert.equal((await claim(t)).stage, 'generate');
+});
+
+test('settlement outside payment_pending records money without starting generation', async context => {
+  const { t, state } = fixture(context);
+  for (const [n, status] of ['refused', 'awaiting_operator', 'failed'].entries()) {
+    const { job, p } = await ready(t);
+    await t.run(async ctx => {
+      const row = await ctx.db.query('deliveryLoopJobs').withIndex('by_job_id', q => q.eq('jobId', job.jobId)).unique();
+      await ctx.db.patch(row._id, { status, data: { ...row.data, desiredRevision: 2, previewExpiresAtMs: Date.now() - 1 } });
+    });
+    const event = eventFixture(job, p, true, `evt_otherstatus${n}`);
+    event.data.object.id = `pi_otherstatus${n}`;
+    event.data.object.latest_charge.payment_intent = event.data.object.id;
+    bind(state, event);
+    assert.deepEqual(await (await post(t, encode(event))).json(), { status: 'settled' });
+    const current = await read(t, job);
+    assert.equal(current.status, status);
+    assert.equal(current.payment.status, 'settled');
+    assert.equal(current.payment.previewDigest, p.contentDigest);
+  }
+  assert.equal((await evidence(t)).length, 3);
+  assert.equal(await claim(t), null);
 });
 
 test('first-delivery concurrency and changed-byte same identity are atomic; conflicts retain the original receipt and order', async context => {
@@ -213,15 +228,14 @@ test('provider current metadata, mode, amount and settled intent are independent
   }
 });
 
-test('stale approvals and cancelled/revoked/deleted/expired/complimentary scopes reject atomically at commit', async context => {
+test('stale brief digest, consent and inactive paid scopes reject atomically at commit', async context => {
   const { t, state } = fixture(context);
   for (const [n, change] of [
-    { paidApproval: null }, { paidPermissions: null }, { desiredRevision: 2 }, { cancelledAtMs: Date.now() },
-    { revokedAtMs: Date.now() }, { deletionRequestedAtMs: Date.now() }, { deletedAtMs: Date.now() },
-    { previewExpiresAtMs: Date.now() - 1 }, { orderMode: 'complimentary' },
-    { paidApproval: { revision: 1, previewDigest: 'b'.repeat(64) } },
-    { paidPermissions: { revision: 1, previewDigest: 'b'.repeat(64), termsVersion: 'route-a-39-v1', publication: true } },
-    { paidPermissions: { revision: 1, previewDigest: 'invalid', termsVersion: 'old-terms', publication: false } },
+    { briefs: [] }, { briefs: [{ revision: 1, briefDigest: 'b'.repeat(64) }] },
+    { paidConsent: null }, { paidConsent: { termsVersion: 'old-terms', publication: true } },
+    { paidConsent: { termsVersion: 'route-a-39-v2', publication: false } },
+    { cancelledAtMs: Date.now() }, { revokedAtMs: Date.now() }, { deletionRequestedAtMs: Date.now() },
+    { deletedAtMs: Date.now() }, { hostingEndsAtMs: Date.now() - 1 }, { orderMode: 'complimentary' },
   ].entries()) {
     const { job, p } = await ready(t); const event = eventFixture(job, p, true, `evt_scope${n}`); bind(state, event); await patch(t, job, change);
     assert.deepEqual(await (await post(t, encode(event))).json(), { status: 'rejected' }); assert.equal((await evidence(t)).length, 0);
@@ -233,7 +247,6 @@ test('test signed settlement stays test_only and cannot downgrade settled live p
   const { t, state } = fixture(context); process.env.STRIPE_SECRET_KEY = 'rk_test_offlineFixtureNotARealCredential';
   const { job, p } = await ready(t); const event = eventFixture(job, p, false); bind(state, event);
   assert.deepEqual(await (await post(t, encode(event))).json(), { status: 'test_only' }); assert.equal((await read(t, job)).payment.status, 'test_only'); assert.equal(await claim(t), null);
-  await t.mutation(ref('paidEditorial'), { editorialToken, jobId: job.jobId, expectedRevision: 1, previewDigest: p.contentDigest, reviewerId: 'offline-human', humanReviewed: true }); assert.equal(await claim(t), null);
   process.env.STRIPE_SECRET_KEY = 'rk_' + 'live_offlineFixtureNotARealCredential';
   const live = eventFixture(job, p, true, 'evt_live'); live.data.object.id = 'pi_livefixture'; live.data.object.latest_charge.payment_intent = 'pi_livefixture'; bind(state, live);
   assert.deepEqual(await (await post(t, encode(live))).json(), { status: 'settled' }); assert.equal((await read(t, job)).payment.status, 'settled');
@@ -280,13 +293,13 @@ test('real privacy erasure keeps only distinct financial/replay evidence and dup
 });
 
 test('durable rejection is immutable after repaired consent; genuine manual reconciliation remains the recovery seam', async context => {
-  const { t, state } = fixture(context); const { job, p } = await ready(t); const approval = (await read(t, job)).paidApproval;
-  const event = eventFixture(job, p); bind(state, event); await patch(t, job, { paidApproval: null });
+  const { t, state } = fixture(context); const { job, p } = await ready(t); const consent = (await t.run(ctx => ctx.db.query('deliveryLoopJobs').withIndex('by_job_id', q => q.eq('jobId', job.jobId)).unique())).data.paidConsent;
+  const event = eventFixture(job, p); bind(state, event); await patch(t, job, { paidConsent: null });
   assert.deepEqual(await (await post(t, encode(event))).json(), { status: 'rejected' }); const rejected = await ledger(t);
-  await patch(t, job, { paidApproval: approval }); const calls = state.calls.length;
+  await patch(t, job, { paidConsent: consent }); const calls = state.calls.length;
   assert.deepEqual(await (await post(t, encode(event))).json(), { status: 'rejected' }); assert.equal(state.calls.length, calls); await assertUnpaid(t, job);
   await t.action(makeFunctionReference('deliveryLoopProviders:reconcilePaidPayment'), { editorialToken, jobId: job.jobId, expectedRevision: 1, providerPaymentId: 'pi_offline' });
-  assert.equal((await read(t, job)).payment.status, 'settled'); assert.deepEqual(await ledger(t), rejected); assert.equal(await claim(t), null);
+  assert.equal((await read(t, job)).payment.status, 'settled'); assert.deepEqual(await ledger(t), rejected); assert.equal((await claim(t)).stage, 'generate');
 });
 
 test('restricted read credential modes are accepted; invalid or cross-mode evidence fails closed', async () => {
@@ -343,19 +356,18 @@ test('promo: concurrent fifth/sixth attempts have a single winner; deactivation 
   assert.equal((await read(t, c.job)).payment.status, 'pending');
 });
 
-test('promo: native discount settles once, retains human review and committed payment after deactivation', async context => {
+test('promo: native discount queues generation and retains committed payment after deactivation', async context => {
   const { t, state } = fixture(context); const { job, p } = await ready(t); const { event, promotion, coupon } = promoFixture(state, job, p);
   promotion.times_redeemed = coupon.times_redeemed = 5; promotion.active = coupon.valid = false;
   const bytes = encode(event);
   assert.deepEqual(await (await post(t, bytes)).json(), { status: 'settled' });
   const before = await read(t, job); assert.equal(before.payment.amountMinor, 100);
   assert.equal(before.payment.promotion.policyId, 'owner1038-five-tests-v1'); assert.equal(before.payment.promotion.countsAs39EURFirstSale, false);
-  assert.equal(await claim(t), null);
+  assert.equal(before.status, 'generation_queued');
   const calls = state.calls.length; process.env.BEBEBONJOUR_PAID_TEST_PROMO_ENABLED = 'false';
   for (const response of await Promise.all(Array.from({ length: 5 }, () => post(t, bytes)))) assert.equal(response.status, 200);
   assert.equal(state.calls.length, calls); assert.deepEqual(await read(t, job), before); assert.equal((await evidence(t)).length, 1);
-  await t.mutation(ref('paidEditorial'), { editorialToken, jobId: job.jobId, expectedRevision: 1, previewDigest: p.contentDigest, reviewerId: 'offline-human', humanReviewed: true });
-  assert.equal((await claim(t)).stage, 'finalize');
+  assert.equal((await claim(t)).stage, 'generate');
 });
 
 test('promo: five lifetime uses cannot be reset by config rotation or concurrent sixth settlement', async context => {
@@ -410,12 +422,12 @@ test('promo: tampered native evidence and scoped permission refusal never settle
   assert.equal((await ledger(t)).length, variants.length); await assertUnpaid(t, job);
 });
 
-test('promo: stale approval/permissions, cancellation and test mode retain all existing gates', async context => {
+test('promo: stale brief digest, consent, cancellation and test mode retain gates', async context => {
   const { t, state } = fixture(context);
   for (const [n, change] of [
-    { paidApproval: null }, { paidPermissions: null }, { desiredRevision: 2 }, { cancelledAtMs: Date.now() },
-    { paidApproval: { revision: 1, previewDigest: 'b'.repeat(64) } },
-    { paidPermissions: { revision: 1, previewDigest: 'invalid', termsVersion: 'old-terms', publication: false } },
+    { briefs: [] }, { briefs: [{ revision: 1, briefDigest: 'b'.repeat(64) }] },
+    { paidConsent: null }, { paidConsent: { termsVersion: 'old-terms', publication: true } },
+    { paidConsent: { termsVersion: 'route-a-39-v2', publication: false } }, { cancelledAtMs: Date.now() },
   ].entries()) {
     const { job, p } = await ready(t); const x = promoFixture(state, job, p, n); await patch(t, job, change);
     assert.deepEqual(await (await post(t, encode(x.event))).json(), { status: 'rejected' });
@@ -426,7 +438,6 @@ test('promo: stale approval/permissions, cancellation and test mode retain all e
   x.session.livemode = x.promotion.livemode = x.coupon.livemode = x.policy.livemode = false;
   setPolicy(x.policy); bind(state, x.event); process.env.STRIPE_SECRET_KEY = 'rk_test_offlineFixtureNotARealCredential';
   assert.deepEqual(await (await post(t, encode(x.event))).json(), { status: 'test_only' });
-  await t.mutation(ref('paidEditorial'), { editorialToken, jobId: job.jobId, expectedRevision: 1, previewDigest: p.contentDigest, reviewerId: 'offline-human', humanReviewed: true });
   assert.equal(await claim(t), null);
 });
 
@@ -437,7 +448,7 @@ test('signed webhook settles test mode only on test deployments', async context 
   const {t,state}=fixture(context); process.env.BEBEBONJOUR_PAID_STRIPE_LIVEMODE='false'; process.env.STRIPE_SECRET_KEY='rk_test_offline';
   const {job,p}=await ready(t);const event=eventFixture(job,p,false,'evt_testdeployment');bind(state,event);
   assert.deepEqual(await (await post(t,encode(event))).json(),{status:'settled'});assert.equal((await read(t,job)).payment.status,'settled');
-  await t.mutation(ref('paidEditorial'),{editorialToken,jobId:job.jobId,expectedRevision:1,previewDigest:p.contentDigest,reviewerId:'offline-human',humanReviewed:true});assert.equal((await claim(t)).stage,'finalize');
+  assert.equal((await claim(t)).stage,'generate');
   const second=await ready(t); const live=eventFixture(second.job,second.p,true,'evt_livemismatch');live.data.object.id='pi_livemismatch';live.data.object.latest_charge.payment_intent='pi_livemismatch';bind(state,live);
   process.env.STRIPE_SECRET_KEY='rk_live_offline';assert.deepEqual(await (await post(t,encode(live))).json(),{status:'test_only'});assert.equal((await read(t,second.job)).payment.status,'test_only');assert.equal(await claim(t),null);
 });
