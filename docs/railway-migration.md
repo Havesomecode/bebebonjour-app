@@ -1,8 +1,8 @@
 # Moving the Bébé Bonjour backend from Convex to Railway
 
-Status: staging. Convex prod (`tacit-antelope-577`) stays the production backend
+Status: staging done; cutover planned (§4). Convex prod (`tacit-antelope-577`) stays the production backend
 until the cutover card switches it. This document covers the inventory, the target
-design and the staging run. The cutover and rollback plan is added by the cutover card.
+design, the staging run, and the cutover and rollback plan.
 
 ## 1. What production uses today
 
@@ -118,6 +118,8 @@ optionally `BEBEBONJOUR_DELIVERY_LOOP_ORIGIN` to the public origin, then run `np
 The process creates its runtime tables on startup, polls scheduled work, and
 runs the retention sweep hourly. Scheduled work is not retried after a crash or failure.
 
+For an isolated, empty PostgreSQL target, `node scripts/railway-import-convex-snapshot.mjs import <export-dir>` imports runtime documents and referenced storage and compares them. `compare <export-dir>` verifies an existing target; `diff <before-dir> <after-dir>` checks snapshots for changes; `check <origin>` checks announcement routes without printing tokens. The database commands require `DATABASE_URL`. Quiesce writes separately before any authorized cutover; this tool does not migrate scheduled functions, deploy services, or authorize live effects. Snapshot directories and database backups contain private customer data.
+
 Run `npm run test:railway` for PGlite and synthetic localhost HTTP checks. These
 checks do not establish hosted delivery or authorize provider calls. Production
 still remains on Convex until a separately authorized cutover.
@@ -182,3 +184,110 @@ test mode.
 Repeated after rebasing on the R1 changes (Noé): chapter slideshow renders, CSP
 hash matches, audio answers byte ranges (206), screens follow the voice to the
 name reveal, order ends `approved_sent`.
+
+## 4. Production cutover and rollback
+
+Scope: move the live delivery loop (orders, payments, generation, publication,
+mail) from Convex `tacit-antelope-577` to a Railway production project. Customer
+URLs do not change: everything public is served under `https://www.bebebonjour.com`
+through the landing's Vercel rewrites, and every Convex `_id` (job, storage) is kept.
+State on 19/11: 9 jobs, one real order in `payment_pending`, audio in Convex storage.
+
+### What changes and what does not
+
+| Piece | Today | After |
+|---|---|---|
+| Backend | Convex prod | Railway project `bebebonjour-production`: `api` (this repo, `Dockerfile`) + `Postgres` |
+| Public routes | landing rewrites `/delivery`, `/delivery/*`, `/announcements/*` → `tacit-antelope-577.convex.site` | same rewrites → the Railway `api` domain |
+| Stripe live webhook | `we_1UdEfEGrir6mz3o7Gwbqmkqm` → `https://www.bebebonjour.com/delivery/payment/webhook` | **unchanged in Stripe**: it follows the rewrite. Railway gets the same `BEBEBONJOUR_PAID_STRIPE_WEBHOOK_SECRET` |
+| Ops console | Vercel `bebebonjour-ops`, `CONVEX_URL` | same app, `BEBEBONJOUR_BACKEND_URL=<Railway api>` (ops main `ae83e57`+) |
+| Generation worker | systemd `bebebonjour-delivery-loop`, `CONVEX_URL` in `~/.config/bebebonjour-delivery-loop/runtime.env` | same unit and runtime, `CONVEX_URL=<Railway api>` |
+| Mail | Cloudflare Email, `bonjour@mail.havesomecode.io` | same, same variables on Railway |
+| DNS | none | none |
+
+Railway `api` variables: the §1 environment list with the **production** values,
+copied from `npx convex env get` straight into `railway variables --set` (never
+printed or written to disk), plus `DATABASE_URL=${{Postgres.DATABASE_URL}}` and
+`BEBEBONJOUR_DELIVERY_LOOP_ORIGIN=https://www.bebebonjour.com`.
+`BEBEBONJOUR_PAID_STRIPE_LIVEMODE` stays unset (live). Tokens are the same values as
+Convex prod, so the worker and the ops console only change one URL.
+
+### Data copy
+
+`scripts/railway-import-convex-snapshot.mjs` (tested offline in
+`test/railway/import-snapshot.test.mjs`, rehearsed on a local PostgreSQL with the dev
+export):
+
+- `import <dir>`: from an unzipped `npx convex export --include-file-storage`, copies
+  the six runtime tables with their `_id` and `_creationTime`, and the narration files
+  referenced by a `storageId` (size and sha256 checked against the export). One
+  transaction; refuses a non-empty target. Then runs `compare`.
+- `compare <dir>`: per table, snapshot vs database ids both ways (missing, extra,
+  changed docs) and storage (referenced, imported, sha mismatch). Exit 1 unless equal.
+- `diff <dirA> <dirB>`: compares two Convex exports (proves Convex took no write
+  after the copy).
+- `check <origin>`: requests every announcement page and audio file and prints status
+  counts per job, without tokens.
+
+Exports hold customer data: they go in a `chmod 700` scratch directory and are deleted
+when the rollback window closes.
+
+### Cutover steps
+
+Prepared before the window (no customer effect):
+
+1. Create `bebebonjour-production` (Postgres + `api`), deploy the merged main commit
+   with `git archive` + `railway up -s api --ci`, generate a domain. Set the variables.
+2. On the empty database: `/version` 200, `GET /delivery` 200 on the Railway domain.
+3. Baseline on today's Convex: take a fresh export, import it into a local throwaway
+   PostgreSQL, run `check https://www.bebebonjour.com` and keep the per-job codes.
+   Delete the throwaway database.
+
+Window (about 15 minutes, form and payment page unavailable while Convex is paused):
+
+4. Stop the worker: `sudo systemctl stop bebebonjour-delivery-loop`.
+5. Check the Convex dashboard has no pending scheduled function (notices run at once),
+   then **pause** Convex prod (dashboard → Settings → Pause deployment, or the
+   deployment API `pause_deployment`). New calls now fail; Stripe retries its webhook
+   for up to 3 days, so a payment made during the window settles on Railway later.
+6. `npx convex export --include-file-storage` → `export-A`, unzip. If the export is
+   refused while paused: resume, export `export-A`, do step 8 first (the rewrites carry
+   all public traffic), export `export-B`, and require `diff export-A export-B` to be
+   empty before going on (otherwise import `export-B`).
+7. `DATABASE_URL=<Railway public Postgres URL> node scripts/railway-import-convex-snapshot.mjs import export-A`
+   → must print `ok: true` with counts equal to the export.
+8. Landing: change the three Convex rewrites in `bebebonjour-landing/vercel.json` to the
+   Railway domain, push `main` (Vercel deploys production), wait for the deployment.
+9. Ops: `vercel env add BEBEBONJOUR_BACKEND_URL production --force` with the Railway URL,
+   redeploy ops from `ae83e57`+ (`git archive` into scratch, see builder lessons).
+10. Worker: set `CONVEX_URL=<Railway api>` in `runtime.env`, `sudo systemctl start bebebonjour-delivery-loop`.
+
+Verify:
+
+11. `check https://www.bebebonjour.com` against Railway: every job that answered 200 in
+    the baseline answers 200 (pages and audio).
+12. One real request end to end on production: `/delivery` paid form → `awaiting_operator`,
+    operator email received, ops console lists it, launch → payment-link email received,
+    Stripe live Checkout opens at 39 €. A real payment (owner's card), if made, proves the
+    webhook path through the rewrite.
+13. Stripe dashboard: the live webhook shows 2xx deliveries after the switch.
+
+### Rollback (open until the owner closes it)
+
+Convex stays **paused, not deleted**: its data is exactly `export-A`.
+
+1. Revert the landing rewrites to `tacit-antelope-577.convex.site` (revert commit, push).
+2. Ops: remove `BEBEBONJOUR_BACKEND_URL` (falls back to `CONVEX_URL`), redeploy.
+3. Worker: restore `CONVEX_URL` to the Convex URL, restart.
+4. Resume Convex (dashboard or `unpause_deployment`).
+5. Orders written on Railway after the switch are not copied back automatically:
+   list them (`SELECT id, doc->>'status' FROM documents WHERE table_name='deliveryLoopJobs' AND creation_time > <cutover ms>`)
+   and replay them by hand on Convex; at today's volume that is a handful of rows.
+   Payments settled on Railway are reconciled on Convex with `reconcile_payment`.
+
+Close the window once Railway has run real orders for a week without a rollback
+reason: the owner confirms, Convex prod is shut down and the exports are deleted.
+Then remove what only Convex used: the Convex deploy config and scripts, the lines not
+in the delivery loop (customerFlow, fulfillment, generation, ownerTrial*, narration and
+completion workers), and the Convex deploy notes in `docs/STATE.md`. The delivery-loop
+modules in `convex/` and `convex/http.js` stay: the Railway runtime loads them.
