@@ -51,7 +51,7 @@ test("installation retains all existing production artifact routes and every acc
   const routes = http.getRoutes().map(([route, method]) => `${method} ${route}`).sort();
   assert.deepEqual(routes, [
     "GET /announcements/*", "GET /completion/artifact", "GET /delivery", "GET /delivery/data/operator",
-    "GET /delivery/export", "GET /delivery/operator", "GET /delivery/preview", "GET /delivery/review",
+    "GET /delivery/export", "GET /delivery/operator", "GET /delivery/review",
     "GET /delivery/terms/route-a-39-v1",
     "GET /generation/artifact", "GET /narration/artifact", "POST /delivery/checkout", "POST /delivery/data", "POST /delivery/data/operator",
     "POST /delivery/intake", "POST /delivery/operator", "POST /delivery/payment/webhook", "POST /delivery/review",
@@ -105,7 +105,7 @@ test("compatible rollback retains financial/event rows and uncertain-effect fenc
   const before = await t.run(async ctx => Promise.all(ids.map(id => ctx.db.get(id))));
   assert.deepEqual(await t.mutation(ref("deliveryLoopData:sweep"), {}), { disabled: true });
   assert.equal(await t.mutation(ref("deliveryLoop:claim"), { workerToken: token, workerId: "synthetic-rollback-worker", leaseToken: "synthetic-rollback-lease" }), null);
-  await assert.rejects(t.mutation(ref("deliveryLoop:submit"), { orderMode: "paid_route_a", previewConsent: true, idempotencyKey: "synthetic-new-paid", intake: { email: "fixture@example.invalid", babyName: "Fixture", language: "fr", gender: "neutral", context: "general", voiceEnabled: false, consent: true } }), /paid.*disabled|paid_route_unavailable/);
+  await assert.rejects(t.mutation(ref("deliveryLoop:submit"), { orderMode: "paid_route_a", idempotencyKey: "synthetic-new-paid", intake: { email: "fixture@example.invalid", babyName: "Fixture", language: "fr", gender: "neutral", context: "general", voiceEnabled: false, consent: true, termsAccepted: true, publication: true, customerPermissions: true } }), /paid.*disabled|paid_route_unavailable/);
   assert.deepEqual(await t.run(async ctx => Promise.all(ids.map(id => ctx.db.get(id)))), before);
   assert.equal(manifest.rollback.legacyWorkerRestartAllowed, false);
   assert.equal(manifest.rollback.clearJournalsOrFences, false);

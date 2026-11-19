@@ -45,6 +45,7 @@ test('versioned French terms are readable without credentials or paid admission 
   assert.match(html, /line-height:1\.6/);
   assert.match(html, /overflow-wrap:anywhere/);
   assert.match(html, /href="mailto:contact@bebebonjour\.com"/);
+  assert.equal(TERMS_VERSION, 'route-a-39-v2');
   assert.match(html, new RegExp(`Version : <strong>${TERMS_VERSION}</strong>`));
   assert.equal(process.env.BEBEBONJOUR_PAID_ROUTE_A_ENABLED, 'false');
   assert.equal(process.env.BEBEBONJOUR_PAID_DATA_AUTOMATION_ENABLED, 'false');
@@ -55,23 +56,22 @@ test('terms state the literal settled offer, statutory rights and separate five-
   const html = await (await read()).text();
   for (const text of [
     'HAVESOMECODE', '879 252 336 00034', '39 € au total, en une seule fois',
-    'français ou en arabe', 'narration audio incluse', 'deux corrections éditoriales',
-    'gratuit et privé pendant 24 heures', 'courriel de disponibilité',
-    'nouvelle fenêtre de 24 heures', 'un renouvellement manuel',
-    'ni approbation, ni consentement au paiement, ni autorisation de publication',
-    'texte exact', 'paiement volontaire', 'accord distinct', 'révision éditoriale humaine',
-    'cinq jours ouvrés après votre approbation et la confirmation du paiement',
+    'français ou en arabe', 'narration audio incluse', 'L’offre comprend deux corrections.',
+    'nous la lisons avant toute création', 'nous vous envoyons un lien de paiement de 39 €',
+    'La création commence après la confirmation du paiement', 'aucun paiement ne vous est demandé',
+    'cinq jours ouvrés après la confirmation du paiement',
     'douze mois à compter de la livraison finale', '30 jours avant la fermeture',
     'texte final', 'audio', 'archive de la page', 'sans renouvellement automatique',
     'sans abonnement', 'particuliers majeurs résidant en France métropolitaine',
     'autorisations parentales nécessaires', 'contact@bebebonjour.com', 'deux jours ouvrés',
-    '14 jours', 'droits légaux', 'ne valent pas renonciation',
+    '14 jours', 'droits légaux', 'ne vaut pas renonciation',
     'ne constitue pas une confirmation de remboursement',
     'au maximum cinq essais', '38 € de remise', '1 € à payer',
     'ne constituent pas des ventes à 39 €',
     'Toute personne disposant du lien peut consulter', 'non indexé et révocable',
     'ni pour le marketing, ni pour des démonstrations, ni pour l’entraînement de modèles',
   ]) assert.ok(html.includes(text), `missing settled term: ${text}`);
+  assert.doesNotMatch(html, /aperçu gratuit|gratuit et privé pendant 24 heures/i);
   assert.doesNotMatch(html, /remboursement garanti|médiateur agréé|validées par un avocat|hébergement illimité|z@havesomecode|\.fr\b/i);
 });
 

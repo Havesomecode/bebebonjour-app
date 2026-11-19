@@ -11,13 +11,13 @@ import { createDeliveryLoopWorker } from '../../src/delivery-loop/worker.mjs';
 import { buildCodexCompositionRequest } from '../../scripts/lib/codex-subscription-composition.mjs';
 
 const workerToken = 'offline-review-worker-capability-32-characters';
-const editorialToken = 'offline-review-human-capability-32-characters';
+const operatorToken = 'offline-review-operator-capability-32-characters';
 const sha = s => createHash('sha256').update(s).digest('hex');
 const ref = n => makeFunctionReference(`deliveryLoop:${n}`);
 function fixture() {
   Object.assign(process.env, {
     BEBEBONJOUR_DELIVERY_LOOP_TOKEN: workerToken,
-    BEBEBONJOUR_PAID_EDITORIAL_TOKEN: editorialToken,
+    BEBEBONJOUR_OPERATIONS_TOKEN: operatorToken,
     BEBEBONJOUR_PAID_ROUTE_A_ENABLED: 'true',
     BEBEBONJOUR_PAID_TERMS_URL: 'https://offline.example.invalid/terms',
     BEBEBONJOUR_PAID_STRIPE_ACCOUNT_ID: 'acct_offline',
@@ -31,6 +31,7 @@ function fixture() {
   return convexTest(schema, {
     './_generated/server.js': () => import('convex/server'),
     './deliveryLoop.js': () => import('../../convex/deliveryLoop.js'),
+    './deliveryLoopNotices.js': () => import('../../convex/deliveryLoopNotices.js'),
     './deliveryLoopHttp.js': () => import('../../convex/deliveryLoopHttp.js'),
     './deliveryLoopProviders.js': () => import('../../convex/deliveryLoopProviders.js'),
     './http.js': () => import('../../convex/http.js'),
@@ -44,7 +45,7 @@ const ar = { description:'فرح جديد.', introLines:['أهلاً بك.', 'ف
 const composition = { schemaVersion:'1.0', languages:{fr,ar} };
 const transcript = language => [composition.languages[language].introLines.join('\n'), composition.languages[language].blessingLines.join('\n'), composition.languages[language].closingLines.join('\n')].join('\n\n');
 
-for (const language of ['fr', 'ar']) test(`SR-01: ${language} final speech uses reviewed displayed prose, never hidden narration`, async context => {
+for (const language of ['fr', 'ar']) test(`SR-01: ${language} generated speech uses displayed prose, never hidden narration`, async context => {
   const t = fixture(); const effects = [];
   context.mock.method(globalThis, 'fetch', async (url, options) => {
     const payload = JSON.parse(options.body); effects.push({url,payload});
@@ -59,33 +60,11 @@ for (const language of ['fr', 'ar']) test(`SR-01: ${language} final speech uses 
   const stateDir = await mkdtemp(path.join(process.env.TMPDIR,'sr01-regression-'));
   context.after(() => rm(stateDir, {recursive:true,force:true}));
   const worker = createDeliveryLoopWorker({client,composer,stateDir,workerToken,workerId:'offline-review',reconciliationAttempts:1,logger(){}});
-  const intake = {email:'fictional@example.invalid',babyName:'Amal',language,gender:'girl',context:'general',voiceEnabled:true,consent:true,customerPermissions:true,fictional:true};
-  const job = await t.mutation(ref('submit'), {intake,orderMode:'paid_route_a',previewConsent:true,idempotencyKey:crypto.randomUUID()});
-  assert.equal((await worker.runOnce()).status,'published');
-  assert.equal((await worker.runOnce()).status,'email_sent');
-  const p = (await read(t,job)).revisions[0];
-  const customer = await t.query(ref('preview'), {jobId:job.jobId,reviewToken:job.reviewToken,expectedRevision:1});
-  const human = await t.query(ref('paidOperatorRead'), {editorialToken,jobId:job.jobId});
-  assert.ok(!JSON.stringify(customer).includes(hidden));
-  assert.ok(!JSON.stringify(human).includes(hidden));
-  assert.ok(p.contentHtml.includes(language === 'fr' ? 'Notre amour.' : 'لك كل الحب.'));
-  await t.mutation(ref('requestReview'), {jobId:job.jobId,reviewToken:job.reviewToken,expectedRevision:1,action:'approve',idempotencyKey:crypto.randomUUID()});
-  await t.mutation(ref('paidPermissions'), {jobId:job.jobId,reviewToken:job.reviewToken,expectedRevision:1,termsVersion:'route-a-39-v1',termsAccepted:true,publication:true});
-  await t.mutation(ref('paidEditorial'), {editorialToken,jobId:job.jobId,expectedRevision:1,previewDigest:p.contentDigest,reviewerId:'offline-human-fixture',humanReviewed:true});
-  // Emulator-only synthetic settlement, not a live payment or public bypass.
-  await t.mutation(ref('recordPaymentEvidence'), {jobId:job.jobId,revision:1,previewDigest:p.contentDigest,providerPaymentId:'pi_offlineReview',amountMinor:3900,currency:'eur',livemode:true,settled:true,providerAccountId:'acct_offline'});
-
-  // Exercise the actual provider action with a forged hidden-prose digest first.
-  // Reject before transport or a narration fence; return the clean claim to retry.
-  const lease = await t.mutation(ref('claim'), {workerToken,workerId:'offline-probe',leaseToken:crypto.randomUUID()});
-  const identity = {workerToken,jobId:job.jobId,leaseToken:lease.leaseToken,revision:1};
-  const text = [composition.languages[language].introNarration,composition.languages[language].blessingNarration,hidden].join('\n\n');
-  const before = effects.length;
-  await assert.rejects(t.action(makeFunctionReference('deliveryLoopProviders:narrate'), {...identity,language,text,textDigest:sha(text)}), /approved_content_mismatch/);
-  assert.equal(effects.length,before);
-  assert.equal((await read(t,job)).narrationEffects?.length ?? 0,0);
-  await t.mutation(ref('fail'), {workerToken,jobId:job.jobId,leaseToken:lease.leaseToken,reason:'offline_probe_complete',retryable:true});
-
+  const intake = {email:'fictional@example.invalid',babyName:'Amal',language,gender:'girl',context:'general',voiceEnabled:true,consent:true,customerPermissions:true,termsAccepted:true,publication:true,fictional:true};
+  const job = await t.mutation(ref('submit'), {intake,orderMode:'paid_route_a',idempotencyKey:crypto.randomUUID()});
+  await t.mutation(ref('operatorLaunch'), {operatorToken,jobId:job.jobId,expectedRevision:1,brief:{firstName:'Amal',nameArabic:null,gender:'girl',birthDate:null,religion:'general',tone:'tendre',phrases:[]}});
+  const launched = await t.run(ctx => ctx.db.query('deliveryLoopJobs').withIndex('by_job_id',q=>q.eq('jobId',job.jobId)).unique());
+  await t.mutation(ref('recordPaymentEvidence'), {jobId:job.jobId,revision:1,previewDigest:launched.data.briefs[0].briefDigest,providerPaymentId:'pi_offlineReview',amountMinor:3900,currency:'eur',livemode:true,settled:true,providerAccountId:'acct_offline'});
   const result = await worker.runOnce();
   assert.equal(result.status,'published',JSON.stringify(result));
   const speech = effects.find(e => e.url === 'https://api.openai.com/v1/audio/speech');
@@ -94,7 +73,9 @@ for (const language of ['fr', 'ar']) test(`SR-01: ${language} final speech uses 
   assert.ok(!speech.payload.input.includes('HIDDEN'));
   assert.equal(effects.filter(e => e.url === 'https://api.openai.com/v1/audio/speech').length,1);
   const final = await read(t,job);
-  assert.equal(final.finalPublication.contentHtml,p.contentHtml);
+  assert.ok(final.revisions[0].contentHtml.includes(language === 'fr' ? 'Notre amour.' : 'لك كل الحب.'));
+  assert.equal((await worker.runOnce()).status,'email_sent');
+  await t.mutation(ref('requestReview'), {jobId:job.jobId,reviewToken:job.reviewToken,expectedRevision:1,action:'approve',idempotencyKey:crypto.randomUUID()});
   assert.equal(final.revisions[0].compositionJson,JSON.stringify(composition));
   assert.equal((await worker.runOnce()).status,'email_sent');
   assert.equal((await read(t,job)).status,'approved_sent');

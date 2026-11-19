@@ -1,7 +1,6 @@
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
-import { mkdir, writeFile } from 'node:fs/promises';
 import { Script } from 'node:vm';
 import test, { mock } from 'node:test';
 mock.timers.enable({ apis: ['setTimeout'] });
@@ -26,35 +25,38 @@ test('a Cloudflare admission without configuration cannot send', async () => {
 });
 const dataRef = name => makeFunctionReference(`deliveryLoopData:${name}`);
 const sha = s => createHash('sha256').update(s).digest('hex');
-const workerToken='offline-data-worker-'+'w'.repeat(36), editorialToken='offline-data-editor-'+'e'.repeat(36);
-const intake={email:'data-fixture@example.invalid',babyName:'FictionalBaby',gender:'girl',language:'fr',context:'general',voiceEnabled:true,consent:true,customerPermissions:true};
+const workerToken='offline-data-worker-'+'w'.repeat(36), editorialToken='offline-data-editor-'+'e'.repeat(36), operatorToken='offline-data-operator-'+'o'.repeat(36);
+const intake={email:'data-fixture@example.invalid',babyName:'FictionalBaby',gender:'girl',language:'fr',context:'general',voiceEnabled:true,consent:true,customerPermissions:true,termsAccepted:true,publication:true};
 function fixture() {
-  Object.assign(process.env,{BEBEBONJOUR_DELIVERY_LOOP_TOKEN:workerToken,BEBEBONJOUR_DELIVERY_LOOP_ORIGIN:'https://offline.invalid',BEBEBONJOUR_PAID_EDITORIAL_TOKEN:editorialToken,BEBEBONJOUR_PAID_ROUTE_A_ENABLED:'true',BEBEBONJOUR_PAID_TERMS_URL:'https://offline.invalid/terms',BEBEBONJOUR_PAID_STRIPE_ACCOUNT_ID:'acct_offline',BEBEBONJOUR_PAID_DATA_AUTOMATION_ENABLED:'true'});
-  return convexTest(schema,{'../../convex/_generated/server.js':()=>import('convex/server'),'../../convex/deliveryLoop.js':()=>import('../../convex/deliveryLoop.js'),'../../convex/deliveryLoopData.js':()=>import('../../convex/deliveryLoopData.js'),'../../convex/deliveryLoopDataProviders.js':()=>import('../../convex/deliveryLoopDataProviders.js'),'../../convex/http.js':()=>import('../../convex/http.js')});
+  Object.assign(process.env,{BEBEBONJOUR_DELIVERY_LOOP_TOKEN:workerToken,BEBEBONJOUR_OPERATIONS_TOKEN:operatorToken,BEBEBONJOUR_DELIVERY_LOOP_ORIGIN:'https://offline.invalid',BEBEBONJOUR_PAID_EDITORIAL_TOKEN:editorialToken,BEBEBONJOUR_PAID_ROUTE_A_ENABLED:'true',BEBEBONJOUR_PAID_TERMS_URL:'https://offline.invalid/terms',BEBEBONJOUR_PAID_STRIPE_ACCOUNT_ID:'acct_offline',BEBEBONJOUR_PAID_DATA_AUTOMATION_ENABLED:'true'});
+  return convexTest(schema,{'../../convex/_generated/server.js':()=>import('convex/server'),'../../convex/deliveryLoop.js':()=>import('../../convex/deliveryLoop.js'),'../../convex/deliveryLoopNotices.js':()=>import('../../convex/deliveryLoopNotices.js'),'../../convex/deliveryLoopData.js':()=>import('../../convex/deliveryLoopData.js'),'../../convex/deliveryLoopDataProviders.js':()=>import('../../convex/deliveryLoopDataProviders.js'),'../../convex/http.js':()=>import('../../convex/http.js')});
 }
 const claim=t=>t.mutation(ref('claim'),{workerToken,workerId:'offline-data',leaseToken:crypto.randomUUID()});
 const raw=(t,job)=>t.run(ctx=>ctx.db.query('deliveryLoopJobs').withIndex('by_job_id',q=>q.eq('jobId',job.jobId)).unique());
 const patchData=(t,job,patch)=>t.run(async ctx=>{const row=await ctx.db.query('deliveryLoopJobs').withIndex('by_job_id',q=>q.eq('jobId',job.jobId)).unique();await ctx.db.patch(row._id,{data:{...row.data,...patch}});});
-const submit=t=>t.mutation(ref('submit'),{idempotencyKey:crypto.randomUUID(),orderMode:'paid_route_a',previewConsent:true,intake});
+const submit=async (t,key=crypto.randomUUID())=>{const job=await t.mutation(ref('submit'),{idempotencyKey:key,orderMode:'paid_route_a',intake});await t.finishAllScheduledFunctions(()=>mock.timers.tick(0));return job;};
 async function email(t, job) {
   const lease=await claim(t); const args={workerToken,jobId:job.jobId,revision:lease.revision,leaseToken:lease.leaseToken,stage:lease.stage};
   await t.mutation(ref('fence'),args);await t.mutation(ref('completeEmail'),{...args,providerMessageId:`offline_${lease.stage}`});
 }
 async function delivered(t) {
-  const job=await submit(t), lease=await claim(t);
+  const job=await submit(t);
+  assert.equal((await raw(t,job)).status,'awaiting_operator');
+  await t.mutation(ref('operatorLaunch'),{operatorToken,jobId:job.jobId,expectedRevision:1,brief:{firstName:'FictionalBaby',nameArabic:null,gender:'girl',birthDate:null,religion:'general',tone:'tendre',phrases:[]}});
+  await t.finishAllScheduledFunctions(()=>mock.timers.tick(0));
+  const launched=await raw(t,job); assert.equal(launched.status,'payment_pending');
+  await t.mutation(ref('recordPaymentEvidence'),{jobId:job.jobId,revision:1,previewDigest:launched.data.briefs[0].briefDigest,providerAccountId:'acct_offline',providerPaymentId:'pi_offlinedata',amountMinor:3900,currency:'eur',livemode:true,settled:true});
+  const lease=await claim(t); assert.equal(lease.stage,'generate');
   const contentHtml='<html lang="fr"><body><p>Bienvenue FictionalBaby.</p><p>Douceur.</p><p>Amour.</p></body></html>';
   const composition={languages:{fr:{introLines:['Bienvenue FictionalBaby.'],blessingLines:['Douceur.'],closingLines:['Amour.'],introNarration:'Bienvenue FictionalBaby.',blessingNarration:'Douceur.',closingNarration:'Amour.'}}};
   const p={contentHtml,contentDigest:sha(contentHtml),composition,compositionJson:JSON.stringify(composition),compositionReceipt:{provider:'openai-codex-subscription',outputDigest:sha(JSON.stringify(composition))}};
-  await t.mutation(ref('publish'),{workerToken,jobId:job.jobId,leaseToken:lease.leaseToken,revision:1,...p,audioFiles:[]});await email(t,job);
-  await t.mutation(ref('requestReview'),{jobId:job.jobId,reviewToken:job.reviewToken,action:'approve',expectedRevision:1,idempotencyKey:crypto.randomUUID()});
-  await t.mutation(ref('paidPermissions'),{jobId:job.jobId,reviewToken:job.reviewToken,expectedRevision:1,termsVersion:'route-a-39-v1',termsAccepted:true,publication:true});
-  await t.mutation(ref('recordPaymentEvidence'),{jobId:job.jobId,revision:1,previewDigest:p.contentDigest,providerAccountId:'acct_offline',providerPaymentId:'pi_offlinedata',amountMinor:3900,currency:'eur',livemode:true,settled:true});
-  await t.mutation(ref('paidEditorial'),{editorialToken,jobId:job.jobId,expectedRevision:1,previewDigest:p.contentDigest,reviewerId:'offline-human',humanReviewed:true});
-  const finalLease=await claim(t);const id={workerToken,jobId:job.jobId,revision:1,leaseToken:finalLease.leaseToken};const textDigest=sha('Bienvenue FictionalBaby.\n\nDouceur.\n\nAmour.');
+  const id={workerToken,jobId:job.jobId,revision:1,leaseToken:lease.leaseToken};const textDigest=sha('Bienvenue FictionalBaby.\n\nDouceur.\n\nAmour.');
   await t.mutation(ref('beginNarration'),{...id,language:'fr',textDigest});
   const bytes=new Uint8Array(160).fill(13); const storageId=await t.run(ctx=>ctx.storage.store(new Blob([bytes],{type:'audio/mpeg'})));
   await t.mutation(ref('recordNarration'),{...id,language:'fr',textDigest,storageId,provider:'openai',model:'offline-fixture',voice:'cedar'});
   await t.mutation(ref('publish'),{...id,...p,audioFiles:[{language:'fr',textDigest,storageId}]});await email(t,job);
+  await t.mutation(ref('requestReview'),{jobId:job.jobId,reviewToken:job.reviewToken,action:'approve',expectedRevision:1,idempotencyKey:crypto.randomUUID()});
+  await email(t,job);
   return {job,storageId,bytes};
 }
 const capability=job=>({jobId:job.jobId,reviewToken:job.reviewToken});
@@ -70,12 +72,12 @@ test('actual paid exports download exact text, audio and standalone ZIP; wrong/c
   const t=fixture();const {job,bytes}=await delivered(t);const row=await raw(t,job);
   const text=await t.fetch(exportUrl(job,'text'));assert.equal(text.status,200);assert.equal(await text.text(),'Bienvenue FictionalBaby.\n\nDouceur.\n\nAmour.');assert.equal(text.headers.get('cache-control'),'private, no-store');assert.match(text.headers.get('content-disposition'),/attachment/);
   const audio=await t.fetch(exportUrl(job,'audio'));assert.deepEqual(new Uint8Array(await audio.arrayBuffer()),bytes);
-  const zip=await t.fetch(exportUrl(job,'page'));const zipBytes=new Uint8Array(await zip.arrayBuffer());const proof=new URL('../../out/paid-data-export-proof/',import.meta.url);await mkdir(proof,{recursive:true});await writeFile(new URL('annonce.zip',proof),zipBytes);const archive=unzipStored(zipBytes);assert.deepEqual(Object.keys(archive),['annonce.html','texte.txt','audio-fr.mp3']);assert.deepEqual(archive['audio-fr.mp3'],bytes);assert.match(new TextDecoder().decode(archive['annonce.html']),/src="audio-fr.mp3"/);
+  const zip=await t.fetch(exportUrl(job,'page'));const zipBytes=new Uint8Array(await zip.arrayBuffer());const archive=unzipStored(zipBytes);assert.deepEqual(Object.keys(archive),['annonce.html','texte.txt','audio-fr.mp3']);assert.deepEqual(archive['audio-fr.mp3'],bytes);assert.match(new TextDecoder().decode(archive['annonce.html']),/src="audio-fr.mp3"/);
   for(const token of ['wrong',row.publicToken,workerToken]) assert.equal((await t.fetch(exportUrl({...job,reviewToken:token},'page'))).status,404);
   assert.equal((await post(t,'/delivery/data/operator',{jobId:job.jobId,action:'inspect'},workerToken)).status,403);
   const inspect=await post(t,'/delivery/data/operator',{jobId:job.jobId,action:'inspect'},editorialToken);assert.equal(inspect.status,200);assert.doesNotMatch(await inspect.text(),/FictionalBaby|data-fixture@example.invalid|reviewToken/);
 });
-test('unpaid preview has no exports; revocation closes public text/audio immediately but keeps private exports',async()=>{
+test('unpaid request has no exports; revocation closes public text/audio immediately but keeps private exports',async()=>{
   const t=fixture();const unpaid=await submit(t);assert.equal((await t.fetch(exportUrl(unpaid,'text'))).status,404);
   const t2=fixture();const {job}=await delivered(t2);const row=await raw(t2,job);
   assert.equal((await post(t2,'/delivery/data',{jobId:job.jobId,token:'wrong',action:'revoke'})).status,403);
@@ -108,16 +110,16 @@ test('confirmed deletion erases content and storage, invalidates all reads/effec
   const evidence=await t.query(dataRef('inspect'),{editorialToken,jobId:job.jobId});assert.equal(evidence.retainedEvidence.payment.providerPaymentId,'pi_offlinedata');assert.doesNotMatch(JSON.stringify(evidence),/FictionalBaby|data-fixture@example.invalid|reviewToken|storageId/);
 });
 test('hourly sweep honors 7/30-day boundaries, purges working content but preserves hosted final and leaves complimentary untouched',async()=>{
-  const t=fixture();const job=await submit(t);const created=Date.now()-7*DAY+2000;await patchData(t,job,{createdAtMs:created});await t.mutation(dataRef('sweep'),{});assert.notEqual((await raw(t,job)).status,'data_deleted');await patchData(t,job,{createdAtMs:Date.now()-7*DAY});await t.mutation(dataRef('sweep'),{});assert.equal((await raw(t,job)).status,'data_deleted');
+  const t=fixture();const job=await submit(t);const created=Date.now()-7*DAY+2000;await patchData(t,job,{createdAtMs:created,lastActivityAtMs:created});await t.mutation(dataRef('sweep'),{});assert.notEqual((await raw(t,job)).status,'data_deleted');await patchData(t,job,{createdAtMs:Date.now()-7*DAY,lastActivityAtMs:Date.now()-7*DAY});await t.mutation(dataRef('sweep'),{});assert.equal((await raw(t,job)).status,'data_deleted');
   const t2=fixture();const {job:final,storageId}=await delivered(t2);const before=await raw(t2,final);
   await patchData(t2,final,{deliveredAtMs:Date.now()-30*DAY+2000});await t2.mutation(dataRef('sweep'),{});assert.equal((await raw(t2,final)).data.workingPurgedAtMs,undefined);
-  await patchData(t2,final,{deliveredAtMs:Date.now()-30*DAY,feedback:'PRIVATE WORKING NOTE'});await t2.mutation(dataRef('sweep'),{});const after=await raw(t2,final);assert.deepEqual(after.data.revisions,[]);assert.equal(after.data.feedback,null);assert.ok(after.data.workingPurgedAtMs);assert.ok(await t2.run(async ctx=>Boolean(await ctx.storage.get(storageId))));assert.ok(await t2.query(ref('publicPage'),{publicToken:before.publicToken}));assert.equal((await t2.fetch(exportUrl(final,'page'))).status,200);
+  await patchData(t2,final,{deliveredAtMs:Date.now()-30*DAY,feedback:'PRIVATE WORKING NOTE'});await t2.mutation(dataRef('sweep'),{});const after=await raw(t2,final);assert.deepEqual(after.data.revisions.map(r=>r.revision),[after.data.approvedRevision]);assert.equal(after.data.feedback,null);assert.ok(after.data.workingPurgedAtMs);assert.ok(await t2.run(async ctx=>Boolean(await ctx.storage.get(storageId))));assert.ok(await t2.query(ref('publicPage'),{publicToken:before.publicToken}));assert.equal((await t2.fetch(exportUrl(final,'page'))).status,200);
   const legacy=await t2.run(ctx=>ctx.db.insert('deliveryLoopJobs',{jobId:'job_legacy',publicToken:'legacy_public',idempotencyKey:'legacy_key',status:'old',data:{createdAtMs:1}}));const original=await t2.run(ctx=>ctx.db.get(legacy));await t2.mutation(dataRef('sweep'),{});assert.deepEqual(await t2.run(ctx=>ctx.db.get(legacy)),original);
 });
 test('calendar hosting expiry closes text/audio and deletes storage; cancellation is retained only 30 days; tombstones block replay',async()=>{
   const t=fixture();const {job,storageId}=await delivered(t);const row=await raw(t,job);await patchData(t,job,{hostingEndsAtMs:Date.now()-1});
   assert.equal(await t.query(ref('publicPage'),{publicToken:row.publicToken}),null);assert.equal((await t.fetch(exportUrl(job,'page'))).status,404);await t.mutation(dataRef('sweep'),{});assert.equal(await t.run(ctx=>ctx.storage.get(storageId)),null);assert.equal((await raw(t,job)).data.reason,'hosting_ended');
-  const t2=fixture();const key='abandoned-idempotency';const cancelled=await t2.mutation(ref('submit'),{idempotencyKey:key,orderMode:'paid_route_a',previewConsent:true,intake});await patchData(t2,cancelled,{cancelledAtMs:Date.now()-30*DAY+2000});await t2.mutation(dataRef('sweep'),{});assert.notEqual((await raw(t2,cancelled)).status,'data_deleted');await patchData(t2,cancelled,{cancelledAtMs:Date.now()-30*DAY});await t2.mutation(dataRef('sweep'),{});assert.equal((await raw(t2,cancelled)).data.reason,'cancelled_retention');await assert.rejects(t2.mutation(ref('submit'),{idempotencyKey:key,orderMode:'paid_route_a',previewConsent:true,intake}),/data_deleted/);
+  const t2=fixture();const key='abandoned-idempotency';const cancelled=await submit(t2,key);await patchData(t2,cancelled,{cancelledAtMs:Date.now()-30*DAY+2000});await t2.mutation(dataRef('sweep'),{});assert.notEqual((await raw(t2,cancelled)).status,'data_deleted');await patchData(t2,cancelled,{cancelledAtMs:Date.now()-30*DAY});await t2.mutation(dataRef('sweep'),{});assert.equal((await raw(t2,cancelled)).data.reason,'cancelled_retention');await assert.rejects(t2.mutation(ref('submit'),{idempotencyKey:key,orderMode:'paid_route_a',intake}),/data_deleted/);
 });
 test('Cloudflare closure uses its own durable admission and records provider identity', async()=>{
   const t=fixture(); const {job}=await delivered(t); await patchData(t,job,{hostingEndsAtMs:Date.now()+30*DAY-1000});
@@ -137,7 +139,7 @@ test('uncertain closure transport remains fenced against another send', async()=
   finally {globalThis.fetch=original;for(const k of names)if(saved[k]===undefined)delete process.env[k];else process.env[k]=saved[k];}
 });
 test('hourly pagination schedules continuation past ten legacy records; privacy UI and operator scripts compile',async()=>{
-  const t=fixture();for(let i=0;i<11;i++)await t.run(ctx=>ctx.db.insert('deliveryLoopJobs',{jobId:`legacy_${i}`,publicToken:`public_${i}`,idempotencyKey:`key_${i}`,status:'old',data:{createdAtMs:1}}));const job=await submit(t);await patchData(t,job,{createdAtMs:Date.now()-8*DAY});const result=await t.mutation(dataRef('sweep'),{});assert.equal(result.done,false);await t.finishAllScheduledFunctions(()=>mock.timers.tick(0));assert.equal((await raw(t,job)).status,'data_deleted');
+  const t=fixture();for(let i=0;i<11;i++)await t.run(ctx=>ctx.db.insert('deliveryLoopJobs',{jobId:`legacy_${i}`,publicToken:`public_${i}`,idempotencyKey:`key_${i}`,status:'old',data:{createdAtMs:1}}));const job=await submit(t);await patchData(t,job,{createdAtMs:Date.now()-8*DAY,lastActivityAtMs:Date.now()-8*DAY});const result=await t.mutation(dataRef('sweep'),{});assert.equal(result.done,false);await t.finishAllScheduledFunctions(()=>mock.timers.tick(0));assert.equal((await raw(t,job)).status,'data_deleted');
   const t2=fixture();const {job:final}=await delivered(t2);for(const url of [new URL(final.reviewUrl).pathname+new URL(final.reviewUrl).search,'/delivery/data/operator']){const html=await (await t2.fetch(url)).text();for(const [,script]of html.matchAll(/<script[^>]*>([\s\S]*?)<\/script>/g))assert.doesNotThrow(()=>new Script(script));assert.match(html,/Supprimer|supprimer/);}
   const crons=readFileSync(new URL('../../convex/crons.js',import.meta.url),'utf8');assert.match(crons,/hours: 1/);assert.match(crons,/deliveryLoopData:sweep/);
 });
