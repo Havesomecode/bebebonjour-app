@@ -47,7 +47,7 @@ Operator input (validated by `src/delivery-loop/brief.mjs`, shared by Convex and
 
 Unknown keys are rejected. Convex adds `languages` (copied from the intake, not editable) and stores `{ revision, brief, briefDigest, launchedAtMs }` in `data.briefs`. `briefDigest` = sha256 of the sorted-key JSON of the stored brief. The paid Checkout and webhook bind the revision-1 `briefDigest`.
 
-Model prompt: fixed template + `JSON.stringify({ schemaVersion: "3.0", brief, nameReference })`; verified catalog meaning takes priority over `nameMeaning`. The template treats values as data, uses the tone, optionally weaves in phrases unchanged, mentions `birthDate` only if set, invents nothing and returns only the schema JSON.
+Model prompt: fixed template + `JSON.stringify({ schemaVersion: "3.0", brief, nameReference })`; `nameMeaning` takes priority; `nameReference` (verified catalog meaning) is sent only when `nameMeaning` is empty. `operatorJob` returns `catalogMeaning` (`{ fr, ar }` or null) for the console. The template treats values as data, uses the tone, optionally weaves in phrases unchanged, mentions `birthDate` only if set, invents nothing and returns only the schema JSON.
 
 ## Ops console contract (Convex, operator token `BEBEBONJOUR_OPERATIONS_TOKEN`)
 

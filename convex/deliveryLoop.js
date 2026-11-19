@@ -4,6 +4,7 @@ import { v } from "convex/values";
 import { promotionEvidence } from './deliveryLoopPromotion.js';
 import { TEST_PROMOTION_POLICY, testPromotionBinding, isTestPromotionReceipt, samePromotion } from '../src/delivery-loop/test-promotion.mjs';
 import { validateBrief, briefDigest, suggestBrief, TONES, GENDERS, RELIGIONS } from "../src/delivery-loop/brief.mjs";
+import { catalogMeaning } from "../src/delivery-loop/name-reference.mjs";
 import { PAID_MODE, TERMS_VERSION, isPaid, paidEnabled, activePaid, stageState, paidStageGate, paidSafeStatus, expectedLivemode } from "./deliveryLoopPaidPolicy.js";
 
 const LEASE_MS = 15 * 60 * 1000;
@@ -397,8 +398,9 @@ function operatorDetail(row) {
   const suggested = previous ? Object.fromEntries(Object.entries(previous).filter(([key]) => key !== "languages")) : suggestBrief(intake);
   return { jobId: row.jobId, status: row.status, orderMode: d.orderMode || "complimentary", paymentStatus: d.payment?.status || null, createdAtMs: d.createdAtMs ?? row._creationTime, fictional: intake.fictional === true, desiredRevision: d.desiredRevision, latestRevision: d.latestRevision ?? 0,
     intake: { email: intake.customer?.email ?? null, babyName: baby.firstName ?? null, nameArabic: baby.nameArabic ?? null, gender: baby.gender ?? null, languages: intake.languages ?? [], religion: intake.context?.religion ?? null, birthDate: intake.birthDate ?? null, request: intake.request ?? null, voiceEnabled: intake.voicePreference?.enabled ?? false },
-    feedback: d.feedback ?? null, correctionsUsed: d.correctionsUsed ?? 0, brief: current, suggestedBrief: suggested, publicUrl: d.latestRevision ? links(row).publicUrl : null, orderUrl: links(row).reviewUrl, notices: (d.notices || []).map(({kind, revision, status, atMs}) => ({kind, revision, status, atMs})), lastError: d.lastError ?? null, canLaunch: canLaunch(row), canRefuse: row.status === "awaiting_operator", revisions: revisions.map(({revision, publishedAtMs}) => ({revision, publishedAtMs})), options: { tones: TONES, genders: GENDERS, religions: RELIGIONS } };
+    feedback: d.feedback ?? null, correctionsUsed: d.correctionsUsed ?? 0, brief: current, suggestedBrief: suggested, catalogMeaning: catalogMeaningOf(current || suggested), publicUrl: d.latestRevision ? links(row).publicUrl : null, orderUrl: links(row).reviewUrl, notices: (d.notices || []).map(({kind, revision, status, atMs}) => ({kind, revision, status, atMs})), lastError: d.lastError ?? null, canLaunch: canLaunch(row), canRefuse: row.status === "awaiting_operator", revisions: revisions.map(({revision, publishedAtMs}) => ({revision, publishedAtMs})), options: { tones: TONES, genders: GENDERS, religions: RELIGIONS } };
 }
+function catalogMeaningOf(brief) { try { return brief?.firstName ? catalogMeaning(brief) : null; } catch { return null; } }
 export const operatorJob = queryGeneric({ args: { operatorToken: v.string(), jobId: v.string() }, handler: async (ctx, args) => { operatorAuth(args.operatorToken); return operatorDetail(await get(ctx, args.jobId)); } });
 export const operatorLaunch = mutationGeneric({
   args: { operatorToken: v.string(), jobId: v.string(), expectedRevision: v.number(), brief: v.any() },

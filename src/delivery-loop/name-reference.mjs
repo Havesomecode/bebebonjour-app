@@ -1,11 +1,17 @@
-import { readFile } from "node:fs/promises";
 import { resolveName } from "../../scripts/lib/name-resolution.mjs";
+import referenceCatalog from "../../data/reference-catalog.json" with { type: "json" };
 
-export const referenceCatalog = JSON.parse(await readFile(new URL("../../data/reference-catalog.json", import.meta.url), "utf8"));
+export { referenceCatalog };
 export function resolveBriefName(brief) {
   const baby = { firstName: brief.firstName };
   if (brief.nameArabic != null) baby.nameArabic = brief.nameArabic;
   return resolveName({ baby, context: { religion: brief.religion } }, referenceCatalog);
+}
+// The verified catalog meaning ({ fr, ar }) of the brief's name, or null.
+export function catalogMeaning(brief) {
+  const resolution = resolveBriefName(brief);
+  const meaning = resolution.status === "resolved" ? resolution.suggestions[0]?.meaning : null;
+  return meaning?.fr && meaning?.ar ? { fr: meaning.fr, ar: meaning.ar } : null;
 }
 export function resolvedNameEntry(brief) {
   const resolution = resolveBriefName(brief);

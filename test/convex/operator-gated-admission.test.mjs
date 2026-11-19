@@ -45,7 +45,9 @@ test('operator validates a brief before launch and claim excludes raw intake', a
   const launched = await t.mutation(ref('operatorLaunch'), { operatorToken, jobId: job.jobId, expectedRevision: 1, brief });
   assert.equal(launched.status, 'generation_queued');
   assert.equal(launched.brief.nameMeaning, 'Notre lumière');
-  assert.equal((await t.query(ref('operatorJob'), { operatorToken, jobId: job.jobId })).brief.nameMeaning, 'Notre lumière');
+  const detail = await t.query(ref('operatorJob'), { operatorToken, jobId: job.jobId });
+  assert.equal(detail.brief.nameMeaning, 'Notre lumière');
+  assert.match(detail.catalogMeaning.fr, /^l'espérance/);
   const work = await t.mutation(ref('claim'), { workerToken, workerId: 'offline', leaseToken: 'offline-lease-token-5678' });
   assert.equal(work.stage, 'generate');
   assert.equal(work.brief.firstName, 'Amal');
