@@ -5,14 +5,15 @@ import { reviewedNarrationText } from "../../src/delivery-loop/reviewed-narratio
 
 export function compositionFixture() {
   return {
-    schemaVersion: "1.0",
+    schemaVersion: "2.0",
     languages: {
       fr: {
         description: "Une naissance et beaucoup de douceur.",
-        introLines: ["Bienvenue, Aélio-Z.", "Une nouvelle joie."],
-        introNarration: "Bienvenue, Aélio-Z. Une nouvelle joie.",
+        introLines: ["Bienvenue.", "Une nouvelle joie."],
+        introNarration: "Bienvenue. Une nouvelle joie.",
         blessingLines: ["Que tes jours soient doux."],
         blessingNarration: "Que tes jours soient doux.",
+        meaningLines: ["Douceur."], revealLines: ["Notre enfant."],
         closingLines: ["Nous t’aimons déjà."],
         closingNarration: "Nous t’aimons déjà.",
       },
@@ -22,6 +23,7 @@ export function compositionFixture() {
         introNarration: "أهلاً بك بيننا.",
         blessingLines: ["نتمنى لك أياماً جميلة."],
         blessingNarration: "نتمنى لك أياماً جميلة.",
+        meaningLines: ["Douceur."], revealLines: ["Notre enfant."],
         closingLines: ["لك كل الحب."],
         closingNarration: "لك كل الحب.",
       },
@@ -39,7 +41,7 @@ test("renderer publishes readable bilingual prose and revision-bound narration, 
   });
   assert.match(html, /lang="fr" dir="ltr"/);
   assert.match(html, /lang="ar" dir="rtl"/);
-  assert.match(html, /Bienvenue, Aélio-Z\./);
+  assert.match(html, /Bienvenue\./);
   assert.match(html, /أهلاً بك بيننا\./);
   assert.match(html, /https:\/\/announcements\.example\.test\/announcements\/public-synthetic-123\/audio\/2\/fr/);
   assert.match(html, /https:\/\/announcements\.example\.test\/announcements\/public-synthetic-123\/audio\/2\/ar/);
@@ -71,7 +73,7 @@ test("paid speech projects displayed raw prose while complimentary narration sta
   content.blessingNarration = "Independent complimentary blessing.";
   content.closingNarration = "Independent complimentary closing.";
   content.closingLines = ["Amour & douceur <pour toi>.", "Notre joie."];
-  assert.equal(reviewedNarrationText(content), "Bienvenue, Aélio-Z.\nUne nouvelle joie.\n\nQue tes jours soient doux.\n\nAmour & douceur <pour toi>.\nNotre joie.");
+  assert.equal(reviewedNarrationText(content), "Bienvenue.\nUne nouvelle joie.\n\nQue tes jours soient doux.\n\nAmour & douceur <pour toi>.\nNotre joie.");
   assert.equal(narrationText(composition, "fr"), "Independent complimentary intro.\n\nIndependent complimentary blessing.\n\nIndependent complimentary closing.");
   for (const invalid of [null, {}, { ...content, introLines: [] }, { ...content, closingLines: [" "] }, { ...content, blessingLines: [42] }]) {
     assert.throws(() => reviewedNarrationText(invalid), /approved_content_mismatch/);

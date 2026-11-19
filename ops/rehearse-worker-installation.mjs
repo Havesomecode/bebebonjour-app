@@ -25,9 +25,10 @@ process.env.BEBEBONJOUR_PAID_ROUTE_A_ENABLED = "false";
 process.env.BEBEBONJOUR_PAID_DATA_AUTOMATION_ENABLED = "false";
 globalThis.fetch = async () => { throw Error("OFFLINE_NETWORK_FORBIDDEN"); };
 
-const composition = { schemaVersion: "1.0", languages: { fr: {
-  description: "Bienvenue.", introLines: ["Bienvenue, Fixture."], introNarration: "Bienvenue, Fixture.",
+const composition = { schemaVersion: "2.0", languages: { fr: {
+  description: "Bienvenue.", introLines: ["Bienvenue."], introNarration: "Bienvenue.",
   blessingLines: ["Des jours doux."], blessingNarration: "Des jours doux.",
+  meaningLines: ["Douceur."], revealLines: ["Notre enfant."],
   closingLines: ["Nous t’aimons."], closingNarration: "Nous t’aimons.",
 } } };
 composition.languages.ar = { ...composition.languages.fr };
@@ -56,7 +57,7 @@ async function fixture(clock) {
   };
   const composer = { compose: async intake => {
     composeCalls++;
-    const metadata = { adapterVersion: "1.0.0", provider: "openai-codex-subscription", model: "synthetic-model", requestDigest: sha256(JSON.stringify({ adapterVersion: "1.0.0", provider: "openai-codex-subscription", model: "synthetic-model", request: buildCodexCompositionRequest(intake) })), outputDigest: sha256(JSON.stringify(composition)) };
+    const metadata = { adapterVersion: "2.0.0", provider: "openai-codex-subscription", model: "synthetic-model", requestDigest: sha256(JSON.stringify({ adapterVersion: "2.0.0", provider: "openai-codex-subscription", model: "synthetic-model", request: buildCodexCompositionRequest(intake) })), outputDigest: sha256(JSON.stringify(composition)) };
     return { composition, metadata };
   } };
   const options = { client, composer, stateDir: path.join(root, "state"), workerToken: token, workerId: "synthetic-paired-worker", logger: record => console.log(JSON.stringify(record)), reconciliationAttempts: 1, providerTimeoutMs: 1000, requestTimeoutMs: 1000 };
