@@ -15,6 +15,9 @@ test('voice server structurally gates GPU readiness and serializes lazy lifecycl
   assert.match(source, /nvidia-smi.*utilization\.gpu,memory\.free,memory\.total/);
   assert.match(source, /torch\.cuda\.reset_peak_memory_stats\(\)/);
   assert.match(source, /torch\.cuda\.empty_cache\(\)/);
+  // Owner 19/11: game pauses are fair use, so a short idle window is enough.
+  assert.match(source, /VOICE_READY_MAX_UTIL", "30"/);
+  assert.match(source, /VOICE_READY_MIN_FREE_MB", "6000"/);
 });
 
 test('voice server starts each phrase on its voice and re-rolls a phrase with a long inner pause', async () => {

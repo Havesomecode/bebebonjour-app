@@ -37,7 +37,7 @@ if DEVICE not in ("cpu", "cuda"):
     raise ValueError("VOICE_DEVICE must be cpu or cuda")
 IDLE_UNLOAD_S = float(os.environ.get("VOICE_IDLE_UNLOAD_S", "300"))
 READY_SAMPLES = max(1, int(os.environ.get("VOICE_READY_SAMPLES", "3")))
-READY_MAX_UTIL = float(os.environ.get("VOICE_READY_MAX_UTIL", "15"))
+READY_MAX_UTIL = float(os.environ.get("VOICE_READY_MAX_UTIL", "30"))
 READY_MIN_FREE_MB = float(os.environ.get("VOICE_READY_MIN_FREE_MB", "6000"))
 
 settings = json.load(open(os.path.join(VOICES_DIR, "voices.json"), encoding="utf-8"))
