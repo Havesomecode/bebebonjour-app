@@ -41,4 +41,4 @@ A parent asks for a French or Arabic digital birth announcement (optional Cedar 
 
 ## Git map
 
-`main` = live delivery-loop line squashed onto `origin/main`; Convex prod and the delivery-loop worker runtime both run the commit that recorded the R1 ship (19/11). Every other branch is a tag `archive/2026-11-18/<branch>`.
+`main` = live delivery-loop line squashed onto `origin/main`; Convex prod and the delivery-loop worker runtime both run `ac6c0b3` (19/11, R1 ship). Every other branch is a tag `archive/2026-11-18/<branch>`.
