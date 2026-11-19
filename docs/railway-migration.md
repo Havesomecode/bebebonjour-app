@@ -274,14 +274,40 @@ Verify:
     webhook path through the rewrite.
 13. Stripe dashboard: the live webhook shows 2xx deliveries after the switch.
 
+### Switch record (19/11/2026)
+
+- Railway `bebebonjour-production` (`864d1ac5-…`): `api` from main `d4573de`, domain
+  https://api-production-c9013a1c.up.railway.app; production variables copied from
+  `convex env get` through the Railway API without printing them.
+- Baseline on Convex before the window: 9 announcement pages 200, 3 audio files 200.
+- Window 15:44–15:49 UTC: worker stopped, Convex paused with the deployment API
+  (`POST https://tacit-antelope-577.convex.cloud/api/v1/pause_deployment`,
+  `Authorization: Convex <access token from ~/.convex/config.json>`). Export works while
+  paused, so `export-A` was taken after the pause and `diff baseline export-A` was empty.
+- Import over TLS (TLSv1.3 checked) through a temporary TCP proxy, deleted afterwards:
+  `ok: true`; jobs 9/9, intake throttle 4/4, login throttle 2/2, payment tables 0/0,
+  3/3 audio files with sha256. Legacy Convex tables (customerFlow, fulfillment,
+  ownerTrial*) are not served by any public route and stay in the paused deployment.
+- Landing `dd4e5eb` (rewrites → Railway), ops `ae83e57` with `BEBEBONJOUR_BACKEND_URL`,
+  worker `CONVEX_URL` → Railway (backup `runtime.env.convex.bak`).
+- After: the same 9 pages and 3 audio files answer 200 on www.bebebonjour.com through
+  Railway. A synthetic paid request on the production form reached `awaiting_operator`,
+  the operator notice was sent, launch → `payment_pending`, the customer received
+  "votre demande est acceptée" with the order link, and "Payer 39 € par carte" opened a
+  live Stripe Checkout (`cs_live_`) at 39,00 € (not paid). Ops login throttle calls
+  reach Railway. The unsigned webhook probe answers 400 (signature check on Railway);
+  the first signed live delivery is still to be seen on the next real payment.
+- To reach the database again (rollback listing, `compare`): recreate a TCP proxy on
+  `Postgres` port 5432, use `?sslmode=no-verify`, delete the proxy afterwards.
+
 ### Rollback (open until the owner closes it)
 
 Convex stays **paused, not deleted**: its data is exactly `export-A`.
 
 1. Revert the landing rewrites to `tacit-antelope-577.convex.site` (revert commit, push).
 2. Ops: remove `BEBEBONJOUR_BACKEND_URL` (falls back to `CONVEX_URL`), redeploy.
-3. Worker: restore `CONVEX_URL` to the Convex URL, restart.
-4. Resume Convex (dashboard or `unpause_deployment`).
+3. Worker: `cp ~/.config/bebebonjour-delivery-loop/runtime.env.convex.bak ~/.config/bebebonjour-delivery-loop/runtime.env`, restart.
+4. Resume Convex (dashboard or `POST …/api/v1/unpause_deployment`, same auth as the pause).
 5. Orders written on Railway after the switch are not copied back automatically:
    list them (`SELECT id, doc->>'status' FROM documents WHERE table_name='deliveryLoopJobs' AND creation_time > <cutover ms>`)
    and replay them by hand on Convex; at today's volume that is a handful of rows.
