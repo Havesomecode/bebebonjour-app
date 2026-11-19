@@ -224,13 +224,13 @@ def encode_mp3(wav, gain_db):
     return result.stdout
 
 
-def trim_phrase(wav, rate, threshold_db=-50.0, lead_s=0.05, gap_s=1.0, tail_s=0.3):
-    """Return (wav, babble_cut_s).
+def trim_phrase(wav, rate, threshold_db=-50.0, lead_s=0.15, gap_s=1.0):
+    """Return (wav, longest_internal_silence_s).
 
     The delivery loop switches screens at each phrase start, so a phrase must start on
-    its voice: continuation mode (bare names) can open on ~1 s of low noise.
-    VoxCPM sometimes misses its stop token, pauses, then babbles on. Natural pauses
-    inside a phrase stay under ~0.7 s, so speech after a 1 s silence is cut.
+    its voice: continuation mode (bare names) can open on ~1 s of low noise. The lead
+    kept (150 ms) covers the soft start of a name; 50 ms clipped "Youssef" to "Be safe".
+    The longest silence inside the speech lets the caller spot a missed stop token.
     """
     frame = max(1, int(rate * 0.01))
     usable = len(wav) // frame * frame
@@ -240,13 +240,11 @@ def trim_phrase(wav, rate, threshold_db=-50.0, lead_s=0.05, gap_s=1.0, tail_s=0.
     spoken = np.nonzero(loud)[0]
     if not len(spoken):
         return wav, 0.0
-    start, end, quiet = spoken[0], len(wav), 0
+    longest = quiet = 0
     for index in range(spoken[0], spoken[-1] + 1):
         quiet = 0 if loud[index] else quiet + 1
-        if quiet * frame >= gap_s * rate:
-            end = (index - quiet + 1) * frame + int(tail_s * rate)
-            break
-    return wav[max(0, start * frame - int(lead_s * rate)):end], round((len(wav) - end) / rate, 2) if end < len(wav) else 0.0
+        longest = max(longest, quiet)
+    return wav[max(0, spoken[0] * frame - int(lead_s * rate)):], round(longest * frame / rate, 2)
 
 
 def speak(voice, language, text, seed=None):
@@ -256,12 +254,16 @@ def speak(voice, language, text, seed=None):
     # Each generation step is 0.16 s of audio. A phrase that runs to max_len never
     # produced its stop token: it is babbling past the text. Cap it close to the text
     # length (a runaway also overflowed the 8 GB service) and re-roll the seed.
+    # A silence of 1 s or more inside a phrase is the other sign of a missed stop
+    # token (pause, then babble; natural pauses measured <= 0.7 s): re-roll too, and
+    # if every attempt has one, keep the attempt with the shortest. Words are never cut.
     max_len = 20 + int(1.5 * len(text))
     short = len(text.split()) <= 2
     started = time.time()
     if DEVICE == "cuda":
         torch.cuda.reset_peak_memory_stats()
     memory = PeakAnon().__enter__()
+    best = None
     for attempt in range(3):
         torch.manual_seed(seed + attempt)
         np.random.seed(seed + attempt)
@@ -278,18 +280,25 @@ def speak(voice, language, text, seed=None):
                 retry_badcase_max_times=1,
                 reference_wav_path=reference,
             )
-        if len(np.asarray(wav).squeeze()) / sample_rate < (max_len - 1) * 0.16:
+        wav = np.asarray(wav, dtype=np.float32).squeeze()
+        if len(wav) / sample_rate >= (max_len - 1) * 0.16:
+            log(event="runaway", voice=voice, language=language, seed=seed + attempt, chars=len(text))
+            continue
+        wav, gap = trim_phrase(wav, sample_rate)
+        if best is None or gap < best[1]:
+            best = (wav, gap, attempt)
+        if gap < 1.0:
             break
-        log(event="runaway", voice=voice, language=language, seed=seed + attempt, chars=len(text))
+        log(event="long_pause", voice=voice, language=language, seed=seed + attempt, seconds=gap)
+    if best is None:
+        best = (trim_phrase(wav, sample_rate)[0], 0.0, attempt)
+    wav, _, attempt = best
     seconds = time.time() - started
     memory.__exit__()
-    wav, babble_cut_s = trim_phrase(np.asarray(wav, dtype=np.float32).squeeze(), sample_rate)
-    if babble_cut_s:
-        log(event="babble_cut", voice=voice, language=language, seconds=babble_cut_s)
     audio_seconds = len(wav) / sample_rate
     gc.collect()
     libc.malloc_trim(0)
-    log(event="spoke", voice=voice, language=language, seed=seed, attempts=attempt + 1, chars=len(text), generation_s=round(seconds, 2),
+    log(event="spoke", voice=voice, language=language, seed=seed + attempt, attempts=attempt + 1, chars=len(text), generation_s=round(seconds, 2),
         audio_s=round(audio_seconds, 2), rtf=round(seconds / max(audio_seconds, 0.01), 2), phrase_peak_anon_mb=memory.peak, cgroup_mb=cgroup_mb(), **({"gpu_peak_mb": round(torch.cuda.max_memory_allocated() / 2**20), "gpu_reserved_mb": round(torch.cuda.max_memory_reserved() / 2**20)} if DEVICE == "cuda" else {}))
     return encode_mp3(wav, entry["gain_db"]), seconds, audio_seconds
 
