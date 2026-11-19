@@ -6,7 +6,8 @@ import path from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
 import { createCodexSubscriptionComposer } from "../fulfillment/codex-subscription-composer.mjs";
 import { assertValidCodexCompositionReceipt, buildCodexCompositionRequest, sha256 } from "../../scripts/lib/codex-subscription-composition.mjs";
-import { chaptersFromLegacyComposition, narrationText, renderAnnouncement } from "./render.mjs";
+import { buildAnnouncementChapters } from "./chapters.mjs";
+import { narrationText, renderAnnouncement } from "./render.mjs";
 import { reviewedNarrationText } from "./reviewed-narration.mjs";
 
 const STAGES = new Set(["generate", "draft_email", "final_email"]);
@@ -132,7 +133,7 @@ export function createDeliveryLoopWorker(options = {}) {
       }
       audioFiles.push({ language, storageId: audio.storageId, textDigest });
     }
-    const chapters = Object.fromEntries(input.languages.map(language => [language, chaptersFromLegacyComposition(receipt.composition, { firstName: input.firstName, nameArabic: input.nameArabic }, language)]));
+    const chapters = buildAnnouncementChapters({ composition: receipt.composition, brief: input });
     const contentHtml = renderAnnouncement({ chapters, languages: input.languages, publicUrl: job.publicUrl, revision: job.revision, pendingReview: true, narrationEnabled });
     const contentDigest = sha256(contentHtml);
     if (journal.state.published?.contentDigest && journal.state.published.contentDigest !== contentDigest) reject("journal_publication_mismatch");

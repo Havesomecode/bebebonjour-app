@@ -523,7 +523,7 @@ function normalizeCompositionMaterial(material) {
   if (
     actualKeys.length !== expectedKeys.length
     || expectedKeys.some((key, index) => actualKeys[index] !== key)
-    || material.adapterVersion !== "1.0.0"
+    || material.adapterVersion !== "2.0.0"
     || material.provider !== "openai-codex-subscription"
     || typeof material.model !== "string"
     || !/^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/u.test(material.model)

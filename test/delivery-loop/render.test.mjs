@@ -1,7 +1,8 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { readFileSync } from 'node:fs';
-import { chaptersFromLegacyComposition, renderAnnouncement, narrationText } from '../../src/delivery-loop/render.mjs';
+import { renderAnnouncement, narrationText } from '../../src/delivery-loop/render.mjs';
+import { buildAnnouncementChapters } from '../../src/delivery-loop/chapters.mjs';
 import { chaptersFromPageJson } from '../../src/delivery-loop/page-fixture-chapters.mjs';
 import { screenIndexAt, SLIDESHOW_SCRIPT } from '../../src/delivery-loop/slideshow-script.mjs';
 import { reviewedNarrationText } from '../../src/delivery-loop/reviewed-narration.mjs';
@@ -9,7 +10,7 @@ const page = JSON.parse(readFileSync(new URL('../../data/examples/bayane/page.js
 const chapters = chaptersFromPageJson(page, 'fr');
 const opts = { chapters: { fr: chapters }, languages: ['fr'], revision: 1, publicToken: 'fixture', publicUrl: 'https://example.test/announcements/fixture' };
 const screens = html => [...html.matchAll(/<section data-screen\b[^>]*>[\s\S]*?<\/section>/g)].map(m => m[0]);
-const composition = { schemaVersion: '1.0', languages: Object.fromEntries(['fr','ar'].map(lang => [lang, { description: 'Une joie.', introLines: ['Bonjour.'], introNarration: 'Bonjour.', blessingLines: ['Douceur.'], blessingNarration: 'Douceur.', closingLines: ['Amour.'], closingNarration: 'Amour.' }])) };
+const composition = { schemaVersion: '2.0', languages: Object.fromEntries(['fr','ar'].map(lang => [lang, { description: 'Une joie.', introLines: ['Bonjour.'], introNarration: 'Bonjour.', blessingLines: ['Douceur.'], blessingNarration: 'Douceur.', meaningLines: ['Un espoir.'], revealLines: ['Nous avons accueilli notre fille…'], closingLines: ['Amour.'], closingNarration: 'Amour.' }])) };
 test('Bayane has 23 ordered screens, six bars and name reveal at 15', () => {
   assert.deepEqual(chapters.map(c => c.phrases.length), [5,4,5,2,4,3]);
   const html = renderAnnouncement(opts), slides = screens(html);
@@ -35,7 +36,10 @@ test('escapes values and rejects unsafe inputs; private inputs never serialized'
  assert.match(html,/src="\/announcements\/fixture\/audio\/1\/fr"/); assert.doesNotMatch(renderAnnouncement({...opts,narrationEnabled:false}),/<audio|data-play=|Une narration créée/);
  assert.doesNotMatch(renderAnnouncement({...opts,pendingReview:false}),/data-draft-marker|data-language-switch/);
 });
-test('legacy projection and narration remain available', () => {
- const result=chaptersFromLegacyComposition(composition,{firstName:'Amal',nameArabic:'أمل'},'fr'); assert.deepEqual(result.map(c=>c.section),['intro','dua','reveal','closing']);
+test('worker chapters from a schema 2.0 composition render with the name last', () => {
+ const brief={firstName:'Amal',nameArabic:'أمل',gender:'girl',birthDate:null,religion:'general',tone:'tendre',phrases:[],languages:['fr','ar']};
+ const built=buildAnnouncementChapters({composition,brief}); assert.deepEqual(built.fr.map(c=>c.section),['intro','dua','meaning','reveal','closing']);
+ const slides=screens(renderAnnouncement({...opts,chapters:built,languages:['fr','ar']})); const fr=slides.filter(s=>/data-name-screen/.test(s)); assert.equal(fr.length,2);
+ assert.equal(slides.findIndex(s=>/Amal|أمل/.test(s)), slides.findIndex(s=>/data-name-screen/.test(s)));
  assert.equal(narrationText(composition,'fr'),'Bonjour.\n\nDouceur.\n\nAmour.'); assert.equal(reviewedNarrationText(composition.languages.fr),'Bonjour.\n\nDouceur.\n\nAmour.');
 });

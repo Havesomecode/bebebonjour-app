@@ -40,9 +40,9 @@ function fixture() {
 }
 const read = (t, job) => t.query(ref('read'), { workerToken, jobId: job.jobId });
 const hidden = 'Une affirmation ajoutée uniquement à la narration, jamais montrée aux réviseurs.';
-const fr = { description:'Une histoire.', introLines:['Bienvenue.', 'Un bonheur & une joie.'], introNarration:'HIDDEN INTRO FR', blessingLines:['Des jours doux.'], blessingNarration:'HIDDEN BLESSING FR', closingLines:['Notre amour.'], closingNarration:hidden };
-const ar = { description:'فرح جديد.', introLines:['أهلاً بك.', 'فرح جديد.'], introNarration:'HIDDEN INTRO AR', blessingLines:['أيام جميلة.'], blessingNarration:'HIDDEN BLESSING AR', closingLines:['لك كل الحب.'], closingNarration:hidden };
-const composition = { schemaVersion:'1.0', languages:{fr,ar} };
+const fr = { description:'Une histoire.', introLines:['Bienvenue.', 'Un bonheur & une joie.'], introNarration:'HIDDEN INTRO FR', blessingLines:['Des jours doux.'], blessingNarration:'HIDDEN BLESSING FR', meaningLines:['Douceur.'], revealLines:['Notre enfant.'], closingLines:['Notre amour.'], closingNarration:hidden };
+const ar = { description:'فرح جديد.', introLines:['أهلاً بك.', 'فرح جديد.'], introNarration:'HIDDEN INTRO AR', blessingLines:['أيام جميلة.'], blessingNarration:'HIDDEN BLESSING AR', meaningLines:['Douceur.'], revealLines:['Notre enfant.'], closingLines:['لك كل الحب.'], closingNarration:hidden };
+const composition = { schemaVersion:'2.0', languages:{fr,ar} };
 const transcript = language => [composition.languages[language].introLines.join('\n'), composition.languages[language].blessingLines.join('\n'), composition.languages[language].closingLines.join('\n')].join('\n\n');
 
 for (const language of ['fr', 'ar']) test(`SR-01: ${language} generated speech uses displayed prose, never hidden narration`, async context => {
@@ -54,7 +54,7 @@ for (const language of ['fr', 'ar']) test(`SR-01: ${language} generated speech u
     throw new Error('unexpected_network_forbidden');
   });
   const composer = { async compose(input) {
-    return { composition, metadata:{ adapterVersion:'1.0.0', provider:'openai-codex-subscription', model:'offline-fixture', requestDigest:sha(JSON.stringify({adapterVersion:'1.0.0',provider:'openai-codex-subscription',model:'offline-fixture',request:buildCodexCompositionRequest(input)})), outputDigest:sha(JSON.stringify(composition)) } };
+    return { composition, metadata:{ adapterVersion:'2.0.0', provider:'openai-codex-subscription', model:'offline-fixture', requestDigest:sha(JSON.stringify({adapterVersion:'2.0.0',provider:'openai-codex-subscription',model:'offline-fixture',request:buildCodexCompositionRequest(input)})), outputDigest:sha(JSON.stringify(composition)) } };
   } };
   const client = Object.fromEntries(['query','mutation','action'].map(method => [method,(name,args) => t[method](makeFunctionReference(name),args)]));
   const stateDir = await mkdtemp(path.join(process.env.TMPDIR,'sr01-regression-'));

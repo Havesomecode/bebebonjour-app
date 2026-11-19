@@ -64,9 +64,9 @@ test("pinned packaged Codex response schema satisfies the strict OpenAI boundary
   assert.equal(packageManifest.dependencies["@openai/codex"], PACKAGE_VERSION);
   assert.equal(lockManifest.packages["node_modules/@openai/codex"].version, PACKAGE_VERSION);
   assert.equal(codexSubscriptionCompositionSchema.properties.schemaVersion.type, "string");
-  assert.equal(codexSubscriptionCompositionSchema.properties.schemaVersion.const, "1.0");
+  assert.equal(codexSubscriptionCompositionSchema.properties.schemaVersion.const, "2.0");
   assertStrictResponseSchema(codexSubscriptionCompositionSchema);
-  assert.deepEqual(evidence.correction.schemaVersionProperty, { type: "string", const: "1.0" });
+  assert.deepEqual(evidence.correction.schemaVersionProperty, { type: "string", const: "2.0" });
   assert.equal(evidence.correction.schemaSourceSha256, sha256(schemaSource));
   assert.equal(
     evidence.correction.serializedSchemaSha256,

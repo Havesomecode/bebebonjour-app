@@ -16,17 +16,6 @@ export function narrationText(composition, language) {
   const content = composition.languages[language];
   return [content.introNarration, content.blessingNarration, content.closingNarration].join('\n\n');
 }
-export function chaptersFromLegacyComposition(composition, baby, language) {
-  assertValidCodexSubscriptionComposition(composition);
-  if (!Object.hasOwn(labels, language) || !composition.languages[language] || !validString(baby?.firstName)) reject();
-  const content = composition.languages[language];
-  return [
-    { section: 'intro', phrases: content.introLines.map(text => ({ text })) },
-    { section: 'dua', phrases: content.blessingLines.map(text => ({ text })) },
-    { section: 'reveal', phrases: [{ text: language === 'ar' && baby.nameArabic ? baby.nameArabic : baby.firstName, name: { latin: baby.firstName, ...(baby.nameArabic ? { arabic: baby.nameArabic } : {}) } }] },
-    { section: 'closing', phrases: content.closingLines.map(text => ({ text })) },
-  ];
-}
 export function renderAnnouncement({ chapters, languages, publicUrl, publicToken, revision, pendingReview = true, narrationEnabled = true, phraseStarts }) {
   if (publicToken === undefined) { try { publicToken = /^\/announcements\/([A-Za-z0-9_-]{1,256})\/?$/u.exec(new URL(publicUrl).pathname)?.[1]; } catch { reject(); } }
   if (!Array.isArray(languages) || languages.length < 1 || languages.length > 2 || new Set(languages).size !== languages.length || languages.some(l => !Object.hasOwn(labels, l)) || !Number.isSafeInteger(revision) || revision < 1 || typeof publicToken !== 'string' || !/^[A-Za-z0-9_-]{1,256}$/u.test(publicToken)) reject();
