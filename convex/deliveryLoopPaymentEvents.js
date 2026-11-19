@@ -1,7 +1,7 @@
 import { internalQueryGeneric, internalMutationGeneric } from 'convex/server';
 import { v } from 'convex/values';
 import { paymentEvidenceFields, preparePaymentEvidence, commitPaymentEvidence } from './deliveryLoop.js';
-import { activePreview, TERMS_VERSION, expectedLivemode } from './deliveryLoopPaidPolicy.js';
+import { expectedLivemode } from './deliveryLoopPaidPolicy.js';
 import { PAYMENT_EVENT_REJECTION_REASONS, paymentEventRejection } from '../src/delivery-loop/paid-event.mjs';
 
 export const paymentEventFields = {
@@ -49,13 +49,8 @@ export const recordEvent = internalMutationGeneric({
         if (evidence.providerAccountId !== event.providerAccountId || evidence.providerPaymentId !== event.providerPaymentId
             || evidence.jobId !== event.jobId || evidence.revision !== event.revision || evidence.previewDigest !== event.previewDigest
             || evidence.livemode !== event.livemode) throw new Error('payment_evidence_mismatch');
+        // Binds the payment to the order's revision-1 brief, consent and live state.
         prepared = await preparePaymentEvidence(ctx, evidence);
-        // A different event cannot revive an expired/withdrawn scope. Exact
-        // replay above remains a no-op even after deletion or hosting expiry.
-        activePreview(prepared.row);
-        const { paidApproval, paidPermissions } = prepared.row.data;
-        if (paidApproval.previewDigest !== event.previewDigest || paidPermissions.previewDigest !== event.previewDigest
-            || paidPermissions.termsVersion !== TERMS_VERSION || paidPermissions.publication !== true) throw new Error('paid_permissions_required');
       } catch (error) {
         reason = paymentEventRejection(error);
         if (!reason) throw error; // datastore/configuration failures are retryable

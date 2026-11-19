@@ -18,8 +18,7 @@ const identity = { workerToken: v.string(), jobId: v.string(), leaseToken: v.str
 export const narrate = actionGeneric({
   args: { ...identity, language: v.string(), text: v.string(), textDigest: v.string() },
   handler: async (context, args) => {
-    const snapshot = await context.runQuery(ref('read'), { workerToken: args.workerToken, jobId: args.jobId });
-    const stage = snapshot.orderMode === 'paid_route_a' ? 'finalize' : 'generate';
+    const stage = 'generate';
     const job = await context.runQuery(ref('authorizeProvider'), { ...pickIdentity(args), stage });
     if (!job.intake.languages.includes(args.language)) throw new Error('narration_language_invalid');
     const existing = (job.narrationReceipts || []).find(receipt => receipt.revision === args.revision
@@ -85,20 +84,13 @@ function pickIdentity(args) {
 }
 
 function emailPayload(job, stage, revision) {
-  const firstName = job.intake.baby.firstName;
+  const firstName = (job.briefs || []).find(entry => entry.revision === revision)?.brief.firstName || job.intake.baby.firstName;
   const final = stage === 'final_email';
-  if (job.orderMode === 'paid_route_a' && !final) {
-    const intro = 'Votre aperçu privé est prêt. Il n’est pas publié et la narration finale sera créée après votre accord, le paiement vérifié et la révision éditoriale. Vous disposez de 24 heures pour examiner cette version. Deux corrections éditoriales sont incluses.';
-    return { to: job.intake.customer.email, subject: `${firstName} — votre aperçu privé est prêt`,
-      text: `${intro}\n\nAperçu et révision : ${job.reviewUrl}\n\nSupport : contact@bebebonjour.com`,
-      html: `<p>${escapeHtml(intro)}</p><p><a href="${escapeHtml(job.reviewUrl)}">Examiner l’aperçu privé</a></p><p>contact@bebebonjour.com</p>`,
-      idempotencyKey: `bebe-loop:${job.jobId}:${revision}:${stage}` };
-  }
-  const subject = final ? `${firstName} — votre annonce approuvée` : `${firstName} — ${revision > 1 ? 'votre annonce corrigée' : 'votre première annonce'} est prête`;
-  const intro = final ? 'Votre annonce a été approuvée. Elle est prête à être partagée avec vos proches.'
-    : 'Votre première version a été créée automatiquement, avant révision humaine. Vous pouvez la consulter, demander une correction ou l’approuver.';
-  const text = `${intro}\n\nVotre annonce : ${job.publicUrl}\n${final ? '' : `\nRévision et corrections : ${job.reviewUrl}\n`}\nBébé Bonjour`;
-  const html = `<div style="font-family:Georgia,serif;color:#20392d;max-width:580px"><h1>${escapeHtml(subject)}</h1><p>${escapeHtml(intro)}</p><p><a href="${escapeHtml(job.publicUrl)}">Ouvrir votre annonce</a></p>${final ? '' : `<p><a href="${escapeHtml(job.reviewUrl)}">Réviser, corriger ou approuver</a></p>`}<p>Bébé Bonjour</p></div>`;
+  const subject = final ? `${firstName} — votre faire-part est approuvé` : `${firstName} — votre faire-part est prêt`;
+  const intro = final ? 'Votre faire-part est approuvé. Il est prêt à être partagé avec vos proches.'
+    : 'Votre faire-part est prêt. Ouvrez-le, puis demandez une correction ou approuvez-le.';
+  const text = `${intro}\n\nVotre faire-part : ${job.publicUrl}\n${final ? '' : `\nCorriger ou approuver : ${job.reviewUrl}\n`}\nBébé Bonjour`;
+  const html = `<div style="font-family:Georgia,serif;color:#20392d;max-width:580px"><h1>${escapeHtml(subject)}</h1><p>${escapeHtml(intro)}</p><p><a href="${escapeHtml(job.publicUrl)}">Ouvrir votre faire-part</a></p>${final ? '' : `<p><a href="${escapeHtml(job.reviewUrl)}">Corriger ou approuver</a></p>`}<p>Bébé Bonjour</p></div>`;
   return { to: job.intake.customer.email, subject, text, html,
     idempotencyKey: `bebe-loop:${job.jobId}:${revision}:${stage}` };
 }

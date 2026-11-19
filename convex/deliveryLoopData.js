@@ -16,9 +16,10 @@ export const exportContent = queryGeneric({
   args: customerArgs,
   handler: async (ctx, args) => {
     const row = await customer(ctx, args); const d = row.data;
-    if (!d.finalPublication || !d.deliveredAtMs || !d.hostingEndsAtMs || d.hostingEndsAtMs <= Date.now() || d.closedAtMs || d.deletionRequestedAtMs || d.cancelledAtMs) throw new Error("export_unavailable");
+    const final = (d.revisions || []).find(r => r.revision === d.approvedRevision);
+    if (!final || !d.deliveredAtMs || !d.hostingEndsAtMs || d.hostingEndsAtMs <= Date.now() || d.closedAtMs || d.deletionRequestedAtMs || d.cancelledAtMs) throw new Error("export_unavailable");
     // Takedown removes public access, not the customer's private export right.
-    const final = d.finalPublication; const language = d.intake.languages[0];
+    const language = d.intake.languages[0];
     const content = final.composition.languages[language];
     return { revision: final.revision, contentDigest: final.contentDigest, language,
       text: [...content.introLines, ...content.blessingLines, ...content.closingLines].join("\n\n"),
@@ -41,21 +42,21 @@ export const inspect = queryGeneric({
 });
 async function retain(ctx, row, reason) {
   const d = row.data;
-  if (d.payment.status === "pending" && !d.lease?.effectStartedAtMs && !d.emailReceipts.length && !d.narrationEffects?.length) return;
+  if (d.payment.status === "pending" && !d.lease?.effectStartedAtMs && !d.emailReceipts.length) return;
   // Explicit allowlist: no free-form feedback/errors, names, email, content,
   // customer capabilities, storage links, or arbitrary provider response bodies.
-  const evidence = { payment: d.payment, approval: d.paidApproval || null, permissions: d.paidPermissions || null,
-    editorial: d.editorialApproval || null, deliveredAtMs: d.deliveredAtMs || null,
+  const evidence = { payment: d.payment, consent: d.paidConsent || null,
+    launches: (d.briefs || []).map(({ revision, briefDigest, launchedAtMs }) => ({ revision, briefDigest, launchedAtMs })),
+    approvedRevision: d.approvedRevision || null, deliveredAtMs: d.deliveredAtMs || null,
     emailReceipts: d.emailReceipts.map(({ revision, stage, provider, providerMessageId, idempotencyKey, sentAtMs }) => ({ revision, stage, provider: provider || null, providerMessageId, idempotencyKey, sentAtMs })),
     uncertainEffect: d.lease?.effectStartedAtMs ? { stage: d.lease.stage, revision: d.desiredRevision, startedAtMs: d.lease.effectStartedAtMs, emailIdempotencyKey: d.lease.emailIdempotencyKey || null, ...(["draft_email", "final_email"].includes(d.lease.stage) ? { emailProvider: d.lease.emailProvider || null } : {}) } : null,
-    narrationEffects: (d.narrationEffects || []).map(({ revision, language, textDigest, status, startedAtMs }) => ({ revision, language, textDigest, status, startedAtMs })),
     notice: d.closureNotice || null };
   const prior = await ctx.db.query("deliveryLoopRetainedEvidence").withIndex("by_job_id", q => q.eq("jobId", row.jobId)).unique();
   const values = { jobId: row.jobId, retainedAtMs: Date.now(), reason, evidence };
   if (prior) await ctx.db.patch(prior._id, values); else await ctx.db.insert("deliveryLoopRetainedEvidence", values);
 }
 function storageIds(d) {
-  return new Set([...(d.revisions || []).flatMap(r => r.audioFiles || []), ...(d.finalPublication?.audioFiles || []), ...(d.narrationReceipts || [])].map(f => f.storageId));
+  return new Set([...(d.revisions || []).flatMap(r => r.audioFiles || []), ...(d.narrationReceipts || [])].map(f => f.storageId));
 }
 async function erase(ctx, row, reason) {
   await retain(ctx, row, reason);
@@ -86,10 +87,11 @@ export const operatorControl = mutationGeneric({
   },
 });
 async function purgeWorking(ctx, row) {
-  const finalIds = new Set((row.data.finalPublication?.audioFiles || []).map(f => f.storageId));
+  const approved = (row.data.revisions || []).find(r => r.revision === row.data.approvedRevision);
+  const finalIds = new Set((approved?.audioFiles || []).map(f => f.storageId));
   for (const id of storageIds(row.data)) if (!finalIds.has(id)) await ctx.storage.delete(id);
-  row.data.revisions = []; row.data.feedback = null; row.data.reviewOperations = [];
-  row.data.narrationReceipts = []; row.data.narrationEffects = [];
+  row.data.revisions = approved ? [approved] : []; row.data.feedback = null; row.data.reviewOperations = [];
+  row.data.narrationReceipts = [];
   row.data.intake = { customer: row.data.intake.customer, languages: row.data.intake.languages, fictional: row.data.intake.fictional };
   row.data.audit = []; row.data.lastError = null; row.data.workingPurgedAtMs = Date.now();
   await save(ctx, row);
