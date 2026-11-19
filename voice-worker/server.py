@@ -45,6 +45,14 @@ def peak_rss_mb():
     return round(resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 1024)
 
 
+def anon_rss_mb():
+    """Anonymous memory: what the service's memory limit really charges (the weights file itself is mmapped)."""
+    try:
+        return round(next(int(line.split()[1]) for line in open("/proc/self/status") if line.startswith("RssAnon")) / 1024)
+    except (OSError, StopIteration):
+        return None
+
+
 def model_dir():
     """The checkpoint runs in bfloat16, which is fast only on CPUs with native bf16
     (avx512_bf16/AMX). VOXCPM_DTYPE=float32 loads the same weights in float32 through
@@ -77,10 +85,18 @@ def load():
     global model, sample_rate
     torch.set_num_threads(int(os.environ.get("VOICE_THREADS", "8")))
     started = time.time()
-    model = VoxCPM.from_pretrained(model_dir(), load_denoiser=False, optimize=False, device="cpu", local_files_only=True)
+    # voxcpm builds the model in float32 (~9 GB) before casting it to the checkpoint
+    # dtype, which overflows an 8 GB service. Building it directly in that dtype gives
+    # the same weights (they are loaded afterwards) with half the peak memory.
+    default_dtype = torch.get_default_dtype()
+    torch.set_default_dtype(getattr(torch, os.environ.get("VOXCPM_DTYPE") or "bfloat16"))
+    try:
+        model = VoxCPM.from_pretrained(model_dir(), load_denoiser=False, optimize=False, device="cpu", local_files_only=True)
+    finally:
+        torch.set_default_dtype(default_dtype)
     sample_rate = model.tts_model.sample_rate
     log(event="loaded", seconds=round(time.time() - started, 1), sample_rate=sample_rate, threads=torch.get_num_threads(),
-        dtype=os.environ.get("VOXCPM_DTYPE") or "bfloat16", peak_rss_mb=peak_rss_mb(), **cpu_features())
+        dtype=os.environ.get("VOXCPM_DTYPE") or "bfloat16", peak_rss_mb=peak_rss_mb(), anon_rss_mb=anon_rss_mb(), **cpu_features())
 
 
 def encode_mp3(wav):
@@ -114,7 +130,7 @@ def speak(voice, language, text):
     wav = np.asarray(wav, dtype=np.float32).squeeze()
     audio_seconds = len(wav) / sample_rate
     log(event="spoke", voice=voice, language=language, chars=len(text), generation_s=round(seconds, 2),
-        audio_s=round(audio_seconds, 2), rtf=round(seconds / max(audio_seconds, 0.01), 2), peak_rss_mb=peak_rss_mb())
+        audio_s=round(audio_seconds, 2), rtf=round(seconds / max(audio_seconds, 0.01), 2), peak_rss_mb=peak_rss_mb(), anon_rss_mb=anon_rss_mb())
     return encode_mp3(wav), seconds, audio_seconds
 
 
@@ -173,7 +189,7 @@ class Handler(BaseHTTPRequestHandler):
         except Exception as exc:  # noqa: BLE001 - report a stable code, log the detail
             log(event="failed", error=type(exc).__name__, detail=str(exc)[:300])
             return self.error(500, "synthesis_failed")
-        self.reply(200, audio, "audio/mpeg", {"x-generation-seconds": f"{seconds:.2f}", "x-audio-seconds": f"{audio_seconds:.2f}", "x-peak-rss-mb": str(peak_rss_mb())})
+        self.reply(200, audio, "audio/mpeg", {"x-generation-seconds": f"{seconds:.2f}", "x-audio-seconds": f"{audio_seconds:.2f}", "x-peak-rss-mb": str(peak_rss_mb()), "x-anon-rss-mb": str(anon_rss_mb())})
 
 
 class Server(ThreadingHTTPServer):
