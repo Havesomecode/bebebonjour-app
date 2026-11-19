@@ -7,6 +7,7 @@ const FIELDS = new Set(['firstName', 'nameArabic', 'nameMeaning', 'gender', 'bir
 const fail = (field) => { throw new Error(`invalid_brief_${field}`); };
 const namePattern = /^[\p{L}\p{M} '\-’]+$/u;
 const phrasePattern = /^[\p{L}\p{M}\p{N} .,;:!?'’«»"\-()،؛؟]+$/u;
+const meaningPattern = /^[\p{L}\p{M}\p{N} .,;:!?'’«»"\-()،؛؟…]+$/u;
 const urlPattern = /(?:https?:|www\.|\b[\p{L}\p{N}-]+\.[\p{L}]{2,}\b)/iu;
 const normalizeMeaning = (value) => value.trim().replace(/\s+/gu, ' ');
 const latin = (value) => value.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase();
@@ -40,7 +41,7 @@ export function validateBrief(input, { languages, paid } = {}) {
   const nameArabic = input.nameArabic === null ? null : name(input.nameArabic, 'nameArabic');
   if (input.nameMeaning != null && typeof input.nameMeaning !== 'string') fail('nameMeaning');
   const nameMeaning = input.nameMeaning == null ? null : normalizeMeaning(input.nameMeaning) || null;
-  if (nameMeaning && (nameMeaning.length > 400 || !phrasePattern.test(nameMeaning) || urlPattern.test(nameMeaning) || containsName(nameMeaning, firstName, nameArabic))) fail('nameMeaning');
+  if (nameMeaning && (nameMeaning.length > 400 || !meaningPattern.test(nameMeaning) || urlPattern.test(nameMeaning) || containsName(nameMeaning, firstName, nameArabic))) fail('nameMeaning');
   if (!GENDERS.includes(input.gender)) fail('gender');
   if (input.birthDate !== null && !validDate(input.birthDate)) fail('birthDate');
   if (!RELIGIONS.includes(input.religion) || (paid && input.religion !== 'general')) fail('religion');

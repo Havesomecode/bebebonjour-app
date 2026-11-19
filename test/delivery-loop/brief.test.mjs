@@ -29,6 +29,7 @@ test('nameMeaning is optional, normalized, bounded and excludes URLs and names',
     assert.throws(() => validateBrief({ ...input, nameArabic: 'أمل', nameMeaning: value }, options), /invalid_brief_nameMeaning/);
   }
   assert.equal(validateBrief({ ...input, nameMeaning: 'Ameliesque' }, options).nameMeaning, 'Ameliesque');
+  assert.equal(validateBrief({ ...input, nameMeaning: 'Clarté, lumière, le prénom de sa grand-mère…' }, options).nameMeaning, 'Clarté, lumière, le prénom de sa grand-mère…');
 });
 
 test('suggestion extracts only the last meaning marker, without validating', () => {
