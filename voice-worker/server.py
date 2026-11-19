@@ -8,8 +8,10 @@ GET /health -> 200 once the model is loaded.
 Each voice is a stored synthetic reference clip (data/voices) plus its delivery
 prompt, generated exactly like the samples the owner chose: reference WAV +
 "(delivery)text", cfg 2.0, 10 timesteps, fixed seed per phrase. One phrase is
-generated at a time; concurrent requests wait on the lock.
+generated at a time, always on the same thread: concurrent requests queue.
 """
+import ctypes
+import gc
 import hmac
 import json
 import os
@@ -17,8 +19,8 @@ import re
 import resource
 import subprocess
 import sys
-import threading
 import time
+from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 import numpy as np
@@ -32,7 +34,10 @@ MAX_TEXT = 600
 
 settings = json.load(open(os.path.join(VOICES_DIR, "voices.json"), encoding="utf-8"))
 ENGINE = settings["engine"]
-lock = threading.Lock()
+# One inference thread: glibc gives each new thread its own malloc arena, and torch
+# buffers left in per-request arenas pushed an 8 GB service out of memory.
+inference = ThreadPoolExecutor(max_workers=1)
+libc = ctypes.CDLL("libc.so.6")
 model = None
 sample_rate = None
 
@@ -112,23 +117,24 @@ def encode_mp3(wav):
 def speak(voice, language, text):
     entry = settings["voices"][voice][language]
     reference = os.path.join(VOICES_DIR, entry["reference"])
-    with lock:
-        torch.manual_seed(entry["seed"])
-        np.random.seed(entry["seed"])
-        started = time.time()
-        with torch.inference_mode():
-            wav = model.generate(
-                text=f"({entry['delivery']}){text}",
-                cfg_value=ENGINE["cfg_value"],
-                inference_timesteps=ENGINE["inference_timesteps"],
-                max_len=min(4096, max(256, len(text) * 6)),
-                retry_badcase=False,
-                retry_badcase_max_times=1,
-                reference_wav_path=reference,
-            )
-        seconds = time.time() - started
+    torch.manual_seed(entry["seed"])
+    np.random.seed(entry["seed"])
+    started = time.time()
+    with torch.inference_mode():
+        wav = model.generate(
+            text=f"({entry['delivery']}){text}",
+            cfg_value=ENGINE["cfg_value"],
+            inference_timesteps=ENGINE["inference_timesteps"],
+            max_len=min(4096, max(256, len(text) * 6)),
+            retry_badcase=False,
+            retry_badcase_max_times=1,
+            reference_wav_path=reference,
+        )
+    seconds = time.time() - started
     wav = np.asarray(wav, dtype=np.float32).squeeze()
     audio_seconds = len(wav) / sample_rate
+    gc.collect()
+    libc.malloc_trim(0)
     log(event="spoke", voice=voice, language=language, chars=len(text), generation_s=round(seconds, 2),
         audio_s=round(audio_seconds, 2), rtf=round(seconds / max(audio_seconds, 0.01), 2), peak_rss_mb=peak_rss_mb(), anon_rss_mb=anon_rss_mb())
     return encode_mp3(wav), seconds, audio_seconds
@@ -185,7 +191,7 @@ class Handler(BaseHTTPRequestHandler):
         if not request:
             return self.error(400, "invalid_request")
         try:
-            audio, seconds, audio_seconds = speak(*request)
+            audio, seconds, audio_seconds = inference.submit(speak, *request).result()
         except Exception as exc:  # noqa: BLE001 - report a stable code, log the detail
             log(event="failed", error=type(exc).__name__, detail=str(exc)[:300])
             return self.error(500, "synthesis_failed")
@@ -205,7 +211,7 @@ class Server(ThreadingHTTPServer):
 if __name__ == "__main__":
     if len(TOKEN) < 32:
         sys.exit("VOICE_WORKER_TOKEN must be at least 32 characters")
-    load()
+    inference.submit(load).result()
     port = int(os.environ.get("PORT", "8080"))
     log(event="listening", port=port)
     Server(("::", port), Handler).serve_forever()
