@@ -435,3 +435,16 @@ test("explicit definitive email rejection retries the same key; ambiguous failur
   assert.equal(await claim(t, "offline-email-not-retryable-003"), null);
   assert.equal((await read(t, job.jobId)).lease.emailIdempotencyKey, key);
 });
+
+
+test("announcement slideshow CSP hashes the exact script and avoids duplicate controls", async () => {
+  const { announcement } = await import('../../convex/deliveryLoopHttp.js');
+  const { SLIDESHOW_SCRIPT } = await import('../../src/delivery-loop/slideshow-script.mjs');
+  const token = 'a'.repeat(64);
+  const ctx = { runQuery: async () => ({ contentHtml: '<html><body><article data-slideshow></article></body></html>', revision: 1, draft: false, audioLanguages: ['fr'] }) };
+  const response = await announcement._handler(ctx, new Request('https://example.test/announcements/' + token));
+  const csp = response.headers.get('content-security-policy');
+  assert.ok(csp.includes("sandbox allow-scripts"));
+  assert.ok(csp.includes("'sha256-" + createHash('sha256').update(SLIDESHOW_SCRIPT).digest('base64') + "'"));
+  assert.doesNotMatch(await response.text(), /<audio controls/);
+});

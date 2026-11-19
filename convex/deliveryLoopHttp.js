@@ -1,4 +1,5 @@
 import { httpActionGeneric, makeFunctionReference } from "convex/server";
+import { SLIDESHOW_SCRIPT } from "../src/delivery-loop/slideshow-script.mjs";
 import { paidEnabled, PAID_MODE } from "./deliveryLoopPaidPolicy.js";
 import { paidIntakeDocument, paidReviewDocument as renderPaidReview, paidOperatorDocument } from "./deliveryLoopPaidViews.js";
 
@@ -112,6 +113,9 @@ export const reviewSubmit = httpActionGeneric(async (ctx, request) => {
     return json(await ctx.runMutation(ref("requestReview"), args));
   } catch (error) { return errorResponse(error); }
 });
+// CSP hash of the one inline script rendered announcements carry; computed on first use, not at import.
+let slideshowHash;
+const slideshowScriptHash = () => slideshowHash ??= crypto.subtle.digest("SHA-256", new TextEncoder().encode(SLIDESHOW_SCRIPT)).then((bytes) => "sha256-" + btoa(String.fromCharCode(...new Uint8Array(bytes))));
 export const announcement = httpActionGeneric(async (ctx, request) => {
   const path = new URL(request.url).pathname;
   const audio = /^\/announcements\/([a-f0-9]{64})\/audio\/([1-9][0-9]*)\/(fr|ar)$/.exec(path);
@@ -126,11 +130,11 @@ export const announcement = httpActionGeneric(async (ctx, request) => {
   const page = await ctx.runQuery(ref("publicPage"), { publicToken: match[1] });
   if (!page) return document("Annonce en préparation", '<h1>Un petit bonheur se prépare.</h1><p>Le faire-part sera disponible ici dès qu’il sera prêt.</p><p>Actualisez cette page dans quelques instants, ou utilisez votre lien privé de suivi.</p>');
   const banner = page.draft ? '<aside data-delivery-draft style="padding:16px;background:#fff3cc;color:#403b2c;font:16px system-ui;text-align:center">Version en attente d’approbation</aside>' : "";
-  const controls = page.audioLanguages.map((language) => `<section style="padding:16px;text-align:center"><p>${language === "ar" ? "الاستماع إلى الإعلان" : "Écouter l’annonce"}</p><audio controls preload="none" src="/announcements/${match[1]}/audio/${page.revision}/${language}"></audio></section>`).join("");
+  const controls = (page.contentHtml.includes('data-slideshow') ? [] : page.audioLanguages).map((language) => `<section style="padding:16px;text-align:center"><p>${language === "ar" ? "الاستماع إلى الإعلان" : "Écouter l’annonce"}</p><audio controls preload="none" src="/announcements/${match[1]}/audio/${page.revision}/${language}"></audio></section>`).join("");
   let html = page.contentHtml;
   // Approval changes presentation, not the archived revision's content digest.
   if (!page.draft) html = html.replace(/<!--delivery-loop-draft:start-->[\s\S]*?<!--delivery-loop-draft:end-->/g, "");
   html = /<body\b[^>]*>/i.test(html) ? html.replace(/<body\b[^>]*>/i, (tag) => tag + banner) : banner + html;
   html = /<\/body>/i.test(html) ? html.replace(/<\/body>/i, controls + "</body>") : html + controls;
-  return new Response(html, { headers: { ...PRIVATE, "content-type": "text/html; charset=utf-8", "x-bebebonjour-revision": String(page.revision), "x-bebebonjour-review-status": page.draft ? "draft" : "approved", "content-security-policy": "default-src 'none'; style-src 'unsafe-inline'; img-src data:; media-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'; sandbox" } });
+  return new Response(html, { headers: { ...PRIVATE, "content-type": "text/html; charset=utf-8", "x-bebebonjour-revision": String(page.revision), "x-bebebonjour-review-status": page.draft ? "draft" : "approved", "content-security-policy": `default-src 'none'; style-src 'unsafe-inline'; img-src data:; media-src 'self'; script-src '${await slideshowScriptHash()}'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'; sandbox allow-scripts` } });
 });

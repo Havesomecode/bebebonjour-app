@@ -26,3 +26,11 @@ Chapters are variable: one progress bar per section actually present. No verifie
 ## Timing
 
 Narration produces, per language, the start time (seconds) of every displayed phrase. Engine-agnostic method: synthesize phrase by phrase, concatenate, record each start. The page reads these starts to switch screens. The voice engine is expected to change (VoiceStudio), the timing contract does not.
+
+## Render
+
+`renderAnnouncement({ chapters, languages, publicUrl, revision, phraseStarts? })` (`src/delivery-loop/render.mjs`) takes the per-language chapter list above and emits one `<section data-screen>` per phrase, one bar per chapter. A phrase with `name` is the reveal screen; a phrase with `reference` is a verse screen (Arabic RTL, translation, reference). `phraseStarts[lang]` (seconds, strictly increasing, one per phrase) becomes `data-start`; while the audio plays the page shows the last screen whose start has passed. Without starts, audio or with playback paused, tap or arrows advance. Space/k toggles play.
+
+The page has one inline script, `SLIDESHOW_SCRIPT` (`src/delivery-loop/slideshow-script.mjs`). The Convex announcement route allows exactly its SHA-256 (`script-src 'sha256-…'`, `sandbox allow-scripts`). Changing the script changes the hash automatically; never add another inline script.
+
+Until the composition card ships chapters, the worker maps the schema 1.0 composition with `chaptersFromLegacyComposition` (intro, dua, reveal, closing). Fixture preview: `npm run render:r1-bayane` → `out/r1-bayane/index.html` (23 screens in French).
