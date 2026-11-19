@@ -4,7 +4,9 @@ import { readFileSync } from 'node:fs';
 import { renderAnnouncement } from '../../src/delivery-loop/render.mjs';
 import { buildAnnouncementChapters } from '../../src/delivery-loop/chapters.mjs';
 import { chaptersFromPageJson } from '../../src/delivery-loop/page-fixture-chapters.mjs';
-import { screenIndexAt, SLIDESHOW_SCRIPT } from '../../src/delivery-loop/slideshow-script.mjs';
+import { SCREEN_INDEX_AT_SOURCE, SLIDESHOW_SCRIPT } from '../../src/delivery-loop/slideshow-script.mjs';
+import { buildSync } from 'esbuild';
+const screenIndexAt = new Function(`return ${SCREEN_INDEX_AT_SOURCE}`)();
 import { chapterNarrationText } from '../../src/delivery-loop/narration-timing.mjs';
 const page = JSON.parse(readFileSync(new URL('../../data/examples/bayane/page.json', import.meta.url)));
 const chapters = chaptersFromPageJson(page, 'fr');
@@ -28,6 +30,14 @@ test('timings are validated and embedded, with exact boundary indexing', () => {
  for (const value of [[0], Array(23).fill(0), [...starts.slice(0,22), Infinity]]) assert.throws(() => renderAnnouncement({...opts,phraseStarts:{fr:value}}), /render_input_rejected/);
  const fake=[0,1.2,2.5,4]; fake.forEach((v,i) => { assert.equal(screenIndexAt(fake,v),i); if(i) assert.equal(screenIndexAt(fake,v-.001),i-1); });
  assert.equal(screenIndexAt(fake,-1),0); assert.ok(!SLIDESHOW_SCRIPT.includes('</script'));
+ assert.ok(SLIDESHOW_SCRIPT.includes(SCREEN_INDEX_AT_SOURCE));
+});
+// Convex minifies its bundle and hashes SLIDESHOW_SCRIPT for the page CSP; the worker renders the unbundled
+// string. Both must be byte-identical or the browser blocks the slideshow.
+test('slideshow script survives a minified bundle byte for byte', async () => {
+  const { outputFiles: [out] } = buildSync({ entryPoints: [new URL('../../src/delivery-loop/slideshow-script.mjs', import.meta.url).pathname], bundle: true, format: 'esm', minify: true, write: false });
+  const bundled = await import('data:text/javascript;base64,' + Buffer.from(out.text).toString('base64'));
+  assert.equal(bundled.SLIDESHOW_SCRIPT, SLIDESHOW_SCRIPT);
 });
 test('escapes values and rejects unsafe inputs; private inputs never serialized', () => {
  const bad = [{section:'intro',phrases:[{text:'<script>alert(1)</script> & test', private:'SECRET'}]}, {section:'reveal',phrases:[{text:'x',name:{latin:'<img src=x>'}}]}];

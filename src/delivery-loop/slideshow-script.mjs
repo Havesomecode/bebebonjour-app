@@ -1,11 +1,13 @@
-export function screenIndexAt(starts, seconds) {
+// Plain strings only: Convex minifies its bundle and hashes this script for the page CSP,
+// so nothing here may depend on Function.prototype.toString or bundler output.
+export const SCREEN_INDEX_AT_SOURCE = `function screenIndexAt(starts, seconds) {
   let index = 0;
   for (let i = 1; i < starts.length && starts[i] <= seconds; i++) index = i;
   return index;
-}
+}`;
 
 export const SLIDESHOW_SCRIPT = `(() => {
-  const screenIndexAt = ${screenIndexAt.toString()};
+  const screenIndexAt = ${SCREEN_INDEX_AT_SOURCE};
   document.documentElement.classList.add('js');
   const panels = [...document.querySelectorAll('[data-slideshow]')];
   const links = [...document.querySelectorAll('[data-language]')];
