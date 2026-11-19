@@ -22,4 +22,5 @@ Record project-specific corrections in this project's `## Lessons` section, not 
 
 ## Lessons
 
+- When adding a catalog verse, cut the Arabic quote from `data/quran-verses.json` (Tanzil text), never retype it: Tanzil orders diacritics differently (shadda before fatha), so a typed quote fails the verbatim check.
 - When adding a new email kind, extend the idempotency-key allowlist in `src/fulfillment/cloudflare-email-transport.mjs` and test the real payload through the real transport (mocked fetch only): otherwise every send fails `cloudflare_input_invalid` in prod while unit tests with a fake transport pass.

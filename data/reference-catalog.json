@@ -1,4 +1,54 @@
 {
+  "origins": {
+    "hebrew": {
+      "fr": "hébraïque",
+      "ar": "عبرية"
+    },
+    "latin": {
+      "fr": "latine",
+      "ar": "لاتينية"
+    },
+    "germanic": {
+      "fr": "germanique",
+      "ar": "جرمانية"
+    },
+    "greek": {
+      "fr": "grecque",
+      "ar": "يونانية"
+    },
+    "arabic": {
+      "fr": "arabe",
+      "ar": "عربية"
+    },
+    "breton": {
+      "fr": "bretonne",
+      "ar": "بريتانية"
+    },
+    "french": {
+      "fr": "française",
+      "ar": "فرنسية"
+    },
+    "aramaic": {
+      "fr": "araméenne",
+      "ar": "آرامية"
+    },
+    "persian": {
+      "fr": "persane",
+      "ar": "فارسية"
+    },
+    "slavic": {
+      "fr": "slave",
+      "ar": "سلافية"
+    },
+    "spanish": {
+      "fr": "espagnole",
+      "ar": "إسبانية"
+    },
+    "italian": {
+      "fr": "italienne",
+      "ar": "إيطالية"
+    }
+  },
   "names": {
     "bayane": {
       "canonical": {
@@ -22,7 +72,7 @@
             "confidence": "high",
             "description": "Annonce de naissance - une narration poétique en arabe et en français.",
             "meaning": {
-              "ar": "الوضوح والبيان والتعبير الجلي",
+              "ar": "الوضوح والتعبير الجلي",
               "fr": "la clarté, l'expression limpide et la mise en lumière du sens"
             },
             "verses": {
@@ -33,7 +83,7 @@
                   "sourceKey": "quran-55-4"
                 },
                 {
-                  "quote": "هَٰذَا بَيَانٌ لِلنَّاسِ وَهُدًى وَمَوْعِظَةٌ لِّلْمُتَّقِينَ",
+                  "quote": "هَٰذَا بَيَانٌ لِّلنَّاسِ وَهُدًى وَمَوْعِظَةٌ لِّلْمُتَّقِينَ",
                   "reference": "آل عمران: ١٣٨",
                   "sourceKey": "quran-3-138"
                 },
@@ -45,21 +95,21 @@
               ],
               "fr": [
                 {
-                  "quote": "Il lui a enseigné l’expression claire.",
+                  "quote": "Il lui a appris à s’exprimer clairement.",
                   "reference": "Sourate Ar-Rahman, 55:4",
                   "sourceArabic": "عَلَّمَهُ الْبَيَانَ",
                   "sourceKey": "quran-55-4"
                 },
                 {
-                  "quote": "Ceci est un exposé clair pour les gens, une guidée et une exhortation pour les pieux.",
-                  "reference": "Sourate Al-Imran, 3:138",
-                  "sourceArabic": "هَٰذَا بَيَانٌ لِلنَّاسِ",
+                  "quote": "Voilà un exposé pour les gens, un guide, et une exhortation pour les pieux.",
+                  "reference": "Sourate Ali 'Imran, 3:138",
+                  "sourceArabic": "هَٰذَا بَيَانٌ لِّلنَّاسِ وَهُدًى وَمَوْعِظَةٌ لِّلْمُتَّقِينَ",
                   "sourceKey": "quran-3-138"
                 },
                 {
-                  "quote": "Ensuite, c’est à Nous qu’il appartient d’en exposer le sens.",
+                  "quote": "A Nous, ensuite incombera son explication.",
                   "reference": "Sourate Al-Qiyamah, 75:19",
-                  "sourceArabic": "بَيَانَهُ",
+                  "sourceArabic": "ثُمَّ إِنَّ عَلَيْنَا بَيَانَهُ",
                   "sourceKey": "quran-75-19"
                 }
               ]
@@ -74,7 +124,7 @@
           "basis": "general",
           "confidence": "medium",
           "meaning": {
-            "ar": "الوضوح والبيان",
+            "ar": "الوضوح وحسن التعبير",
             "fr": "la clarté et la justesse de l’expression"
           },
           "verses": {
@@ -82,7 +132,14 @@
             "fr": []
           }
         }
-      ]
+      ],
+      "gender": "girl",
+      "origin": "arabic",
+      "sources": {
+        "quran-55-4": "https://quran.com/55/4",
+        "quran-3-138": "https://quran.com/3/138",
+        "quran-75-19": "https://quran.com/75/19"
+      }
     },
     "amal": {
       "canonical": {
@@ -91,7 +148,8 @@
       },
       "aliases": {
         "latin": [
-          "Amel"
+          "Amel",
+          "Amale"
         ],
         "arabic": []
       },
@@ -102,15 +160,58 @@
           "basis": "general",
           "confidence": "high",
           "meaning": {
-            "ar": "الأمل والرجاء",
-            "fr": "l'espérance et l'élan du cœur"
+            "fr": "l'espérance et l'élan du cœur",
+            "ar": "الرجاء وتطلّع القلب"
           },
           "verses": {
             "ar": [],
             "fr": []
-          }
+          },
+          "meaningSourceKeys": [
+            "behindthename:amal-1"
+          ]
         }
-      ]
+      ],
+      "gender": "girl",
+      "origin": "arabic",
+      "sources": {
+        "behindthename:amal-1": "https://www.behindthename.com/name/amal-1",
+        "quran-18-46": "https://quran.com/18/46"
+      },
+      "religious": {
+        "islam": [
+          {
+            "id": "religious-amal",
+            "label": "Amal with Quranic references",
+            "basis": "religious:islam",
+            "confidence": "high",
+            "meaning": {
+              "fr": "l'espérance et l'élan du cœur",
+              "ar": "الرجاء وتطلّع القلب"
+            },
+            "meaningSourceKeys": [
+              "behindthename:amal-1"
+            ],
+            "verses": {
+              "ar": [
+                {
+                  "quote": "وَالْبَاقِيَاتُ الصَّالِحَاتُ خَيْرٌ عِندَ رَبِّكَ ثَوَابًا وَخَيْرٌ أَمَلًا",
+                  "reference": "الكهف: ٤٦",
+                  "sourceKey": "quran-18-46"
+                }
+              ],
+              "fr": [
+                {
+                  "quote": "les bonnes œuvres qui perdurent ont auprès de ton Seigneur une meilleure récompense et [suscitent] une belle espérance.",
+                  "reference": "Sourate Al-Kahf, 18:46",
+                  "sourceArabic": "وَالْبَاقِيَاتُ الصَّالِحَاتُ خَيْرٌ عِندَ رَبِّكَ ثَوَابًا وَخَيْرٌ أَمَلًا",
+                  "sourceKey": "quran-18-46"
+                }
+              ]
+            }
+          }
+        ]
+      }
     },
     "noor": {
       "canonical": {
@@ -119,7 +220,9 @@
       },
       "aliases": {
         "latin": [
-          "Nour"
+          "Nour",
+          "Nur",
+          "Noûr"
         ],
         "arabic": []
       },
@@ -130,9 +233,6814 @@
           "basis": "general",
           "confidence": "high",
           "meaning": {
-            "ar": "النور والإشراق",
-            "fr": "la lumière et l'éclat"
+            "fr": "la lumière et l'éclat",
+            "ar": "الضياء والإشراق"
           },
+          "verses": {
+            "ar": [],
+            "fr": []
+          },
+          "meaningSourceKeys": [
+            "behindthename:nur"
+          ]
+        }
+      ],
+      "gender": "girl",
+      "origin": "arabic",
+      "sources": {
+        "behindthename:nur": "https://www.behindthename.com/name/nur",
+        "quran-24-35": "https://quran.com/24/35"
+      },
+      "religious": {
+        "islam": [
+          {
+            "id": "religious-noor",
+            "label": "Noor with Quranic references",
+            "basis": "religious:islam",
+            "confidence": "high",
+            "meaning": {
+              "fr": "la lumière et l'éclat",
+              "ar": "الضياء والإشراق"
+            },
+            "meaningSourceKeys": [
+              "behindthename:nur"
+            ],
+            "verses": {
+              "ar": [
+                {
+                  "quote": "اللَّهُ نُورُ السَّمَاوَاتِ وَالْأَرْضِ",
+                  "reference": "النور: ٣٥",
+                  "sourceKey": "quran-24-35"
+                }
+              ],
+              "fr": [
+                {
+                  "quote": "Allah est la Lumière des cieux et de la terre.",
+                  "reference": "Sourate An-Nur, 24:35",
+                  "sourceArabic": "اللَّهُ نُورُ السَّمَاوَاتِ وَالْأَرْضِ",
+                  "sourceKey": "quran-24-35"
+                }
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "gabriel": {
+      "canonical": {
+        "latin": "Gabriel"
+      },
+      "aliases": {
+        "latin": [
+          "Gabriël"
+        ],
+        "arabic": []
+      },
+      "gender": "boy",
+      "origin": "hebrew",
+      "sources": {
+        "behindthename:gabriel": "https://www.behindthename.com/name/gabriel"
+      },
+      "general": [
+        {
+          "id": "general-gabriel",
+          "label": "Gabriel with its sourced meaning",
+          "basis": "general",
+          "confidence": "high",
+          "meaning": {
+            "fr": "Dieu est ma force",
+            "ar": "الله قوّتي"
+          },
+          "meaningSourceKeys": [
+            "behindthename:gabriel"
+          ],
+          "verses": {
+            "ar": [],
+            "fr": []
+          }
+        }
+      ]
+    },
+    "raphael": {
+      "canonical": {
+        "latin": "Raphaël"
+      },
+      "aliases": {
+        "latin": [
+          "Raphael"
+        ],
+        "arabic": []
+      },
+      "gender": "boy",
+      "origin": "hebrew",
+      "sources": {
+        "behindthename:raphael": "https://www.behindthename.com/name/raphael"
+      },
+      "general": [
+        {
+          "id": "general-raphael",
+          "label": "Raphaël with its sourced meaning",
+          "basis": "general",
+          "confidence": "high",
+          "meaning": {
+            "fr": "Dieu guérit",
+            "ar": "الله يشفي"
+          },
+          "meaningSourceKeys": [
+            "behindthename:raphael"
+          ],
+          "verses": {
+            "ar": [],
+            "fr": []
+          }
+        }
+      ]
+    },
+    "leo": {
+      "canonical": {
+        "latin": "Léo"
+      },
+      "aliases": {
+        "latin": [
+          "Leo"
+        ],
+        "arabic": []
+      },
+      "gender": "boy",
+      "origin": "latin",
+      "sources": {
+        "behindthename:leo": "https://www.behindthename.com/name/leo"
+      },
+      "general": [
+        {
+          "id": "general-leo",
+          "label": "Léo with its sourced meaning",
+          "basis": "general",
+          "confidence": "high",
+          "meaning": {
+            "fr": "le lion",
+            "ar": "الأسد"
+          },
+          "meaningSourceKeys": [
+            "behindthename:leo"
+          ],
+          "verses": {
+            "ar": [],
+            "fr": []
+          }
+        }
+      ]
+    },
+    "leon": {
+      "canonical": {
+        "latin": "Léon"
+      },
+      "aliases": {
+        "latin": [
+          "Leon"
+        ],
+        "arabic": []
+      },
+      "gender": "boy",
+      "origin": "greek",
+      "sources": {
+        "behindthename:leon": "https://www.behindthename.com/name/leon"
+      },
+      "general": [
+        {
+          "id": "general-leon",
+          "label": "Léon with its sourced meaning",
+          "basis": "general",
+          "confidence": "high",
+          "meaning": {
+            "fr": "le lion",
+            "ar": "الأسد"
+          },
+          "meaningSourceKeys": [
+            "behindthename:leon"
+          ],
+          "verses": {
+            "ar": [],
+            "fr": []
+          }
+        }
+      ]
+    },
+    "louis": {
+      "canonical": {
+        "latin": "Louis"
+      },
+      "aliases": {
+        "latin": [],
+        "arabic": []
+      },
+      "gender": "boy",
+      "origin": "germanic",
+      "sources": {
+        "behindthename:louis": "https://www.behindthename.com/name/louis",
+        "behindthename:ludwig": "https://www.behindthename.com/name/ludwig"
+      },
+      "general": [
+        {
+          "id": "general-louis",
+          "label": "Louis with its sourced meaning",
+          "basis": "general",
+          "confidence": "high",
+          "meaning": {
+            "fr": "illustre au combat",
+            "ar": "الشهير في المعركة"
+          },
+          "meaningSourceKeys": [
+            "behindthename:louis",
+            "behindthename:ludwig"
+          ],
+          "verses": {
+            "ar": [],
+            "fr": []
+          }
+        }
+      ]
+    },
+    "noah": {
+      "canonical": {
+        "latin": "Noah",
+        "arabic": "نوح"
+      },
+      "aliases": {
+        "latin": [
+          "Noé",
+          "Noe",
+          "Nuh",
+          "Nouh",
+          "Nooh"
+        ],
+        "arabic": []
+      },
+      "gender": "boy",
+      "origin": "hebrew",
+      "sources": {
+        "behindthename:noah-1": "https://www.behindthename.com/name/noah-1",
+        "quran-37-79": "https://quran.com/37/79"
+      },
+      "general": [
+        {
+          "id": "general-noah",
+          "label": "Noah with its sourced meaning",
+          "basis": "general",
+          "confidence": "high",
+          "meaning": {
+            "fr": "le repos et la paix",
+            "ar": "الراحة والسكينة"
+          },
+          "meaningSourceKeys": [
+            "behindthename:noah-1"
+          ],
+          "verses": {
+            "ar": [],
+            "fr": []
+          }
+        }
+      ],
+      "religious": {
+        "islam": [
+          {
+            "id": "religious-noah",
+            "label": "Noah with Quranic references",
+            "basis": "religious:islam",
+            "confidence": "high",
+            "meaning": {
+              "fr": "le repos et la paix",
+              "ar": "الراحة والسكينة"
+            },
+            "meaningSourceKeys": [
+              "behindthename:noah-1"
+            ],
+            "verses": {
+              "ar": [
+                {
+                  "quote": "سَلَامٌ عَلَىٰ نُوحٍ فِي الْعَالَمِينَ",
+                  "reference": "الصافات: ٧٩",
+                  "sourceKey": "quran-37-79"
+                }
+              ],
+              "fr": [
+                {
+                  "quote": "Paix sur Noé dans tout l’Univers !",
+                  "reference": "Sourate As-Saffat, 37:79",
+                  "sourceArabic": "سَلَامٌ عَلَىٰ نُوحٍ فِي الْعَالَمِينَ",
+                  "sourceKey": "quran-37-79"
+                }
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "adam": {
+      "canonical": {
+        "latin": "Adam",
+        "arabic": "آدم"
+      },
+      "aliases": {
+        "latin": [],
+        "arabic": []
+      },
+      "gender": "boy",
+      "origin": "hebrew",
+      "sources": {
+        "behindthename:adam": "https://www.behindthename.com/name/adam",
+        "quran-2-31": "https://quran.com/2/31"
+      },
+      "general": [
+        {
+          "id": "general-adam",
+          "label": "Adam with its sourced meaning",
+          "basis": "general",
+          "confidence": "high",
+          "meaning": {
+            "fr": "l'homme, le premier des humains",
+            "ar": "الإنسان، أول البشر"
+          },
+          "meaningSourceKeys": [
+            "behindthename:adam"
+          ],
+          "verses": {
+            "ar": [],
+            "fr": []
+          }
+        }
+      ],
+      "religious": {
+        "islam": [
+          {
+            "id": "religious-adam",
+            "label": "Adam with Quranic references",
+            "basis": "religious:islam",
+            "confidence": "high",
+            "meaning": {
+              "fr": "l'homme, le premier des humains",
+              "ar": "الإنسان، أول البشر"
+            },
+            "meaningSourceKeys": [
+              "behindthename:adam"
+            ],
+            "verses": {
+              "ar": [
+                {
+                  "quote": "وَعَلَّمَ آدَمَ الْأَسْمَاءَ كُلَّهَا",
+                  "reference": "البقرة: ٣١",
+                  "sourceKey": "quran-2-31"
+                }
+              ],
+              "fr": [
+                {
+                  "quote": "Et Il apprit à Adam tous les noms (de toutes choses)",
+                  "reference": "Sourate Al-Baqarah, 2:31",
+                  "sourceArabic": "وَعَلَّمَ آدَمَ الْأَسْمَاءَ كُلَّهَا",
+                  "sourceKey": "quran-2-31"
+                }
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "mael": {
+      "canonical": {
+        "latin": "Maël"
+      },
+      "aliases": {
+        "latin": [
+          "Mael",
+          "Maëlle"
+        ],
+        "arabic": []
+      },
+      "gender": "boy",
+      "origin": "breton",
+      "sources": {
+        "behindthename:mael": "https://www.behindthename.com/name/mael",
+        "behindthename:mae12l": "https://www.behindthename.com/name/mae12l"
+      },
+      "general": [
+        {
+          "id": "general-mael",
+          "label": "Maël with its sourced meaning",
+          "basis": "general",
+          "confidence": "high",
+          "meaning": {
+            "fr": "prince, chef",
+            "ar": "الأمير والقائد"
+          },
+          "meaningSourceKeys": [
+            "behindthename:mae12l",
+            "behindthename:mael"
+          ],
+          "verses": {
+            "ar": [],
+            "fr": []
+          }
+        }
+      ]
+    },
+    "isaac": {
+      "canonical": {
+        "latin": "Isaac",
+        "arabic": "إسحاق"
+      },
+      "aliases": {
+        "latin": [
+          "Ishaq",
+          "Ishak",
+          "Ishaac"
+        ],
+        "arabic": []
+      },
+      "gender": "boy",
+      "origin": "hebrew",
+      "sources": {
+        "behindthename:isaac": "https://www.behindthename.com/name/isaac",
+        "quran-37-112": "https://quran.com/37/112"
+      },
+      "general": [
+        {
+          "id": "general-isaac",
+          "label": "Isaac with its sourced meaning",
+          "basis": "general",
+          "confidence": "high",
+          "meaning": {
+            "fr": "il rira, il se réjouira",
+            "ar": "سيضحك ويفرح"
+          },
+          "meaningSourceKeys": [
+            "behindthename:isaac"
+          ],
+          "verses": {
+            "ar": [],
+            "fr": []
+          }
+        }
+      ],
+      "religious": {
+        "islam": [
+          {
+            "id": "religious-isaac",
+            "label": "Isaac with Quranic references",
+            "basis": "religious:islam",
+            "confidence": "high",
+            "meaning": {
+              "fr": "il rira, il se réjouira",
+              "ar": "سيضحك ويفرح"
+            },
+            "meaningSourceKeys": [
+              "behindthename:isaac"
+            ],
+            "verses": {
+              "ar": [
+                {
+                  "quote": "وَبَشَّرْنَاهُ بِإِسْحَاقَ نَبِيًّا مِّنَ الصَّالِحِينَ",
+                  "reference": "الصافات: ١١٢",
+                  "sourceKey": "quran-37-112"
+                }
+              ],
+              "fr": [
+                {
+                  "quote": "Nous lui fîmes la bonne annonce d’Isaac comme Prophète d’entre les gens vertueux.",
+                  "reference": "Sourate As-Saffat, 37:112",
+                  "sourceArabic": "وَبَشَّرْنَاهُ بِإِسْحَاقَ نَبِيًّا مِّنَ الصَّالِحِينَ",
+                  "sourceKey": "quran-37-112"
+                }
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "sacha": {
+      "canonical": {
+        "latin": "Sacha"
+      },
+      "aliases": {
+        "latin": [
+          "Sasha",
+          "Sascha"
+        ],
+        "arabic": []
+      },
+      "gender": "boy",
+      "origin": "greek",
+      "sources": {
+        "behindthename:sacha": "https://www.behindthename.com/name/sacha",
+        "behindthename:alexander": "https://www.behindthename.com/name/alexander"
+      },
+      "general": [
+        {
+          "id": "general-sacha",
+          "label": "Sacha with its sourced meaning",
+          "basis": "general",
+          "confidence": "high",
+          "meaning": {
+            "fr": "celui qui protège les hommes",
+            "ar": "حامي الناس"
+          },
+          "meaningSourceKeys": [
+            "behindthename:alexander",
+            "behindthename:sacha"
+          ],
+          "verses": {
+            "ar": [],
+            "fr": []
+          }
+        }
+      ]
+    },
+    "liam": {
+      "canonical": {
+        "latin": "Liam"
+      },
+      "aliases": {
+        "latin": [],
+        "arabic": []
+      },
+      "gender": "boy",
+      "origin": "germanic",
+      "sources": {
+        "behindthename:liam": "https://www.behindthename.com/name/liam",
+        "behindthename:william": "https://www.behindthename.com/name/william"
+      },
+      "general": [
+        {
+          "id": "general-liam",
+          "label": "Liam with its sourced meaning",
+          "basis": "general",
+          "confidence": "high",
+          "meaning": {
+            "fr": "la volonté et la protection",
+            "ar": "الإرادة والحماية"
+          },
+          "meaningSourceKeys": [
+            "behindthename:liam",
+            "behindthename:william"
+          ],
+          "verses": {
+            "ar": [],
+            "fr": []
+          }
+        }
+      ]
+    },
+    "malo": {
+      "canonical": {
+        "latin": "Malo"
+      },
+      "aliases": {
+        "latin": [],
+        "arabic": []
+      },
+      "gender": "boy",
+      "origin": "breton",
+      "sources": {
+        "behindthename:malo": "https://www.behindthename.com/name/malo"
+      },
+      "general": [
+        {
+          "id": "general-malo",
+          "label": "Malo with its sourced meaning",
+          "basis": "general",
+          "confidence": "high",
+          "meaning": {
+            "fr": "le gage lumineux",
+            "ar": "العهد المضيء"
+          },
+          "meaningSourceKeys": [
+            "behindthename:malo"
+          ],
+          "verses": {
+            "ar": [],
+            "fr": []
+          }
+        }
+      ]
+    },
+    "paul": {
+      "canonical": {
+        "latin": "Paul"
+      },
+      "aliases": {
+        "latin": [],
+        "arabic": []
+      },
+      "gender": "boy",
+      "origin": "latin",
+      "sources": {
+        "behindthename:paul": "https://www.behindthename.com/name/paul"
+      },
+      "general": [
+        {
+          "id": "general-paul",
+          "label": "Paul with its sourced meaning",
+          "basis": "general",
+          "confidence": "high",
+          "meaning": {
+            "fr": "petit, humble",
+            "ar": "الصغير المتواضع"
+          },
+          "meaningSourceKeys": [
+            "behindthename:paul"
+          ],
+          "verses": {
+            "ar": [],
+            "fr": []
+          }
+        }
+      ]
+    },
+    "hugo": {
+      "canonical": {
+        "latin": "Hugo"
+      },
+      "aliases": {
+        "latin": [],
+        "arabic": []
+      },
+      "gender": "boy",
+      "origin": "germanic",
+      "sources": {
+        "behindthename:hugo": "https://www.behindthename.com/name/hugo",
+        "behindthename:hugh": "https://www.behindthename.com/name/hugh"
+      },
+      "general": [
+        {
+          "id": "general-hugo",
+          "label": "Hugo with its sourced meaning",
+          "basis": "general",
+          "confidence": "high",
+          "meaning": {
+            "fr": "l'esprit, la pensée",
+            "ar": "العقل والفكر"
+          },
+          "meaningSourceKeys": [
+            "behindthename:hugh",
+            "behindthename:hugo"
+          ],
+          "verses": {
+            "ar": [],
+            "fr": []
+          }
+        }
+      ]
+    },
+    "victor": {
+      "canonical": {
+        "latin": "Victor"
+      },
+      "aliases": {
+        "latin": [],
+        "arabic": []
+      },
+      "gender": "boy",
+      "origin": "latin",
+      "sources": {
+        "behindthename:victor": "https://www.behindthename.com/name/victor"
+      },
+      "general": [
+        {
+          "id": "general-victor",
+          "label": "Victor with its sourced meaning",
+          "basis": "general",
+          "confidence": "high",
+          "meaning": {
+            "fr": "le vainqueur",
+            "ar": "المنتصر"
+          },
+          "meaningSourceKeys": [
+            "behindthename:victor"
+          ],
+          "verses": {
+            "ar": [],
+            "fr": []
+          }
+        }
+      ]
+    },
+    "ethan": {
+      "canonical": {
+        "latin": "Ethan"
+      },
+      "aliases": {
+        "latin": [
+          "Éthan",
+          "Etan"
+        ],
+        "arabic": []
+      },
+      "gender": "boy",
+      "origin": "hebrew",
+      "sources": {
+        "behindthename:ethan": "https://www.behindthename.com/name/ethan"
+      },
+      "general": [
+        {
+          "id": "general-ethan",
+          "label": "Ethan with its sourced meaning",
+          "basis": "general",
+          "confidence": "high",
+          "meaning": {
+            "fr": "solide, constant",
+            "ar": "الثابت الراسخ"
+          },
+          "meaningSourceKeys": [
+            "behindthename:ethan"
+          ],
+          "verses": {
+            "ar": [],
+            "fr": []
+          }
+        }
+      ]
+    },
+    "martin": {
+      "canonical": {
+        "latin": "Martin"
+      },
+      "aliases": {
+        "latin": [],
+        "arabic": []
+      },
+      "gender": "boy",
+      "origin": "latin",
+      "sources": {
+        "behindthename:martin": "https://www.behindthename.com/name/martin"
+      },
+      "general": [
+        {
+          "id": "general-martin",
+          "label": "Martin with its sourced meaning",
+          "basis": "general",
+          "confidence": "high",
+          "meaning": {
+            "fr": "voué à Mars",
+            "ar": "المنسوب إلى مارس"
+          },
+          "meaningSourceKeys": [
+            "behindthename:martin"
+          ],
+          "verses": {
+            "ar": [],
+            "fr": []
+          }
+        }
+      ]
+    },
+    "nathan": {
+      "canonical": {
+        "latin": "Nathan"
+      },
+      "aliases": {
+        "latin": [
+          "Natan"
+        ],
+        "arabic": []
+      },
+      "gender": "boy",
+      "origin": "hebrew",
+      "sources": {
+        "behindthename:nathan": "https://www.behindthename.com/name/nathan"
+      },
+      "general": [
+        {
+          "id": "general-nathan",
+          "label": "Nathan with its sourced meaning",
+          "basis": "general",
+          "confidence": "high",
+          "meaning": {
+            "fr": "il a donné",
+            "ar": "لقد وهب"
+          },
+          "meaningSourceKeys": [
+            "behindthename:nathan"
+          ],
+          "verses": {
+            "ar": [],
+            "fr": []
+          }
+        }
+      ]
+    },
+    "basile": {
+      "canonical": {
+        "latin": "Basile"
+      },
+      "aliases": {
+        "latin": [
+          "Basil"
+        ],
+        "arabic": []
+      },
+      "gender": "boy",
+      "origin": "greek",
+      "sources": {
+        "behindthename:basile": "https://www.behindthename.com/name/basile",
+        "behindthename:basil-1": "https://www.behindthename.com/name/basil-1"
+      },
+      "general": [
+        {
+          "id": "general-basile",
+          "label": "Basile with its sourced meaning",
+          "basis": "general",
+          "confidence": "high",
+          "meaning": {
+            "fr": "royal",
+            "ar": "الملكي"
+          },
+          "meaningSourceKeys": [
+            "behindthename:basil-1",
+            "behindthename:basile"
+          ],
+          "verses": {
+            "ar": [],
+            "fr": []
+          }
+        }
+      ]
+    },
+    "theo": {
+      "canonical": {
+        "latin": "Théo"
+      },
+      "aliases": {
+        "latin": [
+          "Theo",
+          "Téo"
+        ],
+        "arabic": []
+      },
+      "gender": "boy",
+      "origin": "greek",
+      "sources": {
+        "behindthename:theo": "https://www.behindthename.com/name/theo",
+        "behindthename:theodore": "https://www.behindthename.com/name/theodore"
+      },
+      "general": [
+        {
+          "id": "general-theo",
+          "label": "Théo with its sourced meaning",
+          "basis": "general",
+          "confidence": "high",
+          "meaning": {
+            "fr": "le don de Dieu",
+            "ar": "عطية الله"
+          },
+          "meaningSourceKeys": [
+            "behindthename:theo",
+            "behindthename:theodore"
+          ],
+          "verses": {
+            "ar": [],
+            "fr": []
+          }
+        }
+      ]
+    },
+    "augustin": {
+      "canonical": {
+        "latin": "Augustin"
+      },
+      "aliases": {
+        "latin": [],
+        "arabic": []
+      },
+      "gender": "boy",
+      "origin": "latin",
+      "sources": {
+        "behindthename:augustin": "https://www.behindthename.com/name/augustin",
+        "behindthename:augustus": "https://www.behindthename.com/name/augustus"
+      },
+      "general": [
+        {
+          "id": "general-augustin",
+          "label": "Augustin with its sourced meaning",
+          "basis": "general",
+          "confidence": "high",
+          "meaning": {
+            "fr": "vénérable, digne de respect",
+            "ar": "الجليل المهيب"
+          },
+          "meaningSourceKeys": [
+            "behindthename:augustin",
+            "behindthename:augustus"
+          ],
+          "verses": {
+            "ar": [],
+            "fr": []
+          }
+        }
+      ]
+    },
+    "auguste": {
+      "canonical": {
+        "latin": "Auguste"
+      },
+      "aliases": {
+        "latin": [],
+        "arabic": []
+      },
+      "gender": "boy",
+      "origin": "latin",
+      "sources": {
+        "behindthename:auguste-1": "https://www.behindthename.com/name/auguste-1",
+        "behindthename:augustus": "https://www.behindthename.com/name/augustus"
+      },
+      "general": [
+        {
+          "id": "general-auguste",
+          "label": "Auguste with its sourced meaning",
+          "basis": "general",
+          "confidence": "high",
+          "meaning": {
+            "fr": "vénérable, digne de respect",
+            "ar": "الجليل المهيب"
+          },
+          "meaningSourceKeys": [
+            "behindthename:auguste-1",
+            "behindthename:augustus"
+          ],
+          "verses": {
+            "ar": [],
+            "fr": []
+          }
+        }
+      ]
+    },
+    "valentin": {
+      "canonical": {
+        "latin": "Valentin"
+      },
+      "aliases": {
+        "latin": [],
+        "arabic": []
+      },
+      "gender": "boy",
+      "origin": "latin",
+      "sources": {
+        "behindthename:valentin": "https://www.behindthename.com/name/valentin",
+        "behindthename:valentine-1": "https://www.behindthename.com/name/valentine-1"
+      },
+      "general": [
+        {
+          "id": "general-valentin",
+          "label": "Valentin with its sourced meaning",
+          "basis": "general",
+          "confidence": "high",
+          "meaning": {
+            "fr": "fort, vigoureux, plein de santé",
+            "ar": "القوي النشيط المعافى"
+          },
+          "meaningSourceKeys": [
+            "behindthename:valentin",
+            "behindthename:valentine-1"
+          ],
+          "verses": {
+            "ar": [],
+            "fr": []
+          }
+        }
+      ]
+    },
+    "axel": {
+      "canonical": {
+        "latin": "Axel"
+      },
+      "aliases": {
+        "latin": [
+          "Aksel"
+        ],
+        "arabic": []
+      },
+      "gender": "boy",
+      "origin": "hebrew",
+      "sources": {
+        "behindthename:axel": "https://www.behindthename.com/name/axel",
+        "behindthename:absalom": "https://www.behindthename.com/name/absalom"
+      },
+      "general": [
+        {
+          "id": "general-axel",
+          "label": "Axel with its sourced meaning",
+          "basis": "general",
+          "confidence": "high",
+          "meaning": {
+            "fr": "le père est paix",
+            "ar": "الأب سلام"
+          },
+          "meaningSourceKeys": [
+            "behindthename:absalom",
+            "behindthename:axel"
+          ],
+          "verses": {
+            "ar": [],
+            "fr": []
+          }
+        }
+      ]
+    },
+    "simon": {
+      "canonical": {
+        "latin": "Simon"
+      },
+      "aliases": {
+        "latin": [],
+        "arabic": []
+      },
+      "gender": "boy",
+      "origin": "hebrew",
+      "sources": {
+        "behindthename:simon-1": "https://www.behindthename.com/name/simon-1"
+      },
+      "general": [
+        {
+          "id": "general-simon",
+          "label": "Simon with its sourced meaning",
+          "basis": "general",
+          "confidence": "high",
+          "meaning": {
+            "fr": "celui qui écoute",
+            "ar": "السامع المصغي"
+          },
+          "meaningSourceKeys": [
+            "behindthename:simon-1"
+          ],
+          "verses": {
+            "ar": [],
+            "fr": []
+          }
+        }
+      ]
+    },
+    "robin": {
+      "canonical": {
+        "latin": "Robin"
+      },
+      "aliases": {
+        "latin": [],
+        "arabic": []
+      },
+      "gender": "boy",
+      "origin": "germanic",
+      "sources": {
+        "behindthename:robin": "https://www.behindthename.com/name/robin",
+        "behindthename:robert": "https://www.behindthename.com/name/robert"
+      },
+      "general": [
+        {
+          "id": "general-robin",
+          "label": "Robin with its sourced meaning",
+          "basis": "general",
+          "confidence": "high",
+          "meaning": {
+            "fr": "la gloire éclatante",
+            "ar": "المجد المشرق"
+          },
+          "meaningSourceKeys": [
+            "behindthename:robert",
+            "behindthename:robin"
+          ],
+          "verses": {
+            "ar": [],
+            "fr": []
+          }
+        }
+      ]
+    },
+    "joseph": {
+      "canonical": {
+        "latin": "Joseph"
+      },
+      "aliases": {
+        "latin": [],
+        "arabic": []
+      },
+      "gender": "boy",
+      "origin": "hebrew",
+      "sources": {
+        "behindthename:joseph": "https://www.behindthename.com/name/joseph"
+      },
+      "general": [
+        {
+          "id": "general-joseph",
+          "label": "Joseph with its sourced meaning",
+          "basis": "general",
+          "confidence": "high",
+          "meaning": {
+            "fr": "il ajoutera",
+            "ar": "سيزيد"
+          },
+          "meaningSourceKeys": [
+            "behindthename:joseph"
+          ],
+          "verses": {
+            "ar": [],
+            "fr": []
+          }
+        }
+      ]
+    },
+    "yanis": {
+      "canonical": {
+        "latin": "Yanis"
+      },
+      "aliases": {
+        "latin": [
+          "Yannis",
+          "Ianis",
+          "Yaniss"
+        ],
+        "arabic": []
+      },
+      "gender": "boy",
+      "origin": "hebrew",
+      "sources": {
+        "behindthename:yanis": "https://www.behindthename.com/name/yanis",
+        "behindthename:john": "https://www.behindthename.com/name/john"
+      },
+      "general": [
+        {
+          "id": "general-yanis",
+          "label": "Yanis with its sourced meaning",
+          "basis": "general",
+          "confidence": "high",
+          "meaning": {
+            "fr": "Dieu fait grâce",
+            "ar": "الله يمنّ بفضله"
+          },
+          "meaningSourceKeys": [
+            "behindthename:john",
+            "behindthename:yanis"
+          ],
+          "verses": {
+            "ar": [],
+            "fr": []
+          }
+        }
+      ]
+    },
+    "jean": {
+      "canonical": {
+        "latin": "Jean"
+      },
+      "aliases": {
+        "latin": [],
+        "arabic": []
+      },
+      "gender": "boy",
+      "origin": "hebrew",
+      "sources": {
+        "behindthename:jean-1": "https://www.behindthename.com/name/jean-1",
+        "behindthename:john": "https://www.behindthename.com/name/john"
+      },
+      "general": [
+        {
+          "id": "general-jean",
+          "label": "Jean with its sourced meaning",
+          "basis": "general",
+          "confidence": "high",
+          "meaning": {
+            "fr": "Dieu fait grâce",
+            "ar": "الله يمنّ بفضله"
+          },
+          "meaningSourceKeys": [
+            "behindthename:jean-1",
+            "behindthename:john"
+          ],
+          "verses": {
+            "ar": [],
+            "fr": []
+          }
+        }
+      ]
+    },
+    "alexandre": {
+      "canonical": {
+        "latin": "Alexandre"
+      },
+      "aliases": {
+        "latin": [],
+        "arabic": []
+      },
+      "gender": "boy",
+      "origin": "greek",
+      "sources": {
+        "behindthename:alexandre": "https://www.behindthename.com/name/alexandre",
+        "behindthename:alexander": "https://www.behindthename.com/name/alexander"
+      },
+      "general": [
+        {
+          "id": "general-alexandre",
+          "label": "Alexandre with its sourced meaning",
+          "basis": "general",
+          "confidence": "high",
+          "meaning": {
+            "fr": "celui qui protège les hommes",
+            "ar": "حامي الناس"
+          },
+          "meaningSourceKeys": [
+            "behindthename:alexander",
+            "behindthename:alexandre"
+          ],
+          "verses": {
+            "ar": [],
+            "fr": []
+          }
+        }
+      ]
+    },
+    "matteo": {
+      "canonical": {
+        "latin": "Matteo"
+      },
+      "aliases": {
+        "latin": [
+          "Mattéo",
+          "Mateo",
+          "Matheo"
+        ],
+        "arabic": []
+      },
+      "gender": "boy",
+      "origin": "hebrew",
+      "sources": {
+        "behindthename:matteo": "https://www.behindthename.com/name/matteo",
+        "behindthename:mattithiah": "https://www.behindthename.com/name/mattithiah"
+      },
+      "general": [
+        {
+          "id": "general-matteo",
+          "label": "Matteo with its sourced meaning",
+          "basis": "general",
+          "confidence": "high",
+          "meaning": {
+            "fr": "le don de Dieu",
+            "ar": "عطية الله"
+          },
+          "meaningSourceKeys": [
+            "behindthename:matteo",
+            "behindthename:mattithiah"
+          ],
+          "verses": {
+            "ar": [],
+            "fr": []
+          }
+        }
+      ]
+    },
+    "mathis": {
+      "canonical": {
+        "latin": "Mathis"
+      },
+      "aliases": {
+        "latin": [
+          "Mathys",
+          "Matis"
+        ],
+        "arabic": []
+      },
+      "gender": "boy",
+      "origin": "hebrew",
+      "sources": {
+        "behindthename:mathis": "https://www.behindthename.com/name/mathis",
+        "behindthename:mattithiah": "https://www.behindthename.com/name/mattithiah"
+      },
+      "general": [
+        {
+          "id": "general-mathis",
+          "label": "Mathis with its sourced meaning",
+          "basis": "general",
+          "confidence": "high",
+          "meaning": {
+            "fr": "le don de Dieu",
+            "ar": "عطية الله"
+          },
+          "meaningSourceKeys": [
+            "behindthename:mathis",
+            "behindthename:mattithiah"
+          ],
+          "verses": {
+            "ar": [],
+            "fr": []
+          }
+        }
+      ]
+    },
+    "noam": {
+      "canonical": {
+        "latin": "Noam"
+      },
+      "aliases": {
+        "latin": [],
+        "arabic": []
+      },
+      "gender": "boy",
+      "origin": "hebrew",
+      "sources": {
+        "behindthename:noam": "https://www.behindthename.com/name/noam"
+      },
+      "general": [
+        {
+          "id": "general-noam",
+          "label": "Noam with its sourced meaning",
+          "basis": "general",
+          "confidence": "high",
+          "meaning": {
+            "fr": "la douceur, ce qui est agréable",
+            "ar": "اللطف والعذوبة"
+          },
+          "meaningSourceKeys": [
+            "behindthename:noam"
+          ],
+          "verses": {
+            "ar": [],
+            "fr": []
+          }
+        }
+      ]
+    },
+    "abel": {
+      "canonical": {
+        "latin": "Abel"
+      },
+      "aliases": {
+        "latin": [],
+        "arabic": []
+      },
+      "gender": "boy",
+      "origin": "hebrew",
+      "sources": {
+        "behindthename:abel": "https://www.behindthename.com/name/abel"
+      },
+      "general": [
+        {
+          "id": "general-abel",
+          "label": "Abel with its sourced meaning",
+          "basis": "general",
+          "confidence": "high",
+          "meaning": {
+            "fr": "le souffle",
+            "ar": "النَّفَس"
+          },
+          "meaningSourceKeys": [
+            "behindthename:abel"
+          ],
+          "verses": {
+            "ar": [],
+            "fr": []
+          }
+        }
+      ]
+    },
+    "felix": {
+      "canonical": {
+        "latin": "Félix"
+      },
+      "aliases": {
+        "latin": [
+          "Felix"
+        ],
+        "arabic": []
+      },
+      "gender": "boy",
+      "origin": "latin",
+      "sources": {
+        "behindthename:felix": "https://www.behindthename.com/name/felix"
+      },
+      "general": [
+        {
+          "id": "general-felix",
+          "label": "Félix with its sourced meaning",
+          "basis": "general",
+          "confidence": "high",
+          "meaning": {
+            "fr": "chanceux, heureux",
+            "ar": "المحظوظ السعيد"
+          },
+          "meaningSourceKeys": [
+            "behindthename:felix"
+          ],
+          "verses": {
+            "ar": [],
+            "fr": []
+          }
+        }
+      ]
+    },
+    "clement": {
+      "canonical": {
+        "latin": "Clément"
+      },
+      "aliases": {
+        "latin": [
+          "Clement"
+        ],
+        "arabic": []
+      },
+      "gender": "boy",
+      "origin": "latin",
+      "sources": {
+        "behindthename:clement": "https://www.behindthename.com/name/clement"
+      },
+      "general": [
+        {
+          "id": "general-clement",
+          "label": "Clément with its sourced meaning",
+          "basis": "general",
+          "confidence": "high",
+          "meaning": {
+            "fr": "miséricordieux, doux",
+            "ar": "الرحيم اللطيف"
+          },
+          "meaningSourceKeys": [
+            "behindthename:clement"
+          ],
+          "verses": {
+            "ar": [],
+            "fr": []
+          }
+        }
+      ]
+    },
+    "elias": {
+      "canonical": {
+        "latin": "Elias"
+      },
+      "aliases": {
+        "latin": [
+          "Élias",
+          "Elyas"
+        ],
+        "arabic": []
+      },
+      "gender": "boy",
+      "origin": "hebrew",
+      "sources": {
+        "behindthename:elias": "https://www.behindthename.com/name/elias",
+        "behindthename:elijah": "https://www.behindthename.com/name/elijah"
+      },
+      "general": [
+        {
+          "id": "general-elias",
+          "label": "Elias with its sourced meaning",
+          "basis": "general",
+          "confidence": "high",
+          "meaning": {
+            "fr": "mon Dieu est l'Éternel",
+            "ar": "إلهي هو الرب"
+          },
+          "meaningSourceKeys": [
+            "behindthename:elias",
+            "behindthename:elijah"
+          ],
+          "verses": {
+            "ar": [],
+            "fr": []
+          }
+        }
+      ]
+    },
+    "daniel": {
+      "canonical": {
+        "latin": "Daniel"
+      },
+      "aliases": {
+        "latin": [],
+        "arabic": []
+      },
+      "gender": "boy",
+      "origin": "hebrew",
+      "sources": {
+        "behindthename:daniel": "https://www.behindthename.com/name/daniel"
+      },
+      "general": [
+        {
+          "id": "general-daniel",
+          "label": "Daniel with its sourced meaning",
+          "basis": "general",
+          "confidence": "high",
+          "meaning": {
+            "fr": "Dieu est mon juge",
+            "ar": "الله ديّاني"
+          },
+          "meaningSourceKeys": [
+            "behindthename:daniel"
+          ],
+          "verses": {
+            "ar": [],
+            "fr": []
+          }
+        }
+      ]
+    },
+    "david": {
+      "canonical": {
+        "latin": "David"
+      },
+      "aliases": {
+        "latin": [],
+        "arabic": []
+      },
+      "gender": "boy",
+      "origin": "hebrew",
+      "sources": {
+        "behindthename:david": "https://www.behindthename.com/name/david"
+      },
+      "general": [
+        {
+          "id": "general-david",
+          "label": "David with its sourced meaning",
+          "basis": "general",
+          "confidence": "high",
+          "meaning": {
+            "fr": "le bien-aimé",
+            "ar": "المحبوب"
+          },
+          "meaningSourceKeys": [
+            "behindthename:david"
+          ],
+          "verses": {
+            "ar": [],
+            "fr": []
+          }
+        }
+      ]
+    },
+    "henri": {
+      "canonical": {
+        "latin": "Henri"
+      },
+      "aliases": {
+        "latin": [
+          "Henry"
+        ],
+        "arabic": []
+      },
+      "gender": "boy",
+      "origin": "germanic",
+      "sources": {
+        "behindthename:henri": "https://www.behindthename.com/name/henri",
+        "behindthename:henry": "https://www.behindthename.com/name/henry"
+      },
+      "general": [
+        {
+          "id": "general-henri",
+          "label": "Henri with its sourced meaning",
+          "basis": "general",
+          "confidence": "high",
+          "meaning": {
+            "fr": "le maître du foyer",
+            "ar": "سيّد البيت"
+          },
+          "meaningSourceKeys": [
+            "behindthename:henri",
+            "behindthename:henry"
+          ],
+          "verses": {
+            "ar": [],
+            "fr": []
+          }
+        }
+      ]
+    },
+    "thomas": {
+      "canonical": {
+        "latin": "Thomas"
+      },
+      "aliases": {
+        "latin": [],
+        "arabic": []
+      },
+      "gender": "boy",
+      "origin": "aramaic",
+      "sources": {
+        "behindthename:thomas": "https://www.behindthename.com/name/thomas"
+      },
+      "general": [
+        {
+          "id": "general-thomas",
+          "label": "Thomas with its sourced meaning",
+          "basis": "general",
+          "confidence": "high",
+          "meaning": {
+            "fr": "le jumeau",
+            "ar": "التوأم"
+          },
+          "meaningSourceKeys": [
+            "behindthename:thomas"
+          ],
+          "verses": {
+            "ar": [],
+            "fr": []
+          }
+        }
+      ]
+    },
+    "baptiste": {
+      "canonical": {
+        "latin": "Baptiste"
+      },
+      "aliases": {
+        "latin": [],
+        "arabic": []
+      },
+      "gender": "boy",
+      "origin": "greek",
+      "sources": {
+        "behindthename:baptiste": "https://www.behindthename.com/name/baptiste"
+      },
+      "general": [
+        {
+          "id": "general-baptiste",
+          "label": "Baptiste with its sourced meaning",
+          "basis": "general",
+          "confidence": "high",
+          "meaning": {
+            "fr": "celui qui baptise",
+            "ar": "المعمِّد"
+          },
+          "meaningSourceKeys": [
+            "behindthename:baptiste"
+          ],
+          "verses": {
+            "ar": [],
+            "fr": []
+          }
+        }
+      ]
+    },
+    "maxime": {
+      "canonical": {
+        "latin": "Maxime"
+      },
+      "aliases": {
+        "latin": [],
+        "arabic": []
+      },
+      "gender": "boy",
+      "origin": "latin",
+      "sources": {
+        "behindthename:maxime": "https://www.behindthename.com/name/maxime",
+        "behindthename:maximus": "https://www.behindthename.com/name/maximus"
+      },
+      "general": [
+        {
+          "id": "general-maxime",
+          "label": "Maxime with its sourced meaning",
+          "basis": "general",
+          "confidence": "high",
+          "meaning": {
+            "fr": "le plus grand",
+            "ar": "الأعظم"
+          },
+          "meaningSourceKeys": [
+            "behindthename:maxime",
+            "behindthename:maximus"
+          ],
+          "verses": {
+            "ar": [],
+            "fr": []
+          }
+        }
+      ]
+    },
+    "octave": {
+      "canonical": {
+        "latin": "Octave"
+      },
+      "aliases": {
+        "latin": [],
+        "arabic": []
+      },
+      "gender": "boy",
+      "origin": "latin",
+      "sources": {
+        "behindthename:octave": "https://www.behindthename.com/name/octave",
+        "behindthename:octavius": "https://www.behindthename.com/name/octavius"
+      },
+      "general": [
+        {
+          "id": "general-octave",
+          "label": "Octave with its sourced meaning",
+          "basis": "general",
+          "confidence": "high",
+          "meaning": {
+            "fr": "le huitième",
+            "ar": "الثامن"
+          },
+          "meaningSourceKeys": [
+            "behindthename:octave",
+            "behindthename:octavius"
+          ],
+          "verses": {
+            "ar": [],
+            "fr": []
+          }
+        }
+      ]
+    },
+    "hector": {
+      "canonical": {
+        "latin": "Hector"
+      },
+      "aliases": {
+        "latin": [],
+        "arabic": []
+      },
+      "gender": "boy",
+      "origin": "greek",
+      "sources": {
+        "behindthename:hector": "https://www.behindthename.com/name/hector"
+      },
+      "general": [
+        {
+          "id": "general-hector",
+          "label": "Hector with its sourced meaning",
+          "basis": "general",
+          "confidence": "high",
+          "meaning": {
+            "fr": "celui qui tient bon",
+            "ar": "الصامد الثابت"
+          },
+          "meaningSourceKeys": [
+            "behindthename:hector"
+          ],
+          "verses": {
+            "ar": [],
+            "fr": []
+          }
+        }
+      ]
+    },
+    "lucien": {
+      "canonical": {
+        "latin": "Lucien"
+      },
+      "aliases": {
+        "latin": [],
+        "arabic": []
+      },
+      "gender": "boy",
+      "origin": "latin",
+      "sources": {
+        "behindthename:lucien": "https://www.behindthename.com/name/lucien",
+        "behindthename:lucianus": "https://www.behindthename.com/name/lucianus"
+      },
+      "general": [
+        {
+          "id": "general-lucien",
+          "label": "Lucien with its sourced meaning",
+          "basis": "general",
+          "confidence": "high",
+          "meaning": {
+            "fr": "la lumière",
+            "ar": "النور"
+          },
+          "meaningSourceKeys": [
+            "behindthename:lucianus",
+            "behindthename:lucien"
+          ],
+          "verses": {
+            "ar": [],
+            "fr": []
+          }
+        }
+      ]
+    },
+    "muhammad": {
+      "canonical": {
+        "latin": "Mohamed",
+        "arabic": "محمد"
+      },
+      "aliases": {
+        "latin": [
+          "Muhammad",
+          "Mohammed",
+          "Mohammad",
+          "Mohamad",
+          "Mouhamed"
+        ],
+        "arabic": []
+      },
+      "gender": "boy",
+      "origin": "arabic",
+      "sources": {
+        "behindthename:muhammad": "https://www.behindthename.com/name/muhammad",
+        "quran-48-29": "https://quran.com/48/29"
+      },
+      "general": [
+        {
+          "id": "general-muhammad",
+          "label": "Mohamed with its sourced meaning",
+          "basis": "general",
+          "confidence": "high",
+          "meaning": {
+            "fr": "loué, digne d'éloges",
+            "ar": "المحمود الجدير بالثناء"
+          },
+          "meaningSourceKeys": [
+            "behindthename:muhammad"
+          ],
+          "verses": {
+            "ar": [],
+            "fr": []
+          }
+        }
+      ],
+      "religious": {
+        "islam": [
+          {
+            "id": "religious-muhammad",
+            "label": "Mohamed with Quranic references",
+            "basis": "religious:islam",
+            "confidence": "high",
+            "meaning": {
+              "fr": "loué, digne d'éloges",
+              "ar": "المحمود الجدير بالثناء"
+            },
+            "meaningSourceKeys": [
+              "behindthename:muhammad"
+            ],
+            "verses": {
+              "ar": [
+                {
+                  "quote": "مُّحَمَّدٌ رَّسُولُ اللَّهِ",
+                  "reference": "الفتح: ٢٩",
+                  "sourceKey": "quran-48-29"
+                }
+              ],
+              "fr": [
+                {
+                  "quote": "Mohammed est le Messager d’Allah.",
+                  "reference": "Sourate Al-Fath, 48:29",
+                  "sourceArabic": "مُّحَمَّدٌ رَّسُولُ اللَّهِ",
+                  "sourceKey": "quran-48-29"
+                }
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "ahmad": {
+      "canonical": {
+        "latin": "Ahmed",
+        "arabic": "أحمد"
+      },
+      "aliases": {
+        "latin": [
+          "Ahmad",
+          "Ahmet"
+        ],
+        "arabic": []
+      },
+      "gender": "boy",
+      "origin": "arabic",
+      "sources": {
+        "behindthename:ahmad": "https://www.behindthename.com/name/ahmad",
+        "quran-61-6": "https://quran.com/61/6"
+      },
+      "general": [
+        {
+          "id": "general-ahmad",
+          "label": "Ahmed with its sourced meaning",
+          "basis": "general",
+          "confidence": "high",
+          "meaning": {
+            "fr": "le plus digne d'éloges",
+            "ar": "الأكثر حمدًا"
+          },
+          "meaningSourceKeys": [
+            "behindthename:ahmad"
+          ],
+          "verses": {
+            "ar": [],
+            "fr": []
+          }
+        }
+      ],
+      "religious": {
+        "islam": [
+          {
+            "id": "religious-ahmad",
+            "label": "Ahmed with Quranic references",
+            "basis": "religious:islam",
+            "confidence": "high",
+            "meaning": {
+              "fr": "le plus digne d'éloges",
+              "ar": "الأكثر حمدًا"
+            },
+            "meaningSourceKeys": [
+              "behindthename:ahmad"
+            ],
+            "verses": {
+              "ar": [
+                {
+                  "quote": "وَمُبَشِّرًا بِرَسُولٍ يَأْتِي مِن بَعْدِي اسْمُهُ أَحْمَدُ",
+                  "reference": "الصف: ٦",
+                  "sourceKey": "quran-61-6"
+                }
+              ],
+              "fr": [
+                {
+                  "quote": "et annonciateur d’un Messager à venir après moi, dont le nom sera \"Aḥmad.\"",
+                  "reference": "Sourate As-Saf, 61:6",
+                  "sourceArabic": "وَمُبَشِّرًا بِرَسُولٍ يَأْتِي مِن بَعْدِي اسْمُهُ أَحْمَدُ",
+                  "sourceKey": "quran-61-6"
+                }
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "zayn": {
+      "canonical": {
+        "latin": "Zayn",
+        "arabic": "زين"
+      },
+      "aliases": {
+        "latin": [
+          "Zein",
+          "Zaïn",
+          "Zain",
+          "Zayne"
+        ],
+        "arabic": []
+      },
+      "gender": "boy",
+      "origin": "arabic",
+      "sources": {
+        "behindthename:zayn": "https://www.behindthename.com/name/zayn"
+      },
+      "general": [
+        {
+          "id": "general-zayn",
+          "label": "Zayn with its sourced meaning",
+          "basis": "general",
+          "confidence": "high",
+          "meaning": {
+            "fr": "la beauté, la grâce",
+            "ar": "الجمال والحسن"
+          },
+          "meaningSourceKeys": [
+            "behindthename:zayn"
+          ],
+          "verses": {
+            "ar": [],
+            "fr": []
+          }
+        }
+      ]
+    },
+    "ibrahim": {
+      "canonical": {
+        "latin": "Ibrahim",
+        "arabic": "إبراهيم"
+      },
+      "aliases": {
+        "latin": [
+          "Brahim",
+          "Ibrahime"
+        ],
+        "arabic": []
+      },
+      "gender": "boy",
+      "origin": "hebrew",
+      "sources": {
+        "behindthename:ibrahim": "https://www.behindthename.com/name/ibrahim",
+        "behindthename:abraham": "https://www.behindthename.com/name/abraham",
+        "quran-4-125": "https://quran.com/4/125"
+      },
+      "general": [
+        {
+          "id": "general-ibrahim",
+          "label": "Ibrahim with its sourced meaning",
+          "basis": "general",
+          "confidence": "high",
+          "meaning": {
+            "fr": "le père d'une multitude",
+            "ar": "أبو الجموع"
+          },
+          "meaningSourceKeys": [
+            "behindthename:abraham",
+            "behindthename:ibrahim"
+          ],
+          "verses": {
+            "ar": [],
+            "fr": []
+          }
+        }
+      ],
+      "religious": {
+        "islam": [
+          {
+            "id": "religious-ibrahim",
+            "label": "Ibrahim with Quranic references",
+            "basis": "religious:islam",
+            "confidence": "high",
+            "meaning": {
+              "fr": "le père d'une multitude",
+              "ar": "أبو الجموع"
+            },
+            "meaningSourceKeys": [
+              "behindthename:abraham",
+              "behindthename:ibrahim"
+            ],
+            "verses": {
+              "ar": [
+                {
+                  "quote": "وَاتَّخَذَ اللَّهُ إِبْرَاهِيمَ خَلِيلًا",
+                  "reference": "النساء: ١٢٥",
+                  "sourceKey": "quran-4-125"
+                }
+              ],
+              "fr": [
+                {
+                  "quote": "Et Allah a pris Abraham pour ami (intime et) privilégié.",
+                  "reference": "Sourate An-Nisa, 4:125",
+                  "sourceArabic": "وَاتَّخَذَ اللَّهُ إِبْرَاهِيمَ خَلِيلًا",
+                  "sourceKey": "quran-4-125"
+                }
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "imran": {
+      "canonical": {
+        "latin": "Imran",
+        "arabic": "عمران"
+      },
+      "aliases": {
+        "latin": [
+          "Imrane",
+          "Imrân"
+        ],
+        "arabic": []
+      },
+      "gender": "boy",
+      "origin": "hebrew",
+      "sources": {
+        "behindthename:imran": "https://www.behindthename.com/name/imran",
+        "behindthename:amram": "https://www.behindthename.com/name/amram",
+        "quran-3-33": "https://quran.com/3/33"
+      },
+      "general": [
+        {
+          "id": "general-imran",
+          "label": "Imran with its sourced meaning",
+          "basis": "general",
+          "confidence": "high",
+          "meaning": {
+            "fr": "le peuple élevé",
+            "ar": "الشعب الرفيع"
+          },
+          "meaningSourceKeys": [
+            "behindthename:amram",
+            "behindthename:imran"
+          ],
+          "verses": {
+            "ar": [],
+            "fr": []
+          }
+        }
+      ],
+      "religious": {
+        "islam": [
+          {
+            "id": "religious-imran",
+            "label": "Imran with Quranic references",
+            "basis": "religious:islam",
+            "confidence": "high",
+            "meaning": {
+              "fr": "le peuple élevé",
+              "ar": "الشعب الرفيع"
+            },
+            "meaningSourceKeys": [
+              "behindthename:amram",
+              "behindthename:imran"
+            ],
+            "verses": {
+              "ar": [
+                {
+                  "quote": "إِنَّ اللَّهَ اصْطَفَىٰ آدَمَ وَنُوحًا وَآلَ إِبْرَاهِيمَ وَآلَ عِمْرَانَ عَلَى الْعَالَمِينَ",
+                  "reference": "آل عمران: ٣٣",
+                  "sourceKey": "quran-3-33"
+                }
+              ],
+              "fr": [
+                {
+                  "quote": "Certes, Allah a élu Adam, Noé, la famille d’Abraham et la famille d’Imrân au-dessus de tout le monde.",
+                  "reference": "Sourate Ali 'Imran, 3:33",
+                  "sourceArabic": "إِنَّ اللَّهَ اصْطَفَىٰ آدَمَ وَنُوحًا وَآلَ إِبْرَاهِيمَ وَآلَ عِمْرَانَ عَلَى الْعَالَمِينَ",
+                  "sourceKey": "quran-3-33"
+                }
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "ismail": {
+      "canonical": {
+        "latin": "Ismaël",
+        "arabic": "إسماعيل"
+      },
+      "aliases": {
+        "latin": [
+          "Ismail",
+          "Ismael",
+          "Smaïl",
+          "Ismaïl"
+        ],
+        "arabic": []
+      },
+      "gender": "boy",
+      "origin": "hebrew",
+      "sources": {
+        "behindthename:ismail": "https://www.behindthename.com/name/ismail",
+        "behindthename:ishmael": "https://www.behindthename.com/name/ishmael",
+        "quran-19-54": "https://quran.com/19/54"
+      },
+      "general": [
+        {
+          "id": "general-ismail",
+          "label": "Ismaël with its sourced meaning",
+          "basis": "general",
+          "confidence": "high",
+          "meaning": {
+            "fr": "Dieu entendra",
+            "ar": "الله سيسمع"
+          },
+          "meaningSourceKeys": [
+            "behindthename:ishmael",
+            "behindthename:ismail"
+          ],
+          "verses": {
+            "ar": [],
+            "fr": []
+          }
+        }
+      ],
+      "religious": {
+        "islam": [
+          {
+            "id": "religious-ismail",
+            "label": "Ismaël with Quranic references",
+            "basis": "religious:islam",
+            "confidence": "high",
+            "meaning": {
+              "fr": "Dieu entendra",
+              "ar": "الله سيسمع"
+            },
+            "meaningSourceKeys": [
+              "behindthename:ishmael",
+              "behindthename:ismail"
+            ],
+            "verses": {
+              "ar": [
+                {
+                  "quote": "وَاذْكُرْ فِي الْكِتَابِ إِسْمَاعِيلَ إِنَّهُ كَانَ صَادِقَ الْوَعْدِ وَكَانَ رَسُولًا نَّبِيًّا",
+                  "reference": "مريم: ٥٤",
+                  "sourceKey": "quran-19-54"
+                }
+              ],
+              "fr": [
+                {
+                  "quote": "Et mentionne Ismaël, dans le Livre. Il était fidèle à ses promesses; et c’était un Messager et un Prophète.",
+                  "reference": "Sourate Maryam, 19:54",
+                  "sourceArabic": "وَاذْكُرْ فِي الْكِتَابِ إِسْمَاعِيلَ إِنَّهُ كَانَ صَادِقَ الْوَعْدِ وَكَانَ رَسُولًا نَّبِيًّا",
+                  "sourceKey": "quran-19-54"
+                }
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "amir": {
+      "canonical": {
+        "latin": "Amir",
+        "arabic": "أمير"
+      },
+      "aliases": {
+        "latin": [
+          "Amire",
+          "Emir"
+        ],
+        "arabic": []
+      },
+      "gender": "boy",
+      "origin": "arabic",
+      "sources": {
+        "behindthename:amir-1": "https://www.behindthename.com/name/amir-1"
+      },
+      "general": [
+        {
+          "id": "general-amir",
+          "label": "Amir with its sourced meaning",
+          "basis": "general",
+          "confidence": "high",
+          "meaning": {
+            "fr": "le prince, celui qui commande",
+            "ar": "القائد صاحب الأمر"
+          },
+          "meaningSourceKeys": [
+            "behindthename:amir-1"
+          ],
+          "verses": {
+            "ar": [],
+            "fr": []
+          }
+        }
+      ]
+    },
+    "rayyan": {
+      "canonical": {
+        "latin": "Rayan",
+        "arabic": "ريان"
+      },
+      "aliases": {
+        "latin": [
+          "Rayyan",
+          "Rayane",
+          "Raiyan"
+        ],
+        "arabic": []
+      },
+      "gender": "boy",
+      "origin": "arabic",
+      "sources": {
+        "behindthename:rayan": "https://www.behindthename.com/name/rayan",
+        "behindthename:rayyan": "https://www.behindthename.com/name/rayyan"
+      },
+      "general": [
+        {
+          "id": "general-rayyan",
+          "label": "Rayan with its sourced meaning",
+          "basis": "general",
+          "confidence": "high",
+          "meaning": {
+            "fr": "abreuvé, verdoyant",
+            "ar": "المرتوي المخضرّ"
+          },
+          "meaningSourceKeys": [
+            "behindthename:rayan",
+            "behindthename:rayyan"
+          ],
+          "verses": {
+            "ar": [],
+            "fr": []
+          }
+        }
+      ]
+    },
+    "naim": {
+      "canonical": {
+        "latin": "Naïm",
+        "arabic": "نعيم"
+      },
+      "aliases": {
+        "latin": [
+          "Naim",
+          "Naeem"
+        ],
+        "arabic": []
+      },
+      "gender": "boy",
+      "origin": "arabic",
+      "sources": {
+        "behindthename:naim": "https://www.behindthename.com/name/naim"
+      },
+      "general": [
+        {
+          "id": "general-naim",
+          "label": "Naïm with its sourced meaning",
+          "basis": "general",
+          "confidence": "high",
+          "meaning": {
+            "fr": "paisible, heureux",
+            "ar": "الهانئ السعيد"
+          },
+          "meaningSourceKeys": [
+            "behindthename:naim"
+          ],
+          "verses": {
+            "ar": [],
+            "fr": []
+          }
+        }
+      ]
+    },
+    "ali": {
+      "canonical": {
+        "latin": "Ali",
+        "arabic": "علي"
+      },
+      "aliases": {
+        "latin": [
+          "Aly"
+        ],
+        "arabic": []
+      },
+      "gender": "boy",
+      "origin": "arabic",
+      "sources": {
+        "behindthename:ali-1": "https://www.behindthename.com/name/ali-1"
+      },
+      "general": [
+        {
+          "id": "general-ali",
+          "label": "Ali with its sourced meaning",
+          "basis": "general",
+          "confidence": "high",
+          "meaning": {
+            "fr": "élevé, sublime",
+            "ar": "الرفيع السامي"
+          },
+          "meaningSourceKeys": [
+            "behindthename:ali-1"
+          ],
+          "verses": {
+            "ar": [],
+            "fr": []
+          }
+        }
+      ]
+    },
+    "isa": {
+      "canonical": {
+        "latin": "Issa",
+        "arabic": "عيسى"
+      },
+      "aliases": {
+        "latin": [
+          "Isa",
+          "Aïssa",
+          "Issah"
+        ],
+        "arabic": []
+      },
+      "gender": "boy",
+      "origin": "hebrew",
+      "sources": {
+        "behindthename:isa-1": "https://www.behindthename.com/name/isa-1",
+        "behindthename:joshua": "https://www.behindthename.com/name/joshua",
+        "quran-3-45": "https://quran.com/3/45"
+      },
+      "general": [
+        {
+          "id": "general-isa",
+          "label": "Issa with its sourced meaning",
+          "basis": "general",
+          "confidence": "high",
+          "meaning": {
+            "fr": "Dieu sauve",
+            "ar": "الله يُخلّص"
+          },
+          "meaningSourceKeys": [
+            "behindthename:isa-1",
+            "behindthename:joshua"
+          ],
+          "verses": {
+            "ar": [],
+            "fr": []
+          }
+        }
+      ],
+      "religious": {
+        "islam": [
+          {
+            "id": "religious-isa",
+            "label": "Issa with Quranic references",
+            "basis": "religious:islam",
+            "confidence": "high",
+            "meaning": {
+              "fr": "Dieu sauve",
+              "ar": "الله يُخلّص"
+            },
+            "meaningSourceKeys": [
+              "behindthename:isa-1",
+              "behindthename:joshua"
+            ],
+            "verses": {
+              "ar": [
+                {
+                  "quote": "اسْمُهُ الْمَسِيحُ عِيسَى ابْنُ مَرْيَمَ",
+                  "reference": "آل عمران: ٤٥",
+                  "sourceKey": "quran-3-45"
+                }
+              ],
+              "fr": [
+                {
+                  "quote": "son nom sera le Messie (Al-Masîḥ) Jésus ('Issâ), fils de Marie",
+                  "reference": "Sourate Ali 'Imran, 3:45",
+                  "sourceArabic": "اسْمُهُ الْمَسِيحُ عِيسَى ابْنُ مَرْيَمَ",
+                  "sourceKey": "quran-3-45"
+                }
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "anas": {
+      "canonical": {
+        "latin": "Anas",
+        "arabic": "أنس"
+      },
+      "aliases": {
+        "latin": [
+          "Anass"
+        ],
+        "arabic": []
+      },
+      "gender": "boy",
+      "origin": "arabic",
+      "sources": {
+        "behindthename:anas": "https://www.behindthename.com/name/anas"
+      },
+      "general": [
+        {
+          "id": "general-anas",
+          "label": "Anas with its sourced meaning",
+          "basis": "general",
+          "confidence": "high",
+          "meaning": {
+            "fr": "la bienveillance, la convivialité",
+            "ar": "الألفة والمودّة"
+          },
+          "meaningSourceKeys": [
+            "behindthename:anas"
+          ],
+          "verses": {
+            "ar": [],
+            "fr": []
+          }
+        }
+      ]
+    },
+    "yusuf": {
+      "canonical": {
+        "latin": "Youssef",
+        "arabic": "يوسف"
+      },
+      "aliases": {
+        "latin": [
+          "Yusuf",
+          "Youcef",
+          "Yousef",
+          "Youssouf",
+          "Yussuf",
+          "Yousouf"
+        ],
+        "arabic": []
+      },
+      "gender": "boy",
+      "origin": "hebrew",
+      "sources": {
+        "behindthename:yusuf": "https://www.behindthename.com/name/yusuf",
+        "behindthename:joseph": "https://www.behindthename.com/name/joseph",
+        "quran-12-4": "https://quran.com/12/4"
+      },
+      "general": [
+        {
+          "id": "general-yusuf",
+          "label": "Youssef with its sourced meaning",
+          "basis": "general",
+          "confidence": "high",
+          "meaning": {
+            "fr": "il ajoutera",
+            "ar": "سيزيد"
+          },
+          "meaningSourceKeys": [
+            "behindthename:joseph",
+            "behindthename:yusuf"
+          ],
+          "verses": {
+            "ar": [],
+            "fr": []
+          }
+        }
+      ],
+      "religious": {
+        "islam": [
+          {
+            "id": "religious-yusuf",
+            "label": "Youssef with Quranic references",
+            "basis": "religious:islam",
+            "confidence": "high",
+            "meaning": {
+              "fr": "il ajoutera",
+              "ar": "سيزيد"
+            },
+            "meaningSourceKeys": [
+              "behindthename:joseph",
+              "behindthename:yusuf"
+            ],
+            "verses": {
+              "ar": [
+                {
+                  "quote": "إِذْ قَالَ يُوسُفُ لِأَبِيهِ يَا أَبَتِ إِنِّي رَأَيْتُ أَحَدَ عَشَرَ كَوْكَبًا وَالشَّمْسَ وَالْقَمَرَ رَأَيْتُهُمْ لِي سَاجِدِينَ",
+                  "reference": "يوسف: ٤",
+                  "sourceKey": "quran-12-4"
+                }
+              ],
+              "fr": [
+                {
+                  "quote": "Quand Joseph dit à son père : \"Ô mon père ! J'ai vu [en songe], onze étoiles, et aussi le soleil et la lune ; je les ai vus prosternés devant moi.\"",
+                  "reference": "Sourate Yusuf, 12:4",
+                  "sourceArabic": "إِذْ قَالَ يُوسُفُ لِأَبِيهِ يَا أَبَتِ إِنِّي رَأَيْتُ أَحَدَ عَشَرَ كَوْكَبًا وَالشَّمْسَ وَالْقَمَرَ رَأَيْتُهُمْ لِي سَاجِدِينَ",
+                  "sourceKey": "quran-12-4"
+                }
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "zayd": {
+      "canonical": {
+        "latin": "Zayd",
+        "arabic": "زيد"
+      },
+      "aliases": {
+        "latin": [
+          "Zaid",
+          "Zeid",
+          "Zayed"
+        ],
+        "arabic": []
+      },
+      "gender": "boy",
+      "origin": "arabic",
+      "sources": {
+        "behindthename:zayd": "https://www.behindthename.com/name/zayd"
+      },
+      "general": [
+        {
+          "id": "general-zayd",
+          "label": "Zayd with its sourced meaning",
+          "basis": "general",
+          "confidence": "high",
+          "meaning": {
+            "fr": "la croissance",
+            "ar": "النماء والزيادة"
+          },
+          "meaningSourceKeys": [
+            "behindthename:zayd"
+          ],
+          "verses": {
+            "ar": [],
+            "fr": []
+          }
+        }
+      ]
+    },
+    "ilyas": {
+      "canonical": {
+        "latin": "Ilyas",
+        "arabic": "إلياس"
+      },
+      "aliases": {
+        "latin": [
+          "Ilyes",
+          "Ilyès",
+          "Iliès",
+          "Ilias",
+          "Ilyass",
+          "Elyes"
+        ],
+        "arabic": []
+      },
+      "gender": "boy",
+      "origin": "hebrew",
+      "sources": {
+        "behindthename:ilyas": "https://www.behindthename.com/name/ilyas",
+        "behindthename:elijah": "https://www.behindthename.com/name/elijah",
+        "quran-37-123": "https://quran.com/37/123"
+      },
+      "general": [
+        {
+          "id": "general-ilyas",
+          "label": "Ilyas with its sourced meaning",
+          "basis": "general",
+          "confidence": "high",
+          "meaning": {
+            "fr": "mon Dieu est l'Éternel",
+            "ar": "إلهي هو الرب"
+          },
+          "meaningSourceKeys": [
+            "behindthename:elijah",
+            "behindthename:ilyas"
+          ],
+          "verses": {
+            "ar": [],
+            "fr": []
+          }
+        }
+      ],
+      "religious": {
+        "islam": [
+          {
+            "id": "religious-ilyas",
+            "label": "Ilyas with Quranic references",
+            "basis": "religious:islam",
+            "confidence": "high",
+            "meaning": {
+              "fr": "mon Dieu est l'Éternel",
+              "ar": "إلهي هو الرب"
+            },
+            "meaningSourceKeys": [
+              "behindthename:elijah",
+              "behindthename:ilyas"
+            ],
+            "verses": {
+              "ar": [
+                {
+                  "quote": "وَإِنَّ إِلْيَاسَ لَمِنَ الْمُرْسَلِينَ",
+                  "reference": "الصافات: ١٢٣",
+                  "sourceKey": "quran-37-123"
+                }
+              ],
+              "fr": [
+                {
+                  "quote": "Elie était, certes, du nombre des Messagers.",
+                  "reference": "Sourate As-Saffat, 37:123",
+                  "sourceArabic": "وَإِنَّ إِلْيَاسَ لَمِنَ الْمُرْسَلِينَ",
+                  "sourceKey": "quran-37-123"
+                }
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "yunus": {
+      "canonical": {
+        "latin": "Younes",
+        "arabic": "يونس"
+      },
+      "aliases": {
+        "latin": [
+          "Yunus",
+          "Younès",
+          "Younous"
+        ],
+        "arabic": []
+      },
+      "gender": "boy",
+      "origin": "hebrew",
+      "sources": {
+        "behindthename:yunus": "https://www.behindthename.com/name/yunus",
+        "behindthename:jonah": "https://www.behindthename.com/name/jonah",
+        "quran-37-139": "https://quran.com/37/139"
+      },
+      "general": [
+        {
+          "id": "general-yunus",
+          "label": "Younes with its sourced meaning",
+          "basis": "general",
+          "confidence": "high",
+          "meaning": {
+            "fr": "la colombe",
+            "ar": "الحمامة"
+          },
+          "meaningSourceKeys": [
+            "behindthename:jonah",
+            "behindthename:yunus"
+          ],
+          "verses": {
+            "ar": [],
+            "fr": []
+          }
+        }
+      ],
+      "religious": {
+        "islam": [
+          {
+            "id": "religious-yunus",
+            "label": "Younes with Quranic references",
+            "basis": "religious:islam",
+            "confidence": "high",
+            "meaning": {
+              "fr": "la colombe",
+              "ar": "الحمامة"
+            },
+            "meaningSourceKeys": [
+              "behindthename:jonah",
+              "behindthename:yunus"
+            ],
+            "verses": {
+              "ar": [
+                {
+                  "quote": "وَإِنَّ يُونُسَ لَمِنَ الْمُرْسَلِينَ",
+                  "reference": "الصافات: ١٣٩",
+                  "sourceKey": "quran-37-139"
+                }
+              ],
+              "fr": [
+                {
+                  "quote": "Jonas était certes, du nombre des Messagers.",
+                  "reference": "Sourate As-Saffat, 37:139",
+                  "sourceArabic": "وَإِنَّ يُونُسَ لَمِنَ الْمُرْسَلِينَ",
+                  "sourceKey": "quran-37-139"
+                }
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "hamza": {
+      "canonical": {
+        "latin": "Hamza",
+        "arabic": "حمزة"
+      },
+      "aliases": {
+        "latin": [
+          "Hamzah"
+        ],
+        "arabic": []
+      },
+      "gender": "boy",
+      "origin": "arabic",
+      "sources": {
+        "behindthename:hamza": "https://www.behindthename.com/name/hamza"
+      },
+      "general": [
+        {
+          "id": "general-hamza",
+          "label": "Hamza with its sourced meaning",
+          "basis": "general",
+          "confidence": "high",
+          "meaning": {
+            "fr": "le lion",
+            "ar": "الأسد"
+          },
+          "meaningSourceKeys": [
+            "behindthename:hamza"
+          ],
+          "verses": {
+            "ar": [],
+            "fr": []
+          }
+        }
+      ]
+    },
+    "zakariyya": {
+      "canonical": {
+        "latin": "Zakaria",
+        "arabic": "زكريا"
+      },
+      "aliases": {
+        "latin": [
+          "Zakariya",
+          "Zakariyya",
+          "Zacharia",
+          "Zakary"
+        ],
+        "arabic": []
+      },
+      "gender": "boy",
+      "origin": "hebrew",
+      "sources": {
+        "behindthename:zakariyya": "https://www.behindthename.com/name/zakariyya",
+        "behindthename:zechariah": "https://www.behindthename.com/name/zechariah",
+        "quran-19-2": "https://quran.com/19/2"
+      },
+      "general": [
+        {
+          "id": "general-zakariyya",
+          "label": "Zakaria with its sourced meaning",
+          "basis": "general",
+          "confidence": "high",
+          "meaning": {
+            "fr": "Dieu se souvient",
+            "ar": "الله يذكر"
+          },
+          "meaningSourceKeys": [
+            "behindthename:zakariyya",
+            "behindthename:zechariah"
+          ],
+          "verses": {
+            "ar": [],
+            "fr": []
+          }
+        }
+      ],
+      "religious": {
+        "islam": [
+          {
+            "id": "religious-zakariyya",
+            "label": "Zakaria with Quranic references",
+            "basis": "religious:islam",
+            "confidence": "high",
+            "meaning": {
+              "fr": "Dieu se souvient",
+              "ar": "الله يذكر"
+            },
+            "meaningSourceKeys": [
+              "behindthename:zakariyya",
+              "behindthename:zechariah"
+            ],
+            "verses": {
+              "ar": [
+                {
+                  "quote": "ذِكْرُ رَحْمَتِ رَبِّكَ عَبْدَهُ زَكَرِيَّا",
+                  "reference": "مريم: ٢",
+                  "sourceKey": "quran-19-2"
+                }
+              ],
+              "fr": [
+                {
+                  "quote": "C’est un récit de la miséricorde de ton Seigneur envers Son serviteur Zacharie.",
+                  "reference": "Sourate Maryam, 19:2",
+                  "sourceArabic": "ذِكْرُ رَحْمَتِ رَبِّكَ عَبْدَهُ زَكَرِيَّا",
+                  "sourceKey": "quran-19-2"
+                }
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "sulayman": {
+      "canonical": {
+        "latin": "Souleymane",
+        "arabic": "سليمان"
+      },
+      "aliases": {
+        "latin": [
+          "Sulayman",
+          "Soulaymane",
+          "Slimane",
+          "Suleiman",
+          "Soulayman"
+        ],
+        "arabic": []
+      },
+      "gender": "boy",
+      "origin": "hebrew",
+      "sources": {
+        "behindthename:sulayman": "https://www.behindthename.com/name/sulayman",
+        "behindthename:solomon": "https://www.behindthename.com/name/solomon",
+        "quran-27-15": "https://quran.com/27/15"
+      },
+      "general": [
+        {
+          "id": "general-sulayman",
+          "label": "Souleymane with its sourced meaning",
+          "basis": "general",
+          "confidence": "high",
+          "meaning": {
+            "fr": "la paix",
+            "ar": "السلام"
+          },
+          "meaningSourceKeys": [
+            "behindthename:solomon",
+            "behindthename:sulayman"
+          ],
+          "verses": {
+            "ar": [],
+            "fr": []
+          }
+        }
+      ],
+      "religious": {
+        "islam": [
+          {
+            "id": "religious-sulayman",
+            "label": "Souleymane with Quranic references",
+            "basis": "religious:islam",
+            "confidence": "high",
+            "meaning": {
+              "fr": "la paix",
+              "ar": "السلام"
+            },
+            "meaningSourceKeys": [
+              "behindthename:solomon",
+              "behindthename:sulayman"
+            ],
+            "verses": {
+              "ar": [
+                {
+                  "quote": "وَلَقَدْ آتَيْنَا دَاوُودَ وَسُلَيْمَانَ عِلْمًا",
+                  "reference": "النمل: ١٥",
+                  "sourceKey": "quran-27-15"
+                }
+              ],
+              "fr": [
+                {
+                  "quote": "Et Nous avons effectivement donné à David et à Salomon une science",
+                  "reference": "Sourate An-Naml, 27:15",
+                  "sourceArabic": "وَلَقَدْ آتَيْنَا دَاوُودَ وَسُلَيْمَانَ عِلْمًا",
+                  "sourceKey": "quran-27-15"
+                }
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "umar": {
+      "canonical": {
+        "latin": "Omar",
+        "arabic": "عمر"
+      },
+      "aliases": {
+        "latin": [
+          "Umar",
+          "Omer"
+        ],
+        "arabic": []
+      },
+      "gender": "boy",
+      "origin": "arabic",
+      "sources": {
+        "behindthename:umar": "https://www.behindthename.com/name/umar"
+      },
+      "general": [
+        {
+          "id": "general-umar",
+          "label": "Omar with its sourced meaning",
+          "basis": "general",
+          "confidence": "high",
+          "meaning": {
+            "fr": "florissant, à la longue vie",
+            "ar": "العامر المعمِّر"
+          },
+          "meaningSourceKeys": [
+            "behindthename:umar"
+          ],
+          "verses": {
+            "ar": [],
+            "fr": []
+          }
+        }
+      ]
+    },
+    "amin": {
+      "canonical": {
+        "latin": "Amine",
+        "arabic": "أمين"
+      },
+      "aliases": {
+        "latin": [
+          "Amin",
+          "Amîn"
+        ],
+        "arabic": []
+      },
+      "gender": "boy",
+      "origin": "arabic",
+      "sources": {
+        "behindthename:amin": "https://www.behindthename.com/name/amin"
+      },
+      "general": [
+        {
+          "id": "general-amin",
+          "label": "Amine with its sourced meaning",
+          "basis": "general",
+          "confidence": "high",
+          "meaning": {
+            "fr": "loyal, digne de confiance",
+            "ar": "الصادق الوفيّ بالعهد"
+          },
+          "meaningSourceKeys": [
+            "behindthename:amin"
+          ],
+          "verses": {
+            "ar": [],
+            "fr": []
+          }
+        }
+      ]
+    },
+    "khalil": {
+      "canonical": {
+        "latin": "Khalil",
+        "arabic": "خليل"
+      },
+      "aliases": {
+        "latin": [
+          "Halil",
+          "Khalile"
+        ],
+        "arabic": []
+      },
+      "gender": "boy",
+      "origin": "arabic",
+      "sources": {
+        "behindthename:khalil": "https://www.behindthename.com/name/khalil"
+      },
+      "general": [
+        {
+          "id": "general-khalil",
+          "label": "Khalil with its sourced meaning",
+          "basis": "general",
+          "confidence": "high",
+          "meaning": {
+            "fr": "l'ami",
+            "ar": "الصديق الحميم"
+          },
+          "meaningSourceKeys": [
+            "behindthename:khalil"
+          ],
+          "verses": {
+            "ar": [],
+            "fr": []
+          }
+        }
+      ]
+    },
+    "salim": {
+      "canonical": {
+        "latin": "Salim",
+        "arabic": "سليم"
+      },
+      "aliases": {
+        "latin": [
+          "Selim",
+          "Salîm"
+        ],
+        "arabic": []
+      },
+      "gender": "boy",
+      "origin": "arabic",
+      "sources": {
+        "behindthename:salim": "https://www.behindthename.com/name/salim"
+      },
+      "general": [
+        {
+          "id": "general-salim",
+          "label": "Salim with its sourced meaning",
+          "basis": "general",
+          "confidence": "high",
+          "meaning": {
+            "fr": "sain et sauf, intact",
+            "ar": "السالم المعافى"
+          },
+          "meaningSourceKeys": [
+            "behindthename:salim"
+          ],
+          "verses": {
+            "ar": [],
+            "fr": []
+          }
+        }
+      ]
+    },
+    "mahdi": {
+      "canonical": {
+        "latin": "Mehdi",
+        "arabic": "مهدي"
+      },
+      "aliases": {
+        "latin": [
+          "Mahdi",
+          "Mehdy"
+        ],
+        "arabic": []
+      },
+      "gender": "boy",
+      "origin": "arabic",
+      "sources": {
+        "behindthename:mahdi": "https://www.behindthename.com/name/mahdi"
+      },
+      "general": [
+        {
+          "id": "general-mahdi",
+          "label": "Mehdi with its sourced meaning",
+          "basis": "general",
+          "confidence": "high",
+          "meaning": {
+            "fr": "celui qui est bien guidé",
+            "ar": "المهتدي"
+          },
+          "meaningSourceKeys": [
+            "behindthename:mahdi"
+          ],
+          "verses": {
+            "ar": [],
+            "fr": []
+          }
+        }
+      ]
+    },
+    "karim": {
+      "canonical": {
+        "latin": "Karim",
+        "arabic": "كريم"
+      },
+      "aliases": {
+        "latin": [
+          "Karîm",
+          "Kareem"
+        ],
+        "arabic": []
+      },
+      "gender": "boy",
+      "origin": "arabic",
+      "sources": {
+        "behindthename:karim": "https://www.behindthename.com/name/karim"
+      },
+      "general": [
+        {
+          "id": "general-karim",
+          "label": "Karim with its sourced meaning",
+          "basis": "general",
+          "confidence": "high",
+          "meaning": {
+            "fr": "généreux, noble",
+            "ar": "السخيّ النبيل"
+          },
+          "meaningSourceKeys": [
+            "behindthename:karim"
+          ],
+          "verses": {
+            "ar": [],
+            "fr": []
+          }
+        }
+      ]
+    },
+    "walid": {
+      "canonical": {
+        "latin": "Walid",
+        "arabic": "وليد"
+      },
+      "aliases": {
+        "latin": [
+          "Oualid",
+          "Waleed"
+        ],
+        "arabic": []
+      },
+      "gender": "boy",
+      "origin": "arabic",
+      "sources": {
+        "behindthename:walid": "https://www.behindthename.com/name/walid"
+      },
+      "general": [
+        {
+          "id": "general-walid",
+          "label": "Walid with its sourced meaning",
+          "basis": "general",
+          "confidence": "high",
+          "meaning": {
+            "fr": "le nouveau-né",
+            "ar": "المولود الجديد"
+          },
+          "meaningSourceKeys": [
+            "behindthename:walid"
+          ],
+          "verses": {
+            "ar": [],
+            "fr": []
+          }
+        }
+      ]
+    },
+    "khalid": {
+      "canonical": {
+        "latin": "Khalid",
+        "arabic": "خالد"
+      },
+      "aliases": {
+        "latin": [
+          "Khaled",
+          "Khaleed"
+        ],
+        "arabic": []
+      },
+      "gender": "boy",
+      "origin": "arabic",
+      "sources": {
+        "behindthename:khalid": "https://www.behindthename.com/name/khalid"
+      },
+      "general": [
+        {
+          "id": "general-khalid",
+          "label": "Khalid with its sourced meaning",
+          "basis": "general",
+          "confidence": "high",
+          "meaning": {
+            "fr": "éternel",
+            "ar": "الباقي الدائم"
+          },
+          "meaningSourceKeys": [
+            "behindthename:khalid"
+          ],
+          "verses": {
+            "ar": [],
+            "fr": []
+          }
+        }
+      ]
+    },
+    "tariq": {
+      "canonical": {
+        "latin": "Tarik",
+        "arabic": "طارق"
+      },
+      "aliases": {
+        "latin": [
+          "Tariq",
+          "Tarek",
+          "Tareq"
+        ],
+        "arabic": []
+      },
+      "gender": "boy",
+      "origin": "arabic",
+      "sources": {
+        "behindthename:tariq": "https://www.behindthename.com/name/tariq"
+      },
+      "general": [
+        {
+          "id": "general-tariq",
+          "label": "Tarik with its sourced meaning",
+          "basis": "general",
+          "confidence": "high",
+          "meaning": {
+            "fr": "l'étoile du matin, le visiteur de la nuit",
+            "ar": "نجم الصباح، زائر الليل"
+          },
+          "meaningSourceKeys": [
+            "behindthename:tariq"
+          ],
+          "verses": {
+            "ar": [],
+            "fr": []
+          }
+        }
+      ]
+    },
+    "sufyan": {
+      "canonical": {
+        "latin": "Soufiane",
+        "arabic": "سفيان"
+      },
+      "aliases": {
+        "latin": [
+          "Sufyan",
+          "Sofiane",
+          "Soufyane",
+          "Sofian"
+        ],
+        "arabic": []
+      },
+      "gender": "boy",
+      "origin": "arabic",
+      "sources": {
+        "behindthename:sufyan": "https://www.behindthename.com/name/sufyan"
+      },
+      "general": [
+        {
+          "id": "general-sufyan",
+          "label": "Soufiane with its sourced meaning",
+          "basis": "general",
+          "confidence": "high",
+          "meaning": {
+            "fr": "agile, vif",
+            "ar": "الخفيف السريع"
+          },
+          "meaningSourceKeys": [
+            "behindthename:sufyan"
+          ],
+          "verses": {
+            "ar": [],
+            "fr": []
+          }
+        }
+      ]
+    },
+    "yasir": {
+      "canonical": {
+        "latin": "Yassir",
+        "arabic": "ياسر"
+      },
+      "aliases": {
+        "latin": [
+          "Yasir",
+          "Yasser",
+          "Yacer"
+        ],
+        "arabic": []
+      },
+      "gender": "boy",
+      "origin": "arabic",
+      "sources": {
+        "behindthename:yasir": "https://www.behindthename.com/name/yasir"
+      },
+      "general": [
+        {
+          "id": "general-yasir",
+          "label": "Yassir with its sourced meaning",
+          "basis": "general",
+          "confidence": "high",
+          "meaning": {
+            "fr": "l'aisance, la facilité",
+            "ar": "اليُسر والسهولة"
+          },
+          "meaningSourceKeys": [
+            "behindthename:yasir"
+          ],
+          "verses": {
+            "ar": [],
+            "fr": []
+          }
+        }
+      ]
+    },
+    "hasan": {
+      "canonical": {
+        "latin": "Hassan",
+        "arabic": "حسن"
+      },
+      "aliases": {
+        "latin": [
+          "Hasan",
+          "Hacene"
+        ],
+        "arabic": []
+      },
+      "gender": "boy",
+      "origin": "arabic",
+      "sources": {
+        "behindthename:hasan": "https://www.behindthename.com/name/hasan"
+      },
+      "general": [
+        {
+          "id": "general-hasan",
+          "label": "Hassan with its sourced meaning",
+          "basis": "general",
+          "confidence": "high",
+          "meaning": {
+            "fr": "beau et bon",
+            "ar": "الجميل الطيّب"
+          },
+          "meaningSourceKeys": [
+            "behindthename:hasan"
+          ],
+          "verses": {
+            "ar": [],
+            "fr": []
+          }
+        }
+      ]
+    },
+    "husayn": {
+      "canonical": {
+        "latin": "Hussein",
+        "arabic": "حسين"
+      },
+      "aliases": {
+        "latin": [
+          "Husayn",
+          "Hocine",
+          "Hossein",
+          "Housseyn"
+        ],
+        "arabic": []
+      },
+      "gender": "boy",
+      "origin": "arabic",
+      "sources": {
+        "behindthename:husayn": "https://www.behindthename.com/name/husayn",
+        "behindthename:hasan": "https://www.behindthename.com/name/hasan"
+      },
+      "general": [
+        {
+          "id": "general-husayn",
+          "label": "Hussein with its sourced meaning",
+          "basis": "general",
+          "confidence": "high",
+          "meaning": {
+            "fr": "diminutif de Hassan : beau et bon",
+            "ar": "تصغير اسم حسن، ومعناه الجميل الطيّب"
+          },
+          "meaningSourceKeys": [
+            "behindthename:hasan",
+            "behindthename:husayn"
+          ],
+          "verses": {
+            "ar": [],
+            "fr": []
+          }
+        }
+      ]
+    },
+    "mustafa": {
+      "canonical": {
+        "latin": "Mustapha",
+        "arabic": "مصطفى"
+      },
+      "aliases": {
+        "latin": [
+          "Mustafa",
+          "Moustapha",
+          "Mostafa"
+        ],
+        "arabic": []
+      },
+      "gender": "boy",
+      "origin": "arabic",
+      "sources": {
+        "behindthename:mustafa": "https://www.behindthename.com/name/mustafa"
+      },
+      "general": [
+        {
+          "id": "general-mustafa",
+          "label": "Mustapha with its sourced meaning",
+          "basis": "general",
+          "confidence": "high",
+          "meaning": {
+            "fr": "l'élu, le choisi",
+            "ar": "المختار"
+          },
+          "meaningSourceKeys": [
+            "behindthename:mustafa"
+          ],
+          "verses": {
+            "ar": [],
+            "fr": []
+          }
+        }
+      ]
+    },
+    "ayman": {
+      "canonical": {
+        "latin": "Ayman",
+        "arabic": "أيمن"
+      },
+      "aliases": {
+        "latin": [
+          "Aymane",
+          "Aimen"
+        ],
+        "arabic": []
+      },
+      "gender": "boy",
+      "origin": "arabic",
+      "sources": {
+        "behindthename:ayman": "https://www.behindthename.com/name/ayman"
+      },
+      "general": [
+        {
+          "id": "general-ayman",
+          "label": "Ayman with its sourced meaning",
+          "basis": "general",
+          "confidence": "high",
+          "meaning": {
+            "fr": "béni, heureux",
+            "ar": "الميمون المبارك"
+          },
+          "meaningSourceKeys": [
+            "behindthename:ayman"
+          ],
+          "verses": {
+            "ar": [],
+            "fr": []
+          }
+        }
+      ]
+    },
+    "nasim": {
+      "canonical": {
+        "latin": "Nassim",
+        "arabic": "نسيم"
+      },
+      "aliases": {
+        "latin": [
+          "Nasim",
+          "Nacim",
+          "Nessim"
+        ],
+        "arabic": []
+      },
+      "gender": "boy",
+      "origin": "arabic",
+      "sources": {
+        "behindthename:nasim": "https://www.behindthename.com/name/nasim"
+      },
+      "general": [
+        {
+          "id": "general-nasim",
+          "label": "Nassim with its sourced meaning",
+          "basis": "general",
+          "confidence": "high",
+          "meaning": {
+            "fr": "la brise",
+            "ar": "الريح اللطيفة"
+          },
+          "meaningSourceKeys": [
+            "behindthename:nasim"
+          ],
+          "verses": {
+            "ar": [],
+            "fr": []
+          }
+        }
+      ]
+    },
+    "wasim": {
+      "canonical": {
+        "latin": "Wassim",
+        "arabic": "وسيم"
+      },
+      "aliases": {
+        "latin": [
+          "Wasim",
+          "Ouassim",
+          "Wacim"
+        ],
+        "arabic": []
+      },
+      "gender": "boy",
+      "origin": "arabic",
+      "sources": {
+        "behindthename:wasim": "https://www.behindthename.com/name/wasim"
+      },
+      "general": [
+        {
+          "id": "general-wasim",
+          "label": "Wassim with its sourced meaning",
+          "basis": "general",
+          "confidence": "high",
+          "meaning": {
+            "fr": "beau, distingué",
+            "ar": "الجميل المتميّز"
+          },
+          "meaningSourceKeys": [
+            "behindthename:wasim"
+          ],
+          "verses": {
+            "ar": [],
+            "fr": []
+          }
+        }
+      ]
+    },
+    "adil": {
+      "canonical": {
+        "latin": "Adil",
+        "arabic": "عادل"
+      },
+      "aliases": {
+        "latin": [
+          "Adel",
+          "Aadil"
+        ],
+        "arabic": []
+      },
+      "gender": "boy",
+      "origin": "arabic",
+      "sources": {
+        "behindthename:adil": "https://www.behindthename.com/name/adil"
+      },
+      "general": [
+        {
+          "id": "general-adil",
+          "label": "Adil with its sourced meaning",
+          "basis": "general",
+          "confidence": "high",
+          "meaning": {
+            "fr": "juste, équitable",
+            "ar": "المنصف النزيه"
+          },
+          "meaningSourceKeys": [
+            "behindthename:adil"
+          ],
+          "verses": {
+            "ar": [],
+            "fr": []
+          }
+        }
+      ]
+    },
+    "jibril": {
+      "canonical": {
+        "latin": "Jibril",
+        "arabic": "جبريل"
+      },
+      "aliases": {
+        "latin": [
+          "Djibril",
+          "Jibreel",
+          "Gibril"
+        ],
+        "arabic": []
+      },
+      "gender": "boy",
+      "origin": "hebrew",
+      "sources": {
+        "behindthename:jibril": "https://www.behindthename.com/name/jibril",
+        "behindthename:gabriel": "https://www.behindthename.com/name/gabriel"
+      },
+      "general": [
+        {
+          "id": "general-jibril",
+          "label": "Jibril with its sourced meaning",
+          "basis": "general",
+          "confidence": "high",
+          "meaning": {
+            "fr": "Dieu est ma force",
+            "ar": "الله قوّتي"
+          },
+          "meaningSourceKeys": [
+            "behindthename:gabriel",
+            "behindthename:jibril"
+          ],
+          "verses": {
+            "ar": [],
+            "fr": []
+          }
+        }
+      ]
+    },
+    "yahya": {
+      "canonical": {
+        "latin": "Yahya",
+        "arabic": "يحيى"
+      },
+      "aliases": {
+        "latin": [
+          "Yahia",
+          "Yahyah",
+          "Yehya"
+        ],
+        "arabic": []
+      },
+      "gender": "boy",
+      "origin": "hebrew",
+      "sources": {
+        "behindthename:yahya": "https://www.behindthename.com/name/yahya",
+        "behindthename:john": "https://www.behindthename.com/name/john",
+        "quran-19-7": "https://quran.com/19/7"
+      },
+      "general": [
+        {
+          "id": "general-yahya",
+          "label": "Yahya with its sourced meaning",
+          "basis": "general",
+          "confidence": "high",
+          "meaning": {
+            "fr": "Dieu fait grâce",
+            "ar": "الله يمنّ بفضله"
+          },
+          "meaningSourceKeys": [
+            "behindthename:john",
+            "behindthename:yahya"
+          ],
+          "verses": {
+            "ar": [],
+            "fr": []
+          }
+        }
+      ],
+      "religious": {
+        "islam": [
+          {
+            "id": "religious-yahya",
+            "label": "Yahya with Quranic references",
+            "basis": "religious:islam",
+            "confidence": "high",
+            "meaning": {
+              "fr": "Dieu fait grâce",
+              "ar": "الله يمنّ بفضله"
+            },
+            "meaningSourceKeys": [
+              "behindthename:john",
+              "behindthename:yahya"
+            ],
+            "verses": {
+              "ar": [
+                {
+                  "quote": "يَا زَكَرِيَّا إِنَّا نُبَشِّرُكَ بِغُلَامٍ اسْمُهُ يَحْيَىٰ",
+                  "reference": "مريم: ٧",
+                  "sourceKey": "quran-19-7"
+                }
+              ],
+              "fr": [
+                {
+                  "quote": "Ô Zacharie ! Nous t’annonçons la bonne nouvelle d’un fils. Son nom sera Jean (Yahyâ).",
+                  "reference": "Sourate Maryam, 19:7",
+                  "sourceArabic": "يَا زَكَرِيَّا إِنَّا نُبَشِّرُكَ بِغُلَامٍ اسْمُهُ يَحْيَىٰ",
+                  "sourceKey": "quran-19-7"
+                }
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "sami": {
+      "canonical": {
+        "latin": "Sami",
+        "arabic": "سامي"
+      },
+      "aliases": {
+        "latin": [
+          "Samy"
+        ],
+        "arabic": []
+      },
+      "gender": "boy",
+      "origin": "arabic",
+      "sources": {
+        "behindthename:sami-2": "https://www.behindthename.com/name/sami-2"
+      },
+      "general": [
+        {
+          "id": "general-sami",
+          "label": "Sami with its sourced meaning",
+          "basis": "general",
+          "confidence": "high",
+          "meaning": {
+            "fr": "élevé, sublime",
+            "ar": "الرفيع العالي"
+          },
+          "meaningSourceKeys": [
+            "behindthename:sami-2"
+          ],
+          "verses": {
+            "ar": [],
+            "fr": []
+          }
+        }
+      ]
+    },
+    "rami": {
+      "canonical": {
+        "latin": "Rami",
+        "arabic": "رامي"
+      },
+      "aliases": {
+        "latin": [
+          "Ramy"
+        ],
+        "arabic": []
+      },
+      "gender": "boy",
+      "origin": "arabic",
+      "sources": {
+        "behindthename:rami": "https://www.behindthename.com/name/rami"
+      },
+      "general": [
+        {
+          "id": "general-rami",
+          "label": "Rami with its sourced meaning",
+          "basis": "general",
+          "confidence": "high",
+          "meaning": {
+            "fr": "l'archer",
+            "ar": "صاحب القوس المصيب"
+          },
+          "meaningSourceKeys": [
+            "behindthename:rami"
+          ],
+          "verses": {
+            "ar": [],
+            "fr": []
+          }
+        }
+      ]
+    },
+    "ziyad": {
+      "canonical": {
+        "latin": "Ziyad",
+        "arabic": "زياد"
+      },
+      "aliases": {
+        "latin": [
+          "Ziad",
+          "Ziyed"
+        ],
+        "arabic": []
+      },
+      "gender": "boy",
+      "origin": "arabic",
+      "sources": {
+        "behindthename:ziyad": "https://www.behindthename.com/name/ziyad"
+      },
+      "general": [
+        {
+          "id": "general-ziyad",
+          "label": "Ziyad with its sourced meaning",
+          "basis": "general",
+          "confidence": "high",
+          "meaning": {
+            "fr": "la croissance, l'abondance",
+            "ar": "النماء والوفرة"
+          },
+          "meaningSourceKeys": [
+            "behindthename:ziyad"
+          ],
+          "verses": {
+            "ar": [],
+            "fr": []
+          }
+        }
+      ]
+    },
+    "hamid": {
+      "canonical": {
+        "latin": "Hamid",
+        "arabic": "حامد"
+      },
+      "aliases": {
+        "latin": [
+          "Hamed"
+        ],
+        "arabic": []
+      },
+      "gender": "boy",
+      "origin": "arabic",
+      "sources": {
+        "behindthename:hamid-2": "https://www.behindthename.com/name/hamid-2"
+      },
+      "general": [
+        {
+          "id": "general-hamid",
+          "label": "Hamid with its sourced meaning",
+          "basis": "general",
+          "confidence": "high",
+          "meaning": {
+            "fr": "celui qui loue",
+            "ar": "كثير الثناء والشكر"
+          },
+          "meaningSourceKeys": [
+            "behindthename:hamid-2"
+          ],
+          "verses": {
+            "ar": [],
+            "fr": []
+          }
+        }
+      ]
+    },
+    "nadir": {
+      "canonical": {
+        "latin": "Nadir",
+        "arabic": "نادر"
+      },
+      "aliases": {
+        "latin": [
+          "Nader"
+        ],
+        "arabic": []
+      },
+      "gender": "boy",
+      "origin": "arabic",
+      "sources": {
+        "behindthename:nadir": "https://www.behindthename.com/name/nadir"
+      },
+      "general": [
+        {
+          "id": "general-nadir",
+          "label": "Nadir with its sourced meaning",
+          "basis": "general",
+          "confidence": "high",
+          "meaning": {
+            "fr": "rare, précieux",
+            "ar": "الفريد النفيس"
+          },
+          "meaningSourceKeys": [
+            "behindthename:nadir"
+          ],
+          "verses": {
+            "ar": [],
+            "fr": []
+          }
+        }
+      ]
+    },
+    "jad": {
+      "canonical": {
+        "latin": "Jad",
+        "arabic": "جاد"
+      },
+      "aliases": {
+        "latin": [
+          "Jaad"
+        ],
+        "arabic": []
+      },
+      "gender": "boy",
+      "origin": "arabic",
+      "sources": {
+        "behindthename:jad": "https://www.behindthename.com/name/jad"
+      },
+      "general": [
+        {
+          "id": "general-jad",
+          "label": "Jad with its sourced meaning",
+          "basis": "general",
+          "confidence": "high",
+          "meaning": {
+            "fr": "sérieux, appliqué",
+            "ar": "المجتهد الحازم"
+          },
+          "meaningSourceKeys": [
+            "behindthename:jad"
+          ],
+          "verses": {
+            "ar": [],
+            "fr": []
+          }
+        }
+      ]
+    },
+    "louise": {
+      "canonical": {
+        "latin": "Louise"
+      },
+      "aliases": {
+        "latin": [],
+        "arabic": []
+      },
+      "gender": "girl",
+      "origin": "germanic",
+      "sources": {
+        "behindthename:louise": "https://www.behindthename.com/name/louise",
+        "behindthename:ludwig": "https://www.behindthename.com/name/ludwig"
+      },
+      "general": [
+        {
+          "id": "general-louise",
+          "label": "Louise with its sourced meaning",
+          "basis": "general",
+          "confidence": "high",
+          "meaning": {
+            "fr": "illustre au combat",
+            "ar": "الشهيرة في المعركة"
+          },
+          "meaningSourceKeys": [
+            "behindthename:louise",
+            "behindthename:ludwig"
+          ],
+          "verses": {
+            "ar": [],
+            "fr": []
+          }
+        }
+      ]
+    },
+    "jade": {
+      "canonical": {
+        "latin": "Jade"
+      },
+      "aliases": {
+        "latin": [],
+        "arabic": []
+      },
+      "gender": "girl",
+      "origin": "spanish",
+      "sources": {
+        "behindthename:jade": "https://www.behindthename.com/name/jade"
+      },
+      "general": [
+        {
+          "id": "general-jade",
+          "label": "Jade with its sourced meaning",
+          "basis": "general",
+          "confidence": "high",
+          "meaning": {
+            "fr": "la pierre verte précieuse",
+            "ar": "الحجر الأخضر الكريم"
+          },
+          "meaningSourceKeys": [
+            "behindthename:jade"
+          ],
+          "verses": {
+            "ar": [],
+            "fr": []
+          }
+        }
+      ]
+    },
+    "ambre": {
+      "canonical": {
+        "latin": "Ambre"
+      },
+      "aliases": {
+        "latin": [
+          "Amber"
+        ],
+        "arabic": []
+      },
+      "gender": "girl",
+      "origin": "arabic",
+      "sources": {
+        "behindthename:ambre": "https://www.behindthename.com/name/ambre",
+        "behindthename:amber": "https://www.behindthename.com/name/amber"
+      },
+      "general": [
+        {
+          "id": "general-ambre",
+          "label": "Ambre with its sourced meaning",
+          "basis": "general",
+          "confidence": "high",
+          "meaning": {
+            "fr": "la résine fossile dorée",
+            "ar": "الراتنج المتحجّر الذهبي"
+          },
+          "meaningSourceKeys": [
+            "behindthename:amber",
+            "behindthename:ambre"
+          ],
+          "verses": {
+            "ar": [],
+            "fr": []
+          }
+        }
+      ]
+    },
+    "alba": {
+      "canonical": {
+        "latin": "Alba"
+      },
+      "aliases": {
+        "latin": [],
+        "arabic": []
+      },
+      "gender": "girl",
+      "origin": "latin",
+      "sources": {
+        "behindthename:alba-1": "https://www.behindthename.com/name/alba-1",
+        "behindthename:albus": "https://www.behindthename.com/name/albus"
+      },
+      "general": [
+        {
+          "id": "general-alba",
+          "label": "Alba with its sourced meaning",
+          "basis": "general",
+          "confidence": "high",
+          "meaning": {
+            "fr": "blanche, lumineuse",
+            "ar": "البيضاء المضيئة"
+          },
+          "meaningSourceKeys": [
+            "behindthename:alba-1",
+            "behindthename:albus"
+          ],
+          "verses": {
+            "ar": [],
+            "fr": []
+          }
+        }
+      ]
+    },
+    "rose": {
+      "canonical": {
+        "latin": "Rose"
+      },
+      "aliases": {
+        "latin": [],
+        "arabic": []
+      },
+      "gender": "girl",
+      "origin": "germanic",
+      "sources": {
+        "behindthename:rose": "https://www.behindthename.com/name/rose"
+      },
+      "general": [
+        {
+          "id": "general-rose",
+          "label": "Rose with its sourced meaning",
+          "basis": "general",
+          "confidence": "high",
+          "meaning": {
+            "fr": "la renommée, et la fleur qui porte son nom",
+            "ar": "الشهرة، والزهرة التي تحمل اسمها"
+          },
+          "meaningSourceKeys": [
+            "behindthename:rose"
+          ],
+          "verses": {
+            "ar": [],
+            "fr": []
+          }
+        }
+      ]
+    },
+    "emma": {
+      "canonical": {
+        "latin": "Emma"
+      },
+      "aliases": {
+        "latin": [],
+        "arabic": []
+      },
+      "gender": "girl",
+      "origin": "germanic",
+      "sources": {
+        "behindthename:emma": "https://www.behindthename.com/name/emma"
+      },
+      "general": [
+        {
+          "id": "general-emma",
+          "label": "Emma with its sourced meaning",
+          "basis": "general",
+          "confidence": "high",
+          "meaning": {
+            "fr": "entière, universelle",
+            "ar": "الكاملة الشاملة"
+          },
+          "meaningSourceKeys": [
+            "behindthename:emma"
+          ],
+          "verses": {
+            "ar": [],
+            "fr": []
+          }
+        }
+      ]
+    },
+    "adele": {
+      "canonical": {
+        "latin": "Adèle"
+      },
+      "aliases": {
+        "latin": [
+          "Adele"
+        ],
+        "arabic": []
+      },
+      "gender": "girl",
+      "origin": "germanic",
+      "sources": {
+        "behindthename:adele": "https://www.behindthename.com/name/adele",
+        "behindthename:adela": "https://www.behindthename.com/name/adela"
+      },
+      "general": [
+        {
+          "id": "general-adele",
+          "label": "Adèle with its sourced meaning",
+          "basis": "general",
+          "confidence": "high",
+          "meaning": {
+            "fr": "noble",
+            "ar": "النبيلة"
+          },
+          "meaningSourceKeys": [
+            "behindthename:adela",
+            "behindthename:adele"
+          ],
+          "verses": {
+            "ar": [],
+            "fr": []
+          }
+        }
+      ]
+    },
+    "alice": {
+      "canonical": {
+        "latin": "Alice"
+      },
+      "aliases": {
+        "latin": [],
+        "arabic": []
+      },
+      "gender": "girl",
+      "origin": "germanic",
+      "sources": {
+        "behindthename:alice": "https://www.behindthename.com/name/alice",
+        "behindthename:adelaide": "https://www.behindthename.com/name/adelaide"
+      },
+      "general": [
+        {
+          "id": "general-alice",
+          "label": "Alice with its sourced meaning",
+          "basis": "general",
+          "confidence": "high",
+          "meaning": {
+            "fr": "de nature noble",
+            "ar": "ذات الطبع النبيل"
+          },
+          "meaningSourceKeys": [
+            "behindthename:adelaide",
+            "behindthename:alice"
+          ],
+          "verses": {
+            "ar": [],
+            "fr": []
+          }
+        }
+      ]
+    },
+    "iris": {
+      "canonical": {
+        "latin": "Iris"
+      },
+      "aliases": {
+        "latin": [],
+        "arabic": []
+      },
+      "gender": "girl",
+      "origin": "greek",
+      "sources": {
+        "behindthename:iris": "https://www.behindthename.com/name/iris"
+      },
+      "general": [
+        {
+          "id": "general-iris",
+          "label": "Iris with its sourced meaning",
+          "basis": "general",
+          "confidence": "high",
+          "meaning": {
+            "fr": "l'arc-en-ciel",
+            "ar": "قوس قزح"
+          },
+          "meaningSourceKeys": [
+            "behindthename:iris"
+          ],
+          "verses": {
+            "ar": [],
+            "fr": []
+          }
+        }
+      ]
+    },
+    "agathe": {
+      "canonical": {
+        "latin": "Agathe"
+      },
+      "aliases": {
+        "latin": [],
+        "arabic": []
+      },
+      "gender": "girl",
+      "origin": "greek",
+      "sources": {
+        "behindthename:agathe": "https://www.behindthename.com/name/agathe",
+        "behindthename:agatha": "https://www.behindthename.com/name/agatha"
+      },
+      "general": [
+        {
+          "id": "general-agathe",
+          "label": "Agathe with its sourced meaning",
+          "basis": "general",
+          "confidence": "high",
+          "meaning": {
+            "fr": "bonne",
+            "ar": "الطيبة"
+          },
+          "meaningSourceKeys": [
+            "behindthename:agatha",
+            "behindthename:agathe"
+          ],
+          "verses": {
+            "ar": [],
+            "fr": []
+          }
+        }
+      ]
+    },
+    "inaya": {
+      "canonical": {
+        "latin": "Inaya",
+        "arabic": "عناية"
+      },
+      "aliases": {
+        "latin": [
+          "Inaïa",
+          "Inaïya",
+          "Inayah"
+        ],
+        "arabic": []
+      },
+      "gender": "girl",
+      "origin": "arabic",
+      "sources": {
+        "behindthename:inaya": "https://www.behindthename.com/name/inaya"
+      },
+      "general": [
+        {
+          "id": "general-inaya",
+          "label": "Inaya with its sourced meaning",
+          "basis": "general",
+          "confidence": "high",
+          "meaning": {
+            "fr": "le soin, l'attention",
+            "ar": "الرعاية والاهتمام"
+          },
+          "meaningSourceKeys": [
+            "behindthename:inaya"
+          ],
+          "verses": {
+            "ar": [],
+            "fr": []
+          }
+        }
+      ]
+    },
+    "anna": {
+      "canonical": {
+        "latin": "Anna"
+      },
+      "aliases": {
+        "latin": [
+          "Ana"
+        ],
+        "arabic": []
+      },
+      "gender": "girl",
+      "origin": "hebrew",
+      "sources": {
+        "behindthename:anna": "https://www.behindthename.com/name/anna",
+        "behindthename:hannah": "https://www.behindthename.com/name/hannah"
+      },
+      "general": [
+        {
+          "id": "general-anna",
+          "label": "Anna with its sourced meaning",
+          "basis": "general",
+          "confidence": "high",
+          "meaning": {
+            "fr": "la grâce",
+            "ar": "النعمة"
+          },
+          "meaningSourceKeys": [
+            "behindthename:anna",
+            "behindthename:hannah"
+          ],
+          "verses": {
+            "ar": [],
+            "fr": []
+          }
+        }
+      ]
+    },
+    "lina": {
+      "canonical": {
+        "latin": "Lina",
+        "arabic": "لينا"
+      },
+      "aliases": {
+        "latin": [
+          "Leena",
+          "Lyna"
+        ],
+        "arabic": []
+      },
+      "gender": "girl",
+      "origin": "arabic",
+      "sources": {
+        "behindthename:lina-1": "https://www.behindthename.com/name/lina-1"
+      },
+      "general": [
+        {
+          "id": "general-lina",
+          "label": "Lina with its sourced meaning",
+          "basis": "general",
+          "confidence": "high",
+          "meaning": {
+            "fr": "douce, tendre",
+            "ar": "الليّنة الرقيقة"
+          },
+          "meaningSourceKeys": [
+            "behindthename:lina-1"
+          ],
+          "verses": {
+            "ar": [],
+            "fr": []
+          }
+        }
+      ]
+    },
+    "victoire": {
+      "canonical": {
+        "latin": "Victoire"
+      },
+      "aliases": {
+        "latin": [],
+        "arabic": []
+      },
+      "gender": "girl",
+      "origin": "latin",
+      "sources": {
+        "behindthename:victoire": "https://www.behindthename.com/name/victoire",
+        "behindthename:victor": "https://www.behindthename.com/name/victor"
+      },
+      "general": [
+        {
+          "id": "general-victoire",
+          "label": "Victoire with its sourced meaning",
+          "basis": "general",
+          "confidence": "high",
+          "meaning": {
+            "fr": "le triomphe",
+            "ar": "الظَّفَر والانتصار"
+          },
+          "meaningSourceKeys": [
+            "behindthename:victoire",
+            "behindthename:victor"
+          ],
+          "verses": {
+            "ar": [],
+            "fr": []
+          }
+        }
+      ]
+    },
+    "victoria": {
+      "canonical": {
+        "latin": "Victoria"
+      },
+      "aliases": {
+        "latin": [],
+        "arabic": []
+      },
+      "gender": "girl",
+      "origin": "latin",
+      "sources": {
+        "behindthename:victoria": "https://www.behindthename.com/name/victoria",
+        "behindthename:victor": "https://www.behindthename.com/name/victor"
+      },
+      "general": [
+        {
+          "id": "general-victoria",
+          "label": "Victoria with its sourced meaning",
+          "basis": "general",
+          "confidence": "high",
+          "meaning": {
+            "fr": "la victoire",
+            "ar": "النصر"
+          },
+          "meaningSourceKeys": [
+            "behindthename:victor",
+            "behindthename:victoria"
+          ],
+          "verses": {
+            "ar": [],
+            "fr": []
+          }
+        }
+      ]
+    },
+    "jeanne": {
+      "canonical": {
+        "latin": "Jeanne"
+      },
+      "aliases": {
+        "latin": [],
+        "arabic": []
+      },
+      "gender": "girl",
+      "origin": "hebrew",
+      "sources": {
+        "behindthename:jeanne": "https://www.behindthename.com/name/jeanne",
+        "behindthename:john": "https://www.behindthename.com/name/john"
+      },
+      "general": [
+        {
+          "id": "general-jeanne",
+          "label": "Jeanne with its sourced meaning",
+          "basis": "general",
+          "confidence": "high",
+          "meaning": {
+            "fr": "Dieu fait grâce",
+            "ar": "الله يمنّ بفضله"
+          },
+          "meaningSourceKeys": [
+            "behindthename:jeanne",
+            "behindthename:john"
+          ],
+          "verses": {
+            "ar": [],
+            "fr": []
+          }
+        }
+      ]
+    },
+    "leonie": {
+      "canonical": {
+        "latin": "Léonie"
+      },
+      "aliases": {
+        "latin": [
+          "Leonie"
+        ],
+        "arabic": []
+      },
+      "gender": "girl",
+      "origin": "latin",
+      "sources": {
+        "behindthename:leonie": "https://www.behindthename.com/name/leonie",
+        "behindthename:leonius": "https://www.behindthename.com/name/leonius"
+      },
+      "general": [
+        {
+          "id": "general-leonie",
+          "label": "Léonie with its sourced meaning",
+          "basis": "general",
+          "confidence": "high",
+          "meaning": {
+            "fr": "celle du lion",
+            "ar": "المنسوبة إلى الأسد"
+          },
+          "meaningSourceKeys": [
+            "behindthename:leonie",
+            "behindthename:leonius"
+          ],
+          "verses": {
+            "ar": [],
+            "fr": []
+          }
+        }
+      ]
+    },
+    "eva": {
+      "canonical": {
+        "latin": "Eva"
+      },
+      "aliases": {
+        "latin": [
+          "Ève",
+          "Eve"
+        ],
+        "arabic": []
+      },
+      "gender": "girl",
+      "origin": "hebrew",
+      "sources": {
+        "behindthename:eva": "https://www.behindthename.com/name/eva",
+        "behindthename:eve": "https://www.behindthename.com/name/eve"
+      },
+      "general": [
+        {
+          "id": "general-eva",
+          "label": "Eva with its sourced meaning",
+          "basis": "general",
+          "confidence": "high",
+          "meaning": {
+            "fr": "la vie",
+            "ar": "الحياة"
+          },
+          "meaningSourceKeys": [
+            "behindthename:eva",
+            "behindthename:eve"
+          ],
+          "verses": {
+            "ar": [],
+            "fr": []
+          }
+        }
+      ]
+    },
+    "esmee": {
+      "canonical": {
+        "latin": "Esmée"
+      },
+      "aliases": {
+        "latin": [
+          "Esmee",
+          "Esmé"
+        ],
+        "arabic": []
+      },
+      "gender": "girl",
+      "origin": "french",
+      "sources": {
+        "behindthename:esmee": "https://www.behindthename.com/name/esmee",
+        "behindthename:esme10": "https://www.behindthename.com/name/esme10"
+      },
+      "general": [
+        {
+          "id": "general-esmee",
+          "label": "Esmée with its sourced meaning",
+          "basis": "general",
+          "confidence": "high",
+          "meaning": {
+            "fr": "estimée, aimée",
+            "ar": "المحبوبة المقدَّرة"
+          },
+          "meaningSourceKeys": [
+            "behindthename:esme10",
+            "behindthename:esmee"
+          ],
+          "verses": {
+            "ar": [],
+            "fr": []
+          }
+        }
+      ]
+    },
+    "sofia": {
+      "canonical": {
+        "latin": "Sofia"
+      },
+      "aliases": {
+        "latin": [
+          "Sophia",
+          "Sofiya"
+        ],
+        "arabic": []
+      },
+      "gender": "girl",
+      "origin": "greek",
+      "sources": {
+        "behindthename:sofia": "https://www.behindthename.com/name/sofia",
+        "behindthename:sophia": "https://www.behindthename.com/name/sophia"
+      },
+      "general": [
+        {
+          "id": "general-sofia",
+          "label": "Sofia with its sourced meaning",
+          "basis": "general",
+          "confidence": "high",
+          "meaning": {
+            "fr": "la sagesse",
+            "ar": "الحكمة"
+          },
+          "meaningSourceKeys": [
+            "behindthename:sofia",
+            "behindthename:sophia"
+          ],
+          "verses": {
+            "ar": [],
+            "fr": []
+          }
+        }
+      ]
+    },
+    "zoe": {
+      "canonical": {
+        "latin": "Zoé"
+      },
+      "aliases": {
+        "latin": [
+          "Zoe",
+          "Zoë"
+        ],
+        "arabic": []
+      },
+      "gender": "girl",
+      "origin": "greek",
+      "sources": {
+        "behindthename:zoe": "https://www.behindthename.com/name/zoe"
+      },
+      "general": [
+        {
+          "id": "general-zoe",
+          "label": "Zoé with its sourced meaning",
+          "basis": "general",
+          "confidence": "high",
+          "meaning": {
+            "fr": "la vie",
+            "ar": "الحياة"
+          },
+          "meaningSourceKeys": [
+            "behindthename:zoe"
+          ],
+          "verses": {
+            "ar": [],
+            "fr": []
+          }
+        }
+      ]
+    },
+    "luna": {
+      "canonical": {
+        "latin": "Luna"
+      },
+      "aliases": {
+        "latin": [],
+        "arabic": []
+      },
+      "gender": "girl",
+      "origin": "latin",
+      "sources": {
+        "behindthename:luna": "https://www.behindthename.com/name/luna"
+      },
+      "general": [
+        {
+          "id": "general-luna",
+          "label": "Luna with its sourced meaning",
+          "basis": "general",
+          "confidence": "high",
+          "meaning": {
+            "fr": "la lune",
+            "ar": "القمر"
+          },
+          "meaningSourceKeys": [
+            "behindthename:luna"
+          ],
+          "verses": {
+            "ar": [],
+            "fr": []
+          }
+        }
+      ]
+    },
+    "chloe": {
+      "canonical": {
+        "latin": "Chloé"
+      },
+      "aliases": {
+        "latin": [
+          "Chloe"
+        ],
+        "arabic": []
+      },
+      "gender": "girl",
+      "origin": "greek",
+      "sources": {
+        "behindthename:chloe": "https://www.behindthename.com/name/chloe"
+      },
+      "general": [
+        {
+          "id": "general-chloe",
+          "label": "Chloé with its sourced meaning",
+          "basis": "general",
+          "confidence": "high",
+          "meaning": {
+            "fr": "la jeune pousse",
+            "ar": "البرعم الأخضر"
+          },
+          "meaningSourceKeys": [
+            "behindthename:chloe"
+          ],
+          "verses": {
+            "ar": [],
+            "fr": []
+          }
+        }
+      ]
+    },
+    "alix": {
+      "canonical": {
+        "latin": "Alix"
+      },
+      "aliases": {
+        "latin": [],
+        "arabic": []
+      },
+      "gender": "girl",
+      "origin": "germanic",
+      "sources": {
+        "behindthename:alix": "https://www.behindthename.com/name/alix",
+        "behindthename:adelaide": "https://www.behindthename.com/name/adelaide"
+      },
+      "general": [
+        {
+          "id": "general-alix",
+          "label": "Alix with its sourced meaning",
+          "basis": "general",
+          "confidence": "high",
+          "meaning": {
+            "fr": "la noblesse",
+            "ar": "النُّبل"
+          },
+          "meaningSourceKeys": [
+            "behindthename:adelaide",
+            "behindthename:alix"
+          ],
+          "verses": {
+            "ar": [],
+            "fr": []
+          }
+        }
+      ]
+    },
+    "romane": {
+      "canonical": {
+        "latin": "Romane"
+      },
+      "aliases": {
+        "latin": [],
+        "arabic": []
+      },
+      "gender": "girl",
+      "origin": "latin",
+      "sources": {
+        "behindthename:romane": "https://www.behindthename.com/name/romane",
+        "behindthename:roman": "https://www.behindthename.com/name/roman"
+      },
+      "general": [
+        {
+          "id": "general-romane",
+          "label": "Romane with its sourced meaning",
+          "basis": "general",
+          "confidence": "high",
+          "meaning": {
+            "fr": "romaine",
+            "ar": "الرومانية"
+          },
+          "meaningSourceKeys": [
+            "behindthename:roman",
+            "behindthename:romane"
+          ],
+          "verses": {
+            "ar": [],
+            "fr": []
+          }
+        }
+      ]
+    },
+    "lucie": {
+      "canonical": {
+        "latin": "Lucie"
+      },
+      "aliases": {
+        "latin": [
+          "Lucy"
+        ],
+        "arabic": []
+      },
+      "gender": "girl",
+      "origin": "latin",
+      "sources": {
+        "behindthename:lucie": "https://www.behindthename.com/name/lucie",
+        "behindthename:lucius": "https://www.behindthename.com/name/lucius"
+      },
+      "general": [
+        {
+          "id": "general-lucie",
+          "label": "Lucie with its sourced meaning",
+          "basis": "general",
+          "confidence": "high",
+          "meaning": {
+            "fr": "la lumière",
+            "ar": "النور"
+          },
+          "meaningSourceKeys": [
+            "behindthename:lucie",
+            "behindthename:lucius"
+          ],
+          "verses": {
+            "ar": [],
+            "fr": []
+          }
+        }
+      ]
+    },
+    "margot": {
+      "canonical": {
+        "latin": "Margot"
+      },
+      "aliases": {
+        "latin": [
+          "Margaux",
+          "Margo"
+        ],
+        "arabic": []
+      },
+      "gender": "girl",
+      "origin": "greek",
+      "sources": {
+        "behindthename:margot": "https://www.behindthename.com/name/margot",
+        "behindthename:margaret": "https://www.behindthename.com/name/margaret"
+      },
+      "general": [
+        {
+          "id": "general-margot",
+          "label": "Margot with its sourced meaning",
+          "basis": "general",
+          "confidence": "high",
+          "meaning": {
+            "fr": "la perle",
+            "ar": "اللؤلؤة"
+          },
+          "meaningSourceKeys": [
+            "behindthename:margaret",
+            "behindthename:margot"
+          ],
+          "verses": {
+            "ar": [],
+            "fr": []
+          }
+        }
+      ]
+    },
+    "gabrielle": {
+      "canonical": {
+        "latin": "Gabrielle"
+      },
+      "aliases": {
+        "latin": [],
+        "arabic": []
+      },
+      "gender": "girl",
+      "origin": "hebrew",
+      "sources": {
+        "behindthename:gabrielle": "https://www.behindthename.com/name/gabrielle",
+        "behindthename:gabriel": "https://www.behindthename.com/name/gabriel"
+      },
+      "general": [
+        {
+          "id": "general-gabrielle",
+          "label": "Gabrielle with its sourced meaning",
+          "basis": "general",
+          "confidence": "high",
+          "meaning": {
+            "fr": "Dieu est ma force",
+            "ar": "الله قوّتي"
+          },
+          "meaningSourceKeys": [
+            "behindthename:gabriel",
+            "behindthename:gabrielle"
+          ],
+          "verses": {
+            "ar": [],
+            "fr": []
+          }
+        }
+      ]
+    },
+    "thea": {
+      "canonical": {
+        "latin": "Théa"
+      },
+      "aliases": {
+        "latin": [
+          "Thea",
+          "Téa"
+        ],
+        "arabic": []
+      },
+      "gender": "girl",
+      "origin": "greek",
+      "sources": {
+        "behindthename:thea": "https://www.behindthename.com/name/thea",
+        "behindthename:dorothea": "https://www.behindthename.com/name/dorothea"
+      },
+      "general": [
+        {
+          "id": "general-thea",
+          "label": "Théa with its sourced meaning",
+          "basis": "general",
+          "confidence": "high",
+          "meaning": {
+            "fr": "le don de Dieu",
+            "ar": "عطية الله"
+          },
+          "meaningSourceKeys": [
+            "behindthename:dorothea",
+            "behindthename:thea"
+          ],
+          "verses": {
+            "ar": [],
+            "fr": []
+          }
+        }
+      ]
+    },
+    "yasmin": {
+      "canonical": {
+        "latin": "Yasmine",
+        "arabic": "ياسمين"
+      },
+      "aliases": {
+        "latin": [
+          "Yasmin",
+          "Jasmine",
+          "Yasmina",
+          "Jasmin"
+        ],
+        "arabic": []
+      },
+      "gender": "girl",
+      "origin": "persian",
+      "sources": {
+        "behindthename:yasmin": "https://www.behindthename.com/name/yasmin",
+        "behindthename:jasmine": "https://www.behindthename.com/name/jasmine"
+      },
+      "general": [
+        {
+          "id": "general-yasmin",
+          "label": "Yasmine with its sourced meaning",
+          "basis": "general",
+          "confidence": "high",
+          "meaning": {
+            "fr": "la fleur blanche parfumée",
+            "ar": "الزهرة البيضاء العطرة"
+          },
+          "meaningSourceKeys": [
+            "behindthename:jasmine",
+            "behindthename:yasmin"
+          ],
+          "verses": {
+            "ar": [],
+            "fr": []
+          }
+        }
+      ]
+    },
+    "mila": {
+      "canonical": {
+        "latin": "Mila"
+      },
+      "aliases": {
+        "latin": [],
+        "arabic": []
+      },
+      "gender": "girl",
+      "origin": "slavic",
+      "sources": {
+        "behindthename:mila": "https://www.behindthename.com/name/mila"
+      },
+      "general": [
+        {
+          "id": "general-mila",
+          "label": "Mila with its sourced meaning",
+          "basis": "general",
+          "confidence": "high",
+          "meaning": {
+            "fr": "gracieuse, chère",
+            "ar": "اللطيفة العزيزة"
+          },
+          "meaningSourceKeys": [
+            "behindthename:mila"
+          ],
+          "verses": {
+            "ar": [],
+            "fr": []
+          }
+        }
+      ]
+    },
+    "celeste": {
+      "canonical": {
+        "latin": "Céleste"
+      },
+      "aliases": {
+        "latin": [
+          "Celeste"
+        ],
+        "arabic": []
+      },
+      "gender": "girl",
+      "origin": "latin",
+      "sources": {
+        "behindthename:celeste": "https://www.behindthename.com/name/celeste",
+        "behindthename:caelestis": "https://www.behindthename.com/name/caelestis"
+      },
+      "general": [
+        {
+          "id": "general-celeste",
+          "label": "Céleste with its sourced meaning",
+          "basis": "general",
+          "confidence": "high",
+          "meaning": {
+            "fr": "venue du ciel",
+            "ar": "القادمة من السماء"
+          },
+          "meaningSourceKeys": [
+            "behindthename:caelestis",
+            "behindthename:celeste"
+          ],
+          "verses": {
+            "ar": [],
+            "fr": []
+          }
+        }
+      ]
+    },
+    "aria": {
+      "canonical": {
+        "latin": "Aria"
+      },
+      "aliases": {
+        "latin": [
+          "Arya"
+        ],
+        "arabic": []
+      },
+      "gender": "girl",
+      "origin": "italian",
+      "sources": {
+        "behindthename:aria-1": "https://www.behindthename.com/name/aria-1"
+      },
+      "general": [
+        {
+          "id": "general-aria",
+          "label": "Aria with its sourced meaning",
+          "basis": "general",
+          "confidence": "high",
+          "meaning": {
+            "fr": "le chant, la mélodie",
+            "ar": "اللحن والأغنية"
+          },
+          "meaningSourceKeys": [
+            "behindthename:aria-1"
+          ],
+          "verses": {
+            "ar": [],
+            "fr": []
+          }
+        }
+      ]
+    },
+    "suzanne": {
+      "canonical": {
+        "latin": "Suzanne"
+      },
+      "aliases": {
+        "latin": [
+          "Susanne"
+        ],
+        "arabic": []
+      },
+      "gender": "girl",
+      "origin": "hebrew",
+      "sources": {
+        "behindthename:suzanne": "https://www.behindthename.com/name/suzanne",
+        "behindthename:susanna": "https://www.behindthename.com/name/susanna"
+      },
+      "general": [
+        {
+          "id": "general-suzanne",
+          "label": "Suzanne with its sourced meaning",
+          "basis": "general",
+          "confidence": "high",
+          "meaning": {
+            "fr": "le lys",
+            "ar": "السوسن"
+          },
+          "meaningSourceKeys": [
+            "behindthename:susanna",
+            "behindthename:suzanne"
+          ],
+          "verses": {
+            "ar": [],
+            "fr": []
+          }
+        }
+      ]
+    },
+    "capucine": {
+      "canonical": {
+        "latin": "Capucine"
+      },
+      "aliases": {
+        "latin": [],
+        "arabic": []
+      },
+      "gender": "girl",
+      "origin": "french",
+      "sources": {
+        "behindthename:capucine": "https://www.behindthename.com/name/capucine"
+      },
+      "general": [
+        {
+          "id": "general-capucine",
+          "label": "Capucine with its sourced meaning",
+          "basis": "general",
+          "confidence": "high",
+          "meaning": {
+            "fr": "la fleur orangée des jardins",
+            "ar": "زهرة الحدائق البرتقالية"
+          },
+          "meaningSourceKeys": [
+            "behindthename:capucine"
+          ],
+          "verses": {
+            "ar": [],
+            "fr": []
+          }
+        }
+      ]
+    },
+    "sarah": {
+      "canonical": {
+        "latin": "Sarah",
+        "arabic": "سارة"
+      },
+      "aliases": {
+        "latin": [
+          "Sara",
+          "Sarra"
+        ],
+        "arabic": []
+      },
+      "gender": "girl",
+      "origin": "hebrew",
+      "sources": {
+        "behindthename:sarah": "https://www.behindthename.com/name/sarah"
+      },
+      "general": [
+        {
+          "id": "general-sarah",
+          "label": "Sarah with its sourced meaning",
+          "basis": "general",
+          "confidence": "high",
+          "meaning": {
+            "fr": "princesse, noble dame",
+            "ar": "الأميرة، السيدة النبيلة"
+          },
+          "meaningSourceKeys": [
+            "behindthename:sarah"
+          ],
+          "verses": {
+            "ar": [],
+            "fr": []
+          }
+        }
+      ]
+    },
+    "ines": {
+      "canonical": {
+        "latin": "Inès"
+      },
+      "aliases": {
+        "latin": [
+          "Ines",
+          "Inés",
+          "Ynes"
+        ],
+        "arabic": []
+      },
+      "gender": "girl",
+      "origin": "greek",
+      "sources": {
+        "behindthename:ines": "https://www.behindthename.com/name/ines",
+        "behindthename:agnes": "https://www.behindthename.com/name/agnes"
+      },
+      "general": [
+        {
+          "id": "general-ines",
+          "label": "Inès with its sourced meaning",
+          "basis": "general",
+          "confidence": "high",
+          "meaning": {
+            "fr": "pure",
+            "ar": "الطاهرة"
+          },
+          "meaningSourceKeys": [
+            "behindthename:agnes",
+            "behindthename:ines"
+          ],
+          "verses": {
+            "ar": [],
+            "fr": []
+          }
+        }
+      ]
+    },
+    "diane": {
+      "canonical": {
+        "latin": "Diane"
+      },
+      "aliases": {
+        "latin": [
+          "Diana"
+        ],
+        "arabic": []
+      },
+      "gender": "girl",
+      "origin": "latin",
+      "sources": {
+        "behindthename:diane": "https://www.behindthename.com/name/diane",
+        "behindthename:diana": "https://www.behindthename.com/name/diana"
+      },
+      "general": [
+        {
+          "id": "general-diane",
+          "label": "Diane with its sourced meaning",
+          "basis": "general",
+          "confidence": "high",
+          "meaning": {
+            "fr": "divine",
+            "ar": "الإلهية"
+          },
+          "meaningSourceKeys": [
+            "behindthename:diana",
+            "behindthename:diane"
+          ],
+          "verses": {
+            "ar": [],
+            "fr": []
+          }
+        }
+      ]
+    },
+    "lily": {
+      "canonical": {
+        "latin": "Lily"
+      },
+      "aliases": {
+        "latin": [
+          "Lili",
+          "Lilly",
+          "Lilia"
+        ],
+        "arabic": []
+      },
+      "gender": "girl",
+      "origin": "latin",
+      "sources": {
+        "behindthename:lily": "https://www.behindthename.com/name/lily"
+      },
+      "general": [
+        {
+          "id": "general-lily",
+          "label": "Lily with its sourced meaning",
+          "basis": "general",
+          "confidence": "high",
+          "meaning": {
+            "fr": "le lys, fleur de pureté",
+            "ar": "السوسن، زهرة النقاء"
+          },
+          "meaningSourceKeys": [
+            "behindthename:lily"
+          ],
+          "verses": {
+            "ar": [],
+            "fr": []
+          }
+        }
+      ]
+    },
+    "constance": {
+      "canonical": {
+        "latin": "Constance"
+      },
+      "aliases": {
+        "latin": [],
+        "arabic": []
+      },
+      "gender": "girl",
+      "origin": "latin",
+      "sources": {
+        "behindthename:constance": "https://www.behindthename.com/name/constance",
+        "behindthename:constans": "https://www.behindthename.com/name/constans"
+      },
+      "general": [
+        {
+          "id": "general-constance",
+          "label": "Constance with its sourced meaning",
+          "basis": "general",
+          "confidence": "high",
+          "meaning": {
+            "fr": "la fidélité et la fermeté",
+            "ar": "الوفاء والثبات"
+          },
+          "meaningSourceKeys": [
+            "behindthename:constance",
+            "behindthename:constans"
+          ],
+          "verses": {
+            "ar": [],
+            "fr": []
+          }
+        }
+      ]
+    },
+    "amelia": {
+      "canonical": {
+        "latin": "Amelia"
+      },
+      "aliases": {
+        "latin": [
+          "Amélia",
+          "Amélie",
+          "Amelie"
+        ],
+        "arabic": []
+      },
+      "gender": "girl",
+      "origin": "germanic",
+      "sources": {
+        "behindthename:amelia": "https://www.behindthename.com/name/amelia",
+        "behindthename:amalia": "https://www.behindthename.com/name/amalia"
+      },
+      "general": [
+        {
+          "id": "general-amelia",
+          "label": "Amelia with its sourced meaning",
+          "basis": "general",
+          "confidence": "high",
+          "meaning": {
+            "fr": "vaillante, infatigable",
+            "ar": "الشجاعة التي لا تكلّ"
+          },
+          "meaningSourceKeys": [
+            "behindthename:amalia",
+            "behindthename:amelia"
+          ],
+          "verses": {
+            "ar": [],
+            "fr": []
+          }
+        }
+      ]
+    },
+    "josephine": {
+      "canonical": {
+        "latin": "Joséphine"
+      },
+      "aliases": {
+        "latin": [
+          "Josephine"
+        ],
+        "arabic": []
+      },
+      "gender": "girl",
+      "origin": "hebrew",
+      "sources": {
+        "behindthename:josephine": "https://www.behindthename.com/name/josephine",
+        "behindthename:joseph": "https://www.behindthename.com/name/joseph"
+      },
+      "general": [
+        {
+          "id": "general-josephine",
+          "label": "Joséphine with its sourced meaning",
+          "basis": "general",
+          "confidence": "high",
+          "meaning": {
+            "fr": "elle ajoutera",
+            "ar": "ستزيد"
+          },
+          "meaningSourceKeys": [
+            "behindthename:joseph",
+            "behindthename:josephine"
+          ],
+          "verses": {
+            "ar": [],
+            "fr": []
+          }
+        }
+      ]
+    },
+    "aisha": {
+      "canonical": {
+        "latin": "Aïcha",
+        "arabic": "عائشة"
+      },
+      "aliases": {
+        "latin": [
+          "Aicha",
+          "Aisha",
+          "Aysha",
+          "Aïsha"
+        ],
+        "arabic": []
+      },
+      "gender": "girl",
+      "origin": "arabic",
+      "sources": {
+        "behindthename:aisha": "https://www.behindthename.com/name/aisha"
+      },
+      "general": [
+        {
+          "id": "general-aisha",
+          "label": "Aïcha with its sourced meaning",
+          "basis": "general",
+          "confidence": "high",
+          "meaning": {
+            "fr": "vivante, pleine de vie",
+            "ar": "الحيّة المفعمة بالحياة"
+          },
+          "meaningSourceKeys": [
+            "behindthename:aisha"
+          ],
+          "verses": {
+            "ar": [],
+            "fr": []
+          }
+        }
+      ]
+    },
+    "amira": {
+      "canonical": {
+        "latin": "Amira",
+        "arabic": "أميرة"
+      },
+      "aliases": {
+        "latin": [
+          "Amirah",
+          "Emira"
+        ],
+        "arabic": []
+      },
+      "gender": "girl",
+      "origin": "arabic",
+      "sources": {
+        "behindthename:amira-1": "https://www.behindthename.com/name/amira-1",
+        "behindthename:amir-1": "https://www.behindthename.com/name/amir-1"
+      },
+      "general": [
+        {
+          "id": "general-amira",
+          "label": "Amira with its sourced meaning",
+          "basis": "general",
+          "confidence": "high",
+          "meaning": {
+            "fr": "la princesse",
+            "ar": "صاحبة الشأن والقيادة"
+          },
+          "meaningSourceKeys": [
+            "behindthename:amir-1",
+            "behindthename:amira-1"
+          ],
+          "verses": {
+            "ar": [],
+            "fr": []
+          }
+        }
+      ]
+    },
+    "clara": {
+      "canonical": {
+        "latin": "Clara"
+      },
+      "aliases": {
+        "latin": [
+          "Klara"
+        ],
+        "arabic": []
+      },
+      "gender": "girl",
+      "origin": "latin",
+      "sources": {
+        "behindthename:clara": "https://www.behindthename.com/name/clara"
+      },
+      "general": [
+        {
+          "id": "general-clara",
+          "label": "Clara with its sourced meaning",
+          "basis": "general",
+          "confidence": "high",
+          "meaning": {
+            "fr": "claire, lumineuse",
+            "ar": "الصافية المضيئة"
+          },
+          "meaningSourceKeys": [
+            "behindthename:clara"
+          ],
+          "verses": {
+            "ar": [],
+            "fr": []
+          }
+        }
+      ]
+    },
+    "salome": {
+      "canonical": {
+        "latin": "Salomé"
+      },
+      "aliases": {
+        "latin": [
+          "Salome"
+        ],
+        "arabic": []
+      },
+      "gender": "girl",
+      "origin": "aramaic",
+      "sources": {
+        "behindthename:salome": "https://www.behindthename.com/name/salome"
+      },
+      "general": [
+        {
+          "id": "general-salome",
+          "label": "Salomé with its sourced meaning",
+          "basis": "general",
+          "confidence": "high",
+          "meaning": {
+            "fr": "la paix",
+            "ar": "السلام"
+          },
+          "meaningSourceKeys": [
+            "behindthename:salome"
+          ],
+          "verses": {
+            "ar": [],
+            "fr": []
+          }
+        }
+      ]
+    },
+    "aaliyah": {
+      "canonical": {
+        "latin": "Aliya",
+        "arabic": "عالية"
+      },
+      "aliases": {
+        "latin": [
+          "Aaliyah",
+          "Aliyah",
+          "Alia",
+          "Aalia"
+        ],
+        "arabic": []
+      },
+      "gender": "girl",
+      "origin": "arabic",
+      "sources": {
+        "behindthename:aliya-1": "https://www.behindthename.com/name/aliya-1",
+        "behindthename:ali-1": "https://www.behindthename.com/name/ali-1"
+      },
+      "general": [
+        {
+          "id": "general-aaliyah",
+          "label": "Aliya with its sourced meaning",
+          "basis": "general",
+          "confidence": "high",
+          "meaning": {
+            "fr": "élevée, sublime",
+            "ar": "الرفيعة السامية"
+          },
+          "meaningSourceKeys": [
+            "behindthename:ali-1",
+            "behindthename:aliya-1"
+          ],
+          "verses": {
+            "ar": [],
+            "fr": []
+          }
+        }
+      ]
+    },
+    "mathilde": {
+      "canonical": {
+        "latin": "Mathilde"
+      },
+      "aliases": {
+        "latin": [
+          "Matilda",
+          "Mathilda"
+        ],
+        "arabic": []
+      },
+      "gender": "girl",
+      "origin": "germanic",
+      "sources": {
+        "behindthename:mathilde": "https://www.behindthename.com/name/mathilde",
+        "behindthename:matilda": "https://www.behindthename.com/name/matilda"
+      },
+      "general": [
+        {
+          "id": "general-mathilde",
+          "label": "Mathilde with its sourced meaning",
+          "basis": "general",
+          "confidence": "high",
+          "meaning": {
+            "fr": "la force au combat",
+            "ar": "القوة في المعركة"
+          },
+          "meaningSourceKeys": [
+            "behindthename:mathilde",
+            "behindthename:matilda"
+          ],
+          "verses": {
+            "ar": [],
+            "fr": []
+          }
+        }
+      ]
+    },
+    "amina": {
+      "canonical": {
+        "latin": "Amina",
+        "arabic": "آمنة"
+      },
+      "aliases": {
+        "latin": [
+          "Amena",
+          "Aminah"
+        ],
+        "arabic": []
+      },
+      "gender": "girl",
+      "origin": "arabic",
+      "sources": {
+        "behindthename:amina": "https://www.behindthename.com/name/amina"
+      },
+      "general": [
+        {
+          "id": "general-amina",
+          "label": "Amina with its sourced meaning",
+          "basis": "general",
+          "confidence": "high",
+          "meaning": {
+            "fr": "en sécurité, sereine",
+            "ar": "المطمئنة في أمان"
+          },
+          "meaningSourceKeys": [
+            "behindthename:amina"
+          ],
+          "verses": {
+            "ar": [],
+            "fr": []
+          }
+        }
+      ]
+    },
+    "celia": {
+      "canonical": {
+        "latin": "Célia"
+      },
+      "aliases": {
+        "latin": [
+          "Celia"
+        ],
+        "arabic": []
+      },
+      "gender": "girl",
+      "origin": "latin",
+      "sources": {
+        "behindthename:celia": "https://www.behindthename.com/name/celia",
+        "behindthename:caelius": "https://www.behindthename.com/name/caelius"
+      },
+      "general": [
+        {
+          "id": "general-celia",
+          "label": "Célia with its sourced meaning",
+          "basis": "general",
+          "confidence": "high",
+          "meaning": {
+            "fr": "le ciel",
+            "ar": "السماء"
+          },
+          "meaningSourceKeys": [
+            "behindthename:caelius",
+            "behindthename:celia"
+          ],
+          "verses": {
+            "ar": [],
+            "fr": []
+          }
+        }
+      ]
+    },
+    "asma": {
+      "canonical": {
+        "latin": "Asma",
+        "arabic": "أسماء"
+      },
+      "aliases": {
+        "latin": [
+          "Asmaa",
+          "Esma"
+        ],
+        "arabic": []
+      },
+      "gender": "girl",
+      "origin": "arabic",
+      "sources": {
+        "behindthename:asma": "https://www.behindthename.com/name/asma"
+      },
+      "general": [
+        {
+          "id": "general-asma",
+          "label": "Asma with its sourced meaning",
+          "basis": "general",
+          "confidence": "high",
+          "meaning": {
+            "fr": "élevée, suprême",
+            "ar": "الرفيعة العليا"
+          },
+          "meaningSourceKeys": [
+            "behindthename:asma"
+          ],
+          "verses": {
+            "ar": [],
+            "fr": []
+          }
+        }
+      ]
+    },
+    "kenza": {
+      "canonical": {
+        "latin": "Kenza",
+        "arabic": "كنزة"
+      },
+      "aliases": {
+        "latin": [
+          "Kanza"
+        ],
+        "arabic": []
+      },
+      "gender": "girl",
+      "origin": "arabic",
+      "sources": {
+        "behindthename:kenza": "https://www.behindthename.com/name/kenza",
+        "behindthename:kanza": "https://www.behindthename.com/name/kanza"
+      },
+      "general": [
+        {
+          "id": "general-kenza",
+          "label": "Kenza with its sourced meaning",
+          "basis": "general",
+          "confidence": "high",
+          "meaning": {
+            "fr": "le trésor",
+            "ar": "الكنز"
+          },
+          "meaningSourceKeys": [
+            "behindthename:kanza",
+            "behindthename:kenza"
+          ],
+          "verses": {
+            "ar": [],
+            "fr": []
+          }
+        }
+      ]
+    },
+    "salma": {
+      "canonical": {
+        "latin": "Salma",
+        "arabic": "سلمى"
+      },
+      "aliases": {
+        "latin": [
+          "Selma",
+          "Salmah"
+        ],
+        "arabic": []
+      },
+      "gender": "girl",
+      "origin": "arabic",
+      "sources": {
+        "behindthename:salma": "https://www.behindthename.com/name/salma"
+      },
+      "general": [
+        {
+          "id": "general-salma",
+          "label": "Salma with its sourced meaning",
+          "basis": "general",
+          "confidence": "high",
+          "meaning": {
+            "fr": "saine et sauve, en paix",
+            "ar": "السالمة الآمنة"
+          },
+          "meaningSourceKeys": [
+            "behindthename:salma"
+          ],
+          "verses": {
+            "ar": [],
+            "fr": []
+          }
+        }
+      ]
+    },
+    "safiyya": {
+      "canonical": {
+        "latin": "Safia",
+        "arabic": "صفية"
+      },
+      "aliases": {
+        "latin": [
+          "Safiya",
+          "Safiyya",
+          "Safiyah"
+        ],
+        "arabic": []
+      },
+      "gender": "girl",
+      "origin": "arabic",
+      "sources": {
+        "behindthename:safiyya": "https://www.behindthename.com/name/safiyya",
+        "behindthename:safi": "https://www.behindthename.com/name/safi"
+      },
+      "general": [
+        {
+          "id": "general-safiyya",
+          "label": "Safia with its sourced meaning",
+          "basis": "general",
+          "confidence": "high",
+          "meaning": {
+            "fr": "pure",
+            "ar": "الصافية النقية"
+          },
+          "meaningSourceKeys": [
+            "behindthename:safi",
+            "behindthename:safiyya"
+          ],
+          "verses": {
+            "ar": [],
+            "fr": []
+          }
+        }
+      ]
+    },
+    "malak": {
+      "canonical": {
+        "latin": "Malak",
+        "arabic": "ملاك"
+      },
+      "aliases": {
+        "latin": [],
+        "arabic": []
+      },
+      "gender": "girl",
+      "origin": "arabic",
+      "sources": {
+        "behindthename:malak": "https://www.behindthename.com/name/malak"
+      },
+      "general": [
+        {
+          "id": "general-malak",
+          "label": "Malak with its sourced meaning",
+          "basis": "general",
+          "confidence": "high",
+          "meaning": {
+            "fr": "l'ange",
+            "ar": "الكائن السماوي النوراني"
+          },
+          "meaningSourceKeys": [
+            "behindthename:malak"
+          ],
+          "verses": {
+            "ar": [],
+            "fr": []
+          }
+        }
+      ]
+    },
+    "sana": {
+      "canonical": {
+        "latin": "Sana",
+        "arabic": "سناء"
+      },
+      "aliases": {
+        "latin": [
+          "Sanaa",
+          "Sanae",
+          "Sanâa"
+        ],
+        "arabic": []
+      },
+      "gender": "girl",
+      "origin": "arabic",
+      "sources": {
+        "behindthename:sana-1": "https://www.behindthename.com/name/sana-1",
+        "behindthename:sanaa": "https://www.behindthename.com/name/sanaa"
+      },
+      "general": [
+        {
+          "id": "general-sana",
+          "label": "Sana with its sourced meaning",
+          "basis": "general",
+          "confidence": "high",
+          "meaning": {
+            "fr": "l'éclat, la splendeur",
+            "ar": "الضياء والبهاء"
+          },
+          "meaningSourceKeys": [
+            "behindthename:sana-1",
+            "behindthename:sanaa"
+          ],
+          "verses": {
+            "ar": [],
+            "fr": []
+          }
+        }
+      ]
+    },
+    "isra": {
+      "canonical": {
+        "latin": "Isra",
+        "arabic": "إسراء"
+      },
+      "aliases": {
+        "latin": [
+          "Israa",
+          "Esraa",
+          "Esra"
+        ],
+        "arabic": []
+      },
+      "gender": "girl",
+      "origin": "arabic",
+      "sources": {
+        "behindthename:isra": "https://www.behindthename.com/name/isra"
+      },
+      "general": [
+        {
+          "id": "general-isra",
+          "label": "Isra with its sourced meaning",
+          "basis": "general",
+          "confidence": "high",
+          "meaning": {
+            "fr": "le voyage nocturne",
+            "ar": "الرحلة الليلية"
+          },
+          "meaningSourceKeys": [
+            "behindthename:isra"
+          ],
+          "verses": {
+            "ar": [],
+            "fr": []
+          }
+        }
+      ]
+    },
+    "tasnim": {
+      "canonical": {
+        "latin": "Tasnim",
+        "arabic": "تسنيم"
+      },
+      "aliases": {
+        "latin": [
+          "Tasnime",
+          "Tesnim",
+          "Tasneem"
+        ],
+        "arabic": []
+      },
+      "gender": "girl",
+      "origin": "arabic",
+      "sources": {
+        "behindthename:tasnim": "https://www.behindthename.com/name/tasnim",
+        "quran-83-27": "https://quran.com/83/27"
+      },
+      "general": [
+        {
+          "id": "general-tasnim",
+          "label": "Tasnim with its sourced meaning",
+          "basis": "general",
+          "confidence": "high",
+          "meaning": {
+            "fr": "la source du paradis",
+            "ar": "عين في الجنة"
+          },
+          "meaningSourceKeys": [
+            "behindthename:tasnim"
+          ],
+          "verses": {
+            "ar": [],
+            "fr": []
+          }
+        }
+      ],
+      "religious": {
+        "islam": [
+          {
+            "id": "religious-tasnim",
+            "label": "Tasnim with Quranic references",
+            "basis": "religious:islam",
+            "confidence": "high",
+            "meaning": {
+              "fr": "la source du paradis",
+              "ar": "عين في الجنة"
+            },
+            "meaningSourceKeys": [
+              "behindthename:tasnim"
+            ],
+            "verses": {
+              "ar": [
+                {
+                  "quote": "وَمِزَاجُهُ مِن تَسْنِيمٍ",
+                  "reference": "المطففين: ٢٧",
+                  "sourceKey": "quran-83-27"
+                }
+              ],
+              "fr": [
+                {
+                  "quote": "Il est mélangé à la boisson de Tasnîm",
+                  "reference": "Sourate Al-Mutaffifin, 83:27",
+                  "sourceArabic": "وَمِزَاجُهُ مِن تَسْنِيمٍ",
+                  "sourceKey": "quran-83-27"
+                }
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "sakina": {
+      "canonical": {
+        "latin": "Sakina",
+        "arabic": "سكينة"
+      },
+      "aliases": {
+        "latin": [
+          "Sakinah",
+          "Sekina"
+        ],
+        "arabic": []
+      },
+      "gender": "girl",
+      "origin": "arabic",
+      "sources": {
+        "behindthename:sakina": "https://www.behindthename.com/name/sakina",
+        "quran-48-4": "https://quran.com/48/4"
+      },
+      "general": [
+        {
+          "id": "general-sakina",
+          "label": "Sakina with its sourced meaning",
+          "basis": "general",
+          "confidence": "high",
+          "meaning": {
+            "fr": "le calme, la sérénité",
+            "ar": "الطمأنينة والهدوء"
+          },
+          "meaningSourceKeys": [
+            "behindthename:sakina"
+          ],
+          "verses": {
+            "ar": [],
+            "fr": []
+          }
+        }
+      ],
+      "religious": {
+        "islam": [
+          {
+            "id": "religious-sakina",
+            "label": "Sakina with Quranic references",
+            "basis": "religious:islam",
+            "confidence": "high",
+            "meaning": {
+              "fr": "le calme, la sérénité",
+              "ar": "الطمأنينة والهدوء"
+            },
+            "meaningSourceKeys": [
+              "behindthename:sakina"
+            ],
+            "verses": {
+              "ar": [
+                {
+                  "quote": "هُوَ الَّذِي أَنزَلَ السَّكِينَةَ فِي قُلُوبِ الْمُؤْمِنِينَ",
+                  "reference": "الفتح: ٤",
+                  "sourceKey": "quran-48-4"
+                }
+              ],
+              "fr": [
+                {
+                  "quote": "C’est Lui qui a fait descendre la quiétude dans les cœurs des croyants",
+                  "reference": "Sourate Al-Fath, 48:4",
+                  "sourceArabic": "هُوَ الَّذِي أَنزَلَ السَّكِينَةَ فِي قُلُوبِ الْمُؤْمِنِينَ",
+                  "sourceKey": "quran-48-4"
+                }
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "layla": {
+      "canonical": {
+        "latin": "Layla",
+        "arabic": "ليلى"
+      },
+      "aliases": {
+        "latin": [
+          "Leila",
+          "Leïla",
+          "Laila",
+          "Leyla",
+          "Lyla"
+        ],
+        "arabic": []
+      },
+      "gender": "girl",
+      "origin": "arabic",
+      "sources": {
+        "behindthename:layla": "https://www.behindthename.com/name/layla"
+      },
+      "general": [
+        {
+          "id": "general-layla",
+          "label": "Layla with its sourced meaning",
+          "basis": "general",
+          "confidence": "high",
+          "meaning": {
+            "fr": "la nuit",
+            "ar": "الليل"
+          },
+          "meaningSourceKeys": [
+            "behindthename:layla"
+          ],
+          "verses": {
+            "ar": [],
+            "fr": []
+          }
+        }
+      ]
+    },
+    "garance": {
+      "canonical": {
+        "latin": "Garance"
+      },
+      "aliases": {
+        "latin": [],
+        "arabic": []
+      },
+      "gender": "girl",
+      "origin": "french",
+      "sources": {
+        "behindthename:garance": "https://www.behindthename.com/name/garance"
+      },
+      "general": [
+        {
+          "id": "general-garance",
+          "label": "Garance with its sourced meaning",
+          "basis": "general",
+          "confidence": "high",
+          "meaning": {
+            "fr": "la plante qui donne la teinture rouge",
+            "ar": "النبتة التي تمنح الصبغة الحمراء"
+          },
+          "meaningSourceKeys": [
+            "behindthename:garance"
+          ],
+          "verses": {
+            "ar": [],
+            "fr": []
+          }
+        }
+      ]
+    },
+    "rahma": {
+      "canonical": {
+        "latin": "Rahma",
+        "arabic": "رحمة"
+      },
+      "aliases": {
+        "latin": [
+          "Rahmah",
+          "Rahmé"
+        ],
+        "arabic": []
+      },
+      "gender": "girl",
+      "origin": "arabic",
+      "sources": {
+        "behindthename:rahma": "https://www.behindthename.com/name/rahma",
+        "quran-21-107": "https://quran.com/21/107"
+      },
+      "general": [
+        {
+          "id": "general-rahma",
+          "label": "Rahma with its sourced meaning",
+          "basis": "general",
+          "confidence": "high",
+          "meaning": {
+            "fr": "la miséricorde",
+            "ar": "الرأفة والعطف"
+          },
+          "meaningSourceKeys": [
+            "behindthename:rahma"
+          ],
+          "verses": {
+            "ar": [],
+            "fr": []
+          }
+        }
+      ],
+      "religious": {
+        "islam": [
+          {
+            "id": "religious-rahma",
+            "label": "Rahma with Quranic references",
+            "basis": "religious:islam",
+            "confidence": "high",
+            "meaning": {
+              "fr": "la miséricorde",
+              "ar": "الرأفة والعطف"
+            },
+            "meaningSourceKeys": [
+              "behindthename:rahma"
+            ],
+            "verses": {
+              "ar": [
+                {
+                  "quote": "وَمَا أَرْسَلْنَاكَ إِلَّا رَحْمَةً لِّلْعَالَمِينَ",
+                  "reference": "الأنبياء: ١٠٧",
+                  "sourceKey": "quran-21-107"
+                }
+              ],
+              "fr": [
+                {
+                  "quote": "Et Nous ne t’avons envoyé qu’en miséricorde pour l’Univers",
+                  "reference": "Sourate Al-Anbya, 21:107",
+                  "sourceArabic": "وَمَا أَرْسَلْنَاكَ إِلَّا رَحْمَةً لِّلْعَالَمِينَ",
+                  "sourceKey": "quran-21-107"
+                }
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "iman": {
+      "canonical": {
+        "latin": "Imane",
+        "arabic": "إيمان"
+      },
+      "aliases": {
+        "latin": [
+          "Iman",
+          "Imen",
+          "Eman"
+        ],
+        "arabic": []
+      },
+      "gender": "girl",
+      "origin": "arabic",
+      "sources": {
+        "behindthename:iman": "https://www.behindthename.com/name/iman",
+        "quran-49-7": "https://quran.com/49/7"
+      },
+      "general": [
+        {
+          "id": "general-iman",
+          "label": "Imane with its sourced meaning",
+          "basis": "general",
+          "confidence": "high",
+          "meaning": {
+            "fr": "la foi",
+            "ar": "التصديق واليقين"
+          },
+          "meaningSourceKeys": [
+            "behindthename:iman"
+          ],
+          "verses": {
+            "ar": [],
+            "fr": []
+          }
+        }
+      ],
+      "religious": {
+        "islam": [
+          {
+            "id": "religious-iman",
+            "label": "Imane with Quranic references",
+            "basis": "religious:islam",
+            "confidence": "high",
+            "meaning": {
+              "fr": "la foi",
+              "ar": "التصديق واليقين"
+            },
+            "meaningSourceKeys": [
+              "behindthename:iman"
+            ],
+            "verses": {
+              "ar": [
+                {
+                  "quote": "وَلَٰكِنَّ اللَّهَ حَبَّبَ إِلَيْكُمُ الْإِيمَانَ وَزَيَّنَهُ فِي قُلُوبِكُمْ",
+                  "reference": "الحجرات: ٧",
+                  "sourceKey": "quran-49-7"
+                }
+              ],
+              "fr": [
+                {
+                  "quote": "Mais Allah vous a fait aimer la foi et l’a embellie dans vos cœurs",
+                  "reference": "Sourate Al-Hujurat, 49:7",
+                  "sourceArabic": "وَلَٰكِنَّ اللَّهَ حَبَّبَ إِلَيْكُمُ الْإِيمَانَ وَزَيَّنَهُ فِي قُلُوبِكُمْ",
+                  "sourceKey": "quran-49-7"
+                }
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "huda": {
+      "canonical": {
+        "latin": "Houda",
+        "arabic": "هدى"
+      },
+      "aliases": {
+        "latin": [
+          "Huda",
+          "Hoda",
+          "Houdâ"
+        ],
+        "arabic": []
+      },
+      "gender": "girl",
+      "origin": "arabic",
+      "sources": {
+        "behindthename:huda": "https://www.behindthename.com/name/huda",
+        "quran-2-2": "https://quran.com/2/2"
+      },
+      "general": [
+        {
+          "id": "general-huda",
+          "label": "Houda with its sourced meaning",
+          "basis": "general",
+          "confidence": "high",
+          "meaning": {
+            "fr": "la bonne direction",
+            "ar": "الرشاد"
+          },
+          "meaningSourceKeys": [
+            "behindthename:huda"
+          ],
+          "verses": {
+            "ar": [],
+            "fr": []
+          }
+        }
+      ],
+      "religious": {
+        "islam": [
+          {
+            "id": "religious-huda",
+            "label": "Houda with Quranic references",
+            "basis": "religious:islam",
+            "confidence": "high",
+            "meaning": {
+              "fr": "la bonne direction",
+              "ar": "الرشاد"
+            },
+            "meaningSourceKeys": [
+              "behindthename:huda"
+            ],
+            "verses": {
+              "ar": [
+                {
+                  "quote": "ذَٰلِكَ الْكِتَابُ لَا رَيْبَ فِيهِ هُدًى لِّلْمُتَّقِينَ",
+                  "reference": "البقرة: ٢",
+                  "sourceKey": "quran-2-2"
+                }
+              ],
+              "fr": [
+                {
+                  "quote": "Voici le Livre au sujet duquel il n’y a aucun doute, c’est un guide pour les pieux,",
+                  "reference": "Sourate Al-Baqarah, 2:2",
+                  "sourceArabic": "ذَٰلِكَ الْكِتَابُ لَا رَيْبَ فِيهِ هُدًى لِّلْمُتَّقِينَ",
+                  "sourceKey": "quran-2-2"
+                }
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "ilham": {
+      "canonical": {
+        "latin": "Ilham",
+        "arabic": "إلهام"
+      },
+      "aliases": {
+        "latin": [
+          "Ilhame",
+          "Ilhem"
+        ],
+        "arabic": []
+      },
+      "gender": "girl",
+      "origin": "arabic",
+      "sources": {
+        "behindthename:ilham": "https://www.behindthename.com/name/ilham"
+      },
+      "general": [
+        {
+          "id": "general-ilham",
+          "label": "Ilham with its sourced meaning",
+          "basis": "general",
+          "confidence": "high",
+          "meaning": {
+            "fr": "l'inspiration",
+            "ar": "ما يُلقى في القلب من خير"
+          },
+          "meaningSourceKeys": [
+            "behindthename:ilham"
+          ],
+          "verses": {
+            "ar": [],
+            "fr": []
+          }
+        }
+      ]
+    },
+    "nawal": {
+      "canonical": {
+        "latin": "Nawal",
+        "arabic": "نوال"
+      },
+      "aliases": {
+        "latin": [
+          "Naoual",
+          "Nawel"
+        ],
+        "arabic": []
+      },
+      "gender": "girl",
+      "origin": "arabic",
+      "sources": {
+        "behindthename:nawal": "https://www.behindthename.com/name/nawal"
+      },
+      "general": [
+        {
+          "id": "general-nawal",
+          "label": "Nawal with its sourced meaning",
+          "basis": "general",
+          "confidence": "high",
+          "meaning": {
+            "fr": "le don",
+            "ar": "العطاء"
+          },
+          "meaningSourceKeys": [
+            "behindthename:nawal"
+          ],
+          "verses": {
+            "ar": [],
+            "fr": []
+          }
+        }
+      ]
+    },
+    "hiba": {
+      "canonical": {
+        "latin": "Hiba",
+        "arabic": "هبة"
+      },
+      "aliases": {
+        "latin": [
+          "Heba",
+          "Hibah"
+        ],
+        "arabic": []
+      },
+      "gender": "girl",
+      "origin": "arabic",
+      "sources": {
+        "behindthename:hiba": "https://www.behindthename.com/name/hiba"
+      },
+      "general": [
+        {
+          "id": "general-hiba",
+          "label": "Hiba with its sourced meaning",
+          "basis": "general",
+          "confidence": "high",
+          "meaning": {
+            "fr": "le don, le cadeau",
+            "ar": "العطية"
+          },
+          "meaningSourceKeys": [
+            "behindthename:hiba"
+          ],
+          "verses": {
+            "ar": [],
+            "fr": []
+          }
+        }
+      ]
+    },
+    "kawthar": {
+      "canonical": {
+        "latin": "Kawthar",
+        "arabic": "كوثر"
+      },
+      "aliases": {
+        "latin": [
+          "Kaoutar",
+          "Kawtar",
+          "Kaouthar",
+          "Kaouther"
+        ],
+        "arabic": []
+      },
+      "gender": "girl",
+      "origin": "arabic",
+      "sources": {
+        "behindthename:kawthar": "https://www.behindthename.com/name/kawthar",
+        "quran-108-1": "https://quran.com/108/1"
+      },
+      "general": [
+        {
+          "id": "general-kawthar",
+          "label": "Kawthar with its sourced meaning",
+          "basis": "general",
+          "confidence": "high",
+          "meaning": {
+            "fr": "l'abondance",
+            "ar": "الخير الوفير"
+          },
+          "meaningSourceKeys": [
+            "behindthename:kawthar"
+          ],
+          "verses": {
+            "ar": [],
+            "fr": []
+          }
+        }
+      ],
+      "religious": {
+        "islam": [
+          {
+            "id": "religious-kawthar",
+            "label": "Kawthar with Quranic references",
+            "basis": "religious:islam",
+            "confidence": "high",
+            "meaning": {
+              "fr": "l'abondance",
+              "ar": "الخير الوفير"
+            },
+            "meaningSourceKeys": [
+              "behindthename:kawthar"
+            ],
+            "verses": {
+              "ar": [
+                {
+                  "quote": "إِنَّا أَعْطَيْنَاكَ الْكَوْثَرَ",
+                  "reference": "الكوثر: ١",
+                  "sourceKey": "quran-108-1"
+                }
+              ],
+              "fr": [
+                {
+                  "quote": "Nous t’avons certes, accordé l’Abondance.",
+                  "reference": "Sourate Al-Kawthar, 108:1",
+                  "sourceArabic": "إِنَّا أَعْطَيْنَاكَ الْكَوْثَرَ",
+                  "sourceKey": "quran-108-1"
+                }
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "yara": {
+      "canonical": {
+        "latin": "Yara",
+        "arabic": "يارا"
+      },
+      "aliases": {
+        "latin": [
+          "Yarah"
+        ],
+        "arabic": []
+      },
+      "gender": "girl",
+      "origin": "persian",
+      "sources": {
+        "behindthename:yara-1": "https://www.behindthename.com/name/yara-1"
+      },
+      "general": [
+        {
+          "id": "general-yara",
+          "label": "Yara with its sourced meaning",
+          "basis": "general",
+          "confidence": "high",
+          "meaning": {
+            "fr": "l'amie, celle qui aide",
+            "ar": "الصديقة المعينة"
+          },
+          "meaningSourceKeys": [
+            "behindthename:yara-1"
+          ],
+          "verses": {
+            "ar": [],
+            "fr": []
+          }
+        }
+      ]
+    },
+    "farah": {
+      "canonical": {
+        "latin": "Farah",
+        "arabic": "فرح"
+      },
+      "aliases": {
+        "latin": [
+          "Farrah"
+        ],
+        "arabic": []
+      },
+      "gender": "girl",
+      "origin": "arabic",
+      "sources": {
+        "behindthename:farah": "https://www.behindthename.com/name/farah"
+      },
+      "general": [
+        {
+          "id": "general-farah",
+          "label": "Farah with its sourced meaning",
+          "basis": "general",
+          "confidence": "high",
+          "meaning": {
+            "fr": "la joie",
+            "ar": "البهجة والسرور"
+          },
+          "meaningSourceKeys": [
+            "behindthename:farah"
+          ],
+          "verses": {
+            "ar": [],
+            "fr": []
+          }
+        }
+      ]
+    },
+    "hana": {
+      "canonical": {
+        "latin": "Hana",
+        "arabic": "هناء"
+      },
+      "aliases": {
+        "latin": [
+          "Hanaa",
+          "Hanae",
+          "Hanâ"
+        ],
+        "arabic": []
+      },
+      "gender": "girl",
+      "origin": "arabic",
+      "sources": {
+        "behindthename:hana-1": "https://www.behindthename.com/name/hana-1"
+      },
+      "general": [
+        {
+          "id": "general-hana",
+          "label": "Hana with its sourced meaning",
+          "basis": "general",
+          "confidence": "high",
+          "meaning": {
+            "fr": "le bonheur",
+            "ar": "السعادة والرضا"
+          },
+          "meaningSourceKeys": [
+            "behindthename:hana-1"
+          ],
+          "verses": {
+            "ar": [],
+            "fr": []
+          }
+        }
+      ]
+    },
+    "wafa": {
+      "canonical": {
+        "latin": "Wafa",
+        "arabic": "وفاء"
+      },
+      "aliases": {
+        "latin": [
+          "Wafae",
+          "Ouafa",
+          "Wafaa"
+        ],
+        "arabic": []
+      },
+      "gender": "girl",
+      "origin": "arabic",
+      "sources": {
+        "behindthename:wafa": "https://www.behindthename.com/name/wafa"
+      },
+      "general": [
+        {
+          "id": "general-wafa",
+          "label": "Wafa with its sourced meaning",
+          "basis": "general",
+          "confidence": "high",
+          "meaning": {
+            "fr": "la fidélité",
+            "ar": "الإخلاص والأمانة"
+          },
+          "meaningSourceKeys": [
+            "behindthename:wafa"
+          ],
+          "verses": {
+            "ar": [],
+            "fr": []
+          }
+        }
+      ]
+    },
+    "sumayya": {
+      "canonical": {
+        "latin": "Soumaya",
+        "arabic": "سمية"
+      },
+      "aliases": {
+        "latin": [
+          "Sumaya",
+          "Sumayya",
+          "Soumaïa",
+          "Somaya"
+        ],
+        "arabic": []
+      },
+      "gender": "girl",
+      "origin": "arabic",
+      "sources": {
+        "behindthename:soumaya": "https://www.behindthename.com/name/soumaya",
+        "behindthename:sumayya": "https://www.behindthename.com/name/sumayya"
+      },
+      "general": [
+        {
+          "id": "general-sumayya",
+          "label": "Soumaya with its sourced meaning",
+          "basis": "general",
+          "confidence": "high",
+          "meaning": {
+            "fr": "élevée, noble",
+            "ar": "العالية الرفيعة"
+          },
+          "meaningSourceKeys": [
+            "behindthename:soumaya",
+            "behindthename:sumayya"
+          ],
           "verses": {
             "ar": [],
             "fr": []
