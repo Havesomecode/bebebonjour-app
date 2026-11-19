@@ -16,17 +16,7 @@ import { materializePackagedCodexRuntime } from "../../src/operations/codex-pack
 const RUN_PROVIDER_TEST = process.env.RUN_CODEX_STRICT_RESPONSE_FORMAT_TEST === "1";
 const PACKAGE_VERSION = "0.146.0";
 const MODEL = "gpt-5.6-sol";
-const SYNTHETIC_INTAKE = Object.freeze({
-  schemaVersion: "1.0",
-  baby: {
-    firstName: "Aélio-Z",
-    nameArabic: "أيليو",
-    gender: "girl",
-  },
-  languages: ["ar", "fr"],
-  context: { religion: "islam" },
-  notes: { specificDemands: "Keep the announcement warm, restrained, and private." },
-});
+const SYNTHETIC_BRIEF = Object.freeze({ firstName: "Aélio-Z", nameArabic: "أيليو", gender: "girl", birthDate: null, religion: "islam", tone: "tendre", phrases: [], languages: ["ar", "fr"] });
 
 function sha256(value) {
   return createHash("sha256").update(value).digest("hex");
@@ -111,7 +101,7 @@ test("packaged Codex 0.146.0 accepts and enforces the production response schema
   assert.equal(readiness.provider, CODEX_SUBSCRIPTION_PROVIDER);
   assert.equal(readiness.model, MODEL);
 
-  const receipt = await composer.compose(SYNTHETIC_INTAKE);
+  const receipt = await composer.compose(SYNTHETIC_BRIEF);
   assert.equal(receipt.metadata.adapterVersion, CODEX_SUBSCRIPTION_ADAPTER_VERSION);
   assert.equal(receipt.metadata.provider, CODEX_SUBSCRIPTION_PROVIDER);
   assert.equal(receipt.metadata.model, MODEL);

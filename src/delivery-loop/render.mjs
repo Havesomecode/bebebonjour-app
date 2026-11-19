@@ -16,6 +16,9 @@ export function narrationText(composition, language) {
 // This renderer intentionally accepts only a public projection. Never serialize a
 // claim/intake, provider receipt, or review capability into the page or its script.
 export function renderAnnouncement({ composition, baby, languages, publicUrl, publicToken, revision, pendingReview = true, narrationEnabled = true }) {
+  if (publicToken === undefined) {
+    try { publicToken = /^\/announcements\/([A-Za-z0-9_-]{1,256})\/?$/u.exec(new URL(publicUrl).pathname)?.[1]; } catch { throw new Error("render_input_rejected"); }
+  }
   assertValidCodexSubscriptionComposition(composition);
   if (!Array.isArray(languages) || languages.length < 1 || languages.length > 2 || new Set(languages).size !== languages.length || languages.some((lang) => !Object.hasOwn(LABELS, lang)) || typeof baby?.firstName !== "string" || !Number.isSafeInteger(revision) || revision < 1 || typeof publicToken !== "string" || !/^[A-Za-z0-9_-]{1,256}$/u.test(publicToken)) {
     throw new Error("render_input_rejected");

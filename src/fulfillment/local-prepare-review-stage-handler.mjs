@@ -64,14 +64,16 @@ export function createLocalPrepareReviewStageHandler(options = {}) {
           throw new Error(`Private-review composition preflight rejected: ${preflight?.state || "invalid"}.`);
         }
       }
+      const compositionBrief = compose ? paths.generationBrief : null;
+      if (compose && !compositionBrief) throw new Error("Operator generation brief is required.");
       const composition = compose
-        ? await compose(intakeSnapshot, { signal: context.signal })
+        ? await compose(compositionBrief, { signal: context.signal })
         : null;
       if (compose) await context.assertStageOwnership();
       await prepareReview(prepareArgs, {
         editorialApproval,
         intakeSnapshot,
-        ...(composition ? { composition } : {}),
+        ...(composition ? { composition, compositionBrief } : {}),
         silent: true,
       });
       await context.assertStageOwnership();

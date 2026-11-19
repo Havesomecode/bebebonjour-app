@@ -7,9 +7,8 @@ import { setTimeout as delay } from "node:timers/promises";
 import { createCodexSubscriptionComposer } from "../fulfillment/codex-subscription-composer.mjs";
 import { assertValidCodexCompositionReceipt, buildCodexCompositionRequest, sha256 } from "../../scripts/lib/codex-subscription-composition.mjs";
 import { narrationText, renderAnnouncement } from "./render.mjs";
-import { reviewedNarrationText } from "./reviewed-narration.mjs";
 
-const STAGES = new Set(["generate", "finalize", "draft_email", "final_email"]);
+const STAGES = new Set(["generate", "draft_email", "final_email"]);
 const DEFAULT_STATE_DIR = "/home/hermes/.local/share/bebebonjour-delivery-loop";
 const COMPOSER_REASONS = new Set(["composition_configuration_rejected", "composition_cancelled", "composition_timeout", "composition_output_rejected", "composition_provider_failed", "composition_provider_unavailable", "composition_auth_restore_failed", "composition_auth_writeback_failed"]);
 
@@ -22,84 +21,6 @@ export class DeliveryLoopWorkerError extends Error {
   }
 }
 const reject = (reason, retryable = false) => { throw new DeliveryLoopWorkerError(reason, retryable); };
-
-// Project only the composer's existing allowlist; customer/voice/backend secrets
-// never cross the Codex boundary. Editorial requests remain JSON preference data.
-export function mapCompositionIntake(claim) {
-  const intake = claim?.intake;
-  if (!intake || typeof intake !== "object" || Array.isArray(intake)) reject("composition_input_rejected");
-  const original = [];
-  if (intake.notes?.specificDemands !== undefined) original.push(intake.notes.specificDemands);
-  if (intake.request !== undefined) original.push(intake.request);
-  if (original.some((entry) => typeof entry !== "string")) reject("composition_input_rejected");
-  const feedback = claim.feedback;
-  if (feedback !== null && feedback !== undefined && typeof feedback !== "string") reject("composition_input_rejected");
-  let demands = original.join("\n\n");
-  if (feedback) {
-    const preferences = { originalRequest: original, correction: feedback };
-    if (claim.previousComposition?.languages) {
-      preferences.previousComposition = Object.fromEntries(intake.languages.map((language) => {
-        const previous = claim.previousComposition.languages[language];
-        return [language, { closingLines: previous?.closingLines, closingNarration: previous?.closingNarration }];
-      }));
-    }
-    demands = JSON.stringify(preferences);
-    // Prior context is optional; the original request and correction are never
-    // truncated. Keep the final displayed sentence when full closings won't fit.
-    if (Buffer.byteLength(demands) > 2000 && preferences.previousComposition) {
-      preferences.previousComposition = Object.fromEntries(intake.languages.map((language) => [language, { lastClosingLine: claim.previousComposition.languages[language]?.closingLines?.at(-1) }]));
-      demands = JSON.stringify(preferences);
-    }
-    if (Buffer.byteLength(demands) > 2000 && preferences.previousComposition) {
-      delete preferences.previousComposition;
-      demands = JSON.stringify(preferences);
-    }
-  }
-  if (Buffer.byteLength(demands) > 2000) reject("composition_input_too_large");
-  const projected = {
-    schemaVersion: intake.schemaVersion ?? "1.0",
-    baby: { firstName: intake.baby?.firstName, gender: intake.baby?.gender, ...(intake.baby?.nameArabic === undefined ? {} : { nameArabic: intake.baby.nameArabic }) },
-    languages: intake.languages,
-    context: intake.context?.religion === undefined ? {} : { religion: intake.context.religion },
-    ...(demands ? { notes: { specificDemands: demands } } : {}),
-  };
-  try { buildCodexCompositionRequest(projected); } catch { reject("composition_input_rejected"); }
-  return structuredClone(projected);
-}
-
-// The exact closing replacement is checked in both visible text and the MP3
-// input before any provider effect. General corrections must also change prose.
-export function assertCorrectionApplied(composition, claim) {
-  if (!claim.feedback) return;
-  const previous = claim.previousComposition;
-  if (!previous?.languages) reject("correction_previous_composition_missing");
-  const languages = claim.intake.languages;
-  const narrativeFields = ["introLines", "introNarration", "blessingLines", "blessingNarration", "closingLines", "closingNarration"];
-  const changed = languages.some((language) => narrativeFields.some((field) => JSON.stringify(composition.languages[language]?.[field]) !== JSON.stringify(previous.languages[language]?.[field])));
-  if (!changed) reject("correction_not_applied", true);
-  const exact = exactClosingReplacement(claim.feedback);
-  if (!exact) return;
-  const explicitLanguage = /(?:français|francaise|french|\bfr\b)/iu.test(claim.feedback) ? "fr"
-    : /(?:arabe|arabic|\bar\b)/iu.test(claim.feedback) ? "ar" : null;
-  const language = explicitLanguage ?? (/\p{Script=Arabic}/u.test(exact) ? "ar" : "fr");
-  if (!languages.includes(language)) reject("correction_language_not_selected");
-  const content = composition.languages[language];
-  if (content.closingLines.at(-1) !== exact || !content.closingNarration.endsWith(exact)) reject("correction_not_applied", true);
-  const stale = previous.languages[language]?.closingLines?.at(-1);
-  if (stale && stale !== exact && (content.closingLines.includes(stale) || narrationText(composition, language).includes(stale))) reject("correction_stale_content");
-}
-
-function exactClosingReplacement(feedback) {
-  const match = /(?:remplacer|remplacez|remplace)\s+(?:la\s+)?derni[èe]re\s+phrase\s+par\s*:?[ \t]*([\s\S]+)$/iu.exec(feedback)
-    ?? /replace\s+(?:the\s+)?(?:last|final)\s+sentence\s+(?:with|by)\s*:?[ \t]*([\s\S]+)$/iu.exec(feedback);
-  if (!match) return null;
-  let exact = match[1].trim();
-  const quotePairs = [["«", "»"], ["\"", "\""], ["“", "”"], ["'", "'"], ["[", "]"]];
-  for (const [start, end] of quotePairs) {
-    if (exact.startsWith(start) && exact.endsWith(end)) { exact = exact.slice(start.length, -end.length).trim(); break; }
-  }
-  return exact || null;
-}
 
 export function createDeliveryLoopWorker(options = {}) {
   const { client } = options;
@@ -149,34 +70,30 @@ export function createDeliveryLoopWorker(options = {}) {
 
   async function generate(job, journal, signal) {
     assertLease(job, signal);
-    const paid = job.orderMode === "paid_route_a";
-    const finalizing = paid && job.stage === "finalize";
-    if (job.stage === "finalize" && !paid) reject("claim_rejected");
-    const input = mapCompositionIntake(job);
+    let input;
+    try {
+      input = buildCodexCompositionRequest(job.brief).brief;
+      if (job.orderMode === "paid_route_a" && input.religion !== "general") reject("composition_input_rejected");
+    } catch { reject("composition_input_rejected"); }
     const inputDigest = sha256(JSON.stringify(input));
     if (journal.state.inputDigest && journal.state.inputDigest !== inputDigest) reject("journal_input_mismatch");
     journal.state.inputDigest = inputDigest;
     await journal.save();
-    let receipt = finalizing ? { composition: JSON.parse(job.approvedPreview.compositionJson), metadata: job.approvedPreview.compositionReceipt } : await journal.receipt();
+    let receipt = await journal.receipt();
     if (!receipt) {
       // Abort the existing subprocess at the earlier of composer bound / lease.
       const deadline = AbortSignal.timeout(Math.max(1, Math.min(compositionTimeoutMs, job.leaseExpiresAtMs - now() - 1000)));
       const composeSignal = signal ? AbortSignal.any([signal, deadline]) : deadline;
       receipt = await composer.compose(input, { signal: composeSignal });
       validateReceipt(receipt, input);
-      assertCorrectionApplied(receipt.composition, job);
       await journal.storeReceipt(receipt);
     }
-    if (finalizing) assertValidCodexCompositionReceipt(receipt);
-    else {
-      validateReceipt(receipt, input);
-      assertCorrectionApplied(receipt.composition, job);
-    }
+    validateReceipt(receipt, input);
     const audioFiles = [];
-    const narrationEnabled = (!paid || finalizing) && job.intake.voicePreference?.enabled !== false;
+    const narrationEnabled = job.intake.voicePreference?.enabled !== false;
     for (const language of narrationEnabled ? input.languages : []) {
       assertLease(job, signal);
-      const text = paid ? reviewedNarrationText(receipt.composition.languages[language]) : narrationText(receipt.composition, language);
+      const text = narrationText(receipt.composition, language);
       const textDigest = sha256(text);
       let audio = journal.state.audio[language];
       if (audio?.textDigest && audio.textDigest !== textDigest) reject("journal_narration_mismatch");
@@ -213,22 +130,22 @@ export function createDeliveryLoopWorker(options = {}) {
       }
       audioFiles.push({ language, storageId: audio.storageId, textDigest });
     }
-    const contentHtml = finalizing ? job.approvedPreview.contentHtml : renderAnnouncement({ composition: receipt.composition, baby: input.baby, languages: input.languages, publicUrl: job.publicUrl, publicToken: job.publicToken, revision: job.revision, pendingReview: true, narrationEnabled });
+    const contentHtml = renderAnnouncement({ composition: receipt.composition, baby: { firstName: input.firstName, nameArabic: input.nameArabic }, languages: input.languages, publicUrl: job.publicUrl, revision: job.revision, pendingReview: true, narrationEnabled });
     const contentDigest = sha256(contentHtml);
     if (journal.state.published?.contentDigest && journal.state.published.contentDigest !== contentDigest) reject("journal_publication_mismatch");
-    const wasPublished = await peek(job, (remote) => findPublication(remote, job.revision, contentDigest, finalizing), signal);
+    const wasPublished = await peek(job, (remote) => findPublication(remote, job.revision, contentDigest), signal);
     if (!wasPublished) {
       assertLease(job, signal);
       journal.state.published = { status: "inflight", contentDigest };
       await journal.save();
       try {
-        await invoke("mutation", "deliveryLoop:publish", { ...identity(job), contentHtml, composition: receipt.composition, compositionReceipt: receipt.metadata, ...(paid ? { compositionJson: JSON.stringify(receipt.composition) } : {}), audioFiles, contentDigest }, signal);
+        await invoke("mutation", "deliveryLoop:publish", { ...identity(job), contentHtml, composition: receipt.composition, compositionReceipt: receipt.metadata, compositionJson: JSON.stringify(receipt.composition), audioFiles, contentDigest }, signal);
       } catch {
-        const found = await reconcile(job, (remote) => findPublication(remote, job.revision, contentDigest, finalizing), signal);
+        const found = await reconcile(job, (remote) => findPublication(remote, job.revision, contentDigest), signal);
         if (!found) reject("publication_transport_failed", true);
       }
       // Exact read-back, not a successful mutation response, establishes success.
-      if (!await reconcile(job, (remote) => findPublication(remote, job.revision, contentDigest, finalizing), signal)) reject("publication_readback_failed", true);
+      if (!await reconcile(job, (remote) => findPublication(remote, job.revision, contentDigest), signal)) reject("publication_readback_failed", true);
     }
     journal.state.published = { status: "complete", contentDigest };
     await journal.save();
@@ -281,7 +198,7 @@ export function createDeliveryLoopWorker(options = {}) {
       job = claimed;
       log("claimed", job);
       const journal = await openJournal(stateDir, job);
-      const result = ["generate", "finalize"].includes(job.stage) ? await generate(job, journal, signal) : await sendEmail(job, journal, signal);
+      const result = job.stage === "generate" ? await generate(job, journal, signal) : await sendEmail(job, journal, signal);
       return result;
     } catch (error) {
       const { reasonCode, retryable } = safeFailure(error);
@@ -328,8 +245,8 @@ function findNarration(remote, revision, language, digest) {
   validateNarration(value, digest);
   return value;
 }
-function findPublication(remote, revision, digest, finalizing = false) {
-  const value = finalizing ? remote?.finalPublication : remote?.revisions?.find((entry) => entry.revision === revision);
+function findPublication(remote, revision, digest) {
+  const value = remote?.revisions?.find((entry) => entry.revision === revision);
   if (!value) return null;
   if (value.contentDigest !== digest) reject("publication_digest_conflict");
   return value;
@@ -427,7 +344,7 @@ async function atomicJson(file, value, immutable = false) {
   }
 }
 async function openJournal(root, job) {
-  const directory = path.join(root, sha256(job.jobId), `r${job.revision}${job.orderMode === "paid_route_a" && ["finalize", "final_email"].includes(job.stage) ? "-final" : ""}`);
+  const directory = path.join(root, sha256(job.jobId), `r${job.revision}`);
   await privateDirectory(path.dirname(directory));
   await privateDirectory(directory);
   const statePath = path.join(directory, "state.json");

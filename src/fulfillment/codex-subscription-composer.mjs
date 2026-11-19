@@ -111,8 +111,8 @@ export function createCodexSubscriptionComposer(options = {}) {
       }
     },
 
-    async compose(intake, invocation = {}) {
-      const request = buildCodexCompositionRequest(intake);
+    async compose(brief, invocation = {}) {
+      const request = buildCodexCompositionRequest(brief);
       const requestDigest = sha256(JSON.stringify({
         adapterVersion: CODEX_SUBSCRIPTION_ADAPTER_VERSION,
         provider: CODEX_SUBSCRIPTION_PROVIDER,

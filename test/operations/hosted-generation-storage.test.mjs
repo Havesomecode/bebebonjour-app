@@ -286,92 +286,22 @@ function hostedFixture(options = {}) {
   };
 }
 
-test("Vercel-safe production worker generates into Convex storage and a cold invocation reads it back", async () => {
+test("legacy production generation without an operator brief fails closed before Codex", async () => {
   const fixture = hostedFixture();
-  const environment = productionEnvironment();
-
-  const generated = await runOperationsWorkerCommand({
-    environment,
-    client: fixture.client,
-    fetchImpl: fixture.fetchImpl,
+  let composerCalls = 0;
+  const result = await runOperationsWorkerCommand({
+    environment: productionEnvironment(), client: fixture.client, fetchImpl: fixture.fetchImpl,
     createCodexAuthStateStore: () => ({ kind: "synthetic-auth-store" }),
-    createCodexRuntime: async () => "/synthetic/codex",
-    createCodexComposer: () => ({
-      compose: async () => {
-        fixture.recordTrace("provider_compose_started");
-        return null;
-      },
-    }),
-    clock: fixture.clock,
-    tokenFactory: () => "hosted-generation-stage-lease",
+    createCodexRuntime: async () => { composerCalls++; return "/synthetic/codex"; },
+    createCodexComposer: () => { throw new Error("must not construct composer"); },
+    clock: fixture.clock, tokenFactory: () => "hosted-generation-stage-lease",
   });
-  assert.equal(fixture.workerFailure, null, JSON.stringify(fixture.aggregate.stageAttempts?.at(-1)));
-  assert.deepEqual(generated, {
-    status: "ok",
-    protocolVersion: "1.0",
-    workerId: "production-worker-1",
-    enabledActionCount: 1,
-    claimed: 1,
-    completed: 1,
-    failed: 0,
-  });
-  assert.deepEqual(fixture.trace.slice(0, 11), [
-    "operations_preflight_fenced",
-    "editorial_approval_read",
-    "fulfillment_read:generation_queued",
-    "customer_job_read",
-    "fulfillment_read:generation_queued",
-    "fulfillment_read:generation_queued",
-    "prepare_review_claimed",
-    "operations_effect_fence_checked",
-    "operations_effect_fenced",
-    "fulfillment_read:generating",
-    "provider_compose_started",
-  ]);
-  assert.equal(fixture.aggregate.state, "content_review_required");
-  assert.equal(fixture.artifactRecord.kind, "private_review");
-  assert.ok(fixture.blobCount > 0);
-  assert.ok(fixture.artifactRecord.files.every((file) => file.storageId.startsWith("storage_")));
-  assert.equal(JSON.stringify(fixture.artifactRecord).includes("synthetic-hosted@example.test"), false);
-  const {
-    artifactSetId: _artifactSetId,
-    operationsCommandId: _operationsCommandId,
-    ...persistedArtifactBinding
-  } = fixture.aggregate.artifactSets[0];
-  assert.deepEqual(persistedArtifactBinding, fixture.artifactRecord);
-
-  const coldWorker = createProductionGenerationWorker({
-    environment,
-    client: fixture.client,
-    workerToken: WORKER_TOKEN,
-    fetchImpl: fixture.fetchImpl,
-    clock: () => "2026-09-06T10:05:01.000Z",
-    tokenFactory: () => "cold-hosted-generation-stage-lease",
-  });
-  const replayed = await coldWorker.fulfillmentOrchestrator.runExpectedStage(
-    JOB_ID,
-    "prepare_review",
-    {
-      operationsCommandId: COMMAND_ID,
-      workerAuthority: {
-        commandId: COMMAND_ID,
-        workerId: "production-worker-1",
-        leaseToken: "hosted-generation-lease",
-      },
-      operationsEffectBoundary: async (request, operation) => {
-        assert.deepEqual(request, {
-          jobId: JOB_ID,
-          stage: "prepare_review",
-          operationsCommandId: COMMAND_ID,
-        });
-        return operation();
-      },
-    },
-  );
-  assert.equal(replayed.outcome, "already_generated");
-  assert.equal(replayed.jobId, JOB_ID);
-  assert.equal(replayed.revisionId, fixture.aggregate.currentRevisionId);
-  assert.equal(fixture.downloadCount, fixture.blobCount);
+  assert.equal(result.completed, 0);
+  assert.equal(result.failed, 1);
+  assert.equal(fixture.workerFailure, "generation_stage_failed");
+  assert.equal(composerCalls, 0);
+  assert.equal(fixture.artifactRecord, null);
+  assert.equal(fixture.blobCount, 0);
 });
 
 test("production generate fails closed before composition when its stage claim or effect fence is rejected", async () => {

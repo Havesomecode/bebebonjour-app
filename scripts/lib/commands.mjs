@@ -64,6 +64,7 @@ const VERCEL_PROJECT_LINK_PATH = path.join(PROJECT_ROOT, ".vercel", "project.jso
 const RENDERER_MATERIAL_PATHS = [
   path.join(PROJECT_ROOT, "scripts", "lib", "commands.mjs"),
   path.join(PROJECT_ROOT, "scripts", "lib", "codex-subscription-composition.mjs"),
+  path.join(PROJECT_ROOT, "src", "delivery-loop", "brief.mjs"),
   path.join(PROJECT_ROOT, "scripts", "lib", "common.mjs"),
   path.join(PROJECT_ROOT, "scripts", "lib", "name-resolution.mjs"),
   path.join(PROJECT_ROOT, "scripts", "lib", "render-html.mjs"),
@@ -173,7 +174,7 @@ export async function commandCompose(args, options = {}) {
   }
 
   const composition = options.composition
-    ? codexCompositionToSuggestion(options.composition, intake)
+    ? codexCompositionToSuggestion(options.composition, options.compositionBrief)
     : null;
   const page = buildDraftPage(
     intake,
@@ -266,7 +267,7 @@ export async function commandPrepareReview(args, options = {}) {
     ...(editorialApprovalMaterial
       ? { editorialPolicy: editorialApprovalMaterial.policy }
       : {}),
-    ...(options.composition ? { composition: options.composition } : {}),
+    ...(options.composition ? { composition: options.composition, compositionBrief: options.compositionBrief } : {}),
     silent: options.silent === true,
   });
 

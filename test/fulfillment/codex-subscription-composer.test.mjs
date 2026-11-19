@@ -30,6 +30,8 @@ const SYNTHETIC_INTAKE = Object.freeze({
   },
 });
 
+const SYNTHETIC_BRIEF = Object.freeze({ firstName: "Aélio-Z", nameArabic: "أيليو", gender: "girl", birthDate: null, religion: "islam", tone: "tendre", phrases: [], languages: ["ar", "fr"] });
+
 const VALID_COMPOSITION = Object.freeze({
   schemaVersion: "1.0",
   languages: {
@@ -100,7 +102,7 @@ function successfulSpawn(calls, composition = VALID_COMPOSITION) {
   };
 }
 
-function receiptFor(composition = VALID_COMPOSITION, intake = SYNTHETIC_INTAKE) {
+function receiptFor(composition = VALID_COMPOSITION, intake = SYNTHETIC_BRIEF) {
   return {
     composition: structuredClone(composition),
     metadata: {
@@ -134,46 +136,19 @@ test("strict composition schema rejects missing, oversized, and unknown output",
   assert.throws(() => assertValidCodexSubscriptionComposition(unknown), /invalid codex subscription composition/i);
 });
 
-test("request projection is bounded and privacy allowlisted", () => {
-  assert.deepEqual(buildCodexCompositionRequest(SYNTHETIC_INTAKE), {
-    schemaVersion: "1.0",
-    baby: { firstName: "Aélio-Z", nameArabic: "أيليو", gender: "girl" },
-    languages: ["ar", "fr"],
-    context: { religion: "islam" },
-    preferences: { specificDemands: "Warm and restrained." },
-  });
-
-  const oversized = structuredClone(SYNTHETIC_INTAKE);
-  oversized.notes.specificDemands = "x".repeat(2_001);
-  assert.throws(() => buildCodexCompositionRequest(oversized), /composition input rejected/i);
-
-  const wrongRequest = receiptFor();
-  wrongRequest.metadata.requestDigest = "0".repeat(64);
-  assert.throws(
-    () => codexCompositionToSuggestion(wrongRequest, SYNTHETIC_INTAKE),
-    /does not match the current intake/u,
-  );
+test("request accepts only a validated operator brief and binds receipt", () => {
+  assert.deepEqual(buildCodexCompositionRequest(SYNTHETIC_BRIEF), { schemaVersion: "2.0", brief: SYNTHETIC_BRIEF });
+  assert.throws(() => buildCodexCompositionRequest(SYNTHETIC_INTAKE), /composition input rejected/i);
+  const wrongRequest = receiptFor(); wrongRequest.metadata.requestDigest = "0".repeat(64);
+  assert.throws(() => codexCompositionToSuggestion(wrongRequest, SYNTHETIC_BRIEF), /does not match/);
 });
 
-test("general-wishes intake reaches composition without exposing private fields", () => {
-  const intake = structuredClone(SYNTHETIC_INTAKE);
-  intake.baby = { firstName: "Liora", gender: "girl" };
-  intake.languages = ["fr"];
-  intake.context.religion = "general";
-  const request = buildCodexCompositionRequest(intake);
-  assert.deepEqual(request, {
-    schemaVersion: "1.0",
-    baby: { firstName: "Liora", nameArabic: null, gender: "girl" },
-    languages: ["fr"],
-    context: { religion: "general" },
-    preferences: { specificDemands: "Warm and restrained." },
-  });
-  const suggestion = codexCompositionToSuggestion(receiptFor(VALID_COMPOSITION, intake), intake);
+test("general wishes use brief religion", () => {
+  const brief = { ...SYNTHETIC_BRIEF, firstName: "Liora", nameArabic: null, languages: ["fr"], religion: "general" };
+  const suggestion = codexCompositionToSuggestion(receiptFor(VALID_COMPOSITION, brief), brief);
   assert.deepEqual(suggestion.frWishLines, VALID_COMPOSITION.languages.fr.blessingLines);
   assert.equal(suggestion.frDuaLines, undefined);
-
-  intake.context.religion = "unrecognized";
-  assert.throws(() => buildCodexCompositionRequest(intake), /composition input rejected/u);
+  assert.throws(() => buildCodexCompositionRequest({ ...brief, religion: "unknown" }), /composition input rejected/);
 });
 
 test("composer runs Codex in an ephemeral tool-disabled directory with a minimal environment", async (t) => {
@@ -190,7 +165,7 @@ test("composer runs Codex in an ephemeral tool-disabled directory with a minimal
     },
   });
 
-  const result = await context.composer.compose(SYNTHETIC_INTAKE);
+  const result = await context.composer.compose(SYNTHETIC_BRIEF);
 
   assert.equal(calls.length, 1);
   const [call] = calls;
@@ -270,7 +245,7 @@ test("composer rejects malformed or schema-invalid output without leaking provid
       },
     });
     await assert.rejects(
-      context.composer.compose(SYNTHETIC_INTAKE),
+      context.composer.compose(SYNTHETIC_BRIEF),
       (error) => error?.reasonCode === "composition_output_rejected"
         && error?.retryable === false
         && !error.message.includes(raw),
@@ -291,7 +266,7 @@ test("composer times out, terminates the child, and removes its sandbox", async 
   });
 
   await assert.rejects(
-    context.composer.compose(SYNTHETIC_INTAKE),
+    context.composer.compose(SYNTHETIC_BRIEF),
     (error) => error?.reasonCode === "composition_timeout" && error?.retryable === true,
   );
   assert.equal(child.killedWith.includes("SIGTERM"), true);
@@ -310,7 +285,7 @@ test("composer propagates cancellation, terminates the child, and retains no out
     },
   });
 
-  const pending = context.composer.compose(SYNTHETIC_INTAKE, { signal: controller.signal });
+  const pending = context.composer.compose(SYNTHETIC_BRIEF, { signal: controller.signal });
   await childStarted;
   controller.abort();
 
@@ -326,8 +301,8 @@ test("composer reuses a validated receipt for idempotent retries", async (t) => 
   const calls = [];
   const context = await fixture(t, { spawnImpl: successfulSpawn(calls) });
 
-  const first = await context.composer.compose(SYNTHETIC_INTAKE);
-  const second = await context.composer.compose(structuredClone(SYNTHETIC_INTAKE));
+  const first = await context.composer.compose(SYNTHETIC_BRIEF);
+  const second = await context.composer.compose(structuredClone(SYNTHETIC_BRIEF));
 
   assert.deepEqual(second, first);
   assert.equal(calls.length, 1);
@@ -345,13 +320,14 @@ test("validated composition feeds only the deterministic private-review pipeline
     baby: { firstName: "Bayane", nameArabic: "بَيَان", gender: "girl" },
   };
   await writeFile(intakePath, `${JSON.stringify(intake, null, 2)}\n`, "utf8");
-  const receipt = receiptFor(VALID_COMPOSITION, intake);
+  const brief = { ...SYNTHETIC_BRIEF, firstName: "Bayane", nameArabic: "بَيَان" };
+  const receipt = receiptFor(VALID_COMPOSITION, brief);
 
   await commandPrepareReview({
     input: intakePath,
     output: outputRoot,
     select: "religious-bayane",
-  }, { composition: receipt, silent: true });
+  }, { composition: receipt, compositionBrief: brief, silent: true });
 
   const dossier = JSON.parse(await readFile(path.join(outputRoot, "review.json"), "utf8"));
   const page = JSON.parse(await readFile(
@@ -369,7 +345,7 @@ test("validated composition feeds only the deterministic private-review pipeline
     input: intakePath,
     output: outputRoot,
     select: "religious-bayane",
-  }, { composition: receipt, silent: true }));
+  }, { composition: receipt, compositionBrief: brief, silent: true }));
 
   const changed = structuredClone(VALID_COMPOSITION);
   changed.languages.fr.introLines = ["Une autre composition."];
@@ -378,7 +354,7 @@ test("validated composition feeds only the deterministic private-review pipeline
       input: intakePath,
       output: outputRoot,
       select: "religious-bayane",
-    }, { composition: receiptFor(changed, intake), silent: true }),
+    }, { composition: receiptFor(changed, brief), compositionBrief: brief, silent: true }),
     /different material inputs/i,
   );
 });
@@ -393,6 +369,7 @@ test("local prepare-review handler obtains composition before deterministic arti
         reviewRoot: "/synthetic/review",
         revision: { revisionId: "revision_synthetic_001" },
         intakeSnapshot: structuredClone(SYNTHETIC_INTAKE),
+        generationBrief: structuredClone(SYNTHETIC_BRIEF),
         editorialApproval: {
           record: { synthetic: true },
           recordDigest: "b".repeat(64),
@@ -485,7 +462,7 @@ test("ephemeral managed auth is restored, proven ready, refreshed, and written b
     },
   });
 
-  const result = await composer.compose(SYNTHETIC_INTAKE);
+  const result = await composer.compose(SYNTHETIC_BRIEF);
   assert.equal(result.metadata.model, "gpt-5.6-sol");
   assert.deepEqual(probeCalls.map((call) => call.args), [["--version"], ["login", "status"]]);
   assert.equal(probeCalls.every((call) => call.options.cwd === path.dirname(codexHome)), true);
@@ -595,7 +572,7 @@ test("managed readiness and composition tolerate only the bound PATH alias refus
     spawnImpl: successfulSpawn(calls),
   });
   assert.equal((await composer.readiness()).authMode, "managed-chatgpt-ephemeral");
-  assert.deepEqual((await composer.compose(SYNTHETIC_INTAKE)).composition, VALID_COMPOSITION);
+  assert.deepEqual((await composer.compose(SYNTHETIC_BRIEF)).composition, VALID_COMPOSITION);
   assert.equal(calls.length, 1);
   assert.equal(commits.length, 2);
   for (const commit of commits) assert.deepEqual(commit, { value: lease, authJson: lease.authJson });
@@ -640,7 +617,7 @@ test("managed auth writeback failure discards model output", async (t) => {
   });
 
   await assert.rejects(
-    composer.compose(SYNTHETIC_INTAKE),
+    composer.compose(SYNTHETIC_BRIEF),
     (error) => error?.reasonCode === "composition_auth_writeback_failed"
       && !error.message.includes("secret persistence detail"),
   );
