@@ -1,0 +1,82 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import { PGlite } from "@electric-sql/pglite";
+import { ConvexHttpClient } from "convex/browser";
+import { makeFunctionReference } from "convex/server";
+import { createHash, createHmac } from "node:crypto";
+import { mkdtemp, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import path from "node:path";
+import { startRailwayServer } from "../../server/railway.mjs";
+import { createDeliveryLoopWorker } from "../../src/delivery-loop/worker.mjs";
+import { buildCodexCompositionRequest } from "../../scripts/lib/codex-subscription-composition.mjs";
+
+const token = "offline-worker-capability-32-characters", operator = "offline-operator-capability-32-characters";
+const sha = s => createHash("sha256").update(s).digest("hex");
+const ref = name => makeFunctionReference(`deliveryLoop:${name}`);
+
+test("PGlite runtime, protocol, transactions, storage, scheduler and HTTP worker", async t => {
+  Object.assign(process.env, {BEBEBONJOUR_DELIVERY_LOOP_TOKEN:token,BEBEBONJOUR_OPERATIONS_TOKEN:operator,BEBEBONJOUR_TRIAL_PASSWORD_SHA256:sha("synthetic-password"),BEBEBONJOUR_DELIVERY_LOOP_ORIGIN:"https://public.example.invalid"});
+  Object.assign(process.env, {OPENAI_API_KEY:'synthetic', BEBEBONJOUR_CLOUDFLARE_ACCOUNT_ID:'a'.repeat(32), BEBEBONJOUR_CLOUDFLARE_ZONE_ID:'b'.repeat(32), BEBEBONJOUR_CLOUDFLARE_EMAIL_TOKEN:'synthetic-send-token', BEBEBONJOUR_OPERATOR_EMAIL:'operator@example.invalid', BEBEBONJOUR_OPS_CONSOLE_URL:'https://ops.example.invalid'});
+  const actualFetch = globalThis.fetch; const effects = [];
+  globalThis.fetch = async (url, options) => {
+    const address = String(url);
+    if (address.startsWith('http://127.0.0.1:')) return actualFetch(url, options);
+    if (address === 'https://api.openai.com/v1/audio/speech') { effects.push('speech'); return new Response(new Uint8Array(180).fill(23)); }
+    if (address.startsWith('https://api.cloudflare.com/')) { const payload = JSON.parse(options.body); effects.push(payload.headers['X-Bebe-Operation']); return Response.json({success:true,errors:[],result:{message_id:`offline-${effects.length}`,queued:[payload.to],delivered:[],permanent_bounces:[]}}); }
+    throw new Error('unexpected_external_request');
+  };
+  t.after(() => { globalThis.fetch = actualFetch; });
+  const database = new PGlite();
+  const app = await startRailwayServer({database,publicOrigin:"https://public.example.invalid",advisoryLock:false,schedulerIntervalMs:3600000,sweepIntervalMs:3600000});
+  const stateDir = await mkdtemp(path.join(tmpdir(), "railway-worker-"));
+  t.after(async()=>{await app.close(); await database.close(); await rm(stateDir,{recursive:true,force:true});});
+  const base = `http://127.0.0.1:${app.server.address().port}`;
+  assert.equal((await fetch(`${base}/version`)).status, 200);
+  const tooLarge = await fetch(`${base}/api/query`, {method:'POST',body:'x'.repeat(2 * 1024 * 1024 + 1)});
+  assert.equal(tooLarge.status, 413);
+  const http = new ConvexHttpClient(base,{skipConvexDeploymentUrlCheck:true,logger:false});
+  const intake = {email:"fictional@example.invalid",babyName:"Amal",language:"fr",gender:"girl",context:"general",voiceEnabled:true,consent:true,fictional:true};
+  const args = {intake,magicPassword:"synthetic-password",idempotencyKey:"synthetic-job-1"};
+  const [job,duplicate] = await Promise.all([http.mutation(ref("submit"),args),http.mutation(ref("submit"),args)]); assert.deepEqual(job,duplicate);
+  await assert.rejects(http.mutation(ref("claim"),{workerToken:token}),/ArgumentValidationError/);
+  await assert.rejects(http.action(makeFunctionReference("deliveryLoopNotices:send"),{}),/function_not_found/);
+  const page = await fetch(`${base}/delivery`); assert.equal(page.status,200);
+  const secret = "whsec_syntheticsecret123456789"; process.env.BEBEBONJOUR_PAID_STRIPE_WEBHOOK_SECRET = secret;
+  const raw = "{ invalid raw body "; const timestamp = Math.floor(Date.now()/1000);
+  const signature = createHmac("sha256",secret).update(`${timestamp}.${raw}`).digest("hex");
+  const webhook = await fetch(`${base}/delivery/payment/webhook`,{method:"POST",headers:{"content-type":"application/json","stripe-signature":`t=${timestamp},v1=${signature}`},body:raw});
+  assert.equal((await webhook.json()).status,"payment_event_format");
+  const altered = await fetch(`${base}/delivery/payment/webhook`,{method:"POST",headers:{"content-type":"application/json","stripe-signature":`t=${timestamp},v1=${signature}`},body:raw.trim()});
+  assert.equal((await altered.json()).status,"payment_event_signature");
+  await http.mutation(ref("operatorLaunch"),{operatorToken:operator,jobId:job.jobId,expectedRevision:1,brief:{firstName:"Amal",nameArabic:null,gender:"girl",birthDate:null,religion:"general",tone:"tendre",phrases:[]}});
+  const fr = {description:"Une histoire.",introLines:["Bienvenue.","Un bonheur et une joie."],introNarration:"Bienvenue.",blessingLines:["Des jours doux."],blessingNarration:"Des jours doux.",closingLines:["Notre amour."],closingNarration:"Notre amour."};
+  const ar = {description:"فرح جديد.",introLines:["أهلاً بك.","فرح جديد."],introNarration:"أهلاً بك.",blessingLines:["أيام جميلة."],blessingNarration:"أيام جميلة.",closingLines:["لك كل الحب."],closingNarration:"لك كل الحب."};
+  const composition = {schemaVersion:"1.0",languages:{fr,ar}};
+  const composer = {async compose(input) {return {composition,metadata:{adapterVersion:"1.0.0",provider:"openai-codex-subscription",model:"offline-fixture",requestDigest:sha(JSON.stringify({adapterVersion:"1.0.0",provider:"openai-codex-subscription",model:"offline-fixture",request:buildCodexCompositionRequest(input)})),outputDigest:sha(JSON.stringify(composition))}};}};
+  const worker = createDeliveryLoopWorker({client:http,composer,stateDir,workerToken:token,workerId:"offline-worker",logger(){}});
+  const result = await worker.runOnce(); assert.equal(result.status,"published",JSON.stringify(result));
+  const read = await http.query(ref("read"),{workerToken:token,jobId:job.jobId}); assert.equal(read.status,"draft_email_queued");
+  assert.ok(effects.includes('speech'));
+  const audio = await fetch(`${base}/announcements/${new URL(job.publicUrl).pathname.split('/').pop()}/audio/1/fr`);
+  assert.equal(audio.status, 200); assert.equal((await audio.arrayBuffer()).byteLength,180);
+  assert.equal((await worker.runOnce()).status, 'email_sent');
+  const approval = await fetch(`${base}/delivery/review`, {method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({jobId:job.jobId,reviewToken:job.reviewToken,action:'approve',expectedRevision:1,idempotencyKey:'railway-review-1'})});
+  assert.equal(approval.status, 200); assert.equal((await approval.json()).status, 'final_email_queued');
+  assert.equal((await worker.runOnce()).status, 'email_sent');
+  assert.equal(effects.filter(x => x.includes(':draft_email')).length,1);
+  assert.equal(effects.filter(x => x.includes(':final_email')).length,1);
+  assert.ok(effects.some(x => x.includes('operator_new')));
+
+  assert.equal((await fetch(`${base}/api/storage/upload/test`, {method:"POST", body:"audio"})).status,404);
+  await assert.rejects(app.runtime.actionContext().storage.generateUploadUrl(), /unsupported_upload_url/);
+  assert.equal(await app.runtime.actionContext().storage.getUrl("missing"), null);
+  const storageId = await app.runtime.actionContext().storage.store(new Blob(["synthetic audio"],{type:"audio/mpeg"}));
+  assert.equal(await (await app.runtime.actionContext().storage.get(storageId)).text(),"synthetic audio");
+  await app.runtime.actionContext().storage.delete(storageId); assert.equal(await app.runtime.actionContext().storage.get(storageId),null);
+  const scheduled = await database.query("INSERT INTO scheduled_functions (name,args,run_at,state,created_at) VALUES ($1,$2,$3,'pending',$4) RETURNING id",["deliveryLoopData:sweep", "{}", 0, Date.now()]);
+  await app.runtime.pollScheduler();
+  assert.equal((await database.query("SELECT state FROM scheduled_functions WHERE id=$1",[scheduled.rows[0].id])).rows[0].state,"done");
+  await assert.rejects(app.runtime.transaction(async client => { await client.query("INSERT INTO scheduled_functions (name,args,run_at,state,created_at) VALUES ('rollback','{}',0,'pending',0)"); throw Error("rollback"); }));
+  assert.equal((await database.query("SELECT * FROM scheduled_functions WHERE name='rollback'")).rows.length,0);
+});
