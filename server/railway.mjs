@@ -3,10 +3,14 @@ import pg from "pg";
 import { Readable } from "node:stream";
 import { createRailwayRuntime } from "../src/railway/runtime.mjs";
 import { createHttpHandler } from "../src/railway/http.mjs";
+import { createInterestList } from "../src/interest/interest-list.mjs";
+import { cloudflareTransport, alreadyAdmitted } from "../src/delivery-loop/cloudflare-runtime.mjs";
 
-export async function startRailwayServer({ database, publicOrigin = process.env.BEBEBONJOUR_DELIVERY_LOOP_ORIGIN, port = 0, host = "127.0.0.1", schedulerIntervalMs = 1000, sweepIntervalMs = 3600000, advisoryLock = true } = {}) {
+export async function startRailwayServer({ database, publicOrigin = process.env.BEBEBONJOUR_DELIVERY_LOOP_ORIGIN, port = 0, host = "127.0.0.1", sendInterestEmail, schedulerIntervalMs = 1000, sweepIntervalMs = 3600000, advisoryLock = true } = {}) {
   const origin = publicOrigin ? new URL(publicOrigin) : null; if (origin && (!["http:","https:"].includes(origin.protocol) || origin.username || origin.password || origin.pathname !== "/" || origin.search || origin.hash)) throw new Error("public_origin_invalid");
-  const runtime = await createRailwayRuntime({database, advisoryLock, publicOrigin:origin?.origin}); const handle = createHttpHandler(runtime);
+  const runtime = await createRailwayRuntime({database, advisoryLock, publicOrigin:origin?.origin}); const interest = await createInterestList({ database, publicOrigin: origin?.origin, operationsToken: process.env.BEBEBONJOUR_OPERATIONS_TOKEN,
+    sendEmail: sendInterestEmail ?? (message => cloudflareTransport().send(message, { fenceExternalEffect: alreadyAdmitted })) });
+  const handle = createHttpHandler(runtime, { interest });
   const server = createServer(async (req,res) => {
     try {
       const forwardedProto = String(req.headers["x-forwarded-proto"] || "http").split(",")[0].trim();

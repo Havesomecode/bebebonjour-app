@@ -1,7 +1,7 @@
 import { convexToJson, jsonToConvex } from "convex/values";
 import router from "../../convex/http.js";
 
-export function createHttpHandler(runtime) {
+export function createHttpHandler(runtime, { interest } = {}) {
   return async request => {
     const url = new URL(request.url);
     if (request.method === "GET" && url.pathname === "/version") return Response.json({ ok: true });
@@ -16,6 +16,7 @@ export function createHttpHandler(runtime) {
         return Response.json({status:"success", value:convexToJson(value), logLines:[]});
       } catch (error) { return Response.json({status:"error", errorMessage: error.name === "ArgumentValidationError" ? "Error ArgumentValidationError" : `Uncaught Error: ${error.message}`, logLines:[]}); }
     }
+    if (interest && url.pathname.startsWith("/interest/")) return interest.handle(request);
     if (url.pathname !== "/delivery" && !url.pathname.startsWith("/delivery/") && !url.pathname.startsWith("/announcements/")) return new Response("Not found", {status:404});
     const handler = router.lookup(url.pathname, request.method)?.[0];
     if (!handler) return new Response("Not found", {status:404});

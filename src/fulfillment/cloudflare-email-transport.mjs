@@ -88,7 +88,7 @@ function validateMessage(message) {
         || !value.trim() || Buffer.byteLength(value, "utf8") > 32_000)
       || (message.from !== undefined && message.from !== SENDER)
       || typeof message.idempotencyKey !== "string"
-      || !/^(?:bb_[a-f0-9]{64}|bebe-loop:job_[A-Za-z0-9_-]+:[1-9][0-9]*:(?:draft_email|final_email|closure_notice)|bebe-notice:job_[A-Za-z0-9_-]+:[1-9][0-9]*:(?:operator_new|operator_correction|customer_payment))$/u.test(message.idempotencyKey)
+      || !/^(?:bb_[a-f0-9]{64}|bebe-loop:job_[A-Za-z0-9_-]+:[1-9][0-9]*:(?:draft_email|final_email|closure_notice)|bebe-notice:job_[A-Za-z0-9_-]+:[1-9][0-9]*:(?:operator_new|operator_correction|customer_payment)|bebe-interest:int_[a-f0-9]{24}:[1-9][0-9]*:confirmation)$/u.test(message.idempotencyKey)
       || message.idempotencyKey.length > 200) {
     throw failure("cloudflare_input_invalid", false);
   }
