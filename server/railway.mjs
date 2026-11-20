@@ -27,8 +27,9 @@ export async function startRailwayServer({ database, publicOrigin = process.env.
   const runPoll = async () => { if (polling) { pendingWake = true; return; } polling = true; try { do { pendingWake = false; while (await runtime.pollScheduler()) {} } while (pendingWake); } catch { console.error("scheduled_function_failed"); } finally { polling = false; } };
   runtime.setWake(() => { void runPoll(); });
   const poll = setInterval(runPoll,schedulerIntervalMs);
-  const sweep = setInterval(() => { runtime.runMutation("deliveryLoopData:sweep", {}).catch(() => console.error("hourly_sweep_failed")); },sweepIntervalMs);
-  poll.unref(); sweep.unref(); void runPoll();
+  const purgeInterest = () => interest.purge().catch(() => console.error("interest_purge_failed"));
+  const sweep = setInterval(() => { runtime.runMutation("deliveryLoopData:sweep", {}).catch(() => console.error("hourly_sweep_failed")); void purgeInterest(); },sweepIntervalMs);
+  poll.unref(); sweep.unref(); void runPoll(); void purgeInterest();
   return {server,runtime, async close() { clearInterval(poll); clearInterval(sweep); await new Promise((resolve,reject)=>server.close(e=>e?reject(e):resolve())); }};
 }
 export async function createRailwayBackend({ db, ...options } = {}) { return startRailwayServer({ database: db, ...options }); }

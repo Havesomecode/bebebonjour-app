@@ -81,3 +81,15 @@ test("the real Cloudflare transport accepts the confirmation message", async () 
   assert.equal((await list.handle(post("/interest/subscribe", { email: "f@example.org", consent: true }))).status, 200);
   assert.equal(calls.length, 1); assert.match(calls[0].subject, /Confirmez/); assert.ok(CONSENT_TEXT);
 });
+
+test("the server purges stale unconfirmed addresses on its own, without any new sign-up", async t => {
+  const { PGlite: Pg } = await import("@electric-sql/pglite"); const { startRailwayServer } = await import("../../server/railway.mjs");
+  const database = new Pg(); const sent = [];
+  const app = await startRailwayServer({ database, publicOrigin: origin, advisoryLock: false, schedulerIntervalMs: 3600000, sweepIntervalMs: 50, sendInterestEmail: async m => { sent.push(m); } });
+  t.after(async () => { await app.close(); await database.close(); });
+  const res = await fetch(`http://127.0.0.1:${app.server.address().port}/interest/subscribe`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ email: "stale@example.org", consent: true }) });
+  assert.equal(res.status, 200);
+  await database.query("UPDATE interest_list SET created_at = now() - interval '8 days', confirm_sent_at = now() - interval '8 days'");
+  for (let i = 0; i < 40; i++) { await new Promise(r => setTimeout(r, 50)); if ((await database.query("SELECT count(*)::int AS n FROM interest_list")).rows[0].n === 0) return; }
+  assert.fail("stale pending address was not purged by the scheduled sweep");
+});
