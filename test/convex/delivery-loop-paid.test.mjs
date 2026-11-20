@@ -5,7 +5,7 @@ import Stripe from 'stripe';
 import { convexTest } from 'convex-test';
 import { makeFunctionReference } from 'convex/server';
 import schema from '../../convex/schema.js';
-import { PAID_MODE, TERMS_VERSION } from '../../convex/deliveryLoopPaidPolicy.js';
+import { PAID_MODE, TERMS_VERSION, paidSafeStatus } from '../../convex/deliveryLoopPaidPolicy.js';
 import { inspectPaidPayment } from '../../src/delivery-loop/paid-payment.mjs';
 const workerToken='offline-worker-secret-with-more-than-32-characters';
 const operatorToken='offline-operator-secret-with-more-than-32-characters';
@@ -85,40 +85,88 @@ test('paid form presents message and meaning before name and email', async()=>{
  assert.match(html,/Sens du prénom/);
 });
 
-test('delivery serves direction A and ordered offered form', async()=>{
- const response=await fixture().fetch('/delivery'); const html=await response.text();
- assert.equal(response.status,200);
- const order=['request','meaning','language','gender','context','birthDate','babyName','email'].map(id=>html.indexOf(`id="offered-${id}"`));
+test('delivery separates paid and invited forms, even when paid is disabled', async()=>{
+ const t=fixture();
+ for(const path of ['/delivery','/delivery?mode=paid_route_a']) {
+  const response=await t.fetch(path), html=await response.text();
+  assert.equal(response.status,200); assert.match(html,/id="paid-intake"/); assert.doesNotMatch(html,/magicPassword|show-offer|mot de passe/i);
+  assert.match(html,/font-size:16px/); assert.match(response.headers.get('content-security-policy'),/font-src 'self'/);
+ }
+ const html=await (await t.fetch('/delivery?mode=offert')).text();
+ assert.match(html,/id="intake"/); assert.match(html,/name="magicPassword"/); assert.doesNotMatch(html,/id="paid-intake"/);
+ const order=['request','meaning','language','gender','context','birthDate','babyName','email'].map(id=>html.indexOf(`id="${id}"`));
  assert.ok(order.every((value,index)=>value>=0 && (!index || value>order[index-1])),`offered order: ${order}`);
- assert.match(html,/font-size:16px/); assert.match(html,/#2f5443/i); assert.match(html,/Instrument Sans/);
- assert.match(response.headers.get('content-security-policy'),/font-src 'self'/);
+ process.env.BEBEBONJOUR_PAID_ROUTE_A_ENABLED='false';
+ for(const path of ['/delivery','/delivery?mode=paid_route_a']) {
+  const response=await t.fetch(path), closed=await response.text(); assert.equal(response.status,200);
+  assert.match(closed,/Les commandes sont fermées pour le moment\./); assert.match(closed,/Écrivez-nous à contact@bebebonjour\.com\./); assert.doesNotMatch(closed,/magicPassword|mot de passe/i);
+ }
+ assert.match(await (await t.fetch('/delivery?mode=offert')).text(),/name="magicPassword"/);
 });
 
+test('invitation fragment prefills password and is removed',async()=>{
+ const {Script,createContext}=await import('node:vm'); const html=await (await fixture().fetch('/delivery?mode=offert')).text();
+ const script=html.match(/<script[^>]*>([\s\S]*?)<\/script>/)[1]; const password={value:''}; let replaced;
+ const form={elements:{magicPassword:password},addEventListener(){}};
+ const location={hash:'#code=abc',pathname:'/delivery',search:'?mode=offert'};
+ new Script(script).runInContext(createContext({document:{querySelector:()=>form},location,history:{replaceState(...args){replaced=args;}},crypto:{randomUUID:()=> 'id'},URLSearchParams,decodeURIComponent}));
+ assert.equal(password.value,'abc'); assert.ok(replaced); assert.equal(replaced[2],'/delivery?mode=offert');
+});
 
 test('both forms submit the meaning only inside request',async()=>{
- const {Script,createContext}=await import('node:vm');
- const response=await fixture().fetch('/delivery'); const html=await response.text();
- const script=html.match(/<script[^>]*>([\s\S]*?)<\/script>/)[1];
- const sent=[]; const forms={};
- for(const id of ['#paid-intake','#offered-intake']) forms[id]={handlers:{},elements:{magicPassword:{value:'secret'}},addEventListener(type,fn){this.handlers[type]=fn;},querySelector(){return {disabled:false};}};
- const elements={...forms};
- for(const id of ['#result','#review-link','#offered-result','#offered-links','#show-offer','#paid-section','#offered-section']) elements[id]={addEventListener(){},replaceChildren(){},append(){},hidden:false};
- const document={querySelector:selector=>elements[selector],createElement:()=>({append(){}})};
- class FormData {constructor(form){this.form=form;}get(name){return ({request:'Bonjour',meaning:this.form.meaning,email:'fictional@example.invalid',babyName:'Amal',gender:'neutral',language:'fr',context:'general',magicPassword:'secret'})[name]??null;}has(){return true;}}
- const context=createContext({document,FormData,crypto:{randomUUID:()=> 'test-id'},fetch:async(_url,options)=>{sent.push(JSON.parse(options.body));return {ok:true,json:async()=>({reviewUrl:'/test'})};}});
- new Script(script).runInContext(context);
- for(const form of Object.values(forms)) for(const meaning of ['  lumière  ','   ']) {form.meaning=meaning;await form.handlers.submit({preventDefault(){}});}
+ const {Script,createContext}=await import('node:vm'); const t=fixture(); const sent=[];
+ for(const [path,id] of [['/delivery','#paid-intake'],['/delivery?mode=offert','#intake']]) {
+  const html=await (await t.fetch(path)).text(); const script=html.match(/<script[^>]*>([\s\S]*?)<\/script>/)[1];
+  const form={handlers:{},elements:{magicPassword:{value:'secret'}},addEventListener(type,fn){this.handlers[type]=fn;},querySelector(){return {disabled:false};}};
+  const elements={[id]:form}; for(const selector of ['#result','#review-link','#links']) elements[selector]={replaceChildren(){},append(){},hidden:false};
+  const document={querySelector:selector=>elements[selector],createElement:()=>({append(){}})};
+  class FormData {get(name){return ({request:'Bonjour',meaning:form.meaning,email:'fictional@example.invalid',babyName:'Amal',gender:'neutral',language:'fr',context:'general',magicPassword:'secret'})[name]??null;}has(){return true;}}
+  const context=createContext({document,FormData,location:{hash:'',pathname:'/delivery',search:''},history:{replaceState(){}},URLSearchParams,decodeURIComponent,crypto:{randomUUID:()=> 'test-id'},fetch:async(_url,options)=>{sent.push(JSON.parse(options.body));return {ok:true,json:async()=>({reviewUrl:'/test'})};}});
+  new Script(script).runInContext(context);
+  for(const meaning of ['  lumière  ','   ']) {form.meaning=meaning;await form.handlers.submit({preventDefault(){}});}
+ }
  assert.deepEqual(sent.map(x=>x.intake.request),['Bonjour\n\nSens du prénom : lumière','Bonjour','Bonjour\n\nSens du prénom : lumière','Bonjour']);
  assert.ok(sent.every(x=>!Object.hasOwn(x.intake,'meaning')));
 });
 
-
 test('both forms offer and submit a narration voice without duplicate IDs', async () => {
  const t=fixture();
- for (const path of ['/delivery?mode=paid_route_a','/delivery']) {
+ for (const path of ['/delivery?mode=paid_route_a','/delivery?mode=offert']) {
    const html=await (await t.fetch(path)).text();
    assert.match(html, /name="voice"/); assert.match(html, /value="pere"/); assert.match(html, /value="mere"/);
    assert.match(html, /voice:data\.get\('voice'\)/);
    const ids=[...html.matchAll(/\bid="([^"]+)"/g)].map(match=>match[1]); assert.equal(new Set(ids).size,ids.length);
  }
+});
+
+test('checkout expiration is exposed only when a checkout is available with an expired URL',()=>{
+ const row={status:'payment_pending',data:{payment:{status:'pending'}}};
+ assert.equal(paidSafeStatus(row).checkoutExpired,false);
+ row.data.payment.checkout={url:'https://offline.invalid',expiresAtMs:Date.now()+60000}; assert.equal(paidSafeStatus(row).checkoutExpired,false);
+ row.data.payment.checkout.expiresAtMs=Date.now()-1; assert.equal(paidSafeStatus(row).checkoutExpired,true);
+ row.data.payment.checkout.url=''; assert.equal(paidSafeStatus(row).checkoutExpired,false);
+ row.data.payment.checkout.url='https://offline.invalid'; row.status='generation_queued'; assert.equal(paidSafeStatus(row).checkoutExpired,false);
+});
+
+test('paid order copy covers payment lifecycle and support',async()=>{
+ const {paidReviewDocument}=await import('../../convex/deliveryLoopPaidViews.js');
+ const html=paidReviewDocument((title,body,script)=>body+script,'',{termsUrl:'/terms'},s=>s);
+ for(const text of ['Nous lisons votre demande. Vous recevrez le lien de paiement par courriel.','Votre demande est acceptée. Payez 39 € pour lancer la création.','Votre lien de paiement a expiré. Aucun montant n’a été débité. Ouvrez un nouveau paiement.','Ouvrir un nouveau paiement de 39 €','Payer 39 € par carte','Paiement en cours de confirmation. Cette page se met à jour toute seule.','Le paiement n’a pas abouti : aucun montant n’a été débité. Vous pouvez réessayer.','Paiement reçu. Votre faire-part est en cours de création.','Écrivez-nous à contact@bebebonjour.com.']) assert.ok(html.includes(text),text);
+ assert.match(html,/checkoutExpired/); assert.match(html,/paymentStatus===['"]settled['"]/);
+});
+
+
+test('paid review updates rendered state and payment actions',async()=>{
+ const {Script,createContext,runInContext}=await import('node:vm');
+ const {paidReviewDocument}=await import('../../convex/deliveryLoopPaidViews.js');
+ const script=paidReviewDocument((title,body,source)=>source,"const messages={};const errors={};async function post(){}",{},s=>s);
+ const elements={}; const element=id=>elements[id]??=({textContent:'',hidden:false,addEventListener(){},querySelectorAll(){return [];}});
+ const context=createContext({document:{querySelector:element,querySelectorAll:()=>[]},location:{search:'?paiement=retour'},URLSearchParams,fetch:()=>new Promise(()=>{}),setInterval(){}});
+ new Script(script).runInContext(context);
+ const update=(status,paymentStatus='pending',checkoutExpired=false)=>{context.row={status,paymentStatus,checkoutExpired,checkoutAvailable:status==='payment_pending',revision:0,correctionsRemaining:2};runInContext('update(row)',context);};
+ update('awaiting_operator'); assert.equal(element('#state').textContent,'Nous lisons votre demande. Vous recevrez le lien de paiement par courriel.');
+ update('payment_pending'); assert.equal(element('#state').textContent,'Votre demande est acceptée. Payez 39 € pour lancer la création.'); assert.equal(element('#pay').textContent,'Payer 39 € par carte'); assert.equal(element('#payment-return').textContent,'Paiement en cours de confirmation. Cette page se met à jour toute seule.');
+ update('payment_pending','pending',true); assert.equal(element('#state').textContent,'Votre lien de paiement a expiré. Aucun montant n’a été débité. Ouvrez un nouveau paiement.'); assert.equal(element('#pay').textContent,'Ouvrir un nouveau paiement de 39 €');
+ for(const status of ['generation_queued','generation_running']) { update(status,'settled'); assert.equal(element('#state').textContent,'Paiement reçu. Votre faire-part est en cours de création.'); assert.equal(element('#pay').hidden,true); }
+ runInContext("search.set('paiement','annule')",context); update('payment_pending'); assert.equal(element('#payment-return').textContent,'Le paiement n’a pas abouti : aucun montant n’a été débité. Vous pouvez réessayer.');
 });

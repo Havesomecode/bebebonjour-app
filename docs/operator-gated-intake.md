@@ -11,12 +11,12 @@ No request reaches a model until an operator has read it in the ops console (`be
 
 ## Lifecycle
 
-Both order modes: `paid_route_a` (public, €39) and `complimentary` (offer password).
+Both order modes: `paid_route_a` (public, €39) and `complimentary` (invited families, offer password). `/delivery` and `/delivery?mode=paid_route_a` show only the paid form; when disabled they show a closed-orders message. Invitations use `https://www.bebebonjour.com/delivery?mode=offert#code=<password>` (URL-encode the password). The browser prefills the password from the fragment and removes it from the address; the fragment is not sent to the server. The invited form remains available when paid orders are disabled. Share invitations privately.
 
 1. `submit` stores the intake with status `awaiting_operator`. The only email is an operator notice (`operator_new`) to `BEBEBONJOUR_OPERATOR_EMAIL` with the link `${BEBEBONJOUR_OPS_CONSOLE_URL}/commandes/<jobId>` and no customer data. Paid intake records terms (`TERMS_VERSION = "route-a-39-v2"`), publication permission and the adult/France/parental declaration at submit.
 2. Operator reads the raw request and edits the brief, then:
    - **Launch** (`operatorLaunch`): stores the brief for `desiredRevision`.
-     - paid, revision 1, payment not settled → `payment_pending`, plus a `customer_payment` email to the customer with their order link (`reviewUrl`). The order page has the "Payer 39 € par carte" button (Stripe Checkout, created on click, 23 h expiry).
+     - paid, revision 1, payment not settled → `payment_pending`, plus a `customer_payment` email to the customer with their order link (`reviewUrl`). The order page has the "Payer 39 € par carte" button (Stripe Checkout, created on click, 23 h expiry). An expired link offers a new payment; a return awaits confirmation and a cancelled payment offers a retry. A settled payment shows creation in progress when generation is queued or running.
      - otherwise (complimentary, or a paid correction, or relaunch after a failed generation) → `generation_queued`.
    - **Refuse** (`operatorRefuse`), only from `awaiting_operator` → `refused`. No email.
 3. Stripe webhook (`payment_intent.succeeded`, metadata `job_id`, `revision` = `"1"`, `brief_digest`) → verified evidence → `generation_queued`. A payment for a job that is not `payment_pending` is still recorded (money was taken) and the job is left as is for the operator; no generation is started for a cancelled/refused order.

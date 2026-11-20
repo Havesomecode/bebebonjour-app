@@ -24,15 +24,17 @@ export function paidStageGate(row, stage) {
   if (stage === "generate" && row.data.payment?.status !== "settled") throw new Error("payment_required");
 }
 // Paid additions to the customer status:
-// { orderMode, priceMinor, currency, support, paymentStatus, checkoutAvailable,
+// { orderMode, priceMinor, currency, support, paymentStatus, checkoutAvailable, checkoutExpired,
 //   correctionsRemaining, cancelled, revoked, refused, termsVersion, termsUrl,
 //   delivered, hostingEndsAtMs }
 export function paidSafeStatus(row) {
   const d = row.data;
+  const checkoutAvailable = row.status === "payment_pending" && d.payment.status !== "settled" && !d.cancelledAtMs && !d.revokedAtMs && !d.closedAtMs && !d.deletedAtMs && !d.deletionRequestedAtMs;
   return {
     orderMode: PAID_MODE, priceMinor: 3900, currency: "EUR", support: "contact@bebebonjour.com",
     paymentStatus: d.payment.status,
-    checkoutAvailable: row.status === "payment_pending" && d.payment.status !== "settled" && !d.cancelledAtMs && !d.revokedAtMs && !d.closedAtMs && !d.deletedAtMs && !d.deletionRequestedAtMs,
+    checkoutAvailable,
+    checkoutExpired: !!(checkoutAvailable && d.payment.checkout?.url && d.payment.checkout.expiresAtMs <= Date.now()),
     correctionsRemaining: 2 - (d.correctionsUsed || 0),
     cancelled: !!d.cancelledAtMs, revoked: !!d.revokedAtMs, refused: row.status === "refused",
     termsVersion: TERMS_VERSION, termsUrl: process.env.BEBEBONJOUR_PAID_TERMS_URL || null,

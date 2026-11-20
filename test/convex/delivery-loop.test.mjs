@@ -375,7 +375,7 @@ test("same-domain proxy: configured public origin is accepted, others stay forbi
 
 test("HTTP intake/review/publication journey works without credentials or provider effects", async () => {
   const t = fixture();
-  const page = await t.fetch('/delivery'); const html = await page.text();
+  const page = await t.fetch('/delivery?mode=offert'); const html = await page.text();
   assert.equal(page.status, 200); assert.match(html, /name="consent" required/); assert.match(html, /name="birthDate"/); assert.match(html, /name="request"/); assert.match(html, /Demande reçue\./);
   assert.equal(page.headers.get("cache-control"), "private, no-store");
   assert.equal((await t.fetch("/delivery/preview", { method: "POST" })).status, 404);

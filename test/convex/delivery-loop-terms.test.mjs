@@ -81,8 +81,8 @@ test('only the exact GET version is added; paid and private owner negative route
   assert.equal(http.lookup(path, 'POST'), null);
   process.env.BEBEBONJOUR_PAID_ROUTE_A_ENABLED = 'false';
   const paid = await http.lookup('/delivery', 'GET')[0]._handler(forbiddenContext, new Request(origin + '/delivery?mode=paid_route_a'));
-  assert.equal(paid.status, 400);
-  assert.deepEqual(await paid.json(), { status: 'error', code: 'paid_route_unavailable' });
+  assert.equal(paid.status, 200);
+  assert.match(await paid.text(), /Les commandes sont fermées pour le moment\./);
   const owner = await http.lookup('/completion/artifact', 'GET')[0]._handler({
     runQuery: async () => { throw Error('forbidden'); },
   }, new Request(origin + '/completion/artifact'));
