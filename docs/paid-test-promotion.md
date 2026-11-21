@@ -1,10 +1,6 @@
 # Five controlled EUR1 tests — owner1038
 
-## Authority and scope
-
-Task t_34751512 starts from signed installation 4fe9296454739a135013b73b65d334c95269445f. Owner receipts1037/1038 on release t_18eae3ac authorize at most five controlled tests, a native Stripe EUR38 reduction on the EUR39 offer, EUR1 voluntarily paid, and deactivation when testing ends. These tests are not the EUR39 first sale. This implementation performs no provider mutation, credential/customer/payment read, deployment or outreach. Independent review is t_f0b0dcc0.
-
-Ordinary EUR39 settlement, complimentary/owner-trial handling, exact text/terms/publication consent, genuine human editorial review and uncertain-effect fences remain mandatory and unchanged except for the explicit promotional amount policy below. No checkout creator or coupon engine is added.
+The scoped five-test policy is separate from the ordinary EUR39 offer. Source configuration alone does not authorize a payment or provider change.
 
 ## Trusted configuration contract
 
@@ -22,16 +18,6 @@ PaymentIntent/latest charge retain genuine succeeded/paid/captured, no refund/di
 
 Deactivation disables new discounted inspection/commit. Already committed payments remain eligible under their immutable verified promotional receipt, subject to all normal approval/editorial/effect gates. Deactivation is not cancellation, refund or erasure. Cancellation/revocation remains the way to freeze an already settled order.
 
-## Release-only provider setup and readback
+## Operations and verification
 
-1. Under exact release authority, create one native once-only EUR3800 coupon with max_redemptions5, bounded redeem_by, then one promotion code for that coupon with max_redemptions5 and bounded expires_at. Read back IDs, amounts, currency, duration, caps, account/mode and expiry. Do not create replacements or additional codes/coupons to extend the five-test allowance. Keep normal EUR3900 price and consumer total unchanged.
-2. Supervised Session issuance uses one EUR3900 one-time item, no automatic tax/shipping uplift, the exact promotion code, matching Session/PaymentIntent metadata, no subscription or automatic charge. Read back subtotal/discount/total and native IDs. Bind its exact cs_ ID and current approval before inviting voluntary checkout. Never use a generic Payment Link shared across orders.
-3. Install reviewed successor/schema (additive promotion receipt fields/index only) and disabled policy first; validate exact bindings, bounded end time and provider read capability before enabling. Required existing read paths: account, PaymentIntent/expanded charge; additional exact GET paths: `/v1/checkout/sessions/:id`, `/v1/promotion_codes/:id`, `/v1/coupons/:id`. No list/inventory or write endpoint is used by this implementation.
-4. Receipt1037 says the dedicated key grants only Accounts, Payment Intents, Charges and Refunds Read; other controls are None. Therefore promotional native-object reads are a known missing production capability. Do not broaden that key or substitute dashboard assertions for provider proof. Release must obtain separately authorized capability/credential selection or leave promotion disabled. Permission/network/configuration failures remain retryable503 with no successful settlement receipt. This source PASS cannot establish live capability or E2E acceptance.
-5. At test end disable the local flag first and read it back; deactivate the exact promotion via native Dashboard/API and verify active=false. Expire all still-open bound Sessions and read back expired; disabling a code alone must not be assumed to invalidate existing Sessions. Retain the coupon/promotion identities and financial receipts. Replayed committed events remain no-ops; no uncommitted discounted receipt is admitted. Preserve all journals/uncertain effects. Rollback is feature-disable on this compatible successor, not source/schema downgrade.
-
-## Offline proof
-
-Tests use explicitly synthetic provider transport, actual signed HTTP/Convex transactions and blocked network. Verify exact scoped success, ordinary isolation, caps (including config rotation), stale/tampered approvals/provider objects, permission failure, duplicate/concurrent receipts, expiry/deactivation, test-only refusal and unchanged owner-trial behavior. Run repository verification under Node22 plus actual offline Convex bundles. No real payment, provider state or delivery is claimed.
-
-The source distribution must contain all Git-tracked runtime assets, specifically the dynamically loaded `schemas/codex-subscription-composition.schema.json` from signed4fe9296, SHA256 `042b96d94b7c77461e02e55a92af7a828b4619c7701aab25f9abb41d98f56914`. The earlier146-file installation subset is not a complete worker distribution. Run `node scripts/run-delivery-loop-worker.mjs --help` in a clean extracted source archive with pinned dependencies and no provider credentials before installation; this imports the worker but starts no worker loop or provider operation. Preserve the original installation manifest and recovered owner-trial hashes; `ops/promotion-candidate-pins.json` explicitly overlays only the scoped successor files and pins the dynamic asset.
+The policy requires exact provider read access and bound sessions; never broaden credentials or create provider resources without separate authorization. Deactivate the flag when testing ends and verify provider-side sessions and promotion state under appropriate authority. Keep financial receipts and uncertain-effect fences. See `src/delivery-loop/test-promotion.mjs` and `test/backend/delivery-loop-paid.test.mjs`; local tests do not establish provider configuration or a real payment.

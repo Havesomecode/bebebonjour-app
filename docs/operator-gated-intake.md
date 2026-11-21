@@ -19,8 +19,8 @@ Both order modes: `paid_route_a` (public, €39) and `complimentary` (invited fa
      - paid, revision 1, payment not settled → `payment_pending`, plus a `customer_payment` email to the customer with their order link (`reviewUrl`). The order page has the "Payer 39 € par carte" button (Stripe Checkout, created on click, 23 h expiry). An expired link offers a new payment; a return awaits confirmation and a cancelled payment offers a retry. A settled payment shows creation in progress when generation is queued or running.
      - otherwise (complimentary, or a paid correction, or relaunch after a failed generation) → `generation_queued`.
    - **Refuse** (`operatorRefuse`), only from `awaiting_operator` → `refused`. No email.
-3. Stripe webhook (`payment_intent.succeeded`, metadata `job_id`, `revision` = `"1"`, `brief_digest`) → verified evidence → `generation_queued`. A payment for a job that is not `payment_pending` is still recorded (money was taken) and the job is left as is for the operator; no generation is started for a cancelled/refused order.
-4. `generate` (worker: Codex composition from the brief → Cedar narration → render → publish at the stable public link) → `draft_email_queued` → `awaiting_review`. Same for both modes. The public link shows the draft banner until approval.
+3. Stripe webhook (`payment_intent.succeeded`, metadata `job_id`, `revision` = `"1"`, `preview_digest` (the brief digest)) → verified evidence → `generation_queued`. A payment for a job that is not `payment_pending` is still recorded (money was taken) and the job is left as is for the operator; no generation is started for a cancelled/refused order.
+4. `generate` (worker: Codex composition from the brief → optional voice-worker narration → render → publish at the stable public link) → `draft_email_queued` → `awaiting_review`. Same for both modes. The public link shows the draft banner until approval.
 5. Customer review:
    - `request_changes` (paid: max 2 corrections; complimentary: revision limit 12) → `desiredRevision++`, feedback stored for the operator, status `awaiting_operator`, operator notice `operator_correction`. The operator rewrites the brief and launches; no new payment.
    - `approve` → `final_email_queued` → `approved_sent`. Paid: `hostingEndsAtMs` = final email + 12 months.
@@ -32,7 +32,7 @@ Statuses: `awaiting_operator`, `refused`, `payment_pending`, `generation_queued`
 
 ## Brief
 
-Operator input (validated by `src/delivery-loop/brief.mjs`, shared by Convex and the worker; any violation throws `invalid_brief_<field>`):
+Operator input (validated by `src/delivery-loop/brief.mjs`, shared by the Railway backend and the worker; any violation throws `invalid_brief_<field>`):
 
 | Field | Rule |
 | --- | --- |
@@ -45,11 +45,11 @@ Operator input (validated by `src/delivery-loop/brief.mjs`, shared by Convex and
 | `nameMeaning` | optional, null or text up to 400 chars after whitespace normalization; phrase characters only, no URLs, first name or Arabic name. Suggested from the last `Sens du prénom : ` marker for operator review. |
 | `phrases` | array of 0–3 strings, each trimmed 1–140 chars, only letters/marks/digits, space and `. , ; : ! ? ' ’ « » " - ( ) ، ؛ ؟` |
 
-Unknown keys are rejected. Convex adds `languages` (copied from the intake, not editable) and stores `{ revision, brief, briefDigest, launchedAtMs }` in `data.briefs`. `briefDigest` = sha256 of the sorted-key JSON of the stored brief. The paid Checkout and webhook bind the revision-1 `briefDigest`.
+Unknown keys are rejected. The Railway backend adds `languages` (copied from the intake, not editable) and stores `{ revision, brief, briefDigest, launchedAtMs }` in `data.briefs`. `briefDigest` = sha256 of the sorted-key JSON of the stored brief. The paid Checkout and webhook bind the revision-1 `briefDigest`.
 
 Model prompt: fixed template + `JSON.stringify({ schemaVersion: "3.0", brief, nameReference })`; `nameMeaning` takes priority; `nameReference` (verified catalog meaning) is sent only when `nameMeaning` is empty. `operatorJob` returns `catalogMeaning` (`{ fr, ar }` or null) for the console. The template treats values as data, uses the tone, optionally weaves in phrases unchanged, mentions `birthDate` only if set, invents nothing and returns only the schema JSON.
 
-## Ops console contract (Convex, operator token `BEBEBONJOUR_OPERATIONS_TOKEN`)
+## Ops console contract (Railway backend, operator token `BEBEBONJOUR_OPERATIONS_TOKEN`)
 
 - `deliveryLoop:operatorJobs({ operatorToken })` → newest 30: `{ jobId, status, orderMode, paymentStatus, createdAtMs, fictional, babyName, customerEmail, languages, desiredRevision, latestRevision, revisions:[{revision, publishedAtMs}], publicUrl, lastError }`.
 - `deliveryLoop:operatorJob({ operatorToken, jobId })` → `{ jobId, status, orderMode, paymentStatus, createdAtMs, fictional, desiredRevision, latestRevision, intake: { email, babyName, nameArabic, gender, languages, religion, birthDate, request, voiceEnabled }, feedback, correctionsUsed, brief, suggestedBrief, publicUrl, orderUrl, notices:[{kind, revision, status, atMs}], lastError, canLaunch, canRefuse, revisions, options: { tones, genders, religions } }`. `brief` = stored brief for `desiredRevision` or `null`; `suggestedBrief` = previous revision's brief, else built from the intake (`firstName` = intake name, `tone` = `tendre`, `phrases` = []). Never returns review/public tokens except inside `orderUrl`/`publicUrl`.
@@ -58,7 +58,7 @@ Model prompt: fixed template + `JSON.stringify({ schemaVersion: "3.0", brief, na
 
 Console capabilities (`BEBEBONJOUR_OPS_ENABLED_ACTIONS`): `launch_generation`, `refuse_request` (`retry_correction` removed).
 
-## Emails (Convex action, Cloudflare Email, at most once per `kind` + `revision`, recorded in `data.notices`; a failed send is recorded and never retried automatically)
+## Emails (Railway backend action, Cloudflare Email, at most once per `kind` + `revision`, recorded in `data.notices`; a failed send is recorded and never retried automatically)
 
 - `operator_new` — to `BEBEBONJOUR_OPERATOR_EMAIL`. Subject: `Nouvelle demande Bébé Bonjour à relire`. Body: `Une nouvelle demande attend votre relecture : <link>`.
 - `operator_correction` — same recipient. Subject: `Correction Bébé Bonjour à relire`. Body: `Une demande de correction attend votre relecture : <link>`.

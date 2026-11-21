@@ -1,13 +1,5 @@
 # Paid Route A: customer data controls
 
-Implementation candidate only. No deployment, paid activation, provider configuration, real customer mutation or new provider operation is authorized by this document.
-
-## Source and composition
-
-This work consumes signed paid candidate `4859da6983f445f636138740fcb528481a6b3462` (not c86664a or SQLite). Signed correction `9cdddfecf2deb72dcd889df95edad83b348a1993`, independently LOCAL_SR01_PASS, is composed as a real merge. The only correction/source overlap is `convex/deliveryLoop.js`: exported shared helpers, deleted-job admission/read denial, activity timestamp and paid-stage retention gate surround the unchanged corrected `beginNarration` check. `render.mjs`, `reviewed-narration.mjs`, `worker.mjs` and the SR-01 regression bytes remain exact correction blobs. Independent review of the privacy delta and its overlap remains necessary; this document is not source acceptance.
-
-Approved settings: owner receipt1559078824489132096, hosting twelve calendar months from final delivery; notice thirty days beforehand; exports of final text/audio/page; seven-day abandoned drafts; thirty-day working material after delivery/cancellation; separate publication permission; non-indexed, revocable customer-shared links. Retention targets are product settings, not representations of statutory periods.
-
 ## Actual controls
 
 - `/delivery/review?jobId=…&token=…` remains the customer capability entry point. It now offers private exports, publication removal and explicitly confirmed content deletion. Never place its token in marketing, logs, public pages or third-party links. Same-origin JSON POSTs reject cross-origin requests and oversized bodies using the existing HTTP boundary.
@@ -18,7 +10,7 @@ Approved settings: owner receipt1559078824489132096, hosting twelve calendar mon
 
 ## Scheduled behavior, not merely fields
 
-`convex/crons.js` invokes the internal sweep hourly. The independent setting `BEBEBONJOUR_PAID_DATA_AUTOMATION_ENABLED` defaults false in `.env.example`; the sweep has no effects until an authorized release enables it. No legacy/complimentary record is modified. The ten-row paginated walk schedules cursor continuations, so older legacy rows cannot starve later paid records.
+`server/railway.mjs` invokes the internal sweep hourly. The independent setting `BEBEBONJOUR_PAID_DATA_AUTOMATION_ENABLED` defaults false in `.env.example`; the sweep has no effects until an authorized release enables it. No legacy/complimentary record is modified. The ten-row paginated walk schedules cursor continuations, so older legacy rows cannot starve later paid records.
 
 Seven days without persisted paid activity makes an unpaid, non-delivered, non-cancelled draft abandoned. Activity is creation or a persisted customer/operator/provider lifecycle transition, not a public view or status poll. Fresh corrections/renewals therefore do not lose their active preview window at seven days from original creation. Settled paid work is not silently abandoned. Cancellation retains working material for at most thirty days. Thirty days after delivery, working intake/baby fields, feedback, revisions, unused audio, review operation history and working journals are purged; the immutable approved final and minimum support email/language survive for the promised hosting period. Paid gates use that retained final, not a purged working revision.
 
@@ -28,16 +20,14 @@ At hosting expiry, public/read/export gates deny access even before the sweep ru
 
 ## Operator and backup limitations
 
-Before live admission, the authorized release operator must deploy and inspect the exact schema/cron bundle, enable and observe the data automation setting, verify mail/support operation and monitor cron failures and uncertain notices. Enabling only paid admission is not operational acceptance of retention. This local task has done none of those production actions.
+The authorized operator must verify the deployed service, data automation setting, mail/support operation, scheduler failures and uncertain notices. Enabling paid admission alone is not operational acceptance of retention.
 
 Inspect notice state using the protected operator UI. An uncertain send requires genuine provider inspection and support handling, never an unchecked database flag or automatic repeat. A message already fenced before a takedown/deletion can still reach its buyer; later recording cannot republish the order. Likewise, provider-generated text/audio and an email already sent cannot be recalled from third-party systems or the buyer's downloads. A rejected late audio record is cleaned up by its owning action. An abrupt process kill between storage creation and binding may still require a trusted orphan inventory; do not run a global storage deletion against unrelated customer flows.
 
-Application deletion removes current bound Convex records/storage, not all historical provider backups or external worker copies. This candidate does not establish the deployment's backup retention/physical deletion timing. Record the actual configured backup window, restore scope and supplier retention terms before promising a deletion completion date. On restoration, keep paid admission/provider automation stopped, reapply deletion/revocation evidence and run lifecycle cleanup on the restored copy before exposing links. Do not claim backup erasure merely because a live row disappeared. Operator exports and worker staging/log retention require their own controlled inventory; local tests use only fictional fixtures.
+Application deletion removes current bound Railway backend records/storage, not all historical provider backups or external worker copies. This candidate does not establish the deployment's backup retention/physical deletion timing. Record the actual configured backup window, restore scope and supplier retention terms before promising a deletion completion date. On restoration, keep paid admission/provider automation stopped, reapply deletion/revocation evidence and run lifecycle cleanup on the restored copy before exposing links. Do not claim backup erasure merely because a live row disappeared. Operator exports and worker staging/log retention require their own controlled inventory; local tests use only fictional fixtures.
 
 Financial/dispute evidence retention duration is not invented here: accounting necessity and a specific record-retention schedule determine subsequent restricted erasure. The normal customer deletion path must not delete the payment deduplication ledger or financial/dispute evidence merely to make a global deletion claim. No automatic charge, refund, renewal, marketing reuse, demonstration reuse or training path is added.
 
-## Reproducible local verification
+## Offline checks
 
-Run the focused Node22 tests for `delivery-loop-data`, `delivery-loop-paid`, `delivery-loop-reviewed-narration` and `production-bundle`. They exercise actual Convex mutations/HTTP routes/private storage, compiled browser handlers, paginated scheduled functions and the actual Cloudflare/OpenAI transport adapters with network replaced by explicit offline fixtures. Provider payment IDs marked live inside the test are synthetic fixtures, never evidence of real settlement.
-
-The export regression writes `out/paid-data-export-proof/annonce.zip` from the actual authenticated HTTP response. Validate it independently with Python `zipfile.testzip()` and inspect its three entries; its audio is a 160-byte test fixture, not genuine narration. Then run repository `npm run verify` under Node22, refresh the established audit inventory when source changes, verify signed commits/overlap, and `git diff --check`. Dedicated lint/type/format commands are not configured; syntax checks plus the production Convex isolate/Node bundler are the applicable source gates. Provider-backed packaged Codex and optional DB tests stay explicitly skipped unless separately authorized/configured.
+Run `node --test test/backend/delivery-loop-data.test.mjs test/backend/scheduler-harness.test.mjs`. Synthetic tests do not prove hosted scheduling, notice receipt or backup deletion.
