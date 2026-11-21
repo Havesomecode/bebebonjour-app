@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { convexTest } from 'convex-test';
 import { makeFunctionReference } from 'convex/server';
-import schema from '../../convex/schema.js';
+import schema from '../support/legacy-schema.mjs';
 import { signPersistedReviewApproval } from '../../src/fulfillment/persisted-review-decision.mjs';
 import { enqueueCanonicalCompletionSuccessor } from '../../convex/operations.js';
 import { canonicalConfig } from '../../convex/canonicalCompletionScope.js';

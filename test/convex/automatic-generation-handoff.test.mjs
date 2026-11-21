@@ -5,7 +5,7 @@ import test from "node:test";
 import { convexTest } from "convex-test";
 import { makeFunctionReference } from "convex/server";
 
-import schema from "../../convex/schema.js";
+import schema from "../support/legacy-schema.mjs";
 import { createJobAggregate, recordPaymentTransition } from "../../src/forward-coexistence/live/src/fulfillment/job-machine.mjs";
 
 const saveEditorialApproval = makeFunctionReference("generation:saveEditorialApproval");

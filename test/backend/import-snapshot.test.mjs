@@ -1,0 +1,89 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import { PGlite } from "@electric-sql/pglite";
+import { createBackendClient } from "../../src/backend/client.mjs";
+import { createHash, createHmac } from "node:crypto";
+import { mkdtemp, rm, mkdir, writeFile, readFile, cp } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import path from "node:path";
+import { startRailwayServer } from "../../server/railway.mjs";
+import { createDeliveryLoopWorker } from "../../src/delivery-loop/worker.mjs";
+import { buildCodexCompositionRequest } from "../../scripts/lib/codex-subscription-composition.mjs";
+
+const token = "offline-worker-capability-32-characters", operator = "offline-operator-capability-32-characters";
+const sha = s => createHash("sha256").update(s).digest("hex");
+const ref = name => `deliveryLoop:${name}`;
+import { importConvexSnapshot, compareConvexSnapshot, diffConvexSnapshots, checkAnnouncements } from "../../scripts/railway-import-convex-snapshot.mjs";
+import { RUNTIME_TABLES } from "../../src/backend/runtime.mjs";
+
+test("snapshot import preserves published announcements", async t => {
+  Object.assign(process.env, {BEBEBONJOUR_DELIVERY_LOOP_TOKEN:token,BEBEBONJOUR_OPERATIONS_TOKEN:operator,BEBEBONJOUR_TRIAL_PASSWORD_SHA256:sha("synthetic-password"),BEBEBONJOUR_DELIVERY_LOOP_ORIGIN:"https://public.example.invalid"});
+  Object.assign(process.env, {BEBEBONJOUR_VOICE_WORKER_URL:'https://voice.example.invalid', BEBEBONJOUR_VOICE_WORKER_TOKEN:'synthetic-voice-token', BEBEBONJOUR_CLOUDFLARE_ACCOUNT_ID:'a'.repeat(32), BEBEBONJOUR_CLOUDFLARE_ZONE_ID:'b'.repeat(32), BEBEBONJOUR_CLOUDFLARE_EMAIL_TOKEN:'synthetic-send-token', BEBEBONJOUR_OPERATOR_EMAIL:'operator@example.invalid', BEBEBONJOUR_OPS_CONSOLE_URL:'https://ops.example.invalid'});
+  const actualFetch = globalThis.fetch; const effects = [];
+  globalThis.fetch = async (url, options) => {
+    const address = String(url);
+    if (address.startsWith('http://127.0.0.1:')) return actualFetch(url, options);
+    if (address === 'https://voice.example.invalid/speak') { effects.push('speech'); const frame = Buffer.alloc(384); frame.set([0xff,0xf3,0xc4,0xc4]); return new Response(frame,{headers:{'content-type':'audio/mpeg'}}); }
+    if (address.startsWith('https://api.cloudflare.com/')) { const payload = JSON.parse(options.body); effects.push(payload.headers['X-Bebe-Operation']); return Response.json({success:true,errors:[],result:{message_id:`offline-${effects.length}`,queued:[payload.to],delivered:[],permanent_bounces:[]}}); }
+    throw new Error('unexpected_external_request');
+  };
+  t.after(() => { globalThis.fetch = actualFetch; });
+  const database = new PGlite();
+  const app = await startRailwayServer({database,publicOrigin:"https://public.example.invalid",advisoryLock:false,schedulerIntervalMs:3600000,sweepIntervalMs:3600000});
+  const stateDir = await mkdtemp(path.join(tmpdir(), "railway-worker-"));
+  t.after(async()=>{await app.close(); await database.close(); await rm(stateDir,{recursive:true,force:true});});
+  const base = `http://127.0.0.1:${app.server.address().port}`;
+  assert.equal((await fetch(`${base}/version`)).status, 200);
+  const tooLarge = await fetch(`${base}/api/query`, {method:'POST',body:'x'.repeat(8 * 1024 * 1024 + 1)});
+  assert.equal(tooLarge.status, 413);
+  const http = createBackendClient(base);
+  const intake = {email:"fictional@example.invalid",babyName:"Amal",language:"fr",gender:"girl",context:"general",voiceEnabled:true,consent:true,fictional:true};
+  const args = {intake,magicPassword:"synthetic-password",idempotencyKey:"synthetic-job-1"};
+  const [job,duplicate] = await Promise.all([http.mutation(ref("submit"),args),http.mutation(ref("submit"),args)]); assert.deepEqual(job,duplicate);
+  await assert.rejects(http.mutation(ref("claim"),{workerToken:token}),/ArgumentValidationError/);
+  await assert.rejects(http.action("deliveryLoopNotices:send",{}),/function_not_found/);
+  const page = await fetch(`${base}/delivery`); assert.equal(page.status,200);
+  const secret = "whsec_syntheticsecret123456789"; process.env.BEBEBONJOUR_PAID_STRIPE_WEBHOOK_SECRET = secret;
+  const raw = "{ invalid raw body "; const timestamp = Math.floor(Date.now()/1000);
+  const signature = createHmac("sha256",secret).update(`${timestamp}.${raw}`).digest("hex");
+  const webhook = await fetch(`${base}/delivery/payment/webhook`,{method:"POST",headers:{"content-type":"application/json","stripe-signature":`t=${timestamp},v1=${signature}`},body:raw});
+  assert.equal((await webhook.json()).status,"payment_event_format");
+  const altered = await fetch(`${base}/delivery/payment/webhook`,{method:"POST",headers:{"content-type":"application/json","stripe-signature":`t=${timestamp},v1=${signature}`},body:raw.trim()});
+  assert.equal((await altered.json()).status,"payment_event_signature");
+  await http.mutation(ref("operatorLaunch"),{operatorToken:operator,jobId:job.jobId,expectedRevision:1,brief:{firstName:"Amal",nameArabic:null,gender:"girl",birthDate:null,religion:"general",tone:"tendre",phrases:[]}});
+  const composition = {schemaVersion:"2.0",languages:Object.fromEntries(["fr","ar"].map(lang=>[lang,{description:lang==="fr"?"Un nouveau bonheur.":"فرح جديد.",introLines:[lang==="fr"?"Bienvenue.":"أهلاً بك."],introNarration:lang==="fr"?"Bienvenue.":"أهلاً بك.",blessingLines:[lang==="fr"?"Que tes jours soient doux.":"أيام جميلة."],blessingNarration:lang==="fr"?"Que tes jours soient doux.":"أيام جميلة.",meaningLines:["Douceur."],revealLines:["Notre enfant."],closingLines:[lang==="fr"?"Nous t’aimons déjà.":"لك كل الحب."],closingNarration:lang==="fr"?"Nous t’aimons déjà.":"لك كل الحب."}]))};
+  const composer = {async compose(input) {return {composition,metadata:{adapterVersion:"2.0.0",provider:"openai-codex-subscription",model:"offline-fixture",requestDigest:sha(JSON.stringify({adapterVersion:"2.0.0",provider:"openai-codex-subscription",model:"offline-fixture",request:buildCodexCompositionRequest(input)})),outputDigest:sha(JSON.stringify(composition))}};}};
+  const worker = createDeliveryLoopWorker({client:http,composer,stateDir,workerToken:token,workerId:"offline-worker",checkVoiceReady: async () => true,logger(){}});
+  const result = await worker.runOnce(); assert.equal(result.status,"published",JSON.stringify(result));
+  const dir = await mkdtemp(path.join(tmpdir(), "snapshot-"));
+  const bad = await mkdtemp(path.join(tmpdir(), "snapshot-bad-"));
+  const other = await mkdtemp(path.join(tmpdir(), "snapshot-other-"));
+  const target = new PGlite(), failed = new PGlite();
+  t.after(async () => { await target.close(); await failed.close(); for (const d of [dir,bad,other]) await rm(d,{recursive:true,force:true}); });
+  for (const table of RUNTIME_TABLES) {
+    const rows = (await database.query("SELECT doc FROM documents WHERE table_name=$1",[table])).rows;
+    await mkdir(path.join(dir,table),{recursive:true});
+    await writeFile(path.join(dir,table,"documents.jsonl"),rows.map(r=>JSON.stringify(r.doc)).join("\n"));
+  }
+  await mkdir(path.join(dir,"_storage"));
+  const stored = (await database.query("SELECT * FROM storage")).rows;
+  assert.ok(stored.length > 0);
+  const entries = stored.map(r=>({_id:r.id,_creationTime:r.creation_time,sha256:Buffer.from(r.sha256,"hex").toString("base64"),size:r.size,contentType:r.content_type}));
+  for (const r of stored) await writeFile(path.join(dir,"_storage",r.id+".mpga"),r.data);
+  entries.push({_id:"unused",_creationTime:1,size:1,sha256:sha("x"),contentType:"audio/mpeg"});
+  await writeFile(path.join(dir,"_storage","documents.jsonl"),entries.map(JSON.stringify).join("\n"));
+  await mkdir(path.join(dir,"ignored")); await writeFile(path.join(dir,"ignored","documents.jsonl"),JSON.stringify({_id:"ignored",_creationTime:1}));
+  const summary = await importConvexSnapshot({database:target,dir}); assert.equal(summary.storage,stored.length);
+  assert.equal((await compareConvexSnapshot({database:target,dir})).ok,true);
+  const targetApp = await startRailwayServer({database:target,advisoryLock:false,schedulerIntervalMs:3600000,sweepIntervalMs:3600000});
+  t.after(()=>targetApp.close());
+  const check = await checkAnnouncements({database:target,origin:`http://127.0.0.1:${targetApp.server.address().port}`});
+  assert.equal(check.byJob[job.jobId].page,200); assert.ok(check.byJob[job.jobId].audio.length); assert.ok(check.byJob[job.jobId].audio.every(n=>[200,206].includes(n)));
+  await assert.rejects(importConvexSnapshot({database:target,dir}),/target_not_empty/);
+  await cp(dir,bad,{recursive:true}); const audioPath=path.join(bad,"_storage",stored[0].id+".mpga"); const bytes=await readFile(audioPath); bytes[0]^=1; await writeFile(audioPath,bytes);
+  await assert.rejects(importConvexSnapshot({database:failed,dir:bad}),/storage_sha256_mismatch/);
+  assert.equal((await failed.query("SELECT * FROM documents")).rows.length,0);
+  assert.equal((await diffConvexSnapshots(dir,dir)).ok,true);
+  await cp(dir,other,{recursive:true}); const jobPath=path.join(other,"deliveryLoopJobs","documents.jsonl"); const docs=(await readFile(jobPath,"utf8")).split("\n").filter(Boolean).map(JSON.parse); docs[0].changed=true; await writeFile(jobPath,docs.map(JSON.stringify).join("\n"));
+  const diff=await diffConvexSnapshots(dir,other); assert.equal(diff.ok,false); assert.equal(diff.tables.deliveryLoopJobs.changed.length,1);
+});

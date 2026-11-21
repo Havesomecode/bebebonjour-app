@@ -4,7 +4,7 @@ import { readFile } from "node:fs/promises";
 import { Readable } from "node:stream";
 import test from "node:test";
 import { convexTest } from "convex-test";
-import schema from "../../convex/schema.js";
+import schema from "../support/legacy-schema.mjs";
 import { ABUSE_POLICY, advanceBudget } from "../../convex/abusePolicy.js";
 import { createHostedAbuseBudget } from "../../src/http/abuse-budget.mjs";
 import { createHostedCustomerFlowHttpApi } from "../../src/customer-flow/hosted-http-api.mjs";

@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { convexTest } from "convex-test";
 import { makeFunctionReference as ref } from "convex/server";
-import schema from "../../convex/schema.js";
+import schema from "../support/legacy-schema.mjs";
 
 const operatorToken = "private-containment-operator-token-32-characters";
 const workerToken = "private-containment-worker-token-32-characters";

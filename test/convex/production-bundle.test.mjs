@@ -33,14 +33,14 @@ test("production Convex bundler separates isolate queries/mutations from Node ac
   };
   const { projectConfig, configPath } = await readProjectConfig(ctx);
   const { config } = await configFromProjectConfig(ctx, projectConfig, configPath, false);
-  const schema = await bundleSchema(ctx, `${root}${projectConfig.functions}`, []);
-  assert.ok(schema.some((entry) => entry.path === "schema.js"));
-  for (const path of ["deliveryLoop.js", "deliveryLoopPaymentEvents.js", "deliveryLoopPaymentHttp.js", "deliveryLoopHttp.js", "deliveryLoopPaidPolicy.js", "deliveryLoopPaidViews.js", "deliveryLoopData.js", "deliveryLoopDataHttp.js", "deliveryLoopDataViews.js", "deliveryLoopExport.js", "abuse.js", "operations.js", "narration.js", "fulfillment.js", "generation.js", "customerFlow.js", "http.js", "automaticGeneration.js", "canonicalCompletionScope.js"]) {
+  await assert.rejects(bundleSchema(ctx, `${root}${projectConfig.functions}`, []), /Convex bundling failed/);
+  for (const path of ["abuse.js", "operations.js", "narration.js", "fulfillment.js", "generation.js", "customerFlow.js", "http.js", "automaticGeneration.js", "canonicalCompletionScope.js"]) {
     assert.equal(config.modules.find((entry) => entry.path === path)?.environment, "isolate", path);
   }
+  for (const path of ["deliveryLoop.js", "deliveryLoopPaymentEvents.js", "deliveryLoopPaymentHttp.js", "deliveryLoopHttp.js", "deliveryLoopPaidPolicy.js", "deliveryLoopPaidViews.js", "deliveryLoopData.js", "deliveryLoopDataHttp.js", "deliveryLoopDataViews.js", "deliveryLoopExport.js", "deliveryLoopProviders.js", "deliveryLoopDataProviders.js"]) {
+    assert.equal(config.modules.find((entry) => entry.path === path), undefined, path);
+  }
   assert.equal(config.modules.find((entry) => entry.path === "narrationRuntime.js")?.environment, "node");
-  assert.equal(config.modules.find((entry) => entry.path === "deliveryLoopProviders.js")?.environment, "node");
-  assert.equal(config.modules.find((entry) => entry.path === "deliveryLoopDataProviders.js")?.environment, "node");
   for (const module of config.modules.filter((entry) => entry.environment === "isolate")) {
     assert.doesNotMatch(module.source, /(?:from\s*|import\s*\()?["']node:(?:crypto|util)["']/u);
   }

@@ -5,7 +5,7 @@ import { spawnSync } from 'node:child_process';
 import test from "node:test";
 import { convexTest } from "convex-test";
 import { getFunctionName, makeFunctionReference } from "convex/server";
-import schema from "../../convex/schema.js";
+import schema from "../support/legacy-schema.mjs";
 import http from "../../convex/http.js";
 
 const manifest = JSON.parse(readFileSync(new URL("../../ops/installation-compatibility.json", import.meta.url), "utf8"));
@@ -23,8 +23,8 @@ function normalize(table) {
 function fixture() {
   return convexTest(schema, {
     "./_generated/server.js": () => import("convex/server"),
-    "./deliveryLoop.js": () => import("../../convex/deliveryLoop.js"),
-    "./deliveryLoopData.js": () => import("../../convex/deliveryLoopData.js"),
+    "./deliveryLoop.js": () => import("../support/legacy-deliveryLoop.mjs"),
+    "./deliveryLoopData.js": () => import("../support/legacy-deliveryLoopData.mjs"),
   });
 }
 

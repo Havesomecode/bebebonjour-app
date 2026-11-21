@@ -3,7 +3,7 @@ import test from "node:test";
 import { createHash } from "node:crypto";
 import { convexTest } from "convex-test";
 import { makeFunctionReference as ref } from "convex/server";
-import schema from "../../convex/schema.js";
+import schema from "../support/legacy-schema.mjs";
 import { claimStageTransition, fenceExternalEffectTransition } from "../../src/fulfillment/job-machine.mjs";
 
 const operatorToken = "offline-trial-completion-operator-at-least-32-bytes";

@@ -206,7 +206,7 @@ test("production build syntax-checks every private TEST-A operator module", () =
   }
   assert.equal(
     packageJson.scripts.test,
-    "node --test 'test/*.test.mjs' 'test/**/*.test.mjs'",
+    "node --test --test-concurrency=4 'test/*.test.mjs' 'test/**/*.test.mjs'",
   );
   assert.equal(
     packageJson.scripts["test:integration"],

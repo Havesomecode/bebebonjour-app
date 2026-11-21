@@ -4,7 +4,7 @@ import { readFile } from "node:fs/promises";
 import { pathToFileURL } from "node:url";
 import { convexTest } from "convex-test";
 import { makeFunctionReference as ref } from "convex/server";
-import schema from "../../convex/schema.js";
+import schema from "../support/legacy-schema.mjs";
 const ops = process.env.BEBEBONJOUR_OPS_WORKTREE;
 test(
   "cross-worktree: supported bootstrap → actual worker → durable decoded MP3 → approval → private readback",

@@ -3,7 +3,7 @@ import test from "node:test";
 import { createHash } from "node:crypto";
 import { convexTest } from "convex-test";
 import { makeFunctionReference as ref } from "convex/server";
-import schema from "../../convex/schema.js";
+import schema from "../support/legacy-schema.mjs";
 const hash = (value) => createHash("sha256").update(value).digest("hex");
 const workerToken = "narration-worker-test-token-32-characters";
 function fixture() {

@@ -1,8 +1,8 @@
 import { createServer } from "node:http";
 import pg from "pg";
 import { Readable } from "node:stream";
-import { createRailwayRuntime } from "../src/railway/runtime.mjs";
-import { createHttpHandler } from "../src/railway/http.mjs";
+import { createRailwayRuntime } from "../src/backend/runtime.mjs";
+import { createHttpHandler } from "../src/backend/http.mjs";
 import { createInterestList } from "../src/interest/interest-list.mjs";
 import { cloudflareTransport, alreadyAdmitted } from "../src/delivery-loop/cloudflare-runtime.mjs";
 

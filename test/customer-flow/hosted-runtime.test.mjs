@@ -4,7 +4,7 @@ import test from "node:test";
 import { convexTest } from "convex-test";
 import Stripe from "stripe";
 
-import schema from "../../convex/schema.js";
+import schema from "../support/legacy-schema.mjs";
 import { createHostedCustomerFlowRuntime } from "../../src/customer-flow/hosted-runtime.mjs";
 
 const environment = {

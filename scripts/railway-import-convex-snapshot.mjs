@@ -3,7 +3,7 @@ import { createHash } from 'node:crypto';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import pg from 'pg';
-import { createRailwayRuntime, RUNTIME_TABLES } from '../src/railway/runtime.mjs';
+import { createRailwayRuntime, RUNTIME_TABLES } from '../src/backend/runtime.mjs';
 
 const hash = bytes => createHash('sha256').update(bytes).digest('hex');
 const canonical = value => JSON.stringify(value, function (key, v) { return v && typeof v === 'object' && !Array.isArray(v) ? Object.fromEntries(Object.keys(v).sort().map(k => [k,v[k]])) : v; });

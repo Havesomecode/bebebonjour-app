@@ -1,8 +1,8 @@
 # Moving the Bébé Bonjour backend from Convex to Railway
 
-Status: staging done; cutover planned (§4). Convex prod (`tacit-antelope-577`) stays the production backend
-until the cutover card switches it. This document covers the inventory, the target
-design, the staging run, and the cutover and rollback plan.
+Status: Railway production cutover recorded in §4. This document covers the
+inventory, design, staging run, and rollback plan. Local changes do not update
+the deployed service.
 
 ## 1. What production uses today
 
@@ -12,7 +12,7 @@ gate, paid Route A at 39 €, generation, publication, mail). The older lines in
 privateGeneration*, canonicalCompletion*, Tally intake) are not in the live path
 and are not ported.
 
-### Tables (all in `convex/schema.js`)
+### Tables (indexes now in `src/backend/schema.js`)
 
 | Table | Indexes used | Written by |
 |---|---|---|
@@ -31,10 +31,10 @@ and are not ported.
 | Ops console (`bebebonjour-ops`, `src/server/delivery-jobs.mjs`, `login-throttle-client.mjs`) | `deliveryLoop:operatorJobs`, `operatorJob`, `operatorLaunch`, `operatorRefuse`; `operations:consumeLoginAttempt`, `resetLoginThrottle` |
 | Browser via HTTP routes | see below |
 
-All of them talk the Convex HTTP protocol (`ConvexHttpClient`: `POST /api/query`,
-`/api/mutation`, `/api/action`).
+They use the JSON function protocol (`POST /api/query`, `/api/mutation`,
+`/api/action`).
 
-### HTTP routes (`convex/http.js`, delivery-loop subset)
+### HTTP routes (`src/backend/routes.js`)
 
 `GET /delivery`, `POST /delivery/intake`, `POST /delivery/checkout`,
 `GET|POST /delivery/review`, `GET|POST /delivery/operator`,
@@ -78,21 +78,19 @@ Upload URLs are unsupported on Railway; `generateUploadUrl` throws `unsupported_
 
 One Railway project, two services:
 
-- **`api`**: a Node service (`server/railway.mjs`) that loads the same
-  `convex/deliveryLoop*.js` modules and runs them on a small Convex-compatible
-  runtime (`src/railway/`) backed by PostgreSQL.
+- **`api`**: a Node service (`server/railway.mjs`) that loads the
+  `src/backend/deliveryLoop*.js` modules and runs them on a local
+  runtime (`src/backend/`) backed by PostgreSQL.
 - **`Postgres`**: Railway's managed PostgreSQL.
 
 Decisions:
 
 - **Same business code, new runtime.** The delivery-loop rules (operator gate,
-  payment binding, leases, notice fences) stay in `convex/`. The runtime provides
-  `ctx.db`, `ctx.storage`, `ctx.scheduler`, `ctx.run*` and the HTTP router. Both
-  backends run identical logic during the rollback window, and concurrent changes
-  to `convex/` (R1 composition/render) need no porting.
-- **Convex wire protocol kept.** `POST /api/query|mutation|action` speak the
-  `ConvexHttpClient` format, so the worker and the ops console switch backend by
-  changing one URL. Only public functions are callable; internal ones are not.
+  payment binding, leases, notice fences) reside in `src/backend/`. The runtime provides
+  `ctx.db`, `ctx.storage`, `ctx.scheduler`, `ctx.run*` and the HTTP router. Changes to the legacy Convex modules must be reviewed separately.
+- **JSON function envelope kept.** `POST /api/query|mutation|action` retain the
+  path, args and response envelope using plain JSON; special Convex value encodings
+  are not decoded. The worker and ops console switch backend by changing one URL. Only public functions are callable; internal ones are not.
   Arguments are checked against the functions' `v` validators.
 - **Documents as JSONB.** One `documents` table (`id`, `table_name`,
   `creation_time`, `doc jsonb`). Index lookups become JSONB equality filters
@@ -120,9 +118,8 @@ runs the retention sweep hourly. Scheduled work is not retried after a crash or 
 
 For an isolated, empty PostgreSQL target, `node scripts/railway-import-convex-snapshot.mjs import <export-dir>` imports runtime documents and referenced storage and compares them. `compare <export-dir>` verifies an existing target; `diff <before-dir> <after-dir>` checks snapshots for changes; `check <origin>` checks announcement routes without printing tokens. The database commands require `DATABASE_URL`. Quiesce writes separately before any authorized cutover; this tool does not migrate scheduled functions, deploy services, or authorize live effects. Snapshot directories and database backups contain private customer data.
 
-Run `npm run test:railway` for PGlite and synthetic localhost HTTP checks. These
-checks do not establish hosted delivery or authorize provider calls. Production
-still remains on Convex until a separately authorized cutover.
+Run `npm run test:backend` for PGlite and synthetic localhost HTTP checks. These
+checks do not establish hosted delivery or authorize provider calls. They do not establish the state of the deployed service.
 
 ## 3. Staging
 
@@ -215,7 +212,7 @@ Convex prod, so the worker and the ops console only change one URL.
 ### Data copy
 
 `scripts/railway-import-convex-snapshot.mjs` (tested offline in
-`test/railway/import-snapshot.test.mjs`, rehearsed on a local PostgreSQL with the dev
+`test/backend/import-snapshot.test.mjs`, rehearsed on a local PostgreSQL with the dev
 export):
 
 - `import <dir>`: from an unzipped `npx convex export --include-file-storage`, copies
@@ -322,5 +319,5 @@ Close the window once Railway has run real orders for a week without a rollback
 reason: the owner confirms, Convex prod is shut down and the exports are deleted.
 Then remove what only Convex used: the Convex deploy config and scripts, the lines not
 in the delivery loop (customerFlow, fulfillment, generation, ownerTrial*, narration and
-completion workers), and the Convex deploy notes in `docs/STATE.md`. The delivery-loop
-modules in `convex/` and `convex/http.js` stay: the Railway runtime loads them.
+completion workers), and the Convex deploy notes in `docs/STATE.md`. The delivery-loop modules now reside in `src/backend/`; `convex/http.js` remains
+only for legacy routes and tests.

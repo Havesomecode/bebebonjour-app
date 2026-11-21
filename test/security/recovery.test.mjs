@@ -3,7 +3,7 @@ import { createHmac } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 import { convexTest } from "convex-test";
-import schema from "../../convex/schema.js";
+import schema from "../support/legacy-schema.mjs";
 import { ABUSE_POLICY } from "../../convex/abusePolicy.js";
 import { createHostedAbuseBudget } from "../../src/http/abuse-budget.mjs";
 import { createHostedTallyIntakeProcessor } from "../../src/customer-flow/hosted-tally-intake.mjs";

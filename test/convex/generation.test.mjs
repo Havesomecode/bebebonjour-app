@@ -5,7 +5,7 @@ import test from "node:test";
 import { convexTest } from "convex-test";
 import { makeFunctionReference } from "convex/server";
 
-import schema from "../../convex/schema.js";
+import schema from "../support/legacy-schema.mjs";
 import { createTestAGenerationRunner } from "../../src/fulfillment/test-a-generation-runner.mjs";
 
 const saveEditorialApproval = makeFunctionReference("generation:saveEditorialApproval");
