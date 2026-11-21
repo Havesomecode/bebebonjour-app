@@ -1,5 +1,9 @@
 # Delivery loop
 
+## Current worker configuration
+
+The delivery-loop worker connects to Railway using `BEBEBONJOUR_BACKEND_URL` (an HTTPS origin) and `BEBEBONJOUR_DELIVERY_LOOP_TOKEN`. It does not fall back to the former URL variable. Configure the private service environment before restarting the worker; do not print its credentials. Backend errors and provider response bodies are not logged by the client.
+
 ## Current flow (18/11/2026)
 
 Every request waits in `awaiting_operator` until an operator reads it in the ops console (`/commandes/<jobId>`) and launches generation from a brief, or refuses it. The model only receives the brief. Public orders (€39) pay after the launch and before any generation. Full contract: [docs/operator-gated-intake.md](docs/operator-gated-intake.md).

@@ -26,5 +26,5 @@ test("CLI help requires no credentials and describes the real provider boundary"
   assert.equal(stderr, "");
   assert.match(stdout, /--once/);
   assert.match(stdout, /Codex/);
-  assert.match(stdout, /CONVEX_URL/);
+  assert.match(stdout, /BEBEBONJOUR_BACKEND_URL/);
 });

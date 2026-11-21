@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { ConvexHttpClient } from "convex/browser";
+import { createBackendClient } from "../src/backend/client.mjs";
 import { createDeliveryLoopWorker, DeliveryLoopWorkerError } from "../src/delivery-loop/worker.mjs";
 
 const HELP = `Usage: node scripts/run-delivery-loop-worker.mjs [--once]
@@ -8,7 +8,7 @@ Processes one job at a time; polls every five seconds by default.
 --once processes at most one claimed stage and exits.
 
 Required environment:
-  CONVEX_URL                         HTTPS Convex deployment URL
+  BEBEBONJOUR_BACKEND_URL            HTTPS backend origin
   BEBEBONJOUR_DELIVERY_LOOP_TOKEN     Scoped backend worker token
 Optional:
   BEBEBONJOUR_DELIVERY_LOOP_WORKER_ID (default: bebe-delivery-loop)
@@ -18,7 +18,7 @@ Optional:
   BEBEBONJOUR_DELIVERY_LOOP_POLL_MS   (default: 5000; range: 1000..60000)
 
 Text uses the existing locally authenticated Codex ChatGPT subscription.
-Narration and email use scoped Convex provider actions; no API keys are required
+Narration and email use scoped backend provider actions; no API keys are required
 by this worker. The sendEmail action owns fencing and backend completion.
 SIGTERM/SIGINT stop polling, abort composition and reconcile uncertain effects.
 `;
@@ -32,14 +32,13 @@ try {
     const environment = process.env;
     let url;
     try {
-      url = new URL(environment.CONVEX_URL);
+      url = new URL(environment.BEBEBONJOUR_BACKEND_URL);
       if (url.protocol !== "https:" || url.username || url.password || url.pathname !== "/" || url.search || url.hash || !environment.BEBEBONJOUR_DELIVERY_LOOP_TOKEN) throw new Error();
     } catch { throw new DeliveryLoopWorkerError("worker_configuration_rejected"); }
     const pollIntervalMs = Number(environment.BEBEBONJOUR_DELIVERY_LOOP_POLL_MS ?? 5000);
     if (!Number.isSafeInteger(pollIntervalMs) || pollIntervalMs < 1000 || pollIntervalMs > 60_000) throw new DeliveryLoopWorkerError("worker_configuration_rejected");
-    // Disable Convex function logging: provider exceptions are untrusted and can
-    // contain response bodies or sensitive request data. Worker emits IDs only.
-    const client = new ConvexHttpClient(url.origin, { logger: false });
+    // Provider exceptions can contain sensitive data; the client does not log them.
+    const client = createBackendClient(url.origin);
     const controller = new AbortController();
     const stop = () => controller.abort();
     process.once("SIGTERM", stop);

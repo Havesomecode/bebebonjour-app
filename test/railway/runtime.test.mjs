@@ -1,8 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { PGlite } from "@electric-sql/pglite";
-import { ConvexHttpClient } from "convex/browser";
-import { makeFunctionReference } from "convex/server";
+import { createBackendClient } from "../../src/backend/client.mjs";
 import { createHash, createHmac } from "node:crypto";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -13,7 +12,7 @@ import { buildCodexCompositionRequest } from "../../scripts/lib/codex-subscripti
 
 const token = "offline-worker-capability-32-characters", operator = "offline-operator-capability-32-characters";
 const sha = s => createHash("sha256").update(s).digest("hex");
-const ref = name => makeFunctionReference(`deliveryLoop:${name}`);
+const ref = name => `deliveryLoop:${name}`;
 
 test("PGlite runtime, protocol, transactions, storage, scheduler and HTTP worker", async t => {
   Object.assign(process.env, {BEBEBONJOUR_DELIVERY_LOOP_TOKEN:token,BEBEBONJOUR_OPERATIONS_TOKEN:operator,BEBEBONJOUR_TRIAL_PASSWORD_SHA256:sha("synthetic-password"),BEBEBONJOUR_DELIVERY_LOOP_ORIGIN:"https://public.example.invalid"});
@@ -37,12 +36,13 @@ test("PGlite runtime, protocol, transactions, storage, scheduler and HTTP worker
   assert.notEqual(acceptedLarge.status, 413);
   const tooLarge = await fetch(`${base}/api/query`, {method:'POST',body:'x'.repeat(8 * 1024 * 1024 + 1)});
   assert.equal(tooLarge.status, 413);
-  const http = new ConvexHttpClient(base,{skipConvexDeploymentUrlCheck:true,logger:false});
+  const http = createBackendClient(base);
   const intake = {email:"fictional@example.invalid",babyName:"Amal",language:"fr",gender:"girl",context:"general",voiceEnabled:true,consent:true,fictional:true};
   const args = {intake,magicPassword:"synthetic-password",idempotencyKey:"synthetic-job-1"};
   const [job,duplicate] = await Promise.all([http.mutation(ref("submit"),args),http.mutation(ref("submit"),args)]); assert.deepEqual(job,duplicate);
+  assert.equal((await http.query(ref("status"), {jobId:job.jobId, reviewToken:job.reviewToken})).status, "awaiting_operator");
   await assert.rejects(http.mutation(ref("claim"),{workerToken:token}),/ArgumentValidationError/);
-  await assert.rejects(http.action(makeFunctionReference("deliveryLoopNotices:send"),{}),/function_not_found/);
+  await assert.rejects(http.action("deliveryLoopNotices:send",{}),/function_not_found/);
   const page = await fetch(`${base}/delivery`); assert.equal(page.status,200);
   const secret = "whsec_syntheticsecret123456789"; process.env.BEBEBONJOUR_PAID_STRIPE_WEBHOOK_SECRET = secret;
   const raw = "{ invalid raw body "; const timestamp = Math.floor(Date.now()/1000);
