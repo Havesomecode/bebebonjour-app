@@ -13,7 +13,7 @@ import {
   createFulfillmentOrchestrator,
 } from "../../src/fulfillment/job-orchestrator.mjs";
 import { createExternalEffectStageHandlers } from "../../src/fulfillment/external-effect-stage-handlers.mjs";
-import { claimStageTransition } from "../../src/forward-coexistence/live/src/fulfillment/job-machine.mjs";
+import { claimStageTransition } from "../../src/fulfillment/local-demo-job-machine.mjs";
 import { createLocalTestFulfillmentStore } from "../../src/persistence/local-test-fulfillment-store.mjs";
 
 const DIGESTS = Object.freeze({

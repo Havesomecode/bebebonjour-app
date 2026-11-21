@@ -1,4 +1,4 @@
-// A bounded, uncompressed ZIP works in the Convex isolate (no Node deps).
+// A bounded, uncompressed ZIP works without Node dependencies.
 // Files use fixed first-party names; no user-provided paths or timestamps.
 const encoder = new TextEncoder();
 function crc32(bytes) {

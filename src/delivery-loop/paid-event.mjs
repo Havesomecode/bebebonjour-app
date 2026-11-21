@@ -1,4 +1,4 @@
-// Convex isolate compatible: authenticate bytes before decoding or parsing.
+// Runtime compatible: authenticate bytes before decoding or parsing.
 import { testPromotionBinding } from './test-promotion.mjs';
 export const MAX_PAID_EVENT_BYTES = 64 * 1024;
 export const SIGNATURE_TOLERANCE_SECONDS = 300;

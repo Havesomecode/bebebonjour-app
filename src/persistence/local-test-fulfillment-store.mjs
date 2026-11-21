@@ -20,7 +20,7 @@ import {
   recordReviewDecisionTransition,
   recoverFailedPrepareReviewTransition,
   resumeRetryTransition,
-} from "../forward-coexistence/live/src/fulfillment/job-machine.mjs";
+} from "../fulfillment/local-demo-job-machine.mjs";
 
 const persistenceSchema = JSON.parse(
   await readFile(new URL("../../schemas/fulfillment-job-store.schema.json", import.meta.url), "utf8"),

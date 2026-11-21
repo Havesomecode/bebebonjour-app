@@ -1,4 +1,4 @@
-// Shared with Convex's isolate: do not import Node builtins here.
+// Shared with the backend: do not import Node builtins here.
 export const TONES = Object.freeze(['tendre', 'joyeux', 'sobre', 'poetique']);
 export const GENDERS = Object.freeze(['girl', 'boy', 'neutral']);
 export const RELIGIONS = Object.freeze(['general', 'islam']);

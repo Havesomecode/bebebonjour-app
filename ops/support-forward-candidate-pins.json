@@ -1,8 +1,0 @@
-{
-  "baseCommit": "3093791a174a91b9468481cea01be78d974108c4",
-  "scope": "Only additive identifier-only support receipt schema and syntax checks for three support modules; existing production/paid closure remains pinned separately.",
-  "files": {
-    "convex/schema.js": "e46a16b3608a602fb44bfc94f55cda3d5c0c2baaf9d61265ae369b8164c192ca",
-    "package.json": "b35bd44b4e174307d8a22341f2890cbee63532c1990f1276434765175dce4086"
-  }
-}

@@ -1,12 +1,12 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
-import { convexTest } from '../support/backend.mjs';
+import { backendTest } from '../support/backend.mjs';
 
 test('synthetic HTTP submit, status, delivery and unknown path', async () => {
   process.env.BEBEBONJOUR_TRIAL_PASSWORD_SHA256 = createHash('sha256').update('synthetic-password').digest('hex');
   delete process.env.BEBEBONJOUR_OPERATOR_EMAIL;
-  const backend = convexTest();
+  const backend = backendTest();
   const response = await backend.fetch('/delivery/intake', {method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({idempotencyKey:'synthetic-smoke-001',magicPassword:'synthetic-password',intake:{email:'smoke@example.invalid',babyName:'Amal',language:'fr',gender:'girl',context:'general',voiceEnabled:false,consent:true,fictional:true,source:'first_party_delivery'}})});
   assert.equal(response.status,200);
   const job = await response.json();

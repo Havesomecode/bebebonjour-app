@@ -4,7 +4,7 @@ import test from 'node:test';
 import path from 'node:path';
 import { createHash } from 'node:crypto';
 import { mkdtemp, rm } from 'node:fs/promises';
-import { convexTest } from '../support/backend.mjs';
+import { backendTest } from '../support/backend.mjs';
 import schema from '../../src/backend/schema.js';
 import { createDeliveryLoopWorker } from '../../src/delivery-loop/worker.mjs';
 import { buildCodexCompositionRequest } from '../../scripts/lib/codex-subscription-composition.mjs';
@@ -20,7 +20,7 @@ function fixture() {
     BEBEBONJOUR_PAID_ROUTE_A_ENABLED: 'true',
     BEBEBONJOUR_PAID_TERMS_URL: 'https://offline.example.invalid/terms',
     BEBEBONJOUR_PAID_STRIPE_ACCOUNT_ID: 'acct_offline',
-    CONVEX_SITE_URL: 'https://offline.convex.site',
+    BEBEBONJOUR_DELIVERY_LOOP_ORIGIN: 'https://offline.example.invalid',
     BEBEBONJOUR_VOICE_WORKER_URL: 'https://voice.example.invalid',
     BEBEBONJOUR_VOICE_WORKER_TOKEN: 'offline-token',
     BEBEBONJOUR_DELIVERY_LOOP_EMAIL_PROVIDER: 'cloudflare',
@@ -28,7 +28,7 @@ function fixture() {
     BEBEBONJOUR_CLOUDFLARE_ZONE_ID: 'b'.repeat(32),
     BEBEBONJOUR_CLOUDFLARE_EMAIL_TOKEN: 'synthetic-send-token',
   });
-  return convexTest(schema);
+  return backendTest(schema);
 }
 const read = (t, job) => t.query(ref('read'), { workerToken, jobId: job.jobId });
 const hidden = 'Une affirmation ajoutée uniquement à la narration, jamais montrée aux réviseurs.';

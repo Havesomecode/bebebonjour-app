@@ -4,7 +4,7 @@ import { createHash, createHmac } from 'node:crypto';
 import Stripe from 'stripe';
 import http from 'node:http';
 import https from 'node:https';
-import { convexTest } from '../support/backend.mjs';
+import { backendTest } from '../support/backend.mjs';
 import schema from '../../src/backend/schema.js';
 import { MAX_PAID_EVENT_BYTES, verifyPaidEvent, readPaidEventBytes } from '../../src/delivery-loop/paid-event.mjs';
 import { paidStripeKeyMode, inspectPaidPayment } from '../../src/delivery-loop/paid-payment.mjs';
@@ -21,7 +21,7 @@ function fixture(context) {
     BEBEBONJOUR_DELIVERY_LOOP_TOKEN: workerToken, BEBEBONJOUR_PAID_EDITORIAL_TOKEN: editorialToken, BEBEBONJOUR_OPERATIONS_TOKEN: operatorToken,
     BEBEBONJOUR_PAID_ROUTE_A_ENABLED: 'true', BEBEBONJOUR_PAID_TERMS_URL: 'https://offline.example.invalid/terms',
     BEBEBONJOUR_PAID_STRIPE_ACCOUNT_ID: 'acct_offline', BEBEBONJOUR_PAID_STRIPE_WEBHOOK_SECRET: webhookSecret,
-    STRIPE_SECRET_KEY: 'rk_' + 'live_offlineFixtureNotARealCredential', CONVEX_SITE_URL: 'https://offline.convex.site',
+    STRIPE_SECRET_KEY: 'rk_' + 'live_offlineFixtureNotARealCredential', BEBEBONJOUR_DELIVERY_LOOP_ORIGIN: 'https://offline.example.invalid',
   });
   delete process.env.BEBEBONJOUR_PAID_TEST_PROMO_ENABLED;
   delete process.env.BEBEBONJOUR_PAID_TEST_PROMO_JSON;
@@ -32,7 +32,7 @@ function fixture(context) {
     context.mock.method(transport, 'request', forbidden); context.mock.method(transport, 'get', forbidden);
   }
   // Only the transport is synthetic. Actual SDK retrieval, webhook, internal
-  // action, genuine-inspection validation and Convex transaction run unchanged.
+  // action, genuine-inspection validation and backend transaction run unchanged.
   context.mock.method(Stripe._platformFunctions, 'createDefaultHttpClient', () => ({
     getClientName: () => 'offline-fixture',
     makeRequest: async (_host, _port, path, method) => {
@@ -53,7 +53,7 @@ function fixture(context) {
       return { getStatusCode: () => 200, getHeaders: () => ({}), getRawResponse: () => ({}), toJSON: async () => value };
     },
   }));
-  return { t: convexTest(schema), state };
+  return { t: backendTest(schema), state };
 }
 const read = (t, job) => t.query(ref('read'), { workerToken, jobId: job.jobId });
 const claim = t => t.mutation(ref('claim'), { workerToken, voiceReady: true, workerId: 'offline-fixture', leaseToken: crypto.randomUUID() });

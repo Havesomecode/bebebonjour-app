@@ -61,7 +61,7 @@ function canonicalIntake(input, idempotencyKey) {
   return intake;
 }
 function origin() {
-  const url = process.env.BEBEBONJOUR_DELIVERY_LOOP_ORIGIN || process.env.CONVEX_SITE_URL;
+  const url = process.env.BEBEBONJOUR_DELIVERY_LOOP_ORIGIN;
   if (!url) return ""; // Relative first-party URLs remain usable without deployment configuration.
   const parsed = new URL(url);
   if (parsed.protocol !== "https:" || parsed.username || parsed.password || parsed.pathname !== "/" || parsed.search || parsed.hash) throw new Error("invalid_delivery_origin");
@@ -297,7 +297,7 @@ export const publish = mutation({
   handler: async (ctx, args) => {
     auth(args.workerToken); const row = await get(ctx, args.jobId); authorizeLease(row, args.leaseToken, args.revision, "generate");
     if (isPaid(row)) {
-      // Convex normalizes object key order. Preserve the exact validated source
+      // The backend normalizes object key order. Preserve the exact validated source
       // serialization so the composer's original output digest survives storage.
       if (typeof args.compositionJson !== "string" || args.compositionJson.length > 30000 || args.compositionReceipt?.provider !== "openai-codex-subscription" || await hash(args.compositionJson) !== args.compositionReceipt.outputDigest || JSON.stringify(sortedJson(JSON.parse(args.compositionJson))) !== JSON.stringify(sortedJson(args.composition))) throw new Error("composition_digest_mismatch");
     }
@@ -592,7 +592,7 @@ export const paymentEvidenceFields = { jobId: v.string(), revision: v.number(), 
 
 // Validate before writing so the event adapter can durably reject business
 // mismatches without catching a partially applied settlement. Writes below are
-// deliberately outside that catch and roll back the whole Convex transaction.
+// deliberately outside that catch and roll back the whole database transaction.
 export async function preparePaymentEvidence(ctx, args) {
   const row = await get(ctx, args.jobId);
   if (!isPaid(row)) throw new Error("paid_order_required");

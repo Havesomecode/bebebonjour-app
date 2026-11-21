@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { createHash } from 'node:crypto';
 import Stripe from 'stripe';
-import { convexTest } from '../support/backend.mjs';
+import { backendTest } from '../support/backend.mjs';
 import schema from '../../src/backend/schema.js';
 import { PAID_MODE, TERMS_VERSION, paidSafeStatus } from '../../src/backend/deliveryLoopPaidPolicy.js';
 import { inspectPaidPayment } from '../../src/delivery-loop/paid-payment.mjs';
@@ -16,8 +16,8 @@ const fixtures=[];
 test.beforeEach(context=>{context.mock.method(globalThis,'fetch',async()=>{throw new Error('unexpected_network_forbidden');});});
 test.afterEach(async()=>{await new Promise(resolve=>setTimeout(resolve,20));for(const t of fixtures.splice(0))await t.finishInProgressScheduledFunctions();});
 function fixture(){
- Object.assign(process.env,{BEBEBONJOUR_DELIVERY_LOOP_TOKEN:workerToken,BEBEBONJOUR_OPERATIONS_TOKEN:operatorToken,BEBEBONJOUR_PAID_EDITORIAL_TOKEN:editorialToken,BEBEBONJOUR_PAID_ROUTE_A_ENABLED:'true',BEBEBONJOUR_PAID_TERMS_URL:'https://offline.example.invalid/terms',BEBEBONJOUR_PAID_STRIPE_ACCOUNT_ID:'acct_offline',BEBEBONJOUR_PAID_STRIPE_LIVEMODE:'true',CONVEX_SITE_URL:'https://offline.convex.site'});
- const t=convexTest(schema);
+ Object.assign(process.env,{BEBEBONJOUR_DELIVERY_LOOP_TOKEN:workerToken,BEBEBONJOUR_OPERATIONS_TOKEN:operatorToken,BEBEBONJOUR_PAID_EDITORIAL_TOKEN:editorialToken,BEBEBONJOUR_PAID_ROUTE_A_ENABLED:'true',BEBEBONJOUR_PAID_TERMS_URL:'https://offline.example.invalid/terms',BEBEBONJOUR_PAID_STRIPE_ACCOUNT_ID:'acct_offline',BEBEBONJOUR_PAID_STRIPE_LIVEMODE:'true',BEBEBONJOUR_DELIVERY_LOOP_ORIGIN:'https://offline.example.invalid'});
+ const t=backendTest(schema);
  fixtures.push(t);return t;
 }
 const submit=(t,fields={})=>t.mutation(ref('submit'),{intake,orderMode:PAID_MODE,idempotencyKey:crypto.randomUUID(),...fields});

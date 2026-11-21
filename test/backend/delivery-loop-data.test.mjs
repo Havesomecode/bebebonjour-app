@@ -4,7 +4,7 @@ import { readFileSync } from 'node:fs';
 import { Script } from 'node:vm';
 import test, { mock } from 'node:test';
 mock.timers.enable({ apis: ['setTimeout'] });
-import { convexTest } from '../support/backend.mjs';
+import { backendTest } from '../support/backend.mjs';
 import schema from '../../src/backend/schema.js';
 import { DAY } from '../../src/backend/deliveryLoopData.js';
 import { narrate, sendEmail } from '../../src/backend/deliveryLoopProviders.js';
@@ -28,7 +28,7 @@ const workerToken='offline-data-worker-'+'w'.repeat(36), editorialToken='offline
 const intake={email:'data-fixture@example.invalid',babyName:'FictionalBaby',gender:'girl',language:'fr',context:'general',voiceEnabled:true,consent:true,customerPermissions:true,termsAccepted:true,publication:true};
 function fixture() {
   Object.assign(process.env,{BEBEBONJOUR_DELIVERY_LOOP_TOKEN:workerToken,BEBEBONJOUR_OPERATIONS_TOKEN:operatorToken,BEBEBONJOUR_DELIVERY_LOOP_ORIGIN:'https://offline.invalid',BEBEBONJOUR_PAID_EDITORIAL_TOKEN:editorialToken,BEBEBONJOUR_PAID_ROUTE_A_ENABLED:'true',BEBEBONJOUR_PAID_TERMS_URL:'https://offline.invalid/terms',BEBEBONJOUR_PAID_STRIPE_ACCOUNT_ID:'acct_offline',BEBEBONJOUR_PAID_DATA_AUTOMATION_ENABLED:'true'});
-  return convexTest(schema);
+  return backendTest(schema);
 }
 const claim=t=>t.mutation(ref('claim'),{workerToken,voiceReady: true, workerId:'offline-data',leaseToken:crypto.randomUUID()});
 const raw=(t,job)=>t.run(ctx=>ctx.db.query('deliveryLoopJobs').withIndex('by_job_id',q=>q.eq('jobId',job.jobId)).unique());
@@ -140,7 +140,7 @@ test('uncertain closure transport remains fenced against another send', async()=
 test('hourly pagination schedules continuation past ten legacy records; privacy UI and operator scripts compile',async()=>{
   const t=fixture();for(let i=0;i<11;i++)await t.run(ctx=>ctx.db.insert('deliveryLoopJobs',{jobId:`legacy_${i}`,publicToken:`public_${i}`,idempotencyKey:`key_${i}`,status:'old',data:{createdAtMs:1}}));const job=await submit(t);await patchData(t,job,{createdAtMs:Date.now()-8*DAY,lastActivityAtMs:Date.now()-8*DAY});const result=await t.mutation(dataRef('sweep'),{});assert.equal(result.done,false);await t.finishAllScheduledFunctions(()=>mock.timers.tick(0));assert.equal((await raw(t,job)).status,'data_deleted');
   const t2=fixture();const {job:final}=await delivered(t2);for(const url of [new URL(final.reviewUrl).pathname+new URL(final.reviewUrl).search,'/delivery/data/operator']){const html=await (await t2.fetch(url)).text();for(const [,script]of html.matchAll(/<script[^>]*>([\s\S]*?)<\/script>/g))assert.doesNotThrow(()=>new Script(script));assert.match(html,/Supprimer|supprimer/);}
-  const server=readFileSync(new URL('../../server/railway.mjs',import.meta.url),'utf8');assert.match(server,/sweepIntervalMs = 3600000/);assert.match(server,/deliveryLoopData:sweep/); const crons=readFileSync(new URL('../../convex/crons.js',import.meta.url),'utf8');assert.match(crons,/hours: 1/);assert.match(crons,/deliveryLoopData:sweep/);
+  const server=readFileSync(new URL('../../server/railway.mjs',import.meta.url),'utf8');assert.match(server,/sweepIntervalMs = 3600000/);assert.match(server,/deliveryLoopData:sweep/);
 });
 test('late narration recording denial removes only the action-owned new blob',async()=>{
   const deleted=[];const bytes=Buffer.alloc(384);bytes.set([0xff,0xf3,0xc4,0xc4]);

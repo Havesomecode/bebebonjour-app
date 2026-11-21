@@ -32,7 +32,7 @@ test('timings are validated and embedded, with exact boundary indexing', () => {
  assert.equal(screenIndexAt(fake,-1),0); assert.ok(!SLIDESHOW_SCRIPT.includes('</script'));
  assert.ok(SLIDESHOW_SCRIPT.includes(SCREEN_INDEX_AT_SOURCE));
 });
-// Convex minifies its bundle and hashes SLIDESHOW_SCRIPT for the page CSP; the worker renders the unbundled
+// The server minifies its bundle and hashes SLIDESHOW_SCRIPT for the page CSP; the worker renders the unbundled
 // string. Both must be byte-identical or the browser blocks the slideshow.
 test('slideshow script survives a minified bundle byte for byte', async () => {
   const { outputFiles: [out] } = buildSync({ entryPoints: [new URL('../../src/delivery-loop/slideshow-script.mjs', import.meta.url).pathname], bundle: true, format: 'esm', minify: true, write: false });

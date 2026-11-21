@@ -1,4 +1,4 @@
-// Plain strings only: Convex minifies its bundle and hashes this script for the page CSP,
+// Plain strings only: The server minifies its bundle and hashes this script for the page CSP,
 // so nothing here may depend on Function.prototype.toString or bundler output.
 export const SCREEN_INDEX_AT_SOURCE = `function screenIndexAt(starts, seconds) {
   let index = 0;

@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import test from "node:test";
 import { Script } from "node:vm";
-import { convexTest } from "../support/backend.mjs";
+import { backendTest } from "../support/backend.mjs";
 import { sendEmail, inspectEmail } from '../../src/backend/deliveryLoopProviders.js';
 import schema from "../../src/backend/schema.js";
 
@@ -20,8 +20,8 @@ function fixture() {
   process.env.BEBEBONJOUR_OPERATIONS_TOKEN = operatorToken;
   delete process.env.BEBEBONJOUR_OPERATOR_EMAIL;
   process.env.BEBEBONJOUR_TRIAL_PASSWORD_SHA256 = sha(password);
-  process.env.CONVEX_SITE_URL = "https://offline.convex.site";
-  const t = convexTest(schema);
+  process.env.BEBEBONJOUR_DELIVERY_LOOP_ORIGIN = "https://offline.example.invalid";
+  const t = backendTest(schema);
   fixtures.push(t); return t;
 }
 const submit = (t, idempotencyKey = "intake-offline-001", fields = {}) => t.mutation(ref("submit"), { intake, magicPassword: password, idempotencyKey, ...fields });

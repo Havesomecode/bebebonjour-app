@@ -4,7 +4,7 @@ import {
   externalEffectInputFromAggregate,
   nextStageForState,
   statusFromAggregate,
-} from "../forward-coexistence/live/src/fulfillment/job-machine.mjs";
+} from "../fulfillment/local-demo-job-machine.mjs";
 
 export { EDITORIAL_POLICY_VERSION };
 
