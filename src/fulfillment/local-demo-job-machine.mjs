@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import { isDeepStrictEqual } from "node:util";
 
-import { serializeCanonicalJobScopedEditorialApprovalRecord } from "../../../../fulfillment/job-scoped-editorial-approval-canonicalization.mjs";
+import { serializeCanonicalJobScopedEditorialApprovalRecord } from "./job-scoped-editorial-approval-canonicalization.mjs";
 
 export const EDITORIAL_POLICY_VERSION = "bebebonjour-editorial-v1";
 export const RECOVERABLE_FAILED_PREPARE_REVIEW_JOB_ID =

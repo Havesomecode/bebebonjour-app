@@ -20,7 +20,7 @@ function fixture() {
   process.env.BEBEBONJOUR_OPERATIONS_TOKEN = operatorToken;
   delete process.env.BEBEBONJOUR_OPERATOR_EMAIL;
   process.env.BEBEBONJOUR_TRIAL_PASSWORD_SHA256 = sha(password);
-  process.env.BEBEBONJOUR_DELIVERY_LOOP_ORIGIN = "https://offline.example.invalid";
+  process.env.BEBEBONJOUR_DELIVERY_LOOP_ORIGIN ||= "https://offline.example.invalid";
   const t = backendTest(schema);
   fixtures.push(t); return t;
 }
